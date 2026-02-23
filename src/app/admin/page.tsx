@@ -1,158 +1,123 @@
+
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, type User, signInAnonymously } from 'firebase/auth';
+import { useState, useEffect } from 'react';
+import { db } from '@/firebase/config'; // Asegúrate de tener tu config de firebase
+import { 
+  collection, 
+  getDocs, 
+  doc, 
+  updateDoc, 
+  deleteDoc, 
+  addDoc, 
+  query 
+} from 'firebase/firestore';
 
-// Importar componentes de Header y Footer
-import Header from '../inspection/components/Header';
-import Footer from '../inspection/components/Footer';
-
-// Importar componentes principales
-import MainMenuDesktop from '../inspection/components/MainMenuDesktop';
-import MainMenuTablet from '../inspection/components/MainMenuTablet';
-import MainMenuMobile from '../inspection/components/MainMenuMobile';
-
-// Importar componentes de las pestañas
-import InspectionFormTab from '../inspection/components/InspectionFormTab';
-import TasksTab from '../inspection/components/TasksTab';
-import ExpensesTab from '../inspection/components/ExpensesTab';
-import ProfileTab from '../inspection/components/ProfileTab';
-
-// Importar constantes de pestañas
-import TABS from '../inspection/constants';
-
-// Hook para detectar el tamaño de la pantalla
-import { useScreenSize } from '@/hooks/use-screen-size';
-
-// --- COMPONENTE DE LA PÁGINA DE ADMINISTRACIÓN ---
 export default function AdminPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const [inspectores, setInspectores] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>(TABS.MAIN_MENU);
-  const [isOnline, setIsOnline] = useState(true);
-  const router = useRouter();
-  const screenSize = useScreenSize();
-  const [hasMounted, setHasMounted] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<any | null>(null);
+
+  // Cargar datos
+  const fetchInspectores = async () => {
+    setLoading(true);
+    const q = query(collection(db, "inspectores"));
+    const querySnapshot = await getDocs(q);
+    const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setInspectores(docs);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    setHasMounted(true);
-    if (typeof window !== "undefined") {
-      setIsOnline(navigator.onLine);
-      const handleOnline = () => setIsOnline(true);
-      const handleOffline = () => setIsOnline(false);
-      window.addEventListener('online', handleOnline);
-      window.addEventListener('offline', handleOffline);
-      return () => {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
-      };
-    }
+    fetchInspectores();
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        setLoading(false);
-      } else {
-        signInAnonymously(auth)
-          .then((userCredential) => {
-            setUser(userCredential.user);
-          })
-          .catch((error) => {
-            console.error('Anonymous sign-in failed:', error);
-            router.push('/');
-          })
-          .finally(() => {
-            setLoading(false);
-          });
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
-
-  const handleNavigate = (tab: string) => {
-    setSelectedTask(null);
-    setActiveTab(tab);
-  };
-  
-  const handleStartInspection = (task: any) => {
-    setSelectedTask(task);
-    setActiveTab(TABS.NEW_INSPECTION);
+  // Función para cambiar estado activo/inactivo
+  const toggleEstado = async (id, estadoActual) => {
+    const docRef = doc(db, "inspectores", id);
+    await updateDoc(docRef, { activo: !estadoActual });
+    fetchInspectores();
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-white text-center">
-        <div className="flex items-center gap-3">
-          <h1 className="font-black text-2xl tracking-tighter text-slate-800">ENERGY</h1>
-          <h1 className="font-black text-2xl tracking-tighter text-amber-500">ENGINE</h1>
-        </div>
-        <p className="text-slate-500 font-medium mt-2">Cargando panel de control...</p>
-      </div>
-    );
-  }
-
-  const renderContent = () => {
-    if (!hasMounted) return null;
-
-    if (activeTab === TABS.MAIN_MENU) {
-      switch (screenSize) {
-        case 'mobile':
-          return <MainMenuMobile onNavigate={handleNavigate} userName={user?.displayName || 'Admin'} />;
-        case 'tablet':
-          return <MainMenuTablet onNavigate={handleNavigate} userName={user?.displayName || 'Admin'} />;
-        case 'desktop':
-          return <MainMenuDesktop onNavigate={handleNavigate} userName={user?.displayName || 'Admin'} />;
-        default:
-          return null;
-      }
+  // Función para borrar (Usar con cuidado)
+  const eliminarInspector = async (id) => {
+    if(confirm("¿Estás seguro de eliminar a este inspector?")) {
+      await deleteDoc(doc(db, "inspectores", id));
+      fetchInspectores();
     }
+  };
 
-    let TabComponent: React.ElementType;
-    let props: any = {};
-    
-    switch (activeTab) {
-        case TABS.NEW_INSPECTION: 
-          TabComponent = InspectionFormTab;
-          props = { task: selectedTask };
-          break;
-        case TABS.TASKS: 
-          TabComponent = TasksTab;
-          props = { onStartInspection: handleStartInspection };
-          break;
-        case TABS.EXPENSES: 
-          TabComponent = ExpensesTab; 
-          break;
-        case TABS.PROFILE: 
-          TabComponent = ProfileTab; 
-          break;
-        default: return <p>Pestaña no encontrada</p>;
+  // Función para crear los inspectores iniciales (puedes llamarla una vez)
+  const seedInspectores = async () => {
+    const lista = [
+      { nombre: "Carlos Esteban Amarilla Bogado", dni: "70287885-T", email: "", activo: true, rol: "inspector" },
+      { nombre: "Antonio Ugena Del Cerro", dni: "50475775-K", email: "", activo: true, rol: "inspector" },
+      { nombre: "Mocanu Baluta", dni: "X4266252-M", email: "", activo: true, rol: "inspector" },
+      { nombre: "Juan Carlos Cabral", dni: "X-6112156-K", email: "", activo: true, rol: "inspector" },
+      { nombre: "Pablo Garcia", dni: "Admin", email: "pablofgarciaf@gmail.com", activo: true, rol: "admin" }
+    ];
+
+    for (const ins of lista) {
+      await addDoc(collection(db, "inspectores"), ins);
     }
-
-    return (
-        <div className="animate-in slide-in-from-right duration-300">
-            <TabComponent {...props} />
-        </div>
-    );
+    alert("Inspectores creados correctamente");
+    fetchInspectores();
   };
 
   return (
-    <main className="bg-slate-100 min-h-screen flex flex-col">
-      <Header 
-        activeTab={activeTab} 
-        isOnline={isOnline} 
-        onNavigate={handleNavigate} 
-      />
-      
-      <div className="flex-grow">
-        {renderContent()}
+    <div className="p-8 bg-slate-50 min-h-screen">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-2xl font-bold text-slate-800">Panel de Administración</h1>
+          <button 
+            onClick={seedInspectores}
+            className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
+          >
+            Cargar Inspectores Iniciales
+          </button>
+        </div>
+
+        <div className="bg-white shadow rounded-lg overflow-hidden">
+          <table className="w-full text-left">
+            <thead className="bg-slate-100 border-b">
+              <tr>
+                <th className="p-4 font-semibold text-slate-600">Nombre</th>
+                <th className="p-4 font-semibold text-slate-600">DNI/NIE</th>
+                <th className="p-4 font-semibold text-slate-600">Email</th>
+                <th className="p-4 font-semibold text-slate-600">Estado</th>
+                <th className="p-4 font-semibold text-slate-600">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inspectores.map((ins) => (
+                <tr key={ins.id} className="border-b hover:bg-slate-50">
+                  <td className="p-4">{ins.nombre}</td>
+                  <td className="p-4 text-slate-500">{ins.dni}</td>
+                  <td className="p-4 text-slate-500">{ins.email || '—'}</td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 rounded-full text-xs ${ins.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {ins.activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td className="p-4 flex gap-2">
+                    <button 
+                      onClick={() => toggleEstado(ins.id, ins.activo)}
+                      className="text-xs bg-slate-200 hover:bg-slate-300 px-3 py-1 rounded"
+                    >
+                      {ins.activo ? 'Desactivar' : 'Activar'}
+                    </button>
+                    <button 
+                      onClick={() => eliminarInspector(ins.id)}
+                      className="text-xs bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1 rounded"
+                    >
+                      Borrar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-      
-      {activeTab === TABS.MAIN_MENU && <Footer />}
-    </main>
+    </div>
   );
 }
