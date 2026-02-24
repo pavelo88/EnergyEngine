@@ -144,34 +144,36 @@ export default function App({ task }: { task?: any }) {
 
         return {
           ...prev,
-          cliente: { 
-            ...prev.cliente, 
-            nombre: res.identidad?.cliente || prev.cliente.nombre, 
-            instalacion: res.identidad?.instalacion || prev.cliente.instalacion, 
+          cliente: {
+            nombre: res.identidad?.cliente || prev.cliente.nombre,
+            instalacion: res.identidad?.instalacion || prev.cliente.instalacion,
+            direccion: res.identidad?.direccion || prev.cliente.direccion,
             n_grupo: res.identidad?.n_grupo || prev.cliente.n_grupo,
-            potencia_kva: res.identidad?.potencia || prev.cliente.potencia_kva
+            potencia_kva: res.identidad?.potencia_kva || prev.cliente.potencia_kva
           },
-          equipo: { 
-            ...prev.equipo, 
+          equipo: {
             marca: res.identidad?.marca || prev.equipo.marca,
-            modelo: res.identidad?.modelo || prev.equipo.modelo, 
-            sn: res.identidad?.sn || prev.equipo.sn 
+            modelo: res.identidad?.modelo || prev.equipo.modelo,
+            sn: res.identidad?.sn || prev.equipo.sn
           },
           check: newCheck,
-          mediciones: { 
-            ...prev.mediciones, 
-            horas: res.mediciones?.horas || prev.mediciones.horas, 
-            presion: res.mediciones?.presion || prev.mediciones.presion 
+          mediciones: {
+            horas: res.mediciones_generales?.horas || prev.mediciones.horas,
+            presion: res.mediciones_generales?.presion || prev.mediciones.presion,
+            temp: res.mediciones_generales?.temp || prev.mediciones.temp,
+            combustible: res.mediciones_generales?.combustible || prev.mediciones.combustible,
+            tensionAlt: res.mediciones_generales?.tensionAlt || prev.mediciones.tensionAlt,
+            frecuencia: res.mediciones_generales?.frecuencia || prev.mediciones.frecuencia,
+            cargaBat: res.mediciones_generales?.cargaBat || prev.mediciones.cargaBat
           },
-          pruebasCarga: { 
-            ...prev.pruebasCarga, 
-            rs: res.mediciones?.rs || prev.pruebasCarga.rs,
-            st: res.mediciones?.st || prev.pruebasCarga.st,
-            rt: res.mediciones?.rt || prev.pruebasCarga.rt,
-            r: res.mediciones?.r || prev.pruebasCarga.r,
-            s: res.mediciones?.s || prev.pruebasCarga.s,
-            t: res.mediciones?.t || prev.pruebasCarga.t,
-            kw: res.mediciones?.kw || prev.pruebasCarga.kw
+          pruebasCarga: {
+            rs: res.pruebas_carga?.rs || prev.pruebasCarga.rs,
+            st: res.pruebas_carga?.st || prev.pruebasCarga.st,
+            rt: res.pruebas_carga?.rt || prev.pruebasCarga.rt,
+            r: res.pruebas_carga?.r || prev.pruebasCarga.r,
+            s: res.pruebas_carga?.s || prev.pruebasCarga.s,
+            t: res.pruebas_carga?.t || prev.pruebasCarga.t,
+            kw: res.pruebas_carga?.kw || prev.pruebasCarga.kw
           },
           recibidoPor: res.identidad?.recibe || prev.recibidoPor,
           observaciones: prev.observaciones + (prev.observaciones ? "\n\n" : "") + res.observations_summary
@@ -482,3 +484,4 @@ export default function App({ task }: { task?: any }) {
     </div>
   );
 }
+

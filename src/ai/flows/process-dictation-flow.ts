@@ -19,8 +19,9 @@ const ProcessDictationOutputSchema = z.object({
   identidad: z.object({
     cliente: z.string().optional(),
     instalacion: z.string().optional(),
+    direccion: z.string().optional(),
     n_grupo: z.string().optional(),
-    potencia: z.string().optional(),
+    potencia_kva: z.string().optional(),
     marca: z.string().optional(),
     modelo: z.string().optional(),
     sn: z.string().optional(),
@@ -28,9 +29,16 @@ const ProcessDictationOutputSchema = z.object({
   }),
   all_ok: z.boolean(),
   checklist_updates: z.record(z.string()),
-  mediciones: z.object({
+  mediciones_generales: z.object({
     horas: z.string().optional(),
     presion: z.string().optional(),
+    temp: z.string().optional(),
+    combustible: z.string().optional(),
+    tensionAlt: z.string().optional(),
+    frecuencia: z.string().optional(),
+    cargaBat: z.string().optional(),
+  }),
+  pruebas_carga: z.object({
     rs: z.string().optional(),
     st: z.string().optional(),
     rt: z.string().optional(),
@@ -58,10 +66,11 @@ const processDictationPrompt = ai.definePrompt({
   prompt: `Analiza detalladamente este dictado técnico: "{{{dictation}}}".
     
     INSTRUCCIONES DE EXTRACCIÓN SÚPER ESTRICTAS Y PRIORITARIAS:
-    1. IDENTIDAD: Extrae "Cliente" (ej. Doménica), "Instalación" (ej. Calderón), "Nº Grupo" (ej. 4), "Potencia" (ej. 12 KVA), "Marca" (ej. Hyundai), "Modelo" (ej. ang), "SN/Serie" (ej. 1714), "Persona que recibe" (ej. Guadalupe Flores).
-    2. MEDICIONES: Extrae los valores numéricos correspondientes a: horas (ej. 100), presión de aceite (ej. 100), tensiones (RS, ST, RT), intensidades (R, S, T), y potencia con carga (kW).
-    3. RECAMBIOS/PIEZAS: Presta MUCHA ATENCIÓN a los verbos. Si dice "cambio de", "se cambiaron", "reemplazo", debes asignar el valor "CMB" a la pieza mencionada (ej. Filtro de aceite -> CMB). Si dice "averiado", "descompuesto", "defecto", asigna "AVR" o "DEF".
-    4. COMANDO MAESTRO OK: Si el técnico dice explícitamente "todos los niveles en okay", "marcar pendientes como okay", "todos los ítems revisados están okay", la respuesta "all_ok" DEBE ser true.
+    1. IDENTIDAD: Extrae "Cliente", "Instalación", "Dirección", "Nº Grupo", "Potencia" (en KVA), "Marca", "Modelo", "SN/Serie", "Persona que recibe".
+    2. MEDICIONES GENERALES: Extrae valores para "Horas", "Presión de aceite", "Temperatura", "Nivel de combustible", "Tensión del alternador", "Frecuencia", "Carga de batería".
+    3. PRUEBAS CON CARGA: Extrae valores para tensiones (RS, ST, RT), intensidades (R, S, T) y potencia con carga (kW).
+    4. RECAMBIOS/PIEZAS: Presta MUCHA ATENCIÓN a los verbos. Si dice "cambio de", "se cambiaron", "reemplazo", debes asignar el valor "CMB" a la pieza mencionada (ej. Filtro de aceite -> CMB). Si dice "averiado", "descompuesto", "defecto", asigna "AVR" o "DEF".
+    5. COMANDO MAESTRO OK: Si el técnico dice explícitamente "todos los niveles en okay", "marcar pendientes como okay", "todos los ítems revisados están okay", la respuesta "all_ok" DEBE ser true.
     
     Devuelve estrictamente un JSON con el schema definido.`,
 });
