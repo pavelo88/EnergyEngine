@@ -66,12 +66,27 @@ const processDictationPrompt = ai.definePrompt({
   prompt: `Analiza detalladamente este dictado técnico: "{{{dictation}}}".
     
     INSTRUCCIONES DE EXTRACCIÓN SÚPER ESTRICTAS Y PRIORITARIAS:
+
+    Tu tarea es procesar el dictado en dos pasos:
+    
+    PASO 1: Procesar ítems específicos.
+    Busca menciones a ítems de checklist o recambios y asigna un estado según estas reglas:
+    - Si el dictado dice "cambio de", "se cambiaron", "reemplazo" (ej. "cambio de filtro de aceite"), asigna el valor "CMB" al ítem en el objeto 'checklist_updates'.
+    - Si dice "averiado", "roto", "defecto", (ej. "correa del ventilador averiada"), asigna "AVR" o "DEF".
+    - Si dice "Filtro de aire okay", asigna "OK".
+    
+    PASO 2: Procesar el comando "todo lo demás OK".
+    - DESPUÉS de haber procesado los ítems específicos, si el dictado contiene una frase como "el resto okay", "los demás okay", "marcar pendientes como okay", o "todos los ítems revisados están okay", entonces y solo entonces, establece el campo booleano 'all_ok' a 'true'.
+    - Si no se menciona una frase genérica para el resto, 'all_ok' debe ser 'false'.
+    - Este orden es crucial. Un dictado como "Cambio filtro de combustible y el resto okay" debe resultar en \`checklist_updates: {"Filtro de combustible": "CMB"}\` Y \`all_ok: true\`.
+    
+    Además de los ítems del checklist, extrae la siguiente información si está presente:
+    
     1. IDENTIDAD: Extrae "Cliente", "Instalación", "Dirección", "Nº Grupo", "Potencia" (en KVA), "Marca", "Modelo", "SN/Serie", "Persona que recibe".
     2. MEDICIONES GENERALES: Extrae valores para "Horas", "Presión de aceite", "Temperatura", "Nivel de combustible", "Tensión del alternador", "Frecuencia", "Carga de batería".
     3. PRUEBAS CON CARGA: Extrae valores para tensiones (RS, ST, RT), intensidades (R, S, T) y potencia con carga (kW).
-    4. RECAMBIOS/PIEZAS: Presta MUCHA ATENCIÓN a los verbos. Si dice "cambio de", "se cambiaron", "reemplazo", debes asignar el valor "CMB" a la pieza mencionada (ej. Filtro de aceite -> CMB). Si dice "averiado", "descompuesto", "defecto", asigna "AVR" o "DEF".
-    5. COMANDO MAESTRO OK: Si el técnico dice explícitamente "todos los niveles en okay", "marcar pendientes como okay", "todos los ítems revisados están okay", la respuesta "all_ok" DEBE ser true.
-    
+    4. OBSERVACIONES: Resume cualquier otra observación en 'observations_summary'.
+
     Devuelve estrictamente un JSON con el schema definido.`,
 });
 
