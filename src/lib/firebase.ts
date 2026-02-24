@@ -24,6 +24,7 @@ export const COLLECTIONS = {
   USERS: 'usuarios',
   INSPECTIONS: 'inspecciones',
   EXPENSES: 'gastos',
+  PARTES_DIARIOS: 'partes_diarios',
 };
 
 export { app, db, auth, storage };

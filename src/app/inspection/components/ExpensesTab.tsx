@@ -1,186 +1,248 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
-  Receipt, MapPin, Clock, Camera, Save, 
-  CreditCard, Wallet, Tag, Loader2, Navigation 
+  Receipt, MapPin, Save, Loader2, User, Hourglass, Euro, Trash2, Plus, 
+  PenTool, FileText, CheckCircle
 } from 'lucide-react';
-import { db, COLLECTIONS, storage, auth } from '@/lib/firebase';
+import { db, COLLECTIONS, auth } from '@/lib/firebase';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 
+// --- TIPOS DE DATOS ---
+type Gasto = {
+  rubro: string;
+  monto: number;
+  descripcion: string;
+  forma_pago: string;
+};
+
+const initialGastoState = {
+  rubro: 'Alimentación',
+  monto: '',
+  descripcion: '',
+  forma_pago: 'Efectivo',
+};
+
+// --- COMPONENTE PRINCIPAL ---
 export default function ExpensesTab() {
+  const [idIntervencion, setIdIntervencion] = useState('');
+  const [resumenTrabajos, setResumenTrabajos] = useState('');
+  const [horasTrabajadas, setHorasTrabajadas] = useState('');
+  const [nombreClienteRecibe, setNombreClienteRecibe] = useState('');
+
+  const [geolocalizacion, setGeolocalizacion] = useState<{lat: number, lng: number} | null>(null);
+  const [gastos, setGastos] = useState<Gasto[]>([]);
+  const [gastoActual, setGastoActual] = useState(initialGastoState);
+  
   const [loading, setLoading] = useState(false);
-  const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
-  const [photo, setPhoto] = useState<string | null>(null);
 
-  // --- ESTADO DEL GASTO / PARTE DIARIO ---
-  const [form, setForm] = useState({
-    rubro: 'Alimentación',
-    monto: '',
-    descripcion: '',
-    forma_pago: 'Efectivo',
-    id_intervencion: '', // Opcional: asociado a un reporte
-    horas_trabajadas: ''
-  });
+  const tecnicoCanvasRef = useRef<HTMLCanvasElement>(null);
+  const clienteCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // --- CAPTURAR GEOLOCALIZACIÓN ---
-  const getGeoLocation = () => {
-    if (!navigator.geolocation) return alert("GPS no soportado");
-    
-    navigator.geolocation.getCurrentPosition((pos) => {
-      setLocation({
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude
-      });
-    }, (err) => alert("Error al obtener ubicación: " + err.message));
+  // --- LÓGICA DE FIRMAS ---
+  const setupCanvas = (canvas: HTMLCanvasElement, onDraw: () => void) => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let drawing = false;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#0f172a';
+
+    const start = (e: any) => {
+        drawing = true;
+        draw(e);
+    };
+    const end = () => {
+        drawing = false;
+        ctx.beginPath();
+        onDraw();
+    };
+    const draw = (e: any) => {
+        if (!drawing) return;
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX || e.touches[0].clientX) - rect.left;
+        const y = (e.clientY || e.touches[0].clientY) - rect.top;
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+    };
+
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mouseup', end);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('touchstart', start);
+    canvas.addEventListener('touchend', end);
+    canvas.addEventListener('touchmove', draw);
+
+    // Cleanup function
+    return () => {
+        canvas.removeEventListener('mousedown', start);
+        canvas.removeEventListener('mouseup', end);
+        canvas.removeEventListener('mousemove', draw);
+        canvas.removeEventListener('touchstart', start);
+        canvas.removeEventListener('touchend', end);
+        canvas.removeEventListener('touchmove', draw);
+    };
   };
 
-  // --- CAPTURAR FOTO DEL RECIBO (Simulado con Input) ---
-  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => setPhoto(ev.target?.result as string);
-      reader.readAsDataURL(file);
+  const clearCanvas = (canvasRef: React.RefObject<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (canvas && ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
   };
 
-  const saveExpense = async () => {
-    if (!form.monto || !form.descripcion) return alert("Complete los campos obligatorios");
+  // --- LÓGICA DEL FORMULARIO ---
+  const getGeoLocation = () => {
+    if (geolocalizacion) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setGeolocalizacion({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (err) => alert("Error GPS: " + err.message)
+    );
+  };
+
+  const handleAddGasto = () => {
+    if (!gastoActual.monto || !gastoActual.descripcion) {
+      alert("El monto y la descripción del gasto son obligatorios.");
+      return;
+    }
+    setGastos([...gastos, { ...gastoActual, monto: parseFloat(gastoActual.monto) }]);
+    setGastoActual(initialGastoState);
+  };
+
+  const handleRemoveGasto = (index: number) => {
+    setGastos(gastos.filter((_, i) => i !== index));
+  };
+  
+  const handleSaveParte = async () => {
+    if (!idIntervencion || !resumenTrabajos || !horasTrabajadas) {
+        return alert("El Nº de Intervención, el Resumen de Trabajos y las Horas son obligatorios.");
+    }
     setLoading(true);
-
     try {
-      let photoUrl = null;
-      // Subir foto a Firebase Storage si existe
-      if (photo) {
-        const storageRef = ref(storage, `comprobantes/${Date.now()}.png`);
-        await uploadString(storageRef, photo, 'data_url');
-        photoUrl = await getDownloadURL(storageRef);
-      }
+        const parteData = {
+            id_intervencion: idIntervencion,
+            id_inspector: auth.currentUser?.uid,
+            email_inspector: auth.currentUser?.email,
+            fecha: serverTimestamp(),
+            geolocalizacion: geolocalizacion,
+            resumen_trabajos: resumenTrabajos,
+            horas_trabajadas: parseFloat(horasTrabajadas),
+            gastos: gastos,
+            firma_tecnico_url: tecnicoCanvasRef.current?.toDataURL(),
+            firma_cliente_url: clienteCanvasRef.current?.toDataURL(),
+            nombre_cliente_recibe: nombreClienteRecibe,
+            estado: 'Pendiente Aprobación'
+        };
 
-      const expenseData = {
-        ...form,
-        id_inspector: auth.currentUser?.uid,
-        email_inspector: auth.currentUser?.email,
-        fecha: serverTimestamp(),
-        ubicacion: location,
-        comprobante_url: photoUrl, //
-        estado: 'Pendiente' //
-      };
-
-      await addDoc(collection(db, COLLECTIONS.PARTES_DIARIOS), expenseData); //
-      
-      alert("Parte diario guardado exitosamente");
-      // Resetear form
-      setForm({ rubro: 'Alimentación', monto: '', descripcion: '', forma_pago: 'Efectivo', id_intervencion: '', horas_trabajadas: '' });
-      setPhoto(null);
-      setLocation(null);
+        await addDoc(collection(db, "partes_diarios"), parteData);
+        
+        alert("¡Parte de Trabajo Diario guardado con éxito!");
+        // Reset full form
+        setIdIntervencion('');
+        setResumenTrabajos('');
+        setHorasTrabajadas('');
+        setNombreClienteRecibe('');
+        setGeolocalizacion(null);
+        setGastos([]);
+        clearCanvas(tecnicoCanvasRef);
+        clearCanvas(clienteCanvasRef);
 
     } catch (e) {
-      alert("Error al guardar: " + e);
+        console.error("Error al guardar el parte: ", e);
+        alert("Error al guardar: " + e);
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 
   return (
     <div className="space-y-6 pb-10 animate-in fade-in slide-in-from-right-4 duration-500">
       
-      {/* SECCIÓN DE DATOS DEL GASTO */}
+      {/* --- SECCIÓN 1: CABECERA DEL PARTE --- */}
       <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-            <Receipt size={20} />
-          </div>
-          <h2 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Nuevo Gasto / Parte</h2>
+          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><FileText size={20} /></div>
+          <h2 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Parte de Trabajo Diario</h2>
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input value={idIntervencion} onChange={e => setIdIntervencion(e.target.value)} type="text" placeholder="Nº de Intervención / OT" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900" />
+            <button onClick={getGeoLocation} disabled={!!geolocalizacion} className={`p-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all ${geolocalizacion ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                <MapPin size={16} /> {geolocalizacion ? `GPS OK: ${geolocalizacion.lat.toFixed(3)}...` : 'Capturar Ubicación'}
+            </button>
+        </div>
+      </section>
 
-        <div className="grid grid-cols-1 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rubro del Gasto</label>
-            <select 
-              className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500"
-              value={form.rubro}
-              onChange={e => setForm({...form, rubro: e.target.value})}
-            >
-              {['Alimentación', 'Combustible', 'Peajes', 'Hospedaje', 'Repuestos', 'Otros'].map(r => (
-                <option key={r} value={r}>{r}</option>
-              ))}
+      {/* --- SECCIÓN 2: TRABAJOS Y HORAS --- */}
+      <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
+        <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter"><Hourglass size={18} className="text-blue-500"/> Resumen y Horas</h3>
+        <input value={horasTrabajadas} onChange={e => setHorasTrabajadas(e.target.value)} type="number" placeholder="Horas Totales Trabajadas" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900" />
+        <textarea value={resumenTrabajos} onChange={e => setResumenTrabajos(e.target.value)} placeholder="Descripción detallada de los trabajos realizados en sitio..." className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900 h-32 resize-none" />
+      </section>
+
+      {/* --- SECCIÓN 3: GASTOS ASOCIADOS --- */}
+      <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
+        <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter"><Receipt size={18} className="text-blue-500"/> Gastos y Viáticos</h3>
+        {/* Formulario para añadir gasto */}
+        <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl">
+            <input value={gastoActual.monto} onChange={e => setGastoActual({...gastoActual, monto: e.target.value})} type="number" placeholder="Monto (€)" className="p-3 rounded-lg border-none font-bold col-span-1" />
+            <select value={gastoActual.rubro} onChange={e => setGastoActual({...gastoActual, rubro: e.target.value})} className="p-3 rounded-lg border-none font-bold col-span-1">
+                {['Alimentación', 'Combustible', 'Peajes', 'Hospedaje', 'Repuestos', 'Otros'].map(r => <option key={r} value={r}>{r}</option>)}
             </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Monto (€)</label>
-              <input 
-                type="number"
-                placeholder="0.00"
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900"
-                value={form.monto}
-                onChange={e => setForm({...form, monto: e.target.value})}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Horas Trabajo</label>
-              <input 
-                type="number"
-                placeholder="H/H"
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900"
-                value={form.horas_trabajadas}
-                onChange={e => setForm({...form, horas_trabajadas: e.target.value})}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Descripción del trabajo / gasto</label>
-            <textarea 
-              placeholder="Ej: Almuerzo en ruta Getafe o Compra de filtros..."
-              className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900 h-24 resize-none"
-              value={form.descripcion}
-              onChange={e => setForm({...form, descripcion: e.target.value})}
-            />
-          </div>
+            <input value={gastoActual.descripcion} onChange={e => setGastoActual({...gastoActual, descripcion: e.target.value})} type="text" placeholder="Descripción breve del gasto" className="p-3 rounded-lg border-none font-bold col-span-2" />
+            <select value={gastoActual.forma_pago} onChange={e => setGastoActual({...gastoActual, forma_pago: e.target.value})} className="p-3 rounded-lg border-none font-bold col-span-1">
+                <option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option>
+            </select>
+            <button onClick={handleAddGasto} className="p-3 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center gap-2 col-span-1"><Plus size={16}/>Añadir</button>
+        </div>
+        {/* Lista de gastos añadidos */}
+        <div className="space-y-2">
+            {gastos.map((g, i) => (
+                <div key={i} className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
+                    <div className="flex items-center gap-3">
+                        <Euro size={16} className="text-emerald-500"/>
+                        <div>
+                            <p className="font-bold text-sm text-slate-800">{g.descripcion}</p>
+                            <p className="text-xs text-slate-500">{g.rubro} - {g.forma_pago}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <span className="font-bold text-slate-800">{g.monto.toFixed(2)}€</span>
+                        <button onClick={() => handleRemoveGasto(i)} className="p-2 text-red-500 hover:bg-red-100 rounded-full"><Trash2 size={16}/></button>
+                    </div>
+                </div>
+            ))}
+            {gastos.length === 0 && <p className="text-center text-xs text-slate-400 font-bold py-4">No hay gastos añadidos a este parte.</p>}
         </div>
       </section>
 
-      {/* GEOLOCALIZACIÓN Y COMPROBANTE */}
-      <section className="grid grid-cols-2 gap-4">
-        <button 
-          onClick={getGeoLocation}
-          className={`p-6 rounded-[2rem] border-2 flex flex-col items-center justify-center gap-2 transition-all ${location ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'bg-white border-slate-100 text-slate-400'}`}
-        >
-          <MapPin size={24} />
-          <span className="text-[9px] font-black uppercase tracking-widest text-center">
-            {location ? 'Ubicación OK' : 'Capturar GPS'}
-          </span>
-        </button>
-
-        <label className={`p-6 rounded-[2rem] border-2 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${photo ? 'bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-slate-100 text-slate-400'}`}>
-          <Camera size={24} />
-          <span className="text-[9px] font-black uppercase tracking-widest text-center">
-            {photo ? 'Foto Lista' : 'Subir Recibo'}
-          </span>
-          <input type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
-        </label>
+      {/* --- SECCIÓN 4: FIRMAS BIOMÉTRICAS --- */}
+      <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
+        <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter"><ClipboardSignature size={18} className="text-blue-500"/> Firmas de Conformidad</h3>
+        {/* Firma Técnico */}
+        <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase ml-1 flex items-center gap-1"><PenTool size={12}/> Firma del Técnico</label>
+            <canvas ref={tecnicoCanvasRef} width={600} height={200} className="w-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-crosshair touch-none" />
+            <button onClick={() => clearCanvas(tecnicoCanvasRef)} className="text-xs text-red-500 font-bold">Limpiar</button>
+        </div>
+        {/* Firma Cliente */}
+        <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase ml-1 flex items-center gap-1"><User size={12}/> Recibido por (Cliente)</label>
+            <input value={nombreClienteRecibe} onChange={e => setNombreClienteRecibe(e.target.value)} type="text" placeholder="Nombre y Apellido de quien recibe" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900 mb-2" />
+            <canvas ref={clienteCanvasRef} width={600} height={200} className="w-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-crosshair touch-none" />
+            <button onClick={() => clearCanvas(clienteCanvasRef)} className="text-xs text-red-500 font-bold">Limpiar</button>
+        </div>
       </section>
 
-      {/* ACCIÓN FINAL */}
-      <button 
-        onClick={saveExpense}
-        disabled={loading}
-        className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50"
-      >
-        {loading ? <Loader2 className="animate-spin text-emerald-500" /> : <Save className="text-emerald-500" />}
-        GUARDAR PARTE DIARIO
+      {/* --- ACCIÓN FINAL --- */}
+      <button onClick={handleSaveParte} disabled={loading} className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50">
+        {loading ? <Loader2 className="animate-spin text-blue-500" /> : <Save className="text-blue-500" />}
+        FINALIZAR Y GUARDAR PARTE
       </button>
-
-      {location && (
-        <p className="text-center text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em]">
-          Lat: {location.lat.toFixed(4)} • Lng: {location.lng.toFixed(4)}
-        </p>
-      )}
     </div>
   );
 }
