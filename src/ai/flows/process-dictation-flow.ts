@@ -85,7 +85,7 @@ const processDictationPrompt = ai.definePrompt({
     1. IDENTIDAD: Extrae "Cliente", "Instalación", "Dirección", "Nº Grupo", "Potencia" (en KVA), "Marca", "Modelo", "SN/Serie", "Persona que recibe".
     2. MEDICIONES GENERALES: Extrae valores para "Horas", "Presión de aceite", "Temperatura", "Nivel de combustible", "Tensión del alternador", "Frecuencia", "Carga de batería".
     3. PRUEBAS CON CARGA: Extrae valores para tensiones (RS, ST, RT), intensidades (R, S, T) y potencia con carga (kW).
-    4. OBSERVACIONES: Resume cualquier otra observación en 'observations_summary'.
+    4. OBSERVACIONES: Basado en TODO el dictado, redacta un resumen técnico y profesional para la sección de 'Notas del Informe'. Este texto debe describir con un lenguaje formal los trabajos realizados, las piezas cambiadas y cualquier anomalía detectada. Debe ser un texto cohesionado y válido para un informe final.
 
     Devuelve estrictamente un JSON con el schema definido.`,
 });
