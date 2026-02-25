@@ -32,26 +32,21 @@ export default function ExpensesTab() {
   const [idIntervencion, setIdIntervencion] = useState('');
   const [resumenTrabajos, setResumenTrabajos] = useState('');
   const [horasTrabajadas, setHorasTrabajadas] = useState('');
-  const [nombreClienteRecibe, setNombreClienteRecibe] = useState('');
-
+  
   const [geolocalizacion, setGeolocalizacion] = useState<{lat: number, lng: number} | null>(null);
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [gastoActual, setGastoActual] = useState(initialGastoState);
   
   const [loading, setLoading] = useState(false);
   const [hasTecnicoSignature, setHasTecnicoSignature] = useState(false);
-  const [hasClienteSignature, setHasClienteSignature] = useState(false);
 
   const tecnicoCanvasRef = useRef<HTMLCanvasElement>(null);
-  const clienteCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // --- LÓGICA DE FIRMAS ---
   useEffect(() => {
     const cleanupTecnico = setupCanvas(tecnicoCanvasRef, () => setHasTecnicoSignature(true));
-    const cleanupCliente = setupCanvas(clienteCanvasRef, () => setHasClienteSignature(true));
     return () => {
       cleanupTecnico();
-      cleanupCliente();
     };
   }, []);
 
@@ -189,15 +184,11 @@ export default function ExpensesTab() {
         currentY = (doc as any).lastAutoTable.finalY;
     }
     
-    // Firmas
-    currentY += 15;
+    // Firma del Técnico
+    currentY += 20;
     doc.line(15, currentY + 30, 85, currentY + 30);
     doc.text("Firma del Técnico", 35, currentY + 35);
     if(parteData.firma_tecnico_url) doc.addImage(parteData.firma_tecnico_url, 'PNG', 20, currentY, 60, 25);
-    
-    doc.line(125, currentY + 30, 195, currentY + 30);
-    doc.text(`Recibido por: ${parteData.nombre_cliente_recibe}`, 135, currentY + 35);
-    if(parteData.firma_cliente_url) doc.addImage(parteData.firma_cliente_url, 'PNG', 130, currentY, 60, 25);
 
     // Subida a Firebase Storage
     const pdfDataUri = doc.output('datauristring');
@@ -213,7 +204,6 @@ export default function ExpensesTab() {
         return alert("El Nº de Intervención, el Resumen de Trabajos y las Horas son obligatorios.");
     }
     if (!hasTecnicoSignature) return alert("La firma del técnico es obligatoria.");
-    if (!hasClienteSignature) return alert("La firma del cliente es obligatoria.");
 
     setLoading(true);
     try {
@@ -227,8 +217,6 @@ export default function ExpensesTab() {
             horas_trabajadas: parseFloat(horasTrabajadas),
             gastos: gastos,
             firma_tecnico_url: tecnicoCanvasRef.current?.toDataURL(),
-            firma_cliente_url: clienteCanvasRef.current?.toDataURL(),
-            nombre_cliente_recibe: nombreClienteRecibe,
             estado: 'Pendiente Aprobación'
         };
 
@@ -247,11 +235,9 @@ export default function ExpensesTab() {
         setIdIntervencion('');
         setResumenTrabajos('');
         setHorasTrabajadas('');
-        setNombreClienteRecibe('');
         setGeolocalizacion(null);
         setGastos([]);
         clearCanvas(tecnicoCanvasRef, setHasTecnicoSignature);
-        clearCanvas(clienteCanvasRef, setHasClienteSignature);
 
     } catch (e: any) {
         console.error("Error al guardar el parte: ", e);
@@ -321,21 +307,13 @@ export default function ExpensesTab() {
         </div>
       </section>
 
-      {/* --- SECCIÓN 4: FIRMAS BIOMÉTRICAS --- */}
+      {/* --- SECCIÓN 4: FIRMA DEL TÉCNICO --- */}
       <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
-        <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter"><ClipboardSignature size={18} className="text-blue-500"/> Firmas de Conformidad</h3>
-        {/* Firma Técnico */}
+        <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter"><ClipboardSignature size={18} className="text-blue-500"/> Firma de Conformidad</h3>
         <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase ml-1 flex items-center gap-1"><PenTool size={12}/> Firma del Técnico</label>
             <canvas ref={tecnicoCanvasRef} width={600} height={200} className="w-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-crosshair touch-none" />
-            <button onClick={() => clearCanvas(tecnicoCanvasRef, setHasTecnicoSignature)} className="text-xs text-red-500 font-bold">Limpiar</button>
-        </div>
-        {/* Firma Cliente */}
-        <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase ml-1 flex items-center gap-1"><User size={12}/> Recibido por (Cliente)</label>
-            <input value={nombreClienteRecibe} onChange={e => setNombreClienteRecibe(e.target.value)} type="text" placeholder="Nombre y Apellido de quien recibe" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900 mb-2" />
-            <canvas ref={clienteCanvasRef} width={600} height={200} className="w-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-crosshair touch-none" />
-            <button onClick={() => clearCanvas(clienteCanvasRef, setHasClienteSignature)} className="text-xs text-red-500 font-bold">Limpiar</button>
+            <button onClick={() => clearCanvas(tecnicoCanvasRef, setHasTecnicoSignature)} className="text-xs text-red-500 font-bold">Limpiar Firma</button>
         </div>
       </section>
 
