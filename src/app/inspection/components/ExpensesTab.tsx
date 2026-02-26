@@ -10,7 +10,7 @@ import { db, auth, storage } from '@/lib/firebase';
 import { addDoc, collection, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -182,7 +182,7 @@ export default function ExpensesTab() {
       doc.setFont('helvetica', 'bold');
       doc.text("Intervenciones Realizadas", 15, currentY);
       currentY += 7;
-      (doc as any).autoTable({
+      autoTable(doc, {
         startY: currentY,
         head: [['Descripción de la Tarea', 'Horas Dedicadas']],
         body: data.intervenciones.map((i: any) => [i.descripcion, i.horas.toFixed(2)]),
@@ -198,7 +198,7 @@ export default function ExpensesTab() {
       doc.setFont('helvetica', 'bold');
       doc.text("Gastos y Viáticos", 15, currentY);
       currentY += 7;
-      (doc as any).autoTable({
+      autoTable(doc, {
         startY: currentY,
         head: [['Rubro', 'Descripción', 'Forma Pago', 'Comprobante', 'Monto (€)']],
         body: data.gastos.map((g: any) => [g.rubro, g.descripcion, g.forma_pago, g.comprobanteUrl || g.comprobanteFile ? 'Sí' : 'No', g.monto.toFixed(2)]),
