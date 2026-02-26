@@ -15,7 +15,12 @@
     ],
     "responseHeader": [
       "Content-Type",
-      "x-goog-resumable"
+      "Authorization",
+      "x-goog-resumable",
+      "x-firebase-gmpid",
+      "X-Goog-Upload-Command",
+      "X-Goog-Upload-Offset",
+      "X-Goog-Upload-Status"
     ],
     "maxAgeSeconds": 3600
   }
