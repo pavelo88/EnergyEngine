@@ -17,6 +17,12 @@ import { es } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 
 // --- TIPOS DE DATOS ---
@@ -33,7 +39,7 @@ type Gasto = {
   comprobanteFile?: File;
 };
 
-const initialGastoState = { rubro: 'Alimentación', monto: '', descripcion: '', forma_pago: 'Efectivo', comprobanteFile: null };
+const initialGastoState = { rubro: 'Alimentación', monto: '', descripcion: '', forma_pago: 'Efectivo', comprobanteFile: undefined };
 const initialIntervencionState = { descripcion: '', horas: '' };
 
 // --- COMPONENTE PRINCIPAL ---
@@ -45,10 +51,12 @@ export default function ExpensesTab() {
   const [currentIntervention, setCurrentIntervention] = useState(initialIntervencionState);
   
   const [gastos, setGastos] = useState<Gasto[]>([]);
-  const [currentGasto, setCurrentGasto] = useState(initialGastoState);
+  const [currentGasto, setCurrentGasto] = useState<any>(initialGastoState);
   
   const [loading, setLoading] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
+
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
 
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -250,7 +258,8 @@ export default function ExpensesTab() {
         firma_inspector_url: signature,
     };
     const doc = createParteDiarioPDF(parteDataForPreview);
-    doc.output('dataurlnewwindow');
+    const pdfDataUri = doc.output('datauristring');
+    setPreviewPdfUrl(pdfDataUri);
   }
 
   const generateAndUploadPDF = async (data: any, docId: string) => {
@@ -327,6 +336,19 @@ export default function ExpensesTab() {
   return (
     <div className="space-y-6 pb-10 animate-in fade-in slide-in-from-right-4 duration-500">
       
+       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle>Vista Previa del Parte Diario</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1">
+            {previewPdfUrl && (
+              <iframe src={previewPdfUrl} className="w-full h-full" title="PDF Preview" />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* SECCIÓN 1: CABECERA DEL PARTE */}
       <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
         <div className="flex items-center gap-3 mb-2">
@@ -437,3 +459,5 @@ export default function ExpensesTab() {
     </div>
   );
 }
+
+    
