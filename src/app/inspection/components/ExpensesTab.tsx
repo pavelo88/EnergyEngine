@@ -22,6 +22,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
 
 
@@ -340,6 +341,9 @@ export default function ExpensesTab() {
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-4 border-b">
             <DialogTitle>Vista Previa del Parte Diario</DialogTitle>
+             <DialogDescription>
+              Revisa el borrador de tu parte diario antes de guardarlo.
+            </DialogDescription>
           </DialogHeader>
           <div className="flex-1">
             {previewPdfUrl && (
@@ -459,5 +463,3 @@ export default function ExpensesTab() {
     </div>
   );
 }
-
-    
