@@ -3,7 +3,6 @@
   {
     "origin": [
       "http://localhost:3000",
-      "http://localhost:9002",
       "https://*.cloudworkstations.dev"
     ],
     "method": [
@@ -20,7 +19,8 @@
       "x-firebase-gmpid",
       "X-Goog-Upload-Command",
       "X-Goog-Upload-Offset",
-      "X-Goog-Upload-Status"
+      "X-Goog-Upload-Status",
+      "X-Goog-Upload-Url"
     ],
     "maxAgeSeconds": 3600
   }
