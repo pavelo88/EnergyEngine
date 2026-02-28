@@ -59,7 +59,8 @@ const InspectionPageContent = () => {
     }
   };
 
-  const handleSelectInspectionType = (formType: FormType) => {
+  const handleSelectInspectionType = (formType: FormType, data?: any) => {
+    setSelectedTask(data);
     setActiveInspectionForm(formType);
   };
   
@@ -89,7 +90,7 @@ const InspectionPageContent = () => {
         case 'desktop':
           return <MainMenuDesktop onNavigate={handleNavigate} userName={userName} />;
         default:
-          return null;
+          return <div className="flex h-full items-center justify-center p-20"><Loader2 className="animate-spin" /></div>;
       }
     }
 
@@ -125,7 +126,7 @@ const InspectionPageContent = () => {
     }
 
     return (
-        <div className="animate-in slide-in-from-right duration-300">
+        <div className="animate-in slide-in-from-right duration-300 w-full max-w-4xl mx-auto">
             <Suspense fallback={<div className="flex h-full items-center justify-center p-20"><Loader2 className="animate-spin" /></div>}>
               <TabComponent {...props} />
             </Suspense>
@@ -141,7 +142,7 @@ const InspectionPageContent = () => {
         onBack={activeInspectionForm ? handleBackToHub : () => handleNavigate(TABS.MENU)}
         isOnline={isOnline}
       />
-      <div className="flex-grow p-4 sm:p-6 md:p-8">
+      <div className="flex-grow">
         {renderContent()}
       </div>
       {activeTab === TABS.MENU && <Footer />}

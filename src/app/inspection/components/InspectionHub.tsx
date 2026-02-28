@@ -45,15 +45,13 @@ export default function InspectionHub({ onSelectInspectionType }: HubProps) {
 
   const handleLoadInspection = async (type) => {
     if (!inspectionId.trim() || !db) {
-      // Si no hay ID, simplemente seleccionamos el tipo de formulario en blanco
-      onSelectInspectionType(type);
+      onSelectInspectionType(type, null);
       return;
     }
 
     setLoading(true);
     setError('');
     try {
-      // Aseguramos que el ID es un documento válido en 'trabajos'
       const docRef = doc(db, 'trabajos', inspectionId.trim());
       const docSnap = await getDoc(docRef);
 
@@ -72,7 +70,7 @@ export default function InspectionHub({ onSelectInspectionType }: HubProps) {
 
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full max-w-4xl mx-auto">
       
       {/* Sección para cargar datos previos */}
       <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-4">
@@ -99,18 +97,18 @@ export default function InspectionHub({ onSelectInspectionType }: HubProps) {
       {/* Sección para crear un nuevo informe */}
       <section className="space-y-4">
         <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">O crea un nuevo documento</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {reportTypes.map(type => (
             <button 
               key={type.id}
               onClick={() => handleLoadInspection(type.id)}
-              className="relative bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col text-center justify-center items-center gap-4 group active:scale-[0.98] transition-all hover:border-blue-500/50 hover:shadow-lg md:aspect-square"
+              className="relative bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col text-center justify-center items-center gap-4 group active:scale-[0.98] transition-all hover:border-blue-500/50 hover:shadow-lg md:h-64"
             >
               <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-3xl flex-shrink-0 flex items-center justify-center transition-transform group-hover:scale-110">
                 <type.icon size={32} />
               </div>
               <div>
-                <h3 className="font-black text-slate-900 tracking-tight text-xl md:text-2xl">{type.title}</h3>
+                <h3 className="font-black text-slate-900 tracking-tight text-xl">{type.title}</h3>
                 <p className="text-sm text-slate-500 mt-1 max-w-[250px] mx-auto">{type.desc}</p>
               </div>
               <ArrowRight className="text-slate-300 group-hover:text-blue-500 transition-colors absolute top-6 right-6" size={24}/>
