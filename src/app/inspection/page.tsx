@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirebase } from '@/firebase';
+import { useUser, useAuth, FirebaseClientProvider } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 // Importar componentes de Header y Footer
 import Header from './components/Header';
@@ -19,7 +21,6 @@ import TABS from './constants';
 // Hook para detectar el tamaño de la pantalla
 import { useScreenSize } from '@/hooks/use-screen-size';
 import { Loader2 } from 'lucide-react';
-import { FirebaseClientProvider } from '@/firebase';
 
 // Lazy loading components
 const InspectionFormTab = React.lazy(() => import('./components/InspectionFormTab'));
@@ -30,6 +31,7 @@ const ProfileTab = React.lazy(() => import('./components/ProfileTab'));
 
 const InspectionPageContent = () => {
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   const [activeTab, setActiveTab] = useState<string>(TABS.MENU);
   const [isOnline, setIsOnline] = useState(true);
   const router = useRouter();
@@ -53,10 +55,26 @@ const InspectionPageContent = () => {
   }, []);
 
   useEffect(() => {
-    if (!isUserLoading && !user) {
-        router.push('/auth/inspection');
+    if (isUserLoading) return; // Wait until user status is resolved
+
+    if (user && user.email) {
+      // User is logged in, check their role
+      const checkInspectorRole = async () => {
+        const userDocRef = doc(db, 'usuarios', user.email!);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (!userDocSnap.exists() || !userDocSnap.data().roles?.includes('inspector')) {
+          // If profile doesn't exist or doesn't have inspector role, sign out and redirect
+          await auth.signOut();
+          router.push('/auth/inspection');
+        }
+      };
+      checkInspectorRole();
+    } else {
+      // User is not logged in, redirect to login
+      router.push('/auth/inspection');
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, auth]);
 
   const handleNavigate = (tab: string) => {
     setActiveTab(tab);

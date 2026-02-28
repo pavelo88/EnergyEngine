@@ -77,6 +77,7 @@ export default function AdminLoginPage() {
         setError('Credenciales incorrectas. Por favor, inténtelo de nuevo.');
       } else {
         setError('Ha ocurrido un error inesperado.');
+        console.error(err);
       }
     } finally {
       setLoading(false);

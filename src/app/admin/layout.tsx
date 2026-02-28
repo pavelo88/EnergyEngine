@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from '@/app/admin/components/Sidebar';
 import Header from '@/app/admin/components/Header';
-import { useUser } from '@/firebase';
+import { useUser, useAuth } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Loader2 } from 'lucide-react';
 
 
@@ -23,13 +25,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (!isUserLoading && !user) {
+    if (isUserLoading) return; // Wait until user status is resolved
+
+    if (user && user.email) {
+      // User is logged in, check their role
+      const checkAdminRole = async () => {
+        const userDocRef = doc(db, 'usuarios', user.email!);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (!userDocSnap.exists() || !userDocSnap.data().roles?.includes('admin')) {
+          // If profile doesn't exist or doesn't have admin role, sign out and redirect
+          await auth.signOut();
+          router.push('/auth/admin');
+        }
+      };
+      checkAdminRole();
+    } else {
+      // User is not logged in, redirect to login
       router.push('/auth/admin');
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, auth]);
 
   const handleMenuClick = () => {
     setSidebarOpen(!isSidebarOpen);
