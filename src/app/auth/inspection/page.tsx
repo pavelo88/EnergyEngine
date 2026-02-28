@@ -26,9 +26,18 @@ export default function InspectionLoginPage() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      router.push('/inspection');
+      const checkUserRole = async () => {
+        if (user && user.email) {
+          const userDocRef = doc(firestore, 'usuarios', user.email);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists() && userDocSnap.data().roles?.includes('inspector')) {
+            router.push('/inspection');
+          }
+        }
+      };
+      checkUserRole();
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, firestore]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,23 +57,9 @@ export default function InspectionLoginPage() {
     }
 
     try {
-      // 1. Standard sign-in attempt
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      if (userCredential.user.email) {
-        const userDocRef = doc(firestore, 'usuarios', userCredential.user.email);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists() && userDocSnap.data().roles?.includes('inspector')) {
-          router.push('/inspection');
-          return;
-        } else {
-          await auth.signOut();
-          setError('No tienes permisos de inspector.');
-        }
-      }
+      await signInWithEmailAndPassword(auth, email, password);
     } catch (authError: any) {
-      // 2. If sign-in fails, check the specific error
-      if (authError.code === 'auth/invalid-credential') {
-        // This could be "user not found" or "wrong password". Proceed to DNI check.
+      if (authError.code === 'auth/invalid-credential' || authError.code === 'auth/user-not-found') {
         try {
           const q = query(
             collection(firestore, 'usuarios'),
@@ -74,11 +69,8 @@ export default function InspectionLoginPage() {
           const querySnapshot = await getDocs(q);
 
           if (!querySnapshot.empty) {
-            // DNI/Email match found. It's a first-time login.
             try {
               await createUserWithEmailAndPassword(auth, email, password);
-              router.push('/inspection');
-              return;
             } catch (creationError: any) {
               if (creationError.code === 'auth/email-already-in-use') {
                 setError('Este correo ya está registrado, pero la contraseña es incorrecta. Si ya estableciste una clave personal, úsala.');
@@ -90,7 +82,6 @@ export default function InspectionLoginPage() {
               }
             }
           } else {
-            // No DNI match, and standard login failed. Definitely wrong credentials.
             setError('Credenciales incorrectas. Verifica tu correo y contraseña/DNI.');
           }
         } catch (dbError) {
@@ -100,7 +91,6 @@ export default function InspectionLoginPage() {
       } else if (authError.code === 'auth/invalid-email') {
         setError('El formato del correo electrónico no es válido.');
       } else {
-        // Handle other auth errors
         console.error("Authentication error:", authError);
         setError('Ha ocurrido un error inesperado durante el inicio de sesión.');
       }
@@ -111,65 +101,65 @@ export default function InspectionLoginPage() {
 
   if (isUserLoading || user) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-100">
+      <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
-      <Card className="w-full max-w-sm shadow-2xl rounded-2xl">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex justify-center">
-            <Logo />
-          </div>
-          <CardTitle className="text-2xl font-black tracking-tighter">Módulo de Inspectores</CardTitle>
-          <CardDescription>Introduce tus credenciales de inspector.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="inspector@energyengine.es"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="rounded-lg"
-              />
+    <div className="flex min-h-screen w-full items-center justify-center bg-slate-900 p-4">
+        <Card className="w-full max-w-md bg-white/5 backdrop-blur-lg border-white/10 text-white shadow-2xl rounded-2xl">
+          <CardHeader className="text-center space-y-4 pt-8">
+            <div className="mx-auto mb-2 flex justify-center">
+              <Logo />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Contraseña o DNI</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="rounded-lg"
-              />
-            </div>
-            {error && (
-              <div className="flex items-center gap-2 rounded-md border border-red-500/50 bg-red-50 p-3 text-sm font-medium text-red-600">
-                <AlertCircle className="h-4 w-4" />
-                <p>{error}</p>
+            <CardTitle className="text-2xl font-black tracking-tighter text-white">Módulo de Inspectores</CardTitle>
+            <CardDescription className="text-white/60">Introduce tus credenciales de inspector.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-white/60 text-xs uppercase font-bold">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="inspector@energyengine.es"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="rounded-lg bg-white/5 border-white/20 text-white placeholder:text-white/40 focus:bg-white/10 focus:ring-primary h-12"
+                />
               </div>
-            )}
-            <Button type="submit" className="w-full font-bold uppercase rounded-lg" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? 'Verificando...' : 'Iniciar Sesión'}
-            </Button>
-            <div className="mt-4 text-center text-xs">
-              <Link href="/auth/admin" className="underline text-muted-foreground hover:text-primary">
-                Ir al Módulo de Administración
-              </Link>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-white/60 text-xs uppercase font-bold">Contraseña o DNI</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="rounded-lg bg-white/5 border-white/20 text-white placeholder:text-white/40 focus:bg-white/10 focus:ring-primary h-12"
+                />
+              </div>
+              {error && (
+                <div className="flex items-center gap-2 rounded-md border border-red-500/50 bg-red-900/40 p-3 text-sm font-medium text-red-300">
+                  <AlertCircle className="h-4 w-4" />
+                  <p>{error}</p>
+                </div>
+              )}
+              <Button type="submit" className="w-full font-bold uppercase rounded-lg h-12 text-sm bg-primary text-primary-foreground hover:bg-primary/90" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading ? 'Verificando...' : 'Iniciar Sesión'}
+              </Button>
+              <div className="pt-2 text-center text-xs">
+                <Link href="/auth/admin" className="underline text-white/50 hover:text-primary">
+                  Ir al Módulo de Administración
+                </Link>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
     </div>
   );
 }
