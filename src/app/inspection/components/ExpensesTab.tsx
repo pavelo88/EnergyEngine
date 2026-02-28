@@ -1,13 +1,12 @@
-
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
-  Receipt, MapPin, Save, Loader2, User, Hourglass, Euro, Trash2, Plus, 
-  PenTool, FileText, CheckCircle, ClipboardSignature, Upload, Camera, Calendar as CalendarIcon, Briefcase, FileSearch
+  Receipt, Save, Loader2, User, Euro, Trash2, Plus, 
+  FileText, CheckCircle, ClipboardSignature, Upload, Camera, Calendar as CalendarIcon, FileSearch, Building
 } from 'lucide-react';
 import { useAuth, useFirestore, useStorage, useUser } from '@/firebase';
-import { addDoc, collection, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, updateDoc, doc, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -24,13 +23,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 // --- TIPOS DE DATOS ---
-type Intervencion = {
-  descripcion: string;
-  horas: number;
-};
 type Gasto = {
   rubro: string;
   monto: number;
@@ -41,18 +37,16 @@ type Gasto = {
 };
 
 const initialGastoState = { rubro: 'Alimentación', monto: '', descripcion: '', forma_pago: 'Efectivo', comprobanteFile: undefined };
-const initialIntervencionState = { descripcion: '', horas: '' };
 
 // --- COMPONENTE PRINCIPAL ---
 export default function ExpensesTab() {
   const { user } = useUser();
   const db = useFirestore();
   const storage = useStorage();
-  const auth = useAuth();
-  const [reportDate, setReportDate] = useState<Date>(new Date());
   
-  const [interventions, setInterventions] = useState<Intervencion[]>([]);
-  const [currentIntervention, setCurrentIntervention] = useState(initialIntervencionState);
+  const [reportDate, setReportDate] = useState<Date>(new Date());
+  const [clients, setClients] = useState<{ id: string; nombre: string; }[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
   
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [currentGasto, setCurrentGasto] = useState<any>(initialGastoState);
@@ -64,6 +58,16 @@ export default function ExpensesTab() {
 
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // --- Carga de Clientes ---
+  useEffect(() => {
+    if (!db) return;
+    const unsub = onSnapshot(collection(db, 'clientes'), (snapshot) => {
+        setClients(snapshot.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre })));
+    });
+    return () => unsub();
+  }, [db]);
+
 
   // --- LÓGICA DE FIRMA ---
   useEffect(() => {
@@ -116,14 +120,6 @@ export default function ExpensesTab() {
   };
 
   // --- LÓGICA DEL FORMULARIO ---
-  const handleAddIntervention = () => {
-    if (!currentIntervention.descripcion || !currentIntervention.horas) {
-      return alert("La descripción y las horas son obligatorias.");
-    }
-    setInterventions([...interventions, { ...currentIntervention, horas: parseFloat(currentIntervention.horas) }]);
-    setCurrentIntervention(initialIntervencionState);
-  };
-  
   const handleAddGasto = () => {
     if (!currentGasto.monto || !currentGasto.descripcion) {
       return alert("El monto y la descripción del gasto son obligatorios.");
@@ -138,7 +134,6 @@ export default function ExpensesTab() {
     }
   };
 
-  const totalHoras = useMemo(() => interventions.reduce((acc, curr) => acc + curr.horas, 0), [interventions]);
   const totalGastos = useMemo(() => gastos.reduce((acc, curr) => acc + curr.monto, 0), [gastos]);
 
   // --- LÓGICA DE PDF ---
@@ -153,10 +148,11 @@ export default function ExpensesTab() {
     doc.setTextColor('#FFFFFF');
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text("PARTE DE TRABAJO DIARIO", 15, 18);
+    doc.text("REPORTE DE GASTOS", 15, 18);
     
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
+    doc.text(`Cliente: ${data.clienteNombre || 'No especificado'}`, 15, 25);
     doc.text(`Inspector: ${data.email_inspector || 'No especificado'}`, 130, 12);
     doc.text(`Fecha: ${format(data.fecha, 'dd \'de\' MMMM \'de\' yyyy', { locale: es })}`, 130, 19);
 
@@ -164,40 +160,16 @@ export default function ExpensesTab() {
 
     // Summary Cards
     doc.setFillColor('#F1F5F9'); // Slate-100
-    doc.roundedRect(15, currentY, 88, 20, 3, 3, 'F');
-    doc.roundedRect(107, currentY, 88, 20, 3, 3, 'F');
+    doc.roundedRect(15, currentY, 180, 20, 3, 3, 'F');
     
     doc.setTextColor(darkColor);
     doc.setFontSize(10);
-    doc.text('HORAS TOTALES REPORTADAS', 20, currentY + 7);
+    doc.text('GASTOS TOTALES DEL REPORTE', 20, currentY + 7);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text(`${data.total_horas.toFixed(2)} h`, 20, currentY + 15);
-    
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text('GASTOS TOTALES DEL DÍA', 112, currentY + 7);
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${data.total_gastos.toFixed(2)} €`, 112, currentY + 15);
+    doc.text(`${data.total_gastos.toFixed(2)} €`, 20, currentY + 15);
 
     currentY += 30;
-
-    // Interventions Table
-    if (data.intervenciones.length > 0) {
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text("Intervenciones Realizadas", 15, currentY);
-      currentY += 7;
-      autoTable(doc, {
-        startY: currentY,
-        head: [['Descripción de la Tarea', 'Horas Dedicadas']],
-        body: data.intervenciones.map((i: any) => [i.descripcion, i.horas.toFixed(2)]),
-        theme: 'grid',
-        headStyles: { fillColor: darkColor },
-      });
-      currentY = (doc as any).lastAutoTable.finalY + 10;
-    }
 
     // Expenses Table
     if (data.gastos.length > 0) {
@@ -246,12 +218,14 @@ export default function ExpensesTab() {
 
   const handlePreviewPDF = () => {
     if (!user) return alert("Error de autenticación. Por favor, recarga la página.");
+    if (!selectedClientId) return alert("Por favor, selecciona un cliente.");
     
+    const selectedClient = clients.find(c => c.id === selectedClientId);
+
     const parteDataForPreview = {
         email_inspector: user.email,
         fecha: reportDate,
-        total_horas: totalHoras,
-        intervenciones: interventions,
+        clienteNombre: selectedClient?.nombre || '',
         gastos: gastos,
         total_gastos: totalGastos,
         firma_inspector_url: signature,
@@ -271,12 +245,13 @@ export default function ExpensesTab() {
 
   const handleSaveParte = async () => {
     if (!user || !db || !storage) return alert("Error de autenticación o servicios no disponibles. Por favor, recarga la página.");
-    if (interventions.length === 0 && gastos.length === 0) return alert("Debes añadir al menos una intervención o un gasto.");
+    if (!selectedClientId) return alert("Por favor, selecciona un cliente.");
+    if (gastos.length === 0 && !signature) return alert("Debes añadir al menos un gasto o firmar para crear un reporte.");
     if (!signature) return alert("La firma del inspector es obligatoria.");
 
     setLoading(true);
     try {
-        const docId = `${format(reportDate, 'yyyy-MM-dd')}_${user.uid}`;
+        const docId = `${format(reportDate, 'yyyy-MM-dd')}_${user.uid}_${selectedClientId}`;
 
         // 1. Subir todas las imágenes de gastos y la firma
         const uploadedGastos = await Promise.all(gastos.map(async (g) => {
@@ -294,13 +269,14 @@ export default function ExpensesTab() {
         const firmaUrl = await getDownloadURL(firmaRef);
 
         // 2. Preparar el objeto de datos para Firestore
+        const selectedClient = clients.find(c => c.id === selectedClientId);
         const parteData = {
             id_inspector: user.uid,
             email_inspector: user.email,
+            clienteId: selectedClientId,
+            clienteNombre: selectedClient?.nombre || '',
             fecha: reportDate,
-            total_horas: totalHoras,
             total_gastos: totalGastos,
-            intervenciones: interventions,
             gastos: uploadedGastos.map(({comprobanteFile, ...rest}) => rest), // No guardar el File object
             firma_inspector_url: firmaUrl,
             estado: 'Pendiente Aprobación'
@@ -315,11 +291,11 @@ export default function ExpensesTab() {
         // 5. Actualizar el documento con la URL del PDF
         await updateDoc(doc(db, "partes_diarios", docRef.id), { pdf_url: pdfUrl });
 
-        alert("¡Parte de Trabajo guardado y PDF generado con éxito!");
+        alert("¡Reporte guardado y PDF generado con éxito!");
         
         // 6. Reset full form
         setReportDate(new Date());
-        setInterventions([]);
+        setSelectedClientId('');
         setGastos([]);
         clearCanvas();
 
@@ -338,9 +314,9 @@ export default function ExpensesTab() {
        <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-4 border-b">
-            <DialogTitle>Vista Previa del Parte Diario</DialogTitle>
+            <DialogTitle>Vista Previa del Reporte</DialogTitle>
              <DialogDescription>
-              Revisa el borrador de tu parte diario antes de guardarlo.
+              Revisa el borrador de tu reporte antes de guardarlo.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1">
@@ -355,12 +331,20 @@ export default function ExpensesTab() {
       <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><FileText size={20} /></div>
-          <h2 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Parte de Trabajo Diario</h2>
+          <h2 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Reporte de Gastos por Cliente</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className='p-4 rounded-2xl bg-slate-50 flex items-center gap-2 font-bold text-sm text-slate-500'>
-                <User size={16} /> Inspector: {user?.email || 'Cargando...'}
-            </div>
+            <Select onValueChange={setSelectedClientId} value={selectedClientId}>
+                <SelectTrigger className="w-full p-4 rounded-2xl flex items-center justify-start gap-2 font-bold text-sm bg-slate-50 border-none h-auto">
+                    <Building size={16} />
+                    <SelectValue placeholder="Seleccionar Cliente..." />
+                </SelectTrigger>
+                <SelectContent>
+                    {clients.map(client => (
+                        <SelectItem key={client.id} value={client.id}>{client.nombre}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant={"outline"} className="w-full p-4 rounded-2xl flex items-center justify-start gap-2 font-bold text-sm bg-slate-50 border-none h-auto">
@@ -372,32 +356,9 @@ export default function ExpensesTab() {
               </PopoverContent>
             </Popover>
         </div>
-      </section>
-
-      {/* SECCIÓN 2: INTERVENCIONES Y HORAS */}
-      <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
-        <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter"><Briefcase size={18} className="text-blue-500"/> Intervenciones del Día</h3>
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_100px_100px] gap-2 bg-slate-50 p-4 rounded-2xl">
-            <input value={currentIntervention.descripcion} onChange={e => setCurrentIntervention({...currentIntervention, descripcion: e.target.value})} type="text" placeholder="Descripción de la intervención" className="p-3 rounded-lg border-none font-bold md:col-span-1 col-span-3" />
-            <input value={currentIntervention.horas} onChange={e => setCurrentIntervention({...currentIntervention, horas: e.target.value})} type="number" placeholder="Horas" className="p-3 rounded-lg border-none font-bold md:col-span-1 col-span-2" />
-            <button onClick={handleAddIntervention} className="p-3 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center gap-2 md:col-span-1 col-span-1"><Plus size={16}/></button>
-        </div>
-        <div className="space-y-2">
-            {interventions.map((int, i) => (
-                <div key={i} className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
-                    <p className="font-bold text-sm text-slate-800">{int.descripcion}</p>
-                    <div className="flex items-center gap-3">
-                        <span className="font-bold text-slate-800">{int.horas.toFixed(2)} h</span>
-                        <button onClick={() => setInterventions(interventions.filter((_, idx) => i !== idx))} className="p-2 text-red-500 hover:bg-red-100 rounded-full"><Trash2 size={16}/></button>
-                    </div>
-                </div>
-            ))}
-            {interventions.length > 0 && 
-                <div className="text-right font-black text-blue-600 bg-blue-50 p-3 rounded-lg">
-                    TOTAL HORAS: {totalHoras.toFixed(2)} h
-                </div>
-            }
-        </div>
+         <div className='p-4 rounded-2xl bg-slate-50 flex items-center gap-2 font-bold text-sm text-slate-500'>
+                <User size={16} /> Inspector: {user?.email || 'Cargando...'}
+            </div>
       </section>
 
       {/* SECCIÓN 3: GASTOS ASOCIADOS --- */}
@@ -436,6 +397,11 @@ export default function ExpensesTab() {
             ))}
             {gastos.length === 0 && <p className="text-center text-xs text-slate-400 font-bold py-4">No hay gastos añadidos a este parte.</p>}
         </div>
+         {gastos.length > 0 && 
+                <div className="text-right font-black text-blue-600 bg-blue-50 p-3 rounded-lg">
+                    TOTAL GASTOS: {totalGastos.toFixed(2)} €
+                </div>
+            }
       </section>
 
       {/* SECCIÓN 4: FIRMA DEL TÉCNICO */}
@@ -455,7 +421,7 @@ export default function ExpensesTab() {
         </button>
         <button onClick={handleSaveParte} disabled={loading} className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50">
           {loading ? <Loader2 className="animate-spin text-blue-500" /> : <Upload className="text-blue-500" />}
-          {loading ? 'GUARDANDO Y SINCRONIZANDO...' : 'FINALIZAR Y SUBIR PARTE'}
+          {loading ? 'GUARDANDO Y SINCRONIZANDO...' : 'FINALIZAR Y SUBIR REPORTE'}
         </button>
       </div>
     </div>
