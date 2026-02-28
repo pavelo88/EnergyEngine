@@ -38,7 +38,6 @@ export default function LoginPage() {
       // onAuthStateChanged will handle the redirect, but we can push manually
       router.push('/admin');
     } catch (err: any) {
-      console.error(err);
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setError('Credenciales incorrectas. Por favor, inténtelo de nuevo.');
       } else {
