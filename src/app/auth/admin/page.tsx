@@ -25,16 +25,13 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // If user is already logged in, redirect them if they have admin role
+    // Si el usuario ya está logueado, intentar redirigirlo si tiene el rol correcto
     if (!isUserLoading && user && user.email) {
       const checkRoleAndRedirect = async () => {
         const userDocRef = doc(db, 'usuarios', user.email!);
         const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          const roles = userDocSnap.data().roles || [];
-          if (roles.includes('admin')) {
-            router.push('/admin');
-          }
+        if (userDocSnap.exists() && userDocSnap.data().roles?.includes('admin')) {
+          router.push('/admin');
         }
       };
       checkRoleAndRedirect();
@@ -46,55 +43,45 @@ export default function AdminLoginPage() {
     setLoading(true);
     setError(null);
     try {
+      // 1. Autenticar con Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const loggedInUser = userCredential.user;
 
       if (loggedInUser && loggedInUser.email) {
-        // Fetch user profile from Firestore to determine role
+        // 2. Autorización: Verificar rol en Firestore
         const userDocRef = doc(db, 'usuarios', loggedInUser.email);
         const userDocSnap = await getDoc(userDocRef);
 
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data();
-          const roles = userData.roles || [];
-
-          // Role-based redirection
-          if (roles.includes('admin')) {
-            router.push('/admin');
-          } else {
-            setError('No tienes permisos de administrador para acceder a este módulo.');
-            await auth.signOut();
-          }
+        if (userDocSnap.exists() && userDocSnap.data().roles?.includes('admin')) {
+          // 3. Redirección Exitosa
+          router.push('/admin');
         } else {
-          setError('No se encontró un perfil de usuario asociado a este correo.');
-          await auth.signOut();
+          // Rol no encontrado o incorrecto
+          setError('No tienes permisos de administrador.');
+          await auth.signOut(); // Desloguear por seguridad
         }
       } else {
-        throw new Error('No se pudo obtener la información del usuario tras el login.');
+        throw new Error('No se pudo obtener la información del usuario.');
       }
     } catch (err: any) {
+      // Manejo de errores de autenticación
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setError('Credenciales incorrectas. Por favor, inténtelo de nuevo.');
       } else {
         setError('Ha ocurrido un error inesperado.');
-        console.error(err);
       }
     } finally {
       setLoading(false);
     }
   };
 
-  // Don't render the form if we are still checking auth state
-  if (isUserLoading) {
+  // Evita mostrar el login si el usuario ya está autenticado y en proceso de redirección
+  if (isUserLoading || user) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-100">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     );
-  }
-  
-  if (user) {
-    return null;
   }
 
   return (
@@ -143,8 +130,8 @@ export default function AdminLoginPage() {
               {loading ? 'Verificando...' : 'Iniciar Sesión'}
             </Button>
             <div className="mt-4 text-center text-xs">
-              <Link href="/" className="underline text-muted-foreground hover:text-primary">
-                Volver a la página principal
+               <Link href="/auth/inspection" className="underline text-muted-foreground hover:text-primary">
+                Ir al Módulo de Inspectores
               </Link>
             </div>
           </form>
