@@ -11,23 +11,23 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // NOTE: The isAdmin function and other role-based checks were not working
-    // because the user documents were not being created with the auth UID as the document ID.
-    // The rules below are simplified to allow any signed-in user to access the admin
-    // collections. This is a temporary measure for development to unblock the UI.
-    // For production, a robust role-check system must be implemented.
+    // Role-check functions using exists() for DBAC
     function isAdmin() {
-        return isSignedIn();
-    }
-     function isAnyRole() {
-      return isSignedIn();
-    }
-     function isManagement() {
-      return isSignedIn();
+      return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+             'admin' in get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.roles;
     }
 
+    function isInspector() {
+       return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+             'inspector' in get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.roles;
+    }
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
     // ------------------------------------------------------------------------
-    // Admin Panel Collections - Simplified Rules for Development
+    // Application Collections
     // ------------------------------------------------------------------------
     
     match /clientes/{clienteId} {
@@ -35,8 +35,9 @@ service cloud.firestore {
     }
 
     match /usuarios/{usuarioId} {
-      // Allow unauthenticated reads to check for DNI on first login.
-      // Write operations still require authentication.
+      // Allow unauthenticated reads ONLY for the login page to check for DNI/email combinations.
+      // This is required for the first-time login flow.
+      // Write operations (creating, updating, deleting) are still protected and require authentication.
       allow read: if true;
       allow write: if isSignedIn();
     }
@@ -48,45 +49,10 @@ service cloud.firestore {
     match /gastos/{gastoId} {
       allow read, write: if isSignedIn();
     }
-    
-    // ------------------------------------------------------------------------
-    // Original "AssetTrack AI" Rules (kept for reference, may not be used)
-    // ------------------------------------------------------------------------
-    match /web_content/{configId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // Only allow read for public content
+
+    match /partes_diarios/{parteId} {
+      allow read, write: if isSignedIn();
     }
 
-    match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if false; 
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    match /assets/{assetId} {
-      allow get, list: if isAnyRole();
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /reports/{reportId} {
-      allow get: if isManagement() || (resource.data.technicianId == request.auth.uid);
-      allow list: if isAnyRole();
-      allow create: if resource.data.technicianId == request.auth.uid;
-      allow update: if isAdmin();
-      allow delete: if false; // Protect audit trail
-    }
-
-     match /reports/{reportId}/multimedia/{multimediaId} {
-        allow get, list: if isManagement() || (resource.data.reportOwnerId == request.auth.uid);
-        allow create: if request.resource.data.reportOwnerId == request.auth.uid;
-        allow update, delete: if resource.data.reportOwnerId == request.auth.uid;
-      }
-
-    match /global_stats/{configId} {
-      allow get, list: if isManagement();
-      allow write: if false; // Should be updated by cloud functions
-    }
   }
 }
