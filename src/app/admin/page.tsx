@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useFirestore } from '@/firebase';
 import { Users, Briefcase, Clock, CheckCircle } from 'lucide-react';
 
 // --- Tipos de Datos ---
@@ -32,8 +32,13 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState({ clients: 0, pendingJobs: 0, inProgressJobs: 0, inspectors: 0 });
   const [recentJobs, setRecentJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const db = useFirestore();
 
   useEffect(() => {
+    if (!db) {
+        setLoading(false);
+        return;
+    }
     // Suscripción a Clientes
     const unsubClients = onSnapshot(collection(db, 'clientes'), snapshot => {
       setStats(prev => ({ ...prev, clients: snapshot.size }));
@@ -72,7 +77,7 @@ export default function AdminDashboardPage() {
       unsubInspectors();
       unsubJobs();
     };
-  }, []);
+  }, [db]);
 
   return (
     <div className="space-y-8 text-slate-900">

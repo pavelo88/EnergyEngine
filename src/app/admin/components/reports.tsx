@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useFirestore } from '@/firebase';
 import { Loader2, FileText, AlertTriangle } from 'lucide-react';
 
 // Interfaz actualizada para coincidir con los datos de la colección 'trabajos'
@@ -17,8 +17,10 @@ export default function ReportsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const db = useFirestore();
 
   useEffect(() => {
+    if (!db) return;
     const fetchCompletedJobs = async () => {
       try {
         setLoading(true);
@@ -42,7 +44,7 @@ export default function ReportsPage() {
     };
 
     fetchCompletedJobs();
-  }, []);
+  }, [db]);
 
   return (
     <div className="p-6 h-full bg-slate-50">

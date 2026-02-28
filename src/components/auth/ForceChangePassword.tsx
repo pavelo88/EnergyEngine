@@ -3,9 +3,8 @@
 import { useState } from 'react';
 import { updatePassword } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { Loader2, Lock, ShieldCheck } from 'lucide-react';
-import { useUser } from '@/firebase';
 
 interface ForceChangePasswordProps {
   onPasswordChanged: () => void;
@@ -13,6 +12,7 @@ interface ForceChangePasswordProps {
 
 export default function ForceChangePassword({ onPasswordChanged }: ForceChangePasswordProps) {
   const { user } = useUser();
+  const firestore = useFirestore();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -34,8 +34,8 @@ export default function ForceChangePassword({ onPasswordChanged }: ForceChangePa
 
     setLoading(true);
 
-    if (!user || !user.email) {
-      setError('Error de autenticación. Por favor, inicia sesión de nuevo.');
+    if (!user || !user.email || !firestore) {
+      setError('Error de autenticación o de conexión a la base de datos. Por favor, inicia sesión de nuevo.');
       setLoading(false);
       return;
     }
@@ -44,7 +44,7 @@ export default function ForceChangePassword({ onPasswordChanged }: ForceChangePa
       await updatePassword(user, newPassword);
 
       // After successfully updating in Auth, update the flag in Firestore.
-      const userDocRef = doc(db, 'usuarios', user.email);
+      const userDocRef = doc(firestore, 'usuarios', user.email);
       await updateDoc(userDocRef, {
         forcePasswordChange: false,
       });

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useFirestore } from '@/firebase';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -37,6 +37,7 @@ export default function UsersPage() {
   const [seeding, setSeeding] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const db = useFirestore();
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<UserFormInputs>({
     resolver: zodResolver(userSchema),
@@ -45,6 +46,7 @@ export default function UsersPage() {
   const selectedRoles = watch('roles') || [];
 
   const fetchUsers = async () => {
+    if (!db) return;
     setLoading(true);
     try {
       const querySnapshot = await getDocs(collection(db, 'usuarios'));
@@ -59,9 +61,10 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [db]);
 
   const handleSeedDatabase = async () => {
+    if (!db) return;
     if (!window.confirm('Esto borrará los usuarios existentes y cargará la lista inicial. ¿Continuar?')) return;
     setSeeding(true);
     try {
@@ -107,6 +110,7 @@ export default function UsersPage() {
   };
 
   const onSubmit = async (data: UserFormInputs) => {
+    if (!db) return;
     try {
       if (editingUser) {
         const userDocRef = doc(db, 'usuarios', editingUser.id);
@@ -123,6 +127,7 @@ export default function UsersPage() {
   };
 
   const handleDeleteUser = async (userId: string) => {
+    if (!db) return;
     if (window.confirm('¿Seguro que quieres eliminar este usuario?')) {
       try {
         await deleteDoc(doc(db, 'usuarios', userId));

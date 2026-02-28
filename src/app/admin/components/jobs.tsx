@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query, where } from "firebase/firestore";
-import { db } from '@/lib/firebase';
+import { useFirestore } from '@/firebase';
 import { PlusCircle, Loader2, Pencil, Trash2 } from 'lucide-react';
 
 // --- Tipos de Datos ---
@@ -28,9 +28,11 @@ export default function JobsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const db = useFirestore();
 
   // --- Carga de Datos (Jobs, Inspectores, Clientes) ---
   useEffect(() => {
+    if (!db) return;
     // Cargar Inspectores (usuarios con rol 'inspector')
     const qInspectors = query(collection(db, 'usuarios'), where("rol", "==", "inspector"));
     const unsubInspectors = onSnapshot(qInspectors, snapshot => {
@@ -57,7 +59,7 @@ export default function JobsPage() {
       unsubClients();
       unsubJobs();
     };
-  }, []);
+  }, [db]);
 
   // --- Manejo del Formulario (Añadir/Editar) ---
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

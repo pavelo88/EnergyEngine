@@ -4,9 +4,8 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from '@/app/admin/components/Sidebar';
 import Header from '@/app/admin/components/Header';
-import { useUser, useAuth } from '@/firebase';
+import { useUser, useAuth, useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { Loader2 } from 'lucide-react';
 import ForceChangePassword from '@/components/auth/ForceChangePassword';
 
@@ -25,16 +24,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const firestore = useFirestore();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [authStatus, setAuthStatus] = useState<'loading' | 'authorized' | 'unauthorized' | 'needs_password_change'>('loading');
 
   useEffect(() => {
-    if (isUserLoading) return;
+    if (isUserLoading || !firestore) return;
 
     if (user && user.email) {
       const checkUserStatus = async () => {
         try {
-          const userDocRef = doc(db, 'usuarios', user.email!);
+          const userDocRef = doc(firestore, 'usuarios', user.email!);
           const userDocSnap = await getDoc(userDocRef);
           
           if (userDocSnap.exists()) {
@@ -67,7 +67,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setAuthStatus('unauthorized');
       router.push('/auth/admin');
     }
-  }, [user, isUserLoading, router, auth, authStatus]);
+  }, [user, isUserLoading, router, auth, firestore]);
 
   const handleMenuClick = () => {
     setSidebarOpen(!isSidebarOpen);

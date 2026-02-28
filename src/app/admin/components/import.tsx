@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { FileUp, Info, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { writeBatch, doc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from '@/lib/firebase';
+import { useFirestore } from '@/firebase';
 
 // Definimos el tipo para el estado del proceso
 type ProcessState = 'idle' | 'loading' | 'success' | 'error';
@@ -13,10 +13,11 @@ export default function ImportPage() {
   const [processState, setProcessState] = useState<ProcessState>('idle');
   const [fileName, setFileName] = useState('');
   const [message, setMessage] = useState('');
+  const db = useFirestore();
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !db) return;
 
     setFileName(file.name);
     setProcessState('loading');

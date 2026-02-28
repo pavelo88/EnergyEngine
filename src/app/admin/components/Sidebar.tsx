@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase'; // Correct auth import
+import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { GanttChartSquare, Users, Wrench, DollarSign, LayoutDashboard, Building, Upload, LogOut, X } from 'lucide-react';
 
@@ -28,6 +28,7 @@ const navLinks = [
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const auth = useAuth();
 
   const handleLogout = async () => {
     try {

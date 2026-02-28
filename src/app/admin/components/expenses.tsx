@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useFirestore } from '@/firebase';
 import { Filter, Loader2, DollarSign, User, Briefcase, Calendar } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { addDays } from 'date-fns';
@@ -22,6 +22,7 @@ export default function ExpensesPage() {
   const [inspectores, setInspectores] = useState<Inspector[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
+  const db = useFirestore();
 
   // --- Estados de los Filtros ---
   const [filtroInspector, setFiltroInspector] = useState('all');
@@ -30,6 +31,7 @@ export default function ExpensesPage() {
 
   // --- Carga de Datos Inicial (Gastos, Inspectores, Clientes) ---
   useEffect(() => {
+    if (!db) return;
     const fetchData = async () => {
       setLoading(true);
       try {
@@ -53,7 +55,7 @@ export default function ExpensesPage() {
       }
     };
     fetchData();
-  }, []);
+  }, [db]);
 
   // --- Lógica de Filtrado ---
   const gastosFiltrados = useMemo(() => {

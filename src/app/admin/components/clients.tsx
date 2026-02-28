@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore"; 
-import { db } from '@/lib/firebase';
+import { useFirestore } from '@/firebase';
 import { PlusCircle, Trash2, Pencil, Building } from 'lucide-react';
 
 type Client = {
@@ -18,15 +18,17 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const db = useFirestore();
 
   useEffect(() => {
+    if (!db) return;
     const unsubscribe = onSnapshot(collection(db, 'clientes'), (snapshot) => {
       const clientsList = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Omit<Client, 'id'>) }));
       setClients(clientsList);
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [db]);
 
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
