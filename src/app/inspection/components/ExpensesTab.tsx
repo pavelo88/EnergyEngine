@@ -6,7 +6,7 @@ import {
   Receipt, MapPin, Save, Loader2, User, Hourglass, Euro, Trash2, Plus, 
   PenTool, FileText, CheckCircle, ClipboardSignature, Upload, Camera, Calendar as CalendarIcon, Briefcase, FileSearch
 } from 'lucide-react';
-import { useAuth, useFirestore, useStorage } from '@/firebase';
+import { useAuth, useFirestore, useStorage, useUser } from '@/firebase';
 import { addDoc, collection, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import jsPDF from 'jspdf';
