@@ -71,11 +71,11 @@ export default function AdminLoginPage() {
           if (!querySnapshot.empty) {
             // DNI/Email match found in Firestore, it's a first-time login.
             try {
-              // Create the user in Firebase Auth using DNI as temp password
+              // Create the user in Firebase Auth using DNI as temp password.
+              // This automatically signs the user in.
               await createUserWithEmailAndPassword(auth, email, password);
-              // Now sign in with the newly created account
-              await signInWithEmailAndPassword(auth, email, password);
-              // The layout will handle role check and password change redirection
+
+              // The layout will now handle role checks and password change redirection.
               router.push('/admin');
               return; // Success
             } catch (creationError: any) {
