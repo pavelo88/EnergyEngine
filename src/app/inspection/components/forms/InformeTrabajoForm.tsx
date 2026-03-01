@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
@@ -34,9 +33,6 @@ export const generatePDF = (report, inspectorName, reportId) => {
   
   const pageHeight = doc.internal.pageSize.height;
   const pageWidth = doc.internal.pageSize.width;
-  const leftMargin = 30;
-  const rightMargin = 30;
-  const printableWidth = pageWidth - leftMargin - rightMargin;
 
   let currentY = 0;
 
@@ -68,10 +64,11 @@ export const generatePDF = (report, inspectorName, reportId) => {
   doc.setTextColor(darkColor);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-
+  
+  // Centered Title
   const titleText = `INFORME TÉCNICO Nº: ${finalID}`;
   const textWidth = doc.getStringUnitWidth(titleText) * doc.internal.getFontSize() / doc.internal.scaleFactor;
-  const textOffset = leftMargin + (printableWidth - textWidth) / 2;
+  const textOffset = (pageWidth - textWidth) / 2;
   doc.text(titleText, textOffset, currentY);
 
   currentY += 5;
@@ -82,64 +79,39 @@ export const generatePDF = (report, inspectorName, reportId) => {
         ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
         ['Motor:', report.motor, 'Modelo:', report.modelo],
         ['Nº de motor:', report.n_motor, 'Grupo:', report.grupo],
-        [{content: 'Instalación:', styles: {fontStyle: 'bold'}}, {content: report.instalacion, colSpan: 3}],
+        ['Instalación:', report.instalacion, '', ''],
     ],
     theme: 'grid',
     styles: { fontSize: 9, cellPadding: 2 },
-    columnStyles: { 0: { fontStyle: 'bold' }, 2: { fontStyle: 'bold' } },
-    margin: { left: leftMargin, right: rightMargin }
+    columnStyles: { 0: { fontStyle: 'bold' }, 2: { fontStyle: 'bold' } }
   });
 
   currentY = (doc as any).lastAutoTable.finalY + 10;
   
   if (report.reportContent) {
-    doc.setTextColor(darkColor);
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text("Descripción de la incidencia:", leftMargin, currentY);
+    doc.text("Descripción de la incidencia:", 15, currentY);
     currentY += 10;
-
-    const lineHeight = 5.5; 
-    const sectionTitles = ["ANTECEDENTES:", "INTERVENCIÓN:", "RESUMEN Y SITUACIÓN ACTUAL:"];
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
     
-    const normalizedText = report.reportContent
-      .replace(/\n\n/g, '[PARAGRAPH_BREAK]')
-      .replace(/\n/g, ' ');
+    const printableWidth = pageWidth - 30; // 15mm margin on each side
+    const lines = doc.splitTextToSize(report.reportContent, printableWidth);
 
-    const paragraphs = normalizedText.split('[PARAGRAPH_BREAK]');
-
-    for (const paragraph of paragraphs) {
-      if (paragraph.trim() === '') {
-        currentY += lineHeight;
-        continue;
+    const lineHeight = 5.5;
+    for (const line of lines) {
+      if (currentY + lineHeight > pageHeight - 30) {
+        drawFooter(doc.internal.pages.length, 0);
+        doc.addPage();
+        drawHeader();
+        currentY = 40;
       }
-      
-      const lines = doc.splitTextToSize(paragraph, printableWidth);
-      
-      for (const line of lines) {
-        if (currentY + lineHeight > pageHeight - 30) { 
-          drawFooter(doc.internal.pages.length, 0);
-          doc.addPage();
-          drawHeader();
-          currentY = 40;
-          doc.setTextColor(darkColor); // Reset color on new page
-        }
-        
-        const isTitle = sectionTitles.some(title => line.trim().toUpperCase().startsWith(title));
-
-        doc.setFont('helvetica', isTitle ? 'bold' : 'normal');
-        doc.setFontSize(9);
-
-        if (isTitle && currentY > 50) currentY += lineHeight;
-
-        doc.text(line, leftMargin, currentY);
-
-        currentY += lineHeight;
-      }
-      currentY += lineHeight / 2; // Add space between paragraphs
+      doc.text(line, 15, currentY);
+      currentY += lineHeight;
     }
   }
-
+  
   const signatureBlockHeight = 45;
   if (currentY + signatureBlockHeight > pageHeight - 20) {
     drawFooter(doc.internal.pages.length, 0);
@@ -151,11 +123,11 @@ export const generatePDF = (report, inspectorName, reportId) => {
   currentY += 20;
 
   if (report.inspectorSignatureUrl) {
-      doc.addImage(report.inspectorSignatureUrl, 'PNG', leftMargin, currentY, 60, 25);
+      doc.addImage(report.inspectorSignatureUrl, 'PNG', 15, currentY, 60, 25);
   }
   doc.setFontSize(10);
-  doc.text(`Firmado: ${inspectorName}`, leftMargin, currentY + 32);
-  doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, leftMargin, currentY + 39);
+  doc.text(`Firmado: ${inspectorName}`, 15, currentY + 32);
+  doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, 15, currentY + 39);
 
   const totalPages = doc.internal.pages.length;
   for (let i = 1; i <= totalPages; i++) {
@@ -325,7 +297,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-8 border border-slate-100">
          <div className="flex justify-between items-center">
             <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">
-                <Type size={18} className="text-green-500" /> Descripción de la incidencia
+                <Type size={18} className="text-green-500" /> Contenido del Informe
             </h3>
             <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors active:scale-95">
                 {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />}
