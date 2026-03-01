@@ -163,9 +163,7 @@ export default function HojaRevisionForm({ initialData }: { initialData?: any })
             [{ content: `Intensidad: R: ${formData.pruebas_carga.intensidad_r} S: ${formData.pruebas_carga.intensidad_s} T: ${formData.pruebas_carga.intensidad_t}`, colSpan: 2 }],
             [{ content: `Potencia: ${formData.pruebas_carga.potencia_kw} kW`, colSpan: 2 }],
             [{ content: 'OBSERVACIONES', colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#f1f5f9' }}],
-            [{ content: `PRUEBAS FUNCIONALES SIN CARGA: ${formData.observaciones_sin_carga}`, colSpan: 2 }],
-            [{ content: formData.observaciones_con_carga, colSpan: 2 }],
-            [{ content: formData.observaciones_finales, colSpan: 2, styles: { fontStyle: 'bold' } }],
+            [{ content: formData.observaciones, colSpan: 2 }],
         ],
         theme: 'grid', styles: { fontSize: 8, cellPadding: 1 }
     });
@@ -292,8 +290,7 @@ export default function HojaRevisionForm({ initialData }: { initialData?: any })
         {/* --- OBSERVACIONES Y FIRMAS --- */}
         <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
             <h3 className="font-bold text-slate-500">Observaciones</h3>
-            <textarea className="w-full h-24 bg-slate-50 border-2 border-slate-100 rounded-xl p-4" placeholder="Pruebas funcionales sin carga..." value={formData.observaciones_sin_carga} onChange={e => handleInputChange('observaciones_sin_carga', e.target.value)}/>
-            <textarea className="w-full h-24 bg-slate-50 border-2 border-slate-100 rounded-xl p-4" placeholder="Observaciones con carga..." value={formData.observaciones_con_carga} onChange={e => handleInputChange('observaciones_con_carga', e.target.value)}/>
+            <textarea className="w-full h-24 bg-slate-50 border-2 border-slate-100 rounded-xl p-4" placeholder="Añade tus observaciones aquí..." value={formData.observaciones} onChange={e => handleInputChange('observaciones', e.target.value)}/>
             <div className="grid md:grid-cols-2 gap-8 items-start pt-6">
                  <div>
                     <SignaturePad title="Firma del Inspector" onSignatureEnd={setInspectorSignature} />
@@ -314,7 +311,7 @@ export default function HojaRevisionForm({ initialData }: { initialData?: any })
                 {isSaved ? <Printer size={20} /> : <FileSearch size={20} />}
                 {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
             </button>
-            <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
+            <button onClick={handleSave} disabled={saving} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
                 {saving ? <Loader2 className="animate-spin text-blue-500" /> : isSaved ? <CheckCircle2 className="text-blue-500" /> : <Save className="text-blue-500" />}
                 {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR REVISIÓN'}
             </button>

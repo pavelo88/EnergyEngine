@@ -37,8 +37,6 @@ export const CHECKLIST_SECTIONS = {
       intensidad_t: '',
       potencia_kw: ''
     },
-    observaciones_sin_carga: '',
-    observaciones_con_carga: '',
-    observaciones_finales: 'EL GRUPO SE QUEDA OPERATIVO Y EN AUTOMÁTICO',
+    observaciones: '',
     recibidoPor: '',
   };
