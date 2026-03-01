@@ -50,9 +50,5 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
-    match /partes_diarios/{parteId} {
-      allow read, write: if isSignedIn();
-    }
-
   }
 }

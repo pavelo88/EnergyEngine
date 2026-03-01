@@ -39,6 +39,115 @@ const LoadTestInput = React.memo(({ label, value, onChange }) => (
     </div>
 ));
 
+export const generatePDF = (report, inspectorName, reportId) => {
+    const doc = new jsPDF();
+    const finalID = reportId || 'BORRADOR';
+    const darkColor = '#0f172a';
+    
+    // Header
+    doc.setFillColor(darkColor);
+    doc.rect(0, 0, 210, 28, 'F');
+    doc.setTextColor('#FFFFFF');
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text("ENERGY ENGINE", 15, 18);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", 205, 12, { align: 'right' });
+    doc.text("info@energyengine.es | +34 925 15 43 54", 205, 18, { align: 'right' });
+
+    // Main Title
+    doc.setTextColor(darkColor);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`REVISIÓN BÁSICA - Nº: ${finalID}`, 15, 38);
+
+    // Client/Motor Data Table
+    autoTable(doc, {
+        startY: 42,
+        body: [
+            [{content: 'CLIENTE', styles: {fontStyle: 'bold'}}, report.cliente, {content: 'FECHA REVISION:', styles: {fontStyle: 'bold'}}, report.fecha_revision],
+            [{content: 'MOTOR', styles: {fontStyle: 'bold'}}, report.motor, {content: 'POTENCIA', styles: {fontStyle: 'bold'}}, report.potencia],
+            [{content: 'MODELO', styles: {fontStyle: 'bold'}}, report.modelo, '', ''],
+            [{content: 'Nº MOTOR', styles: {fontStyle: 'bold'}}, report.n_motor, '', ''],
+            [{content: 'Nº GRUPO', styles: {fontStyle: 'bold'}}, report.n_grupo, '', ''],
+            [{content: 'INSTALACION', styles: {fontStyle: 'bold'}}, report.instalacion, '', ''],
+            [{content: 'DIRECCION', styles: {fontStyle: 'bold'}}, report.direccion, '', ''],
+        ],
+        theme: 'grid', styles: {fontSize: 8, cellPadding: 1.5},
+        headStyles: { fillColor: darkColor }
+    });
+
+    let lastY = (doc as any).lastAutoTable.finalY + 4;
+
+    // Checklist Table
+    autoTable(doc, {
+        startY: lastY,
+        head: [['', 'OK', 'DEFECT', 'AVERIA', 'CAMBIO']],
+        body: BASIC_REVISION_SECTIONS.flatMap(([section, items]) => {
+            const sectionRows: any[] = [[{ content: section, colSpan: 5, styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#000' }}]];
+            (items as string[]).forEach(item => {
+                sectionRows.push([
+                    item,
+                    report.checklist[item] === 'OK' ? 'X' : '',
+                    report.checklist[item] === 'DEFECT' ? 'X' : '',
+                    report.checklist[item] === 'AVERIA' ? 'X' : '',
+                    report.checklist[item] === 'CAMBIO' ? 'X' : '',
+                ]);
+            });
+            return sectionRows;
+        }),
+        theme: 'grid', styles: { fontSize: 7, cellPadding: 1.5, halign: 'center' },
+        headStyles: { fillColor: darkColor, textColor: '#fff', halign: 'center' },
+        columnStyles: { 0: { halign: 'left' } }
+    });
+
+    lastY = (doc as any).lastAutoTable.finalY + 5;
+    
+    if (lastY > 260) doc.addPage();
+    lastY = lastY > 260 ? 20 : lastY;
+
+    // Test Data & Observations
+    autoTable(doc, {
+        startY: lastY,
+        body: [
+            [{ content: 'DATOS DE PRUEBAS', styles: { fontStyle: 'bold' }}, { content: 'VALORES', styles: { fontStyle: 'bold' }}],
+            ['Horas de funcionamiento', report.datos_pruebas.horas],
+            ['Presión aceite', report.datos_pruebas.presion],
+            ['Temperatura en bloque motor', report.datos_pruebas.temperatura],
+            ['Nivel de deposito de combustible', report.datos_pruebas.nivel_combustible],
+            ['Tensión en el alternador', report.datos_pruebas.tension_alternador],
+            ['Frecuencia', report.datos_pruebas.frecuencia],
+            ['Carga de baterías', report.datos_pruebas.carga_baterias],
+            [{ content: 'PRUEBAS CON CARGA', colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#f1f5f9' }}],
+            [{ content: `Tensión: RS: ${report.pruebas_carga.tension_rs} ST: ${report.pruebas_carga.tension_st} RT: ${report.pruebas_carga.tension_rt}`, colSpan: 2 }],
+            [{ content: `Intensidad: R: ${report.pruebas_carga.intensidad_r} S: ${report.pruebas_carga.intensidad_s} T: ${report.pruebas_carga.intensidad_t}`, colSpan: 2 }],
+            [{ content: `Potencia: ${report.pruebas_carga.potencia_kw} kW`, colSpan: 2 }],
+            [{ content: 'OBSERVACIONES', colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#f1f5f9' }}],
+            [{ content: report.observaciones, colSpan: 2, styles: { minCellHeight: 20 } }],
+        ],
+        theme: 'grid', styles: { fontSize: 8, cellPadding: 2 }
+    });
+
+    lastY = (doc as any).lastAutoTable.finalY;
+
+    // Signature
+    const signatureY = lastY + 5 > 250 ? 250 : lastY + 5;
+    doc.setFontSize(9);
+    
+    if (report.clientSignatureUrl) doc.addImage(report.clientSignatureUrl, 'PNG', 115, signatureY, 60, 25);
+    doc.line(115, signatureY + 25, 185, signatureY + 25);
+    doc.text("Conforme cliente:", 115, signatureY + 30);
+    doc.text(report.recibidoPor, 115, signatureY + 35);
+
+    if (report.inspectorSignatureUrl) doc.addImage(report.inspectorSignatureUrl, 'PNG', 15, signatureY, 60, 25);
+    doc.line(15, signatureY + 25, 85, signatureY + 25);
+    doc.text("Firma técnico:", 15, signatureY + 30);
+    doc.text(inspectorName, 15, signatureY + 35);
+    
+    return doc;
+  };
+
 export default function RevisionBasicaForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
   const db = useFirestore();
@@ -141,119 +250,15 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
   const handleChecklistChange = (item, status) => {
     setFormData(prev => ({ ...prev, checklist: { ...prev.checklist, [item]: status } }));
   };
-
-  const generatePDF = (isDraft = false) => {
-    const doc = new jsPDF();
-    const finalID = isDraft ? 'BORRADOR' : savedDocId;
-    const darkColor = '#0f172a';
-    
-    // Header
-    doc.setFillColor(darkColor);
-    doc.rect(0, 0, 210, 28, 'F');
-    doc.setTextColor('#FFFFFF');
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text("ENERGY ENGINE", 15, 18);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", 205, 12, { align: 'right' });
-    doc.text("info@energyengine.es | +34 925 15 43 54", 205, 18, { align: 'right' });
-
-    // Main Title
-    doc.setTextColor(darkColor);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`REVISIÓN BÁSICA - Nº: ${finalID}`, 15, 38);
-
-    // Client/Motor Data Table
-    autoTable(doc, {
-        startY: 42,
-        body: [
-            [{content: 'CLIENTE', styles: {fontStyle: 'bold'}}, formData.cliente, {content: 'FECHA REVISION:', styles: {fontStyle: 'bold'}}, formData.fecha_revision],
-            [{content: 'MOTOR', styles: {fontStyle: 'bold'}}, formData.motor, {content: 'POTENCIA', styles: {fontStyle: 'bold'}}, formData.potencia],
-            [{content: 'MODELO', styles: {fontStyle: 'bold'}}, formData.modelo, '', ''],
-            [{content: 'Nº MOTOR', styles: {fontStyle: 'bold'}}, formData.n_motor, '', ''],
-            [{content: 'Nº GRUPO', styles: {fontStyle: 'bold'}}, formData.n_grupo, '', ''],
-            [{content: 'INSTALACION', styles: {fontStyle: 'bold'}}, formData.instalacion, '', ''],
-            [{content: 'DIRECCION', styles: {fontStyle: 'bold'}}, formData.direccion, '', ''],
-        ],
-        theme: 'grid', styles: {fontSize: 8, cellPadding: 1.5},
-        headStyles: { fillColor: darkColor }
-    });
-
-    let lastY = (doc as any).lastAutoTable.finalY + 4;
-
-    // Checklist Table
-    autoTable(doc, {
-        startY: lastY,
-        head: [['', 'OK', 'DEFECT', 'AVERIA', 'CAMBIO']],
-        body: BASIC_REVISION_SECTIONS.flatMap(([section, items]) => {
-            const sectionRows: any[] = [[{ content: section, colSpan: 5, styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#000' }}]];
-            (items as string[]).forEach(item => {
-                sectionRows.push([
-                    item,
-                    formData.checklist[item] === 'OK' ? 'X' : '',
-                    formData.checklist[item] === 'DEFECT' ? 'X' : '',
-                    formData.checklist[item] === 'AVERIA' ? 'X' : '',
-                    formData.checklist[item] === 'CAMBIO' ? 'X' : '',
-                ]);
-            });
-            return sectionRows;
-        }),
-        theme: 'grid', styles: { fontSize: 7, cellPadding: 1.5, halign: 'center' },
-        headStyles: { fillColor: darkColor, textColor: '#fff', halign: 'center' },
-        columnStyles: { 0: { halign: 'left' } }
-    });
-
-    lastY = (doc as any).lastAutoTable.finalY + 5;
-    
-    if (lastY > 260) doc.addPage();
-    lastY = lastY > 260 ? 20 : lastY;
-
-    // Test Data & Observations
-    autoTable(doc, {
-        startY: lastY,
-        body: [
-            [{ content: 'DATOS DE PRUEBAS', styles: { fontStyle: 'bold' }}, { content: 'VALORES', styles: { fontStyle: 'bold' }}],
-            ['Horas de funcionamiento', formData.datos_pruebas.horas],
-            ['Presión aceite', formData.datos_pruebas.presion],
-            ['Temperatura en bloque motor', formData.datos_pruebas.temperatura],
-            ['Nivel de deposito de combustible', formData.datos_pruebas.nivel_combustible],
-            ['Tensión en el alternador', formData.datos_pruebas.tension_alternador],
-            ['Frecuencia', formData.datos_pruebas.frecuencia],
-            ['Carga de baterías', formData.datos_pruebas.carga_baterias],
-            [{ content: 'PRUEBAS CON CARGA', colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#f1f5f9' }}],
-            [{ content: `Tensión: RS: ${formData.pruebas_carga.tension_rs} ST: ${formData.pruebas_carga.tension_st} RT: ${formData.pruebas_carga.tension_rt}`, colSpan: 2 }],
-            [{ content: `Intensidad: R: ${formData.pruebas_carga.intensidad_r} S: ${formData.pruebas_carga.intensidad_s} T: ${formData.pruebas_carga.intensidad_t}`, colSpan: 2 }],
-            [{ content: `Potencia: ${formData.pruebas_carga.potencia_kw} kW`, colSpan: 2 }],
-            [{ content: 'OBSERVACIONES', colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#f1f5f9' }}],
-            [{ content: formData.observaciones, colSpan: 2, styles: { minCellHeight: 20 } }],
-        ],
-        theme: 'grid', styles: { fontSize: 8, cellPadding: 2 }
-    });
-
-    lastY = (doc as any).lastAutoTable.finalY;
-
-    // Signature
-    const signatureY = lastY + 5 > 250 ? 250 : lastY + 5;
-    doc.setFontSize(9);
-    
-    if (clientSignature) doc.addImage(clientSignature, 'PNG', 115, signatureY, 60, 25);
-    doc.line(115, signatureY + 25, 185, signatureY + 25);
-    doc.text("Conforme cliente:", 115, signatureY + 30);
-    doc.text(formData.recibidoPor, 115, signatureY + 35);
-
-    if (inspectorSignature) doc.addImage(inspectorSignature, 'PNG', 15, signatureY, 60, 25);
-    doc.line(15, signatureY + 25, 85, signatureY + 25);
-    doc.text("Firma técnico:", 15, signatureY + 30);
-    doc.text(inspectorName, 15, signatureY + 35);
-    
-    return doc;
-  };
   
   const handlePdfAction = () => {
     if (!saving) {
-        const doc = generatePDF(!isSaved);
+        const reportData = {
+          ...formData,
+          inspectorSignatureUrl: inspectorSignature,
+          clientSignatureUrl: clientSignature,
+        };
+        const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
         if (isSaved) {
             doc.save(`Revision_Basica_${savedDocId}.pdf`);
         } else {

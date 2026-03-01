@@ -39,6 +39,124 @@ const LoadTestInput = React.memo(({ label, value, onChange }) => (
     </div>
 ));
 
+export const generatePDF = (report, inspectorName, reportId) => {
+  const doc = new jsPDF();
+  const finalID = reportId || 'BORRADOR';
+  const darkColor = '#0f172a'; // Slate-900 from theme
+
+  // Header
+  doc.setFillColor(darkColor);
+  doc.rect(0, 0, 210, 28, 'F');
+  doc.setTextColor('#FFFFFF');
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text("ENERGY ENGINE", 15, 18);
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", 205, 12, { align: 'right' });
+  doc.text("info@energyengine.es | +34 925 15 43 54", 205, 18, { align: 'right' });
+  
+  // Sub-header
+  let currentY = 40;
+  doc.setTextColor(darkColor);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text("ALBARÁN DE TRABAJO", 15, currentY);
+
+  doc.setFontSize(10);
+  doc.text(`Nº: ${finalID}`, 205, currentY, { align: 'right' });
+  currentY += 5;
+
+  // Client and Service Data
+  autoTable(doc, {
+      startY: currentY,
+      body: [
+          [{content: 'CLIENTE:', styles: {fontStyle: 'bold'}}, report.cliente, {content: 'FECHA:', styles: {fontStyle: 'bold'}}, report.fecha],
+          [{content: 'INSTALACIÓN:', styles: {fontStyle: 'bold'}}, report.instalacion, {content: 'TÉCNICOS:', styles: {fontStyle: 'bold'}}, report.tecnicos],
+          [{content: 'MOTOR:', styles: {fontStyle: 'bold'}}, report.motor, {content: 'H. ASISTENCIA:', styles: {fontStyle: 'bold'}}, report.h_asistencia],
+          [{content: 'Nº MOTOR:', styles: {fontStyle: 'bold'}}, report.n_motor, {content: 'TIPO DE SERVICIO:', styles: {fontStyle: 'bold'}}, report.tipo_servicio],
+          [{content: 'GRUPO:', styles: {fontStyle: 'bold'}}, report.grupo, {content: 'KMS.:', styles: {fontStyle: 'bold'}}, report.kms],
+          [{content: 'Nº GRUPO:', styles: {fontStyle: 'bold'}}, report.n_grupo, {content: 'DIETA:', styles: {fontStyle: 'bold'}}, `${report.dieta} € ${report.media_dieta ? `(1/2 Cant: ${report.media_dieta_cantidad})`:''}`],
+          [{content: 'Nº DE PEDIDO:', styles: {fontStyle: 'bold'}}, report.n_pedido, '', ''],
+      ],
+      theme: 'grid',
+      styles: {fontSize: 8, cellPadding: 2},
+  });
+
+  let finalYAfterHeader = (doc as any).lastAutoTable.finalY;
+
+  // Parámetros Técnicos
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text("PARÁMETROS TÉCNICOS", 15, finalYAfterHeader + 8);
+  autoTable(doc, {
+      startY: finalYAfterHeader + 10,
+      body: [
+          [`Horas: ${report.parametrosTecnicos.horas}`, `Presión Aceite: ${report.parametrosTecnicos.presionAceite}`, `Tensión: ${report.parametrosTecnicos.tension}`],
+          [`Tª (°C): ${report.parametrosTecnicos.temperatura}`, `Nivel Combustible (%): ${report.parametrosTecnicos.nivelCombustible}`, `Frecuencia (Hz): ${report.parametrosTecnicos.frecuencia}`],
+          [{content: `Tensión de baterías (V): ${report.parametrosTecnicos.tensionBaterias}`, colSpan: 3}],
+      ],
+      theme: 'grid',
+      styles: {fontSize: 8, cellPadding: 1.5, minCellHeight: 8},
+      bodyStyles: {fontStyle: 'bold'},
+  });
+
+  let finalYAfterParams = (doc as any).lastAutoTable.finalY;
+
+  // Potencia con Carga
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Potencia con carga: ${report.potenciaConCarga.potencia}`, 15, finalYAfterParams + 8);
+  autoTable(doc, {
+      startY: finalYAfterParams + 10,
+      head: [['Tensión', 'Intensidad', 'Potencia (kW)']],
+      body: [
+          [`RS: ${report.potenciaConCarga.tensionRS}`, `R: ${report.potenciaConCarga.intensidadR}`, {rowSpan: 3, content: report.potenciaConCarga.potenciaKW, styles: {valign: 'middle', halign: 'center'}}],
+          [`ST: ${report.potenciaConCarga.tensionST}`, `S: ${report.potenciaConCarga.intensidadS}`],
+          [`RT: ${report.potenciaConCarga.tensionRT}`, `T: ${report.potenciaConCarga.intensidadT}`],
+      ],
+      theme: 'grid',
+      styles: {fontSize: 9, cellPadding: 1.5, minCellHeight: 8},
+      headStyles: { fillColor: darkColor, textColor: '#fff' },
+      bodyStyles: {fontStyle: 'bold'}
+  });
+
+  let finalYAfterLoad = (doc as any).lastAutoTable.finalY;
+
+  // Trabajos Realizados
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text("TRABAJOS REALIZADOS", 15, finalYAfterLoad + 8);
+  const splitText = doc.splitTextToSize(report.trabajos_realizados, 180);
+  const textBoxHeight = (splitText.length * 4) + 10 > 40 ? (splitText.length * 4) + 10 : 40; 
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.rect(15, finalYAfterLoad + 10, 180, textBoxHeight, 'S');
+  doc.text(splitText, 17, finalYAfterLoad + 15);
+
+  let finalY = finalYAfterLoad + 10 + textBoxHeight;
+
+  // Signatures
+  const signatureY = finalY > 230 ? 230 : finalY + 15;
+  doc.setFontSize(9);
+  
+  if (report.clientSignatureUrl) doc.addImage(report.clientSignatureUrl, 'PNG', 115, signatureY, 60, 25);
+  doc.line(115, signatureY + 25, 185, signatureY + 25);
+  doc.text("Conforme cliente:", 115, signatureY + 30);
+  doc.text(report.recibidoPor, 115, signatureY + 35);
+  
+  if (report.inspectorSignatureUrl) doc.addImage(report.inspectorSignatureUrl, 'PNG', 15, signatureY, 60, 25);
+  doc.line(15, signatureY + 25, 85, signatureY + 25);
+  doc.text("Firma técnico:", 15, signatureY + 30);
+  doc.text(inspectorName, 15, signatureY + 35);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text("GRACIAS POR CONFIAR EN NOSOTROS", 105, 285, { align: 'center' });
+
+  return doc;
+};
+
 
 export default function AlbaranForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
@@ -196,127 +314,17 @@ export default function AlbaranForm({ initialData, aiData }: { initialData?: any
     }
   };
 
-  const generatePDF = (isDraft = false) => {
-    const doc = new jsPDF();
-    const finalID = isDraft ? 'BORRADOR' : savedDocId;
-    const darkColor = '#0f172a'; // Slate-900 from theme
-
-    // Header
-    doc.setFillColor(darkColor);
-    doc.rect(0, 0, 210, 28, 'F');
-    doc.setTextColor('#FFFFFF');
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text("ENERGY ENGINE", 15, 18);
-    
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", 205, 12, { align: 'right' });
-    doc.text("info@energyengine.es | +34 925 15 43 54", 205, 18, { align: 'right' });
-    
-    // Sub-header
-    let currentY = 40;
-    doc.setTextColor(darkColor);
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text("ALBARÁN DE TRABAJO", 15, currentY);
-
-    doc.setFontSize(10);
-    doc.text(`Nº: ${finalID}`, 205, currentY, { align: 'right' });
-    currentY += 5;
-
-    // Client and Service Data
-    autoTable(doc, {
-        startY: currentY,
-        body: [
-            [{content: 'CLIENTE:', styles: {fontStyle: 'bold'}}, formData.cliente, {content: 'FECHA:', styles: {fontStyle: 'bold'}}, formData.fecha],
-            [{content: 'INSTALACIÓN:', styles: {fontStyle: 'bold'}}, formData.instalacion, {content: 'TÉCNICOS:', styles: {fontStyle: 'bold'}}, formData.tecnicos],
-            [{content: 'MOTOR:', styles: {fontStyle: 'bold'}}, formData.motor, {content: 'H. ASISTENCIA:', styles: {fontStyle: 'bold'}}, formData.h_asistencia],
-            [{content: 'Nº MOTOR:', styles: {fontStyle: 'bold'}}, formData.n_motor, {content: 'TIPO DE SERVICIO:', styles: {fontStyle: 'bold'}}, formData.tipo_servicio],
-            [{content: 'GRUPO:', styles: {fontStyle: 'bold'}}, formData.grupo, {content: 'KMS.:', styles: {fontStyle: 'bold'}}, formData.kms],
-            [{content: 'Nº GRUPO:', styles: {fontStyle: 'bold'}}, formData.n_grupo, {content: 'DIETA:', styles: {fontStyle: 'bold'}}, `${formData.dieta} € ${formData.media_dieta ? `(1/2 Cant: ${formData.media_dieta_cantidad})`:''}`],
-            [{content: 'Nº DE PEDIDO:', styles: {fontStyle: 'bold'}}, formData.n_pedido, '', ''],
-        ],
-        theme: 'grid',
-        styles: {fontSize: 8, cellPadding: 2},
-    });
-
-    let finalYAfterHeader = (doc as any).lastAutoTable.finalY;
-
-    // Parámetros Técnicos
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text("PARÁMETROS TÉCNICOS", 15, finalYAfterHeader + 8);
-    autoTable(doc, {
-        startY: finalYAfterHeader + 10,
-        body: [
-            [`Horas: ${formData.parametrosTecnicos.horas}`, `Presión Aceite: ${formData.parametrosTecnicos.presionAceite}`, `Tensión: ${formData.parametrosTecnicos.tension}`],
-            [`Tª (°C): ${formData.parametrosTecnicos.temperatura}`, `Nivel Combustible (%): ${formData.parametrosTecnicos.nivelCombustible}`, `Frecuencia (Hz): ${formData.parametrosTecnicos.frecuencia}`],
-            [{content: `Tensión de baterías (V): ${formData.parametrosTecnicos.tensionBaterias}`, colSpan: 3}],
-        ],
-        theme: 'grid',
-        styles: {fontSize: 8, cellPadding: 1.5, minCellHeight: 8},
-        bodyStyles: {fontStyle: 'bold'},
-    });
-
-    let finalYAfterParams = (doc as any).lastAutoTable.finalY;
-
-    // Potencia con Carga
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Potencia con carga: ${formData.potenciaConCarga.potencia}`, 15, finalYAfterParams + 8);
-    autoTable(doc, {
-        startY: finalYAfterParams + 10,
-        head: [['Tensión', 'Intensidad', 'Potencia (kW)']],
-        body: [
-            [`RS: ${formData.potenciaConCarga.tensionRS}`, `R: ${formData.potenciaConCarga.intensidadR}`, {rowSpan: 3, content: formData.potenciaConCarga.potenciaKW, styles: {valign: 'middle', halign: 'center'}}],
-            [`ST: ${formData.potenciaConCarga.tensionST}`, `S: ${formData.potenciaConCarga.intensidadS}`],
-            [`RT: ${formData.potenciaConCarga.tensionRT}`, `T: ${formData.potenciaConCarga.intensidadT}`],
-        ],
-        theme: 'grid',
-        styles: {fontSize: 9, cellPadding: 1.5, minCellHeight: 8},
-        headStyles: { fillColor: darkColor, textColor: '#fff' },
-        bodyStyles: {fontStyle: 'bold'}
-    });
-
-    let finalYAfterLoad = (doc as any).lastAutoTable.finalY;
-
-    // Trabajos Realizados
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text("TRABAJOS REALIZADOS", 15, finalYAfterLoad + 8);
-    const splitText = doc.splitTextToSize(formData.trabajos_realizados, 180);
-    const textBoxHeight = (splitText.length * 4) + 10 > 40 ? (splitText.length * 4) + 10 : 40; 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.rect(15, finalYAfterLoad + 10, 180, textBoxHeight, 'S');
-    doc.text(splitText, 17, finalYAfterLoad + 15);
-
-    let finalY = finalYAfterLoad + 10 + textBoxHeight;
-
-    // Signatures
-    const signatureY = finalY > 230 ? 230 : finalY + 15;
-    doc.setFontSize(9);
-    
-    if (clientSignature) doc.addImage(clientSignature, 'PNG', 115, signatureY, 60, 25);
-    doc.line(115, signatureY + 25, 185, signatureY + 25);
-    doc.text("Conforme cliente:", 115, signatureY + 30);
-    doc.text(formData.recibidoPor, 115, signatureY + 35);
-    
-    if (inspectorSignature) doc.addImage(inspectorSignature, 'PNG', 15, signatureY, 60, 25);
-    doc.line(15, signatureY + 25, 85, signatureY + 25);
-    doc.text("Firma técnico:", 15, signatureY + 30);
-    doc.text(inspectorName, 15, signatureY + 35);
-    
-    doc.setFont('helvetica', 'bold');
-    doc.text("GRACIAS POR CONFIAR EN NOSOTROS", 105, 285, { align: 'center' });
-
-    return doc;
-  };
-
   const handlePdfAction = () => {
     if (!formData.cliente || !formData.instalacion) return alert("El cliente y la instalación son obligatorios.");
-    const doc = generatePDF(isSaved ? false : true);
+    
+    const reportData = {
+      ...formData,
+      inspectorSignatureUrl: inspectorSignature,
+      clientSignatureUrl: clientSignature,
+    };
+    
+    const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
+
     if (isSaved) {
       doc.save(`Albaran_${savedDocId}.pdf`);
     } else {

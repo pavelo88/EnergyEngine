@@ -26,6 +26,85 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
   </div>
 ));
 
+export const generatePDF = (report, inspectorName, reportId) => {
+    const doc = new jsPDF();
+    const finalID = reportId || 'BORRADOR';
+    const darkColor = '#0f172a'; // Slate-900
+
+    // Header
+    doc.setFillColor(darkColor);
+    doc.rect(0, 0, 210, 28, 'F');
+    doc.setTextColor('#FFFFFF');
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text("INFORME TÉCNICO", 15, 18);
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`ID: ${finalID}`, 205, 12, { align: 'right' });
+    doc.text(`Fecha: ${new Date(report.fecha).toLocaleDateString('es-ES')}`, 205, 18, { align: 'right' });
+    
+    // Sub-header
+    let startY = 40;
+    const headerData = [
+        ['Motor:', report.motor, 'Modelo:', report.modelo],
+        ['Nº de motor:', report.n_motor, 'Grupo:', report.grupo],
+        [{content: `Instalación: ${report.instalacion}`, colSpan: 4, styles: {fontStyle:'normal'}}],
+    ];
+
+    autoTable(doc, {
+        startY: startY,
+        body: headerData,
+        theme: 'plain',
+        styles: { fontSize: 9, cellPadding: 1 },
+        columnStyles: {
+            0: { fontStyle: 'bold' },
+            2: { fontStyle: 'bold' },
+        }
+    });
+
+    startY = (doc as any).lastAutoTable.finalY + 10;
+
+    // Report Content
+    if (report.reportContent) {
+        doc.setTextColor(darkColor);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        const splitText = doc.splitTextToSize(report.reportContent, 180);
+        doc.text(splitText, 15, startY);
+        startY += (splitText.length * 5); // Approximate height
+    }
+
+    // Footer & Signature
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for(let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        
+        // Signature on the last page only
+        if (i === pageCount) {
+             let signatureY = doc.internal.pageSize.height - 60;
+             if (startY > signatureY) doc.addPage();
+             
+             if(report.inspectorSignatureUrl) {
+                doc.addImage(report.inspectorSignatureUrl, 'PNG', 15, signatureY, 60, 25);
+            }
+            doc.setFontSize(10);
+            doc.text(`Firmado: ${inspectorName}`, 15, signatureY + 32);
+            doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, 15, signatureY + 39);
+        }
+        
+        doc.setFontSize(8);
+        doc.setTextColor(100);
+        doc.text(`Página ${i} de ${pageCount}`, 195, doc.internal.pageSize.height - 10, { align: 'right' });
+        
+        doc.setFillColor(darkColor);
+        doc.rect(0, doc.internal.pageSize.height - 5, 210, 5, 'F');
+    }
+
+    return doc;
+};
+
+
 export default function InformeTecnicoForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
   const db = useFirestore();
@@ -112,86 +191,12 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     finally { setAiLoading(false); }
   };
 
-  const generatePDF = (isDraft = false) => {
-    const doc = new jsPDF();
-    const finalID = isDraft ? 'BORRADOR' : savedDocId;
-    const darkColor = '#0f172a'; // Slate-900
-
-    // Header
-    doc.setFillColor(darkColor);
-    doc.rect(0, 0, 210, 28, 'F');
-    doc.setTextColor('#FFFFFF');
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text("INFORME TÉCNICO", 15, 18);
-    
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`ID: ${finalID}`, 205, 12, { align: 'right' });
-    doc.text(`Fecha: ${new Date(formData.fecha).toLocaleDateString('es-ES')}`, 205, 18, { align: 'right' });
-    
-    // Sub-header
-    let startY = 40;
-    const headerData = [
-        ['Motor:', formData.motor, 'Modelo:', formData.modelo],
-        ['Nº de motor:', formData.n_motor, 'Grupo:', formData.grupo],
-        [{content: `Instalación: ${formData.instalacion}`, colSpan: 4, styles: {fontStyle:'normal'}}],
-    ];
-
-    autoTable(doc, {
-        startY: startY,
-        body: headerData,
-        theme: 'plain',
-        styles: { fontSize: 9, cellPadding: 1 },
-        columnStyles: {
-            0: { fontStyle: 'bold' },
-            2: { fontStyle: 'bold' },
-        }
-    });
-
-    startY = (doc as any).lastAutoTable.finalY + 10;
-
-    // Report Content
-    if (formData.reportContent) {
-        doc.setTextColor(darkColor);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        const splitText = doc.splitTextToSize(formData.reportContent, 180);
-        doc.text(splitText, 15, startY);
-        startY += (splitText.length * 5); // Approximate height
-    }
-
-    // Footer & Signature
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for(let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        
-        // Signature on the last page only
-        if (i === pageCount) {
-             let signatureY = doc.internal.pageSize.height - 60;
-             if (startY > signatureY) doc.addPage();
-             
-             if(inspectorSignature) {
-                doc.addImage(inspectorSignature, 'PNG', 15, signatureY, 60, 25);
-            }
-            doc.setFontSize(10);
-            doc.text(`Firmado: ${inspectorName}`, 15, signatureY + 32);
-            doc.text(`A ${new Date(formData.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, 15, signatureY + 39);
-        }
-        
-        doc.setFontSize(8);
-        doc.setTextColor(100);
-        doc.text(`Página ${i} de ${pageCount}`, 195, doc.internal.pageSize.height - 10, { align: 'right' });
-        
-        doc.setFillColor(darkColor);
-        doc.rect(0, doc.internal.pageSize.height - 5, 210, 5, 'F');
-    }
-
-    return doc;
-  };
-
   const handlePdfAction = () => {
-    const doc = generatePDF(isSaved ? false : true);
+    const reportData = {
+      ...formData,
+      inspectorSignatureUrl: inspectorSignature,
+    };
+    const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
     if (isSaved) {
       doc.save(`Informe_Tecnico_${savedDocId}.pdf`);
     } else {

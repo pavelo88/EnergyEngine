@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, getDocs, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { Loader2, FileText, AlertTriangle, Printer } from 'lucide-react';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 // Importar las funciones de generación de PDF de cada formulario
