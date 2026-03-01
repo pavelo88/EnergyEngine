@@ -214,8 +214,8 @@ export default function HojaRevisionForm({ initialData }: { initialData?: any })
   };
   
   return (
-    <main className="max-w-6xl mx-auto p-4 md:p-6 space-y-8 animate-in fade-in">
-        <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
+    <div className="animate-in fade-in w-full bg-slate-50 min-h-screen">
+       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
             <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
                 <DialogHeader className="p-4 border-b">
                     <DialogTitle>Vista Previa de Hoja de Revisión</DialogTitle>
@@ -226,96 +226,102 @@ export default function HojaRevisionForm({ initialData }: { initialData?: any })
                 </div>
             </DialogContent>
         </Dialog>
-
-        <h2 className="text-2xl font-black text-black border-l-4 border-blue-500 pl-4 uppercase tracking-tighter">Hoja de Revisión (Uso Interno)</h2>
-
-        {/* --- DATOS GENERALES --- */}
-        <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-            <h3 className="font-bold text-slate-500">Datos Generales</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StableInput label="Cliente" icon={Users} value={formData.cliente} onChange={v => handleInputChange('cliente', v)}/>
-                <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={v => handleInputChange('instalacion', v)}/>
-                <StableInput label="Dirección" icon={MapPin} value={formData.direccion} onChange={v => handleInputChange('direccion', v)}/>
-                <StableInput label="Fecha Revisión" icon={Calendar} type="date" value={formData.fecha_revision} onChange={v => handleInputChange('fecha_revision', v)}/>
-                <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={v => handleInputChange('motor', v)}/>
-                <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={v => handleInputChange('modelo', v)}/>
-                <StableInput label="Nº Motor" icon={Hash} value={formData.n_motor} onChange={v => handleInputChange('n_motor', v)}/>
-                <StableInput label="Nº Grupo" icon={Hash} value={formData.n_grupo} onChange={v => handleInputChange('n_grupo', v)}/>
-                <StableInput label="Potencia" icon={Zap} value={formData.potencia} onChange={v => handleInputChange('potencia', v)}/>
-            </div>
-        </section>
         
-        {/* --- CHECKLISTS --- */}
-        {Object.entries(CHECKLIST_SECTIONS).map(([section, items]) => (
-            <section key={section} className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
-                <h3 className="font-bold text-slate-500">{section}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                    {(items as string[]).map(it => (
-                    <div key={it} className={`p-3 rounded-xl flex justify-between items-center transition-all border ${formData.checklist[it] ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-100'}`}>
-                        <span className="text-xs font-bold text-slate-700">{it}</span>
-                        <div className="flex gap-1">
-                        {["OK", "DEFECTUOSO", "AVERIADO", "CAMBIO"].map(st => (
-                            <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-12 h-8 rounded-lg text-[9px] font-black border-2 transition-all ${formData.checklist[it] === st ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-blue-300'}`}>{st}</button>
-                        ))}
-                        </div>
-                    </div>
-                    ))}
+        <header className="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-20">
+          <h1 className="text-lg font-bold tracking-wider uppercase">Energy Engine</h1>
+        </header>
+
+        <main className="p-4 md:p-6 space-y-8">
+            <h2 className="text-2xl font-black text-slate-800 border-l-4 border-blue-500 pl-4 uppercase tracking-tighter">Hoja de Revisión</h2>
+
+            {/* --- DATOS GENERALES --- */}
+            <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+                <h3 className="font-bold text-slate-500">Datos Generales</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <StableInput label="Cliente" icon={Users} value={formData.cliente} onChange={v => handleInputChange('cliente', v)}/>
+                    <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={v => handleInputChange('instalacion', v)}/>
+                    <StableInput label="Dirección" icon={MapPin} value={formData.direccion} onChange={v => handleInputChange('direccion', v)}/>
+                    <StableInput label="Fecha Revisión" icon={Calendar} type="date" value={formData.fecha_revision} onChange={v => handleInputChange('fecha_revision', v)}/>
+                    <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={v => handleInputChange('motor', v)}/>
+                    <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={v => handleInputChange('modelo', v)}/>
+                    <StableInput label="Nº Motor" icon={Hash} value={formData.n_motor} onChange={v => handleInputChange('n_motor', v)}/>
+                    <StableInput label="Nº Grupo" icon={Hash} value={formData.n_grupo} onChange={v => handleInputChange('n_grupo', v)}/>
+                    <StableInput label="Potencia" icon={Zap} value={formData.potencia} onChange={v => handleInputChange('potencia', v)}/>
                 </div>
             </section>
-        ))}
-
-         {/* --- PRUEBAS --- */}
-        <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-            <h3 className="font-bold text-slate-500">Datos de Pruebas y Carga</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                 <StableInput icon={Clock} label="Horas" value={formData.datos_pruebas.horas} onChange={v => handleNestedChange('datos_pruebas', 'horas', v)} />
-                 <StableInput icon={Gauge} label="Presión Aceite" value={formData.datos_pruebas.presion} onChange={v => handleNestedChange('datos_pruebas', 'presion', v)} />
-                 <StableInput icon={Thermometer} label="Temperatura" value={formData.datos_pruebas.temperatura} onChange={v => handleNestedChange('datos_pruebas', 'temperatura', v)} />
-                 <StableInput icon={Droplets} label="Nivel Combustible" value={formData.datos_pruebas.nivel_combustible} onChange={v => handleNestedChange('datos_pruebas', 'nivel_combustible', v)} />
-                 <StableInput icon={Zap} label="Tensión Alternador" value={formData.datos_pruebas.tension_alternador} onChange={v => handleNestedChange('datos_pruebas', 'tension_alternador', v)} />
-                 <StableInput icon={Wind} label="Frecuencia" value={formData.datos_pruebas.frecuencia} onChange={v => handleNestedChange('datos_pruebas', 'frecuencia', v)} />
-                 <StableInput icon={Battery} label="Carga Baterías" value={formData.datos_pruebas.carga_baterias} onChange={v => handleNestedChange('datos_pruebas', 'carga_baterias', v)} />
-            </div>
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t mt-4">
-                <LoadTestInput label="Tensión RS" value={formData.pruebas_carga.tension_rs} onChange={v => handleNestedChange('pruebas_carga', 'tension_rs', v)} />
-                <LoadTestInput label="Tensión ST" value={formData.pruebas_carga.tension_st} onChange={v => handleNestedChange('pruebas_carga', 'tension_st', v)} />
-                <LoadTestInput label="Tensión RT" value={formData.pruebas_carga.tension_rt} onChange={v => handleNestedChange('pruebas_carga', 'tension_rt', v)} />
-                <LoadTestInput label="Intensidad R" value={formData.pruebas_carga.intensidad_r} onChange={v => handleNestedChange('pruebas_carga', 'intensidad_r', v)} />
-                <LoadTestInput label="Intensidad S" value={formData.pruebas_carga.intensidad_s} onChange={v => handleNestedChange('pruebas_carga', 'intensidad_s', v)} />
-                <LoadTestInput label="Intensidad T" value={formData.pruebas_carga.intensidad_t} onChange={v => handleNestedChange('pruebas_carga', 'intensidad_t', v)} />
-                <LoadTestInput label="Potencia kW" value={formData.pruebas_carga.potencia_kw} onChange={v => handleNestedChange('pruebas_carga', 'potencia_kw', v)} />
-             </div>
-        </section>
-
-        {/* --- OBSERVACIONES Y FIRMAS --- */}
-        <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-            <h3 className="font-bold text-slate-500">Observaciones</h3>
-            <textarea className="w-full h-24 bg-slate-50 border-2 border-slate-100 rounded-xl p-4" placeholder="Añade tus observaciones aquí..." value={formData.observaciones} onChange={e => handleInputChange('observaciones', e.target.value)}/>
-            <div className="grid md:grid-cols-2 gap-8 items-start pt-6">
-                 <div>
-                    <SignaturePad title="Firma del Inspector" onSignatureEnd={setInspectorSignature} />
-                    <p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p>
-                 </div>
-                 <div>
-                    <SignaturePad title="Firma del Cliente" onSignatureEnd={setClientSignature} />
-                    <div className="mt-2">
-                       <StableInput label="" icon={User} value={formData.recibidoPor} onChange={v => handleInputChange('recibidoPor', v)} placeholder="Nombre del receptor"/>
+            
+            {/* --- CHECKLISTS --- */}
+            {Object.entries(CHECKLIST_SECTIONS).map(([section, items]) => (
+                <section key={section} className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+                    <h3 className="font-bold text-slate-500">{section}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                        {(items as string[]).map(it => (
+                        <div key={it} className={`p-4 rounded-xl flex justify-between items-center transition-all border ${formData.checklist[it] ? 'bg-blue-50/50 border-blue-200/50' : 'bg-slate-50/50 border-slate-100'}`}>
+                            <span className="text-sm font-bold text-slate-700">{it}</span>
+                            <div className="flex gap-1">
+                            {["OK", "DEFECTUOSO", "AVERIADO", "CAMBIO"].map(st => (
+                                <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-14 h-8 rounded-lg text-xs font-black border-2 transition-all ${formData.checklist[it] === st ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-blue-300'}`}>{st}</button>
+                            ))}
+                            </div>
+                        </div>
+                        ))}
                     </div>
-                 </div>
-            </div>
-        </section>
+                </section>
+            ))}
 
-        {/* --- ACCIONES --- */}
-        <div className="flex flex-col md:flex-row gap-4">
-            <button onClick={handlePdfAction} className="w-full p-6 bg-white text-slate-900 border-2 border-slate-200 rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400">
-                {isSaved ? <Printer size={20} /> : <FileSearch size={20} />}
-                {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
-            </button>
-            <button onClick={handleSave} disabled={saving} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
-                {saving ? <Loader2 className="animate-spin text-blue-500" /> : isSaved ? <CheckCircle2 className="text-blue-500" /> : <Save className="text-blue-500" />}
-                {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR REVISIÓN'}
-            </button>
-        </div>
-    </main>
+            {/* --- PRUEBAS --- */}
+            <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+                <h3 className="font-bold text-slate-500">Datos de Pruebas y Carga</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <StableInput icon={Clock} label="Horas" value={formData.datos_pruebas.horas} onChange={v => handleNestedChange('datos_pruebas', 'horas', v)} />
+                    <StableInput icon={Gauge} label="Presión Aceite" value={formData.datos_pruebas.presion} onChange={v => handleNestedChange('datos_pruebas', 'presion', v)} />
+                    <StableInput icon={Thermometer} label="Temperatura" value={formData.datos_pruebas.temperatura} onChange={v => handleNestedChange('datos_pruebas', 'temperatura', v)} />
+                    <StableInput icon={Droplets} label="Nivel Combustible" value={formData.datos_pruebas.nivel_combustible} onChange={v => handleNestedChange('datos_pruebas', 'nivel_combustible', v)} />
+                    <StableInput icon={Zap} label="Tensión Alternador" value={formData.datos_pruebas.tension_alternador} onChange={v => handleNestedChange('datos_pruebas', 'tension_alternador', v)} />
+                    <StableInput icon={Wind} label="Frecuencia" value={formData.datos_pruebas.frecuencia} onChange={v => handleNestedChange('datos_pruebas', 'frecuencia', v)} />
+                    <StableInput icon={Battery} label="Carga Baterías" value={formData.datos_pruebas.carga_baterias} onChange={v => handleNestedChange('datos_pruebas', 'carga_baterias', v)} />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t mt-4">
+                    <LoadTestInput label="Tensión RS" value={formData.pruebas_carga.tension_rs} onChange={v => handleNestedChange('pruebas_carga', 'tension_rs', v)} />
+                    <LoadTestInput label="Tensión ST" value={formData.pruebas_carga.tension_st} onChange={v => handleNestedChange('pruebas_carga', 'tension_st', v)} />
+                    <LoadTestInput label="Tensión RT" value={formData.pruebas_carga.tension_rt} onChange={v => handleNestedChange('pruebas_carga', 'tension_rt', v)} />
+                    <LoadTestInput label="Intensidad R" value={formData.pruebas_carga.intensidad_r} onChange={v => handleNestedChange('pruebas_carga', 'intensidad_r', v)} />
+                    <LoadTestInput label="Intensidad S" value={formData.pruebas_carga.intensidad_s} onChange={v => handleNestedChange('pruebas_carga', 'intensidad_s', v)} />
+                    <LoadTestInput label="Intensidad T" value={formData.pruebas_carga.intensidad_t} onChange={v => handleNestedChange('pruebas_carga', 'intensidad_t', v)} />
+                    <LoadTestInput label="Potencia kW" value={formData.pruebas_carga.potencia_kw} onChange={v => handleNestedChange('pruebas_carga', 'potencia_kw', v)} />
+                </div>
+            </section>
+
+            {/* --- OBSERVACIONES Y FIRMAS --- */}
+            <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+                <h3 className="font-bold text-slate-500">Observaciones</h3>
+                <textarea className="w-full h-24 bg-slate-50 border-2 border-slate-100 rounded-xl p-4 resize-none" placeholder="Añade tus observaciones aquí..." value={formData.observaciones} onChange={e => handleInputChange('observaciones', e.target.value)}/>
+                <div className="grid md:grid-cols-2 gap-8 items-start pt-6">
+                    <div>
+                        <SignaturePad title="Firma del Inspector" onSignatureEnd={setInspectorSignature} />
+                        <p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p>
+                    </div>
+                    <div>
+                        <SignaturePad title="Firma del Cliente" onSignatureEnd={setClientSignature} />
+                        <div className="mt-2">
+                        <StableInput label="" icon={User} value={formData.recibidoPor} onChange={v => handleInputChange('recibidoPor', v)} placeholder="Nombre del receptor"/>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* --- ACCIONES --- */}
+            <div className="flex flex-col md:flex-row gap-4">
+                <button onClick={handlePdfAction} disabled={saving} className="w-full p-6 bg-white text-slate-900 border-2 border-slate-200 rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
+                    {isSaved ? <Printer size={20} /> : <FileSearch size={20} />}
+                    {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
+                </button>
+                <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
+                    {saving ? <Loader2 className="animate-spin text-blue-500" /> : isSaved ? <CheckCircle2 className="text-blue-500" /> : <Save className="text-blue-500" />}
+                    {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR REVISIÓN'}
+                </button>
+            </div>
+        </main>
+    </div>
   );
 }
