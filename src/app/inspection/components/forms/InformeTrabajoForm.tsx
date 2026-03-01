@@ -62,7 +62,9 @@ export const generatePDF = (report, inspectorName, reportId) => {
   doc.setTextColor(darkColor);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text(`INFORME TÉCNICO Nº: ${finalID}`, 105, currentY, { align: 'center' });
+  if (!reportId.startsWith('BORRADOR')) { // Do not show title on first page if it is a draft
+    doc.text(`INFORME TÉCNICO Nº: ${finalID}`, 105, currentY, { align: 'center' });
+  }
   currentY += 5;
 
   autoTable(doc, {
@@ -96,22 +98,19 @@ export const generatePDF = (report, inspectorName, reportId) => {
         drawFooter(doc.internal.pages.length, doc.internal.pages.length);
         doc.addPage();
         drawHeader();
+        doc.setTextColor(darkColor); // FIX: Reset text color for the new page's body
         currentY = 40;
       }
       
       const isTitle = sectionTitles.some(title => line.trim().toUpperCase().startsWith(title));
 
-      if (isTitle) {
-          if (currentY > 50) currentY += lineHeight; 
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(9);
-          doc.text(line, 15, currentY);
-      } else if (line.trim() !== '') {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(9);
-          doc.text(line, 15, currentY);
+      if (line.trim() === '') {
+          currentY -= lineHeight; // Prevent creating extra space for blank lines
       } else {
-          currentY -= lineHeight; 
+          doc.setFont('helvetica', isTitle ? 'bold' : 'normal');
+          doc.setFontSize(9);
+          if (isTitle && currentY > 50) currentY += lineHeight; // Add a bit of space before titles
+          doc.text(line, 15, currentY);
       }
       currentY += lineHeight;
     }
@@ -134,6 +133,7 @@ export const generatePDF = (report, inspectorName, reportId) => {
   doc.text(`Firmado: ${inspectorName}`, 15, currentY + 32);
   doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, 15, currentY + 39);
 
+  // This ensures the footer is drawn on the very last page
   const totalPages = doc.internal.pages.length;
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
