@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
 import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Car, Euro, Zap, Thermometer, Battery, Droplets, Wind, Gauge, Mic } from 'lucide-react';
-import { enhanceTechnicalRequest } from '@/ai/flows/enhance-technical-request-flow';
 import { processDictation } from '@/ai/flows/process-dictation-flow';
+import { enhanceTechnicalRequest } from '@/ai/flows/enhance-technical-request-flow';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -237,26 +237,36 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
   const generatePDF = (isDraft = false) => {
     const doc = new jsPDF();
     const finalID = isDraft ? 'BORRADOR' : savedDocId;
-    
+    const primaryColor = '#F59E0B'; // Amber-500 from theme
+    const darkColor = '#0f172a'; // Slate-900 from theme
+
     // Header
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text("ENERGY ENGINE", 15, 20);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", 15, 26);
-    doc.text("info@energyengine.es | +34 925 15 43 54", 15, 31);
-    
+    doc.setFillColor(darkColor);
+    doc.rect(0, 0, 210, 28, 'F');
+    doc.setTextColor('#FFFFFF');
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text("ALBARÁN DE TRABAJO", 205, 25, { align: 'right' });
-    doc.setFontSize(10);
+    doc.text("ENERGY ENGINE", 15, 18);
+    
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Nº: ${finalID}`, 205, 31, { align: 'right' });
+    doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", 205, 12, { align: 'right' });
+    doc.text("info@energyengine.es | +34 925 15 43 54", 205, 18, { align: 'right' });
+    
+    // Sub-header
+    let currentY = 40;
+    doc.setTextColor(darkColor);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text("ALBARÁN DE TRABAJO", 15, currentY);
+
+    doc.setFontSize(10);
+    doc.text(`Nº: ${finalID}`, 205, currentY, { align: 'right' });
+    currentY += 5;
 
     // Client and Service Data
     autoTable(doc, {
-        startY: 40,
+        startY: currentY,
         body: [
             [{content: 'CLIENTE:', styles: {fontStyle: 'bold'}}, formData.cliente, {content: 'FECHA:', styles: {fontStyle: 'bold'}}, formData.fecha],
             [{content: 'INSTALACIÓN:', styles: {fontStyle: 'bold'}}, formData.instalacion, {content: 'TÉCNICOS:', styles: {fontStyle: 'bold'}}, formData.tecnicos],
@@ -304,6 +314,7 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
         ],
         theme: 'grid',
         styles: {fontSize: 9, cellPadding: 1.5, minCellHeight: 8},
+        headStyles: { fillColor: darkColor, textColor: '#fff' },
         bodyStyles: {fontStyle: 'bold'}
     });
 
@@ -388,9 +399,8 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
   };
 
   return (
-    <main className="max-w-6xl mx-auto p-4 md:p-6 space-y-8 animate-in fade-in">
-        
-       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
+    <div className="animate-in fade-in w-full bg-slate-50 min-h-screen">
+      <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-4 border-b">
             <DialogTitle>Vista Previa del Albarán</DialogTitle>
@@ -402,18 +412,22 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
         </DialogContent>
       </Dialog>
       
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-black text-black border-l-4 border-amber-500 pl-4 uppercase tracking-tighter">Albarán de Trabajo</h2>
-        <button
-            onClick={handleDictation}
-            disabled={aiLoading || isDictating}
-            className="flex items-center gap-2 text-sm font-bold bg-amber-500 text-white px-5 py-3 rounded-xl shadow-lg hover:bg-amber-600 transition-colors active:scale-95 disabled:bg-slate-400"
-        >
-            {isDictating ? <Loader2 size={16} className="animate-spin"/> : <Mic size={16} />}
-            {isDictating ? 'Escuchando...' : aiLoading ? 'Procesando...' : 'Dictar Informe'}
-        </button>
-      </div>
-
+      <header className="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-20">
+        <h1 className="text-lg font-bold tracking-wider uppercase">Energy Engine</h1>
+      </header>
+      
+      <main className="p-4 md:p-6 space-y-8">
+        <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-black text-slate-800 border-l-4 border-amber-500 pl-4 uppercase tracking-tighter">Albarán de Trabajo</h2>
+            <button
+                onClick={handleDictation}
+                disabled={aiLoading || isDictating}
+                className="flex items-center gap-2 text-sm font-bold bg-amber-500 text-slate-900 px-5 py-3 rounded-xl shadow-lg hover:bg-amber-600 transition-colors active:scale-95 disabled:bg-slate-400"
+            >
+                {isDictating ? <Loader2 size={16} className="animate-spin"/> : <Mic size={16} />}
+                {isDictating ? 'Escuchando...' : aiLoading ? 'Procesando...' : 'Dictar Informe'}
+            </button>
+        </div>
       
       <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
@@ -518,15 +532,16 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
     </section>
 
     <div className="flex flex-col md:flex-row gap-4">
-        <button onClick={handlePdfAction} className="w-full p-6 bg-white text-slate-900 border-2 border-slate-200 rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400">
+        <button onClick={handlePdfAction} disabled={saving} className="w-full p-6 bg-white text-slate-900 border-2 border-slate-200 rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
             {isSaved ? <Printer size={20} /> : <FileSearch size={20} />}
             {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
         </button>
-        <button onClick={handleSave} disabled={saving} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
+        <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
           {saving ? <Loader2 className="animate-spin text-amber-500" /> : isSaved ? <CheckCircle2 className="text-amber-500" /> : <Save className="text-amber-500" />}
           {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR ALBARÁN'}
         </button>
     </div>
     </main>
+    </div>
   );
 }
