@@ -28,7 +28,6 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
 
 export const generatePDF = (report, inspectorName, reportId) => {
   const doc = new jsPDF();
-  const finalID = reportId || 'BORRADOR';
   const darkColor = '#0f172a';
   
   const pageHeight = doc.internal.pageSize.height;
@@ -60,13 +59,14 @@ export const generatePDF = (report, inspectorName, reportId) => {
   // --- PAGE 1 START ---
   drawHeader();
   currentY = 40;
-  
+
+  const margin = 30; // 3cm
+
   doc.setTextColor(darkColor);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   
-  // Centered Title
-  const titleText = `INFORME TÉCNICO Nº: ${finalID}`;
+  const titleText = `INFORME TÉCNICO Nº: ${reportId}`;
   const textWidth = doc.getStringUnitWidth(titleText) * doc.internal.getFontSize() / doc.internal.scaleFactor;
   const textOffset = (pageWidth - textWidth) / 2;
   doc.text(titleText, textOffset, currentY);
@@ -79,55 +79,73 @@ export const generatePDF = (report, inspectorName, reportId) => {
         ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
         ['Motor:', report.motor, 'Modelo:', report.modelo],
         ['Nº de motor:', report.n_motor, 'Grupo:', report.grupo],
-        ['Instalación:', report.instalacion, '', ''],
+        [{content: 'Instalación:', styles: { fontStyle: 'bold' }}, {content: report.instalacion, colSpan: 3}],
     ],
     theme: 'grid',
     styles: { fontSize: 9, cellPadding: 2 },
-    columnStyles: { 0: { fontStyle: 'bold' }, 2: { fontStyle: 'bold' } }
+    columnStyles: { 0: { fontStyle: 'bold' }, 2: { fontStyle: 'bold' } },
+    margin: { left: margin, right: margin }
   });
 
   currentY = (doc as any).lastAutoTable.finalY + 10;
   
-  if (report.reportContent) {
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text("Descripción de la incidencia:", 15, currentY);
-    currentY += 10;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    
-    const printableWidth = pageWidth - 30; // 15mm margin on each side
-    const lines = doc.splitTextToSize(report.reportContent, printableWidth);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text("Descripción de la incidencia:", margin, currentY);
+  currentY += 10;
+  
+  doc.setFontSize(9);
+  const printableWidth = pageWidth - (margin * 2);
+  
+  const rawText = report.reportContent || '';
+  // Reemplaza saltos de línea simples (no seguidos de otro) con un espacio, pero mantiene los saltos de párrafo (doble enter).
+  const processedText = rawText.replace(/(?<!\n)\n(?!\n)/g, ' ').replace(/\n\n/g, '\n');
+  
+  const lines = doc.splitTextToSize(processedText, printableWidth);
+  const lineHeight = 5.5;
+  const titles = ["ANTECEDENTES:", "INTERVENCIÓN:", "RESUMEN Y SITUACIÓN ACTUAL:"];
 
-    const lineHeight = 5.5;
-    for (const line of lines) {
-      if (currentY + lineHeight > pageHeight - 30) {
-        drawFooter(doc.internal.pages.length, 0);
-        doc.addPage();
-        drawHeader();
-        currentY = 40;
-      }
-      doc.text(line, 15, currentY);
-      currentY += lineHeight;
+  for (const line of lines) {
+    if (currentY + lineHeight > pageHeight - 30) {
+      drawFooter(doc.internal.pages.length, 0); // Temporary page count
+      doc.addPage();
+      drawHeader();
+      currentY = 40;
+      doc.setTextColor(darkColor); // Restore text color on new page
     }
+    
+    const trimmedLine = line.trim();
+    const isTitle = titles.some(title => trimmedLine.startsWith(title));
+
+    if (isTitle) {
+        doc.setFont('helvetica', 'bold');
+    } else {
+        doc.setFont('helvetica', 'normal');
+    }
+    
+    doc.text(line, margin, currentY);
+    currentY += lineHeight;
   }
   
+  doc.setFont('helvetica', 'normal'); // Reset font for safety
+
   const signatureBlockHeight = 45;
   if (currentY + signatureBlockHeight > pageHeight - 20) {
     drawFooter(doc.internal.pages.length, 0);
     doc.addPage();
     drawHeader();
     currentY = 40;
+    doc.setTextColor(darkColor);
   }
   
   currentY += 20;
 
   if (report.inspectorSignatureUrl) {
-      doc.addImage(report.inspectorSignatureUrl, 'PNG', 15, currentY, 60, 25);
+      doc.addImage(report.inspectorSignatureUrl, 'PNG', margin, currentY, 60, 25);
   }
   doc.setFontSize(10);
-  doc.text(`Firmado: ${inspectorName}`, 15, currentY + 32);
-  doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, 15, currentY + 39);
+  doc.text(`Firmado: ${inspectorName}`, margin, currentY + 32);
+  doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, margin, currentY + 39);
 
   const totalPages = doc.internal.pages.length;
   for (let i = 1; i <= totalPages; i++) {
@@ -297,7 +315,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-8 border border-slate-100">
          <div className="flex justify-between items-center">
             <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">
-                <Type size={18} className="text-green-500" /> Contenido del Informe
+                <Type size={18} className="text-green-500" /> Descripción de la incidencia
             </h3>
             <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors active:scale-95">
                 {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />}
