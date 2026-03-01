@@ -177,7 +177,6 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
       setIsDictating(false);
       setAiLoading(true);
       try {
-        // @ts-ignore
         const res = await processDictation({ dictation });
         setFormData(prev => ({
           ...prev,
@@ -323,15 +322,15 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
     const signatureY = finalY > 230 ? 230 : finalY + 15;
     doc.setFontSize(9);
     
-    if (clientSignature) doc.addImage(clientSignature, 'PNG', 15, signatureY, 60, 25);
-    doc.line(15, signatureY + 25, 85, signatureY + 25);
-    doc.text("Conforme cliente:", 15, signatureY + 30);
-    doc.text(formData.recibidoPor, 15, signatureY + 35);
-    
-    if (inspectorSignature) doc.addImage(inspectorSignature, 'PNG', 115, signatureY, 60, 25);
+    if (clientSignature) doc.addImage(clientSignature, 'PNG', 115, signatureY, 60, 25);
     doc.line(115, signatureY + 25, 185, signatureY + 25);
-    doc.text("Firma técnico:", 115, signatureY + 30);
-    doc.text(inspectorName, 115, signatureY + 35);
+    doc.text("Conforme cliente:", 115, signatureY + 30);
+    doc.text(formData.recibidoPor, 115, signatureY + 35);
+    
+    if (inspectorSignature) doc.addImage(inspectorSignature, 'PNG', 15, signatureY, 60, 25);
+    doc.line(15, signatureY + 25, 85, signatureY + 25);
+    doc.text("Firma técnico:", 15, signatureY + 30);
+    doc.text(inspectorName, 15, signatureY + 35);
     
     doc.setFont('helvetica', 'bold');
     doc.text("GRACIAS POR CONFIAR EN NOSOTROS", 105, 285, { align: 'center' });
@@ -341,7 +340,7 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
 
   const handlePdfAction = () => {
     if (!formData.cliente || !formData.instalacion) return alert("El cliente y la instalación son obligatorios.");
-    const doc = isSaved ? generatePDF(false) : generatePDF(true);
+    const doc = generatePDF(isSaved ? false : true);
     if (isSaved) {
       doc.save(`Albaran_${savedDocId}.pdf`);
     } else {
@@ -358,8 +357,8 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
     try {
       const docData = {
         ...formData,
-        inspectorSignatureUrl: inspectorSignature,
-        clientSignatureUrl: clientSignature,
+        inspectorSignatureUrl: inspectorSignature, // In a real app, upload to storage and save URL
+        clientSignatureUrl: clientSignature, // In a real app, upload to storage and save URL
         tecnicoId: user.uid,
         tecnicoNombre: inspectorName,
         fecha_guardado: Timestamp.now(),

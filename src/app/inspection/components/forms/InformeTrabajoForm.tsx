@@ -97,10 +97,11 @@ export default function InformeTrabajoForm({ initialData }: { initialData?: any 
   };
 
   const handlePdfAction = () => {
+    const doc = generatePDF(isSaved ? false : true);
     if (isSaved) {
-      generatePDF(false).save(`Informe_Trabajo_${savedDocId}.pdf`);
+      doc.save(`Informe_Trabajo_${savedDocId}.pdf`);
     } else {
-      setPreviewPdfUrl(generatePDF(true).output('datauristring'));
+      setPreviewPdfUrl(doc.output('datauristring'));
     }
   };
 

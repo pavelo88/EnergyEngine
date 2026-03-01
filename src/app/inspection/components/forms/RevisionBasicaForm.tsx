@@ -81,8 +81,13 @@ export default function RevisionBasicaForm({ initialData }: { initialData?: any 
   };
   
   const handlePdfAction = () => {
-    if (isSaved) generatePDF(false).save(`Revision_Basica_${savedDocId}.pdf`);
-    else setPreviewPdfUrl(generatePDF(true).output('datauristring'));
+    const doc = generatePDF(isSaved ? false : true);
+    if (isSaved) {
+      doc.save(`Revision_Basica_${savedDocId}.pdf`);
+    }
+    else {
+      setPreviewPdfUrl(doc.output('datauristring'));
+    }
   };
 
   const handleSave = async () => {

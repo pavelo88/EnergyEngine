@@ -6,3 +6,39 @@ export const CHECKLIST_SECTIONS = {
   };
   
   export const ALL_CHECKLIST_ITEMS = Object.values(CHECKLIST_SECTIONS).flat();
+  
+  export const INITIAL_FORM_DATA = {
+    cliente: '',
+    instalacion: '',
+    direccion: '',
+    motor: '',
+    modelo: '',
+    n_motor: '',
+    n_grupo: '',
+    potencia: '',
+    fecha_revision: new Date().toISOString().split('T')[0],
+    n_inspeccion: '',
+    checklist: {},
+    datos_pruebas: {
+      horas: '',
+      presion: '',
+      temperatura: '',
+      nivel_combustible: '',
+      tension_alternador: '',
+      frecuencia: '',
+      carga_baterias: ''
+    },
+    pruebas_carga: {
+      tension_rs: '',
+      tension_st: '',
+      tension_rt: '',
+      intensidad_r: '',
+      intensidad_s: '',
+      intensidad_t: '',
+      potencia_kw: ''
+    },
+    observaciones_sin_carga: '',
+    observaciones_con_carga: '',
+    observaciones_finales: 'EL GRUPO SE QUEDA OPERATIVO Y EN AUTOMÁTICO',
+    recibidoPor: '',
+  };

@@ -26,7 +26,7 @@ const reportTypes = [
   {
     id: 'hoja-revision',
     title: 'Hoja de Revisión',
-    desc: 'Checklist completo para uso interno y auditorías.',
+    desc: 'Checklist completo para uso interno y auditorías (según imagen).',
     icon: Clipboard,
   },
   {
@@ -86,7 +86,7 @@ export default function InspectionHub({ onSelectInspectionType }: HubProps) {
             value={inspectionId}
             onChange={(e) => setInspectionId(e.target.value)}
             type="text" 
-            placeholder="Ej: TEC-123456" 
+            placeholder="Ej: REV-123456" 
             className="flex-grow p-4 rounded-2xl bg-slate-50 border-none font-bold text-slate-700 placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500"
           />
           {loading && <Loader2 className="animate-spin text-blue-500" />}
