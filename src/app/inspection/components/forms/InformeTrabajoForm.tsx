@@ -32,7 +32,7 @@ export const generatePDF = (report, inspectorName, reportId) => {
     const darkColor = '#0f172a';
     const pageHeight = doc.internal.pageSize.height;
     const pageWidth = doc.internal.pageSize.width;
-
+    
     const leftMargin = 30;
     const rightMargin = 30;
     const bottomMargin = 30;
@@ -66,11 +66,15 @@ export const generatePDF = (report, inspectorName, reportId) => {
     let currentY = 40;
 
     const title = `INFORME TÉCNICO Nº: ${finalID}`;
+    const titleWidth = doc.getStringUnitWidth(title) * doc.getFontSize() / doc.internal.scaleFactor;
+    const titleX = (pageWidth - titleWidth) / 2;
+
     doc.setTextColor(darkColor);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
+
     if (currentPage === 1) {
-        doc.text(title, pageWidth / 2, currentY, { align: 'center' });
+        doc.text(title, titleX, currentY);
         currentY += 10;
     }
     
@@ -80,7 +84,7 @@ export const generatePDF = (report, inspectorName, reportId) => {
             ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
             ['Motor:', report.motor, 'Modelo:', report.modelo],
             ['Nº de motor:', report.n_motor, 'Grupo:', report.grupo],
-            ['Instalación:', report.instalacion, '', ''],
+            [{ content: 'Instalación:', styles: { fontStyle: 'bold' } }, { content: report.instalacion, colSpan: 3 }],
         ],
         theme: 'grid',
         styles: { fontSize: 9, cellPadding: 2 },
@@ -96,40 +100,50 @@ export const generatePDF = (report, inspectorName, reportId) => {
     doc.text("Descripción de la incidencia", leftMargin, currentY);
     currentY += 8;
 
+    const rawText = report.reportContent || '';
+    
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(darkColor);
     
-    const rawText = report.reportContent || '';
     const textOptions = {
-        align: 'left' as const,
+        align: 'justify' as const,
         lineHeightFactor: 1.5,
     };
-    const splitText = doc.splitTextToSize(rawText, contentWidth);
+    
+    const paragraphs = rawText.split('\n\n').map(p => p.replace(/\n/g, ' '));
     const lineHeight = doc.getTextDimensions('M').h * textOptions.lineHeightFactor;
 
-    for (const line of splitText) {
-        if (currentY + lineHeight > pageHeight - bottomMargin) { 
-            drawFooter();
-            doc.addPage();
-            currentPage++;
-            drawHeader();
-            doc.setTextColor(darkColor);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(9);
-            currentY = 40;
+    for (const paragraph of paragraphs) {
+      const lines = doc.splitTextToSize(paragraph, contentWidth);
+      
+      for (const line of lines) {
+        if (currentY + lineHeight > pageHeight - bottomMargin) {
+          drawFooter();
+          doc.addPage();
+          currentPage++;
+          drawHeader();
+          doc.setTextColor(darkColor);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          currentY = 40;
         }
-        doc.text(line, leftMargin, currentY);
+
+        const isTitle = line.endsWith(':') && line.toUpperCase() === line;
+        doc.setFont('helvetica', isTitle ? 'bold' : 'normal');
+
+        doc.text(line, leftMargin, currentY, textOptions);
         currentY += lineHeight;
+      }
+      currentY += lineHeight / 2; // Add a small gap between paragraphs
     }
-  
+
     const signatureBlockHeight = 45;
     if (currentY + signatureBlockHeight > pageHeight - bottomMargin) {
       drawFooter();
       doc.addPage();
       currentPage++;
       drawHeader();
-      doc.setTextColor(darkColor);
       currentY = 40;
     }
     
