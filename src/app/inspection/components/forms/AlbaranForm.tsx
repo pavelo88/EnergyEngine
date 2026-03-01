@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
-import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Car, Euro } from 'lucide-react';
+import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Car, Euro, Zap, Thermometer, Battery, Droplets, Wind, Gauge } from 'lucide-react';
 import { enhanceTechnicalRequest } from '@/ai/flows/enhance-technical-request-flow';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -25,6 +25,20 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
     </div>
   </div>
 ));
+
+// New component for the load test inputs
+const LoadTestInput = React.memo(({ label, value, onChange }) => (
+    <div className="flex items-center gap-2">
+        <input 
+            type="text" 
+            value={value || ''} 
+            onChange={e => onChange(e.target.value)}
+            className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-2 outline-none focus:border-amber-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
+        />
+        <label className="text-[10px] font-black text-slate-500 w-6 text-left">{label}</label>
+    </div>
+));
+
 
 export default function AlbaranForm({ initialData }: { initialData?: any }) {
   const { user } = useUser();
@@ -49,6 +63,25 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
     media_dieta_cantidad: '',
     trabajos_realizados: '',
     recibidoPor: '',
+    parametrosTecnicos: {
+        horas: '',
+        presionAceite: '',
+        tension: '',
+        temperatura: '',
+        nivelCombustible: '',
+        frecuencia: '',
+        tensionBaterias: '',
+    },
+    potenciaConCarga: {
+        potencia: '',
+        tensionRS: '',
+        tensionST: '',
+        tensionRT: '',
+        intensidadR: '',
+        intensidadS: '',
+        intensidadT: '',
+        potenciaKW: '',
+    }
   });
   
   const [inspectorSignature, setInspectorSignature] = useState<string | null>(null);
@@ -64,17 +97,27 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
     if (initialData) {
       setFormData(prev => ({
         ...prev,
-        cliente: initialData.cliente?.nombre || prev.cliente,
+        cliente: initialData.clienteNombre || prev.cliente,
         instalacion: initialData.cliente?.instalacion || prev.instalacion,
         motor: initialData.equipo?.modelo || prev.motor,
         n_motor: initialData.equipo?.sn || prev.n_motor,
-        trabajos_realizados: initialData.observaciones || prev.trabajos_realizados,
+        trabajos_realizados: initialData.descripcion || prev.trabajos_realizados,
       }));
     }
   }, [initialData]);
 
   const handleInputChange = (field: string, value: string | boolean | number) => {
     setFormData(prev => ({...prev, [field]: value }));
+  };
+  
+  const handleNestedInputChange = (section: 'parametrosTecnicos' | 'potenciaConCarga', field: string, value: string) => {
+    setFormData(prev => ({
+        ...prev,
+        [section]: {
+            ...(prev[section] as any),
+            [field]: value
+        }
+    }));
   };
 
   const improveReport = async () => {
@@ -127,29 +170,75 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
         styles: {fontSize: 9}
     });
 
-    let finalY = (doc as any).lastAutoTable.finalY;
+    let finalYAfterHeader = (doc as any).lastAutoTable.finalY;
+
+    // Parámetros Técnicos
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text("PARÁMETROS TÉCNICOS", 15, finalYAfterHeader + 10);
     
+    autoTable(doc, {
+        startY: finalYAfterHeader + 12,
+        body: [
+            [`Horas: ${formData.parametrosTecnicos.horas}`, `Presión Aceite: ${formData.parametrosTecnicos.presionAceite}`, `Tensión: ${formData.parametrosTecnicos.tension}`],
+            [`Tª (°C): ${formData.parametrosTecnicos.temperatura}`, `Nivel Combustible (%): ${formData.parametrosTecnicos.nivelCombustible}`, `Frecuencia (Hz): ${formData.parametrosTecnicos.frecuencia}`],
+            [{content: `Tensión de baterías (V): ${formData.parametrosTecnicos.tensionBaterias}`, colSpan: 3, styles: {fontStyle: 'bold'}}],
+        ],
+        theme: 'grid',
+        styles: {fontSize: 8},
+        bodyStyles: { cellPadding: 2, minCellHeight: 10 },
+        alternateRowStyles: {fillColor: false},
+    });
+
+    let finalYAfterParams = (doc as any).lastAutoTable.finalY;
+
+    // Potencia con Carga
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Potencia con carga: ${formData.potenciaConCarga.potencia}`, 15, finalYAfterParams + 10);
+    
+    autoTable(doc, {
+        startY: finalYAfterParams + 12,
+        head: [['Tensión', 'Intensidad', 'Potencia (kW)']],
+        body: [
+            [`RS: ${formData.potenciaConCarga.tensionRS}`, `R: ${formData.potenciaConCarga.intensidadR}`, formData.potenciaConCarga.potenciaKW],
+            [`ST: ${formData.potenciaConCarga.tensionST}`, `S: ${formData.potenciaConCarga.intensidadS}`, ''],
+            [`RT: ${formData.potenciaConCarga.tensionRT}`, `T: ${formData.potenciaConCarga.intensidadT}`, ''],
+        ],
+        theme: 'grid',
+        styles: {fontSize: 9, cellPadding: 2, minCellHeight: 10}
+    });
+
+    let finalYAfterLoad = (doc as any).lastAutoTable.finalY;
+
     // Trabajos Realizados
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text("TRABAJOS REALIZADOS", 15, finalY + 10);
+    doc.text("TRABAJOS REALIZADOS", 15, finalYAfterLoad + 10);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     const splitText = doc.splitTextToSize(formData.trabajos_realizados, 180);
-    doc.rect(15, finalY + 12, 180, 40); // Text box
-    doc.text(splitText, 17, finalY + 16);
+    const textBoxHeight = (splitText.length * 5) > 40 ? (splitText.length * 5) : 40; // Dynamic height
+    doc.rect(15, finalYAfterLoad + 12, 180, textBoxHeight); // Text box
+    doc.text(splitText, 17, finalYAfterLoad + 16);
 
-    finalY += 60;
+    let finalY = finalYAfterLoad + 12 + textBoxHeight;
 
     // Signatures
+    const signatureY = finalY > 230 ? 230 : finalY + 10;
     doc.setFontSize(10);
-    doc.text("Firma Inspector:", 15, finalY);
-    if (inspectorSignature) doc.addImage(inspectorSignature, 'PNG', 15, finalY + 5, 60, 25);
-    doc.text("Firma Cliente:", 115, finalY);
-    if (clientSignature) doc.addImage(clientSignature, 'PNG', 115, finalY + 5, 60, 25);
+    
+    doc.text("Conforme cliente:", 15, signatureY);
+    if (clientSignature) doc.addImage(clientSignature, 'PNG', 15, signatureY + 2, 60, 25);
+    doc.text(`Recibido por: ${formData.recibidoPor}`, 15, signatureY + 35);
 
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Recibido por: ${formData.recibidoPor}`, 115, finalY + 40);
+
+    doc.text("Firma técnico:", 115, signatureY);
+    if (inspectorSignature) doc.addImage(inspectorSignature, 'PNG', 115, signatureY + 2, 60, 25);
+    doc.text(inspectorName, 115, signatureY + 35);
+    
+    doc.text("GRACIAS POR CONFIAR EN NOSOTROS", 105, 280, { align: 'center' });
+
 
     return doc;
   };
@@ -175,7 +264,7 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
         ...formData,
         inspectorSignatureUrl: inspectorSignature, // Saving as Data URL
         clientSignatureUrl: clientSignature,
-        tecnicoId: user.uid, // CRITICAL: Save inspector ID
+        tecnicoId: user.uid,
         tecnicoNombre: inspectorName,
         fecha_guardado: Timestamp.now(),
         id_albaran: docId,
@@ -240,6 +329,48 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
             </div>
          </div>
       </section>
+      
+      <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+          <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Settings className="text-amber-500"/> Parámetros Técnicos</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <StableInput icon={Clock} label="Horas" value={formData.parametrosTecnicos.horas} onChange={v => handleNestedInputChange('parametrosTecnicos', 'horas', v)} />
+              <StableInput icon={Gauge} label="Presión aceite" value={formData.parametrosTecnicos.presionAceite} onChange={v => handleNestedInputChange('parametrosTecnicos', 'presionAceite', v)} />
+              <StableInput icon={Zap} label="Tensión" value={formData.parametrosTecnicos.tension} onChange={v => handleNestedInputChange('parametrosTecnicos', 'tension', v)} />
+              <StableInput icon={Thermometer} label="Tª (°C)" value={formData.parametrosTecnicos.temperatura} onChange={v => handleNestedInputChange('parametrosTecnicos', 'temperatura', v)} />
+              <StableInput icon={Droplets} label="Nivel combustible (%)" value={formData.parametrosTecnicos.nivelCombustible} onChange={v => handleNestedInputChange('parametrosTecnicos', 'nivelCombustible', v)} />
+              <StableInput icon={Wind} label="Frecuencia (Hz)" value={formData.parametrosTecnicos.frecuencia} onChange={v => handleNestedInputChange('parametrosTecnicos', 'frecuencia', v)} />
+              <div className="sm:col-span-2 lg:col-span-3">
+                <StableInput icon={Battery} label="Tensión de baterías (V)" value={formData.parametrosTecnicos.tensionBaterias} onChange={v => handleNestedInputChange('parametrosTecnicos', 'tensionBaterias', v)} />
+              </div>
+          </div>
+      </section>
+
+      <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+        <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Zap className="text-amber-500"/> Pruebas con Carga</h2>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+            <div className="md:col-span-4">
+              <StableInput label="Potencia con carga" value={formData.potenciaConCarga.potencia} onChange={v => handleNestedInputChange('potenciaConCarga', 'potencia', v)} />
+            </div>
+            <div className="md:col-span-8 grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
+                <h4 className="col-span-full lg:col-span-1 text-sm font-bold text-slate-500">Tensión</h4>
+                <div className="col-span-full lg:col-span-1 space-y-2">
+                    <LoadTestInput label="RS" value={formData.potenciaConCarga.tensionRS} onChange={v => handleNestedInputChange('potenciaConCarga', 'tensionRS', v)} />
+                    <LoadTestInput label="ST" value={formData.potenciaConCarga.tensionST} onChange={v => handleNestedInputChange('potenciaConCarga', 'tensionST', v)} />
+                    <LoadTestInput label="RT" value={formData.potenciaConCarga.tensionRT} onChange={v => handleNestedInputChange('potenciaConCarga', 'tensionRT', v)} />
+                </div>
+                <h4 className="col-span-full lg:col-span-1 text-sm font-bold text-slate-500 pt-2 lg:pt-0">Intensidad</h4>
+                 <div className="col-span-full lg:col-span-1 space-y-2">
+                    <LoadTestInput label="R" value={formData.potenciaConCarga.intensidadR} onChange={v => handleNestedInputChange('potenciaConCarga', 'intensidadR', v)} />
+                    <LoadTestInput label="S" value={formData.potenciaConCarga.intensidadS} onChange={v => handleNestedInputChange('potenciaConCarga', 'intensidadS', v)} />
+                    <LoadTestInput label="T" value={formData.potenciaConCarga.intensidadT} onChange={v => handleNestedInputChange('potenciaConCarga', 'intensidadT', v)} />
+                </div>
+                <h4 className="col-span-full lg:col-span-1 text-sm font-bold text-slate-500 pt-2 lg:pt-0">Potencia (kW)</h4>
+                 <div className="col-span-full lg:col-span-1">
+                     <LoadTestInput label="kW" value={formData.potenciaConCarga.potenciaKW} onChange={v => handleNestedInputChange('potenciaConCarga', 'potenciaKW', v)} />
+                </div>
+            </div>
+        </div>
+      </section>
 
       <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
         <div className="flex justify-between items-center">
@@ -254,12 +385,17 @@ export default function AlbaranForm({ initialData }: { initialData?: any }) {
 
     <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
         <h2 className="text-xl font-black text-slate-900">Firmas</h2>
-        <div className="grid md:grid-cols-2 gap-8">
-            <SignaturePad title="Firma del Inspector" onSignatureEnd={setInspectorSignature} />
-            <SignaturePad title="Firma del Cliente" onSignatureEnd={setClientSignature} />
-        </div>
-        <div className="max-w-md">
-             <StableInput label="Recibido por (Nombre Cliente)" icon={User} value={formData.recibidoPor} onChange={v => handleInputChange('recibidoPor', v)}/>
+        <div className="grid md:grid-cols-2 gap-8 items-start">
+            <div className="flex flex-col items-center">
+              <SignaturePad title="Firma del Inspector" onSignatureEnd={setInspectorSignature} />
+              <p className="font-bold mt-2 text-slate-700">{inspectorName}</p>
+            </div>
+            <div className="flex flex-col">
+              <SignaturePad title="Conforme Cliente" onSignatureEnd={setClientSignature} />
+              <div className="mt-2">
+                <StableInput label="" icon={User} value={formData.recibidoPor} onChange={v => handleInputChange('recibidoPor', v)} placeholder="Nombre del receptor"/>
+              </div>
+            </div>
         </div>
     </section>
 
