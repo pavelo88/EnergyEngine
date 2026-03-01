@@ -4,8 +4,9 @@ import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
 import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Mic } from 'lucide-react';
 import { splitTechnicalReport } from '@/ai/flows/split-technical-report-flow';
+import { ProcessDictationOutput } from '@/ai/flows/process-dictation-flow';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
 
@@ -25,7 +26,7 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
   </div>
 ));
 
-export default function InformeTecnicoForm({ initialData }: { initialData?: any }) {
+export default function InformeTecnicoForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
   const db = useFirestore();
   const [inspectorName, setInspectorName] = useState('');
@@ -43,7 +44,6 @@ export default function InformeTecnicoForm({ initialData }: { initialData?: any 
   const [inspectorSignature, setInspectorSignature] = useState<string | null>(null);
 
   const [aiLoading, setAiLoading] = useState(false);
-  const [isDictating, setIsDictating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [savedDocId, setSavedDocId] = useState('');
@@ -78,6 +78,20 @@ export default function InformeTecnicoForm({ initialData }: { initialData?: any 
     }
   }, [initialData]);
 
+  useEffect(() => {
+    if (aiData) {
+      setFormData(prev => ({
+        ...prev,
+        motor: aiData.identidad.marca || prev.motor,
+        modelo: aiData.identidad.modelo || prev.modelo,
+        n_motor: aiData.identidad.sn || prev.n_motor,
+        grupo: aiData.identidad.n_grupo || prev.grupo,
+        instalacion: aiData.identidad.instalacion || prev.instalacion,
+        reportContent: aiData.observations_summary || prev.reportContent,
+      }));
+    }
+  }, [aiData]);
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -93,54 +107,25 @@ export default function InformeTecnicoForm({ initialData }: { initialData?: any 
     finally { setAiLoading(false); }
   };
 
-  const handleDictation = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Tu navegador no soporta el dictado por voz. Prueba con Chrome.");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'es-ES';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    setIsDictating(true);
-
-    recognition.onresult = async (event: any) => {
-      const dictation = event.results[0][0].transcript;
-      setFormData(prev => ({ ...prev, reportContent: prev.reportContent ? `${prev.reportContent}\n${dictation}` : dictation }));
-      setIsDictating(false);
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error('Error de reconocimiento de voz:', event.error);
-      setIsDictating(false);
-      alert('Hubo un error con el dictado. Asegúrate de dar permiso al micrófono.');
-    };
-    
-    recognition.onend = () => {
-        if(isDictating) setIsDictating(false);
-    };
-
-    recognition.start();
-  };
-
   const generatePDF = (isDraft = false) => {
     const doc = new jsPDF();
     const finalID = isDraft ? 'BORRADOR' : savedDocId;
-    
+    const darkColor = '#0f172a'; // Slate-900 from theme
+
     // Header
+    doc.setFillColor(darkColor);
+    doc.rect(0, 0, 210, 28, 'F');
+    doc.setTextColor('#FFFFFF');
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text("INFORME TÉCNICO", 105, 20, { align: 'center' });
+    doc.text("INFORME TÉCNICO", 15, 18);
     
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Fecha: ${new Date(formData.fecha).toLocaleDateString('es-ES')}`, 205, 25, { align: 'right' });
-    doc.text(`ID: ${finalID}`, 205, 30, { align: 'right' });
-
-
+    doc.text(`ID: ${finalID}`, 205, 12, { align: 'right' });
+    doc.text(`Fecha: ${new Date(formData.fecha).toLocaleDateString('es-ES')}`, 205, 18, { align: 'right' });
+    
+    // Sub-header
     let startY = 40;
     const headerData = [
         ['Motor:', formData.motor, 'Modelo:', formData.modelo],
@@ -152,10 +137,10 @@ export default function InformeTecnicoForm({ initialData }: { initialData?: any 
         startY: startY,
         body: headerData,
         theme: 'plain',
-        styles: { fontSize: 9, cellPadding: 1 }
+        styles: { fontSize: 9, cellPadding: 1, fontStyle: 'bold' }
     });
 
-    startY = (doc as any).lastAutoTable.finalY + 5;
+    startY = (doc as any).lastAutoTable.finalY + 10;
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
@@ -168,8 +153,7 @@ export default function InformeTecnicoForm({ initialData }: { initialData?: any 
     const pageCount = doc.internal.pages.length;
     for(let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        const pageStartY = startY > 250 ? 20 : startY;
-
+        
         // Signature on the last page only
         if (i === pageCount) {
             const signatureY = doc.internal.pageSize.height - 40;
@@ -221,7 +205,7 @@ export default function InformeTecnicoForm({ initialData }: { initialData?: any 
   };
 
   return (
-    <main className="max-w-4xl mx-auto p-6 space-y-8 animate-in fade-in bg-slate-50 min-h-screen">
+    <main className="max-w-4xl mx-auto p-4 md:p-6 space-y-8 animate-in fade-in bg-slate-50 min-h-screen">
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-4 border-b">
@@ -236,18 +220,10 @@ export default function InformeTecnicoForm({ initialData }: { initialData?: any 
 
       <header className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
         <h2 className="text-2xl font-black text-slate-800 border-l-4 border-green-500 pl-4 uppercase tracking-tighter">Informe Técnico</h2>
-        <button
-            onClick={handleDictation}
-            disabled={aiLoading || isDictating}
-            className="flex items-center gap-2 text-sm font-bold bg-green-500 text-white px-5 py-3 rounded-xl shadow-lg hover:bg-green-600 transition-colors active:scale-95 disabled:bg-slate-400"
-        >
-            {isDictating ? <Loader2 size={16} className="animate-spin"/> : <Mic size={16} />}
-            {isDictating ? 'Escuchando...' : 'Dictar'}
-        </button>
       </header>
       
       <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-         <h3 className="font-black text-slate-900 text-xs uppercase tracking-[0.2em] opacity-30">Datos de Identificación</h3>
+         <h3 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Datos de Identificación</h3>
          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={v => handleInputChange('motor', v)}/>
             <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={v => handleInputChange('modelo', v)}/>
@@ -278,7 +254,7 @@ export default function InformeTecnicoForm({ initialData }: { initialData?: any 
       </section>
       
       <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-        <h2 className="font-black text-slate-900 text-xs uppercase tracking-[0.2em] opacity-30">Validación</h2>
+        <h2 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Validación</h2>
         <div>
             <SignaturePad title="Firma del Inspector" onSignatureEnd={setInspectorSignature} />
             <p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p>

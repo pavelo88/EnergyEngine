@@ -95,7 +95,9 @@ const InspectionPageContent = () => {
         };
         
         recognition.onend = () => {
-            setIsDictating(false);
+            if (recognitionRef.current) { // Check if it's still supposed to be dictating
+              setIsDictating(false);
+            }
         };
 
         recognitionRef.current = recognition;
@@ -134,13 +136,17 @@ const InspectionPageContent = () => {
   }
 
   const toggleDictation = () => {
+    if (!isOnline) {
+        alert("La función de dictado por IA requiere conexión a internet.");
+        return;
+    }
     if (!recognitionRef.current) {
         alert("El dictado por voz no es compatible con este navegador. Prueba con Chrome.");
         return;
     }
     if (isDictating) {
         recognitionRef.current.stop();
-        setIsDictating(false);
+        // onend will set isDictating to false
     } else {
         setAiData(null); // Reset previous data on new dictation
         recognitionRef.current.start();
@@ -150,7 +156,7 @@ const InspectionPageContent = () => {
 
   const renderFloatingDictationButton = () => {
       // Show only on data-heavy forms that benefit from global dictation
-      const supportedForms: FormType[] = ['albaran', 'hoja-revision'];
+      const supportedForms: FormType[] = ['albaran', 'hoja-revision', 'informe-tecnico'];
       if (!activeInspectionForm || !supportedForms.includes(activeInspectionForm)) {
           return null;
       }
