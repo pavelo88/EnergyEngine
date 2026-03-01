@@ -34,16 +34,15 @@ export const generatePDF = (report, inspectorName, reportId) => {
   
   const pageHeight = doc.internal.pageSize.height;
   const pageWidth = doc.internal.pageSize.width;
-  const leftMargin = 30; // 3cm
-  const rightMargin = 30; // 3cm
+  const leftMargin = 30;
+  const rightMargin = 30;
   const printableWidth = pageWidth - leftMargin - rightMargin;
 
   let currentY = 0;
 
   const drawHeader = () => {
-    // This draws the full-width header, as requested by the user.
     doc.setFillColor(darkColor);
-    doc.rect(0, 0, pageWidth, 28, 'F'); // Full width
+    doc.rect(0, 0, pageWidth, 28, 'F');
     doc.setTextColor('#FFFFFF');
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
@@ -55,7 +54,6 @@ export const generatePDF = (report, inspectorName, reportId) => {
   };
   
   const drawFooter = (pageNumber, totalPages) => {
-    // This draws a full-width footer.
     doc.setFontSize(8);
     doc.setTextColor(100);
     doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
@@ -71,7 +69,6 @@ export const generatePDF = (report, inspectorName, reportId) => {
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
 
-  // Centered title is only on the first page
   const titleText = `INFORME TÉCNICO Nº: ${finalID}`;
   const textWidth = doc.getStringUnitWidth(titleText) * doc.internal.getFontSize() / doc.internal.scaleFactor;
   const textOffset = leftMargin + (printableWidth - textWidth) / 2;
@@ -79,20 +76,18 @@ export const generatePDF = (report, inspectorName, reportId) => {
 
   currentY += 5;
 
-  // Modified table data for "Instalación" and margins
   autoTable(doc, {
     startY: currentY,
     body: [
         ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
         ['Motor:', report.motor, 'Modelo:', report.modelo],
         ['Nº de motor:', report.n_motor, 'Grupo:', report.grupo],
-        // New row structure for "Instalación"
         [{content: 'Instalación:', styles: {fontStyle: 'bold'}}, {content: report.instalacion, colSpan: 3}],
     ],
     theme: 'grid',
     styles: { fontSize: 9, cellPadding: 2 },
     columnStyles: { 0: { fontStyle: 'bold' }, 2: { fontStyle: 'bold' } },
-    margin: { left: leftMargin, right: rightMargin } // Apply margins to the table
+    margin: { left: leftMargin, right: rightMargin }
   });
 
   currentY = (doc as any).lastAutoTable.finalY + 10;
@@ -101,54 +96,53 @@ export const generatePDF = (report, inspectorName, reportId) => {
     doc.setTextColor(darkColor);
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    // Draw title respecting the margin
     doc.text("Descripción de la incidencia:", leftMargin, currentY);
     currentY += 10;
 
     const lineHeight = 5.5; 
     const sectionTitles = ["ANTECEDENTES:", "INTERVENCIÓN:", "RESUMEN Y SITUACIÓN ACTUAL:"];
     
-    // Split the entire content by user-defined newlines first
-    const paragraphs = report.reportContent.split('\n');
+    const normalizedText = report.reportContent
+      .replace(/\n\n/g, '[PARAGRAPH_BREAK]')
+      .replace(/\n/g, ' ');
+
+    const paragraphs = normalizedText.split('[PARAGRAPH_BREAK]');
 
     for (const paragraph of paragraphs) {
-      // For each paragraph, wrap it to the printable width
+      if (paragraph.trim() === '') {
+        currentY += lineHeight;
+        continue;
+      }
+      
       const lines = doc.splitTextToSize(paragraph, printableWidth);
       
       for (const line of lines) {
-        // Check if we need a new page
         if (currentY + lineHeight > pageHeight - 30) { 
-          drawFooter(doc.internal.pages.length, 0); // Placeholder for total pages
+          drawFooter(doc.internal.pages.length, 0);
           doc.addPage();
           drawHeader();
-          currentY = 40; // Reset Y position
+          currentY = 40;
+          doc.setTextColor(darkColor); // Reset color on new page
         }
         
         const isTitle = sectionTitles.some(title => line.trim().toUpperCase().startsWith(title));
 
         doc.setFont('helvetica', isTitle ? 'bold' : 'normal');
         doc.setFontSize(9);
-        doc.setTextColor(darkColor); // Ensure text color is reset on new pages
 
-        if (isTitle && currentY > 50) currentY += lineHeight; // Add extra space before titles
+        if (isTitle && currentY > 50) currentY += lineHeight;
 
-        // Draw the line with justification and margin
-        doc.text(line, leftMargin, currentY, { align: 'justify', maxWidth: printableWidth });
+        doc.text(line, leftMargin, currentY);
 
         currentY += lineHeight;
       }
-      
-      // If the original paragraph was empty (just a newline), add a blank line.
-      if (paragraph.trim() === '') {
-        currentY += lineHeight;
-      }
+      currentY += lineHeight / 2; // Add space between paragraphs
     }
   }
 
-  // --- SIGNATURE BLOCK ---
   const signatureBlockHeight = 45;
   if (currentY + signatureBlockHeight > pageHeight - 20) {
-    drawFooter(doc.internal.pages.length, 0); // Placeholder
+    drawFooter(doc.internal.pages.length, 0);
     doc.addPage();
     drawHeader();
     currentY = 40;
@@ -157,14 +151,12 @@ export const generatePDF = (report, inspectorName, reportId) => {
   currentY += 20;
 
   if (report.inspectorSignatureUrl) {
-      // Position signature respecting the left margin
       doc.addImage(report.inspectorSignatureUrl, 'PNG', leftMargin, currentY, 60, 25);
   }
   doc.setFontSize(10);
   doc.text(`Firmado: ${inspectorName}`, leftMargin, currentY + 32);
   doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, leftMargin, currentY + 39);
 
-  // Loop through pages to set final footer with correct total pages
   const totalPages = doc.internal.pages.length;
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
@@ -262,19 +254,15 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   };
 
   const handlePdfAction = () => {
-    if (inspectorSignature) {
-        const reportData = {
-        ...formData,
-        inspectorSignatureUrl: inspectorSignature,
-        };
-        const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
-        if (isSaved) {
-        doc.save(`Informe_Tecnico_${savedDocId}.pdf`);
-        } else {
-        setPreviewPdfUrl(doc.output('datauristring'));
-        }
+    const reportData = {
+    ...formData,
+    inspectorSignatureUrl: inspectorSignature,
+    };
+    const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
+    if (isSaved) {
+    doc.save(`Informe_Tecnico_${savedDocId}.pdf`);
     } else {
-        alert("Por favor, firma el documento antes de generar el PDF.");
+    setPreviewPdfUrl(doc.output('datauristring'));
     }
   };
 
