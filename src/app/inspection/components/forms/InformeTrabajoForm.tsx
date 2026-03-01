@@ -60,17 +60,14 @@ export const generatePDF = (report, inspectorName, reportId) => {
   drawHeader();
   currentY = 40;
 
-  const titleText = `INFORME TÉCNICO Nº: ${reportId.replace('BORRADOR', '2026-0001')}`;
-  
-  if (doc.internal.pages.length === 1) {
-    doc.setTextColor(darkColor);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    const textWidth = doc.getStringUnitWidth(titleText) * doc.internal.getFontSize() / doc.internal.scaleFactor;
-    const textOffset = (pageWidth - textWidth) / 2;
-    doc.text(titleText, textOffset, currentY);
-    currentY += 5;
-  }
+  doc.setTextColor(darkColor);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text("INFORME TÉCNICO", 15, currentY);
+
+  doc.setFontSize(10);
+  doc.text(`Nº: ${reportId}`, pageWidth - 15, currentY, { align: 'right' });
+  currentY += 5;
   
   autoTable(doc, {
     startY: currentY,
@@ -87,18 +84,9 @@ export const generatePDF = (report, inspectorName, reportId) => {
 
   currentY = (doc as any).lastAutoTable.finalY + 10;
 
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text("Descripción de la incidencia:", 15, currentY);
-  currentY += 10;
-
   const rawText = report.reportContent || '';
-  
-  const processedText = rawText.replace(/(?<!\n)\n(?!\n)/g, ' ').replace(/\n\n/g, '\n');
-  
-  const lines = doc.splitTextToSize(processedText, pageWidth - 30);
+  const lines = doc.splitTextToSize(rawText, pageWidth - 30);
   const lineHeight = 5.5;
-  const titles = ["ANTECEDENTES:", "INTERVENCIÓN:", "RESUMEN Y SITUACIÓN ACTUAL:"];
 
   for (const line of lines) {
     if (currentY + lineHeight > pageHeight - 30) {
@@ -106,31 +94,18 @@ export const generatePDF = (report, inspectorName, reportId) => {
       doc.addPage();
       drawHeader();
       currentY = 40;
-      doc.setTextColor(darkColor); 
-    }
-
-    const trimmedLine = line.trim();
-    const isTitle = titles.some(title => trimmedLine.startsWith(title));
-
-    if (isTitle) {
-        doc.setFont('helvetica', 'bold');
-    } else {
-        doc.setFont('helvetica', 'normal');
     }
     
     doc.text(line, 15, currentY);
     currentY += lineHeight;
   }
   
-  doc.setFont('helvetica', 'normal');
-
   const signatureBlockHeight = 45;
   if (currentY + signatureBlockHeight > pageHeight - 20) {
     drawFooter(doc.internal.pages.length, 0);
     doc.addPage();
     drawHeader();
     currentY = 40;
-    doc.setTextColor(darkColor);
   }
   
   currentY += 20;
@@ -291,7 +266,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       </Dialog>
 
       <header className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
-        <h2 className="text-2xl font-black text-slate-800 border-l-4 border-green-500 pl-4 uppercase tracking-tighter">Informe Técnico</h2>
+        <h2 className="text-2xl font-black text-slate-800 border-l-4 border-green-500 pl-4 uppercase tracking-tighter">CONTENIDO DEL INFORME</h2>
       </header>
       
       <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
