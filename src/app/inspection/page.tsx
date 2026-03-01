@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useUser } from '@/firebase';
 import { Loader2, Mic, Square } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -31,6 +32,7 @@ type FormType = 'albaran' | 'informe-tecnico' | 'hoja-revision' | 'revision-basi
 
 const InspectionPageContent = () => {
   const { user } = useUser();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>(TABS.MENU);
   const [activeInspectionForm, setActiveInspectionForm] = useState<FormType | null>(null);
   const [isOnline, setIsOnline] = useState(true);
@@ -77,9 +79,17 @@ const InspectionPageContent = () => {
                 try {
                     const res = await processDictation({ dictation: fullTranscript });
                     setAiData(res);
+                    toast({
+                      title: "IA ha procesado el dictado",
+                      description: "Los campos del formulario han sido actualizados.",
+                    });
                 } catch (e) {
                     console.error("AI dictation processing failed:", e);
-                    alert("La IA no pudo procesar el dictado. Inténtalo de nuevo.");
+                    toast({
+                      variant: "destructive",
+                      title: "Error de la IA",
+                      description: "La IA no pudo procesar el dictado. Inténtalo de nuevo.",
+                    });
                 } finally {
                     setAiLoading(false);
                 }
@@ -88,16 +98,25 @@ const InspectionPageContent = () => {
 
         recognition.onerror = (event: any) => {
             console.error('Error de reconocimiento de voz:', event.error);
-            if (event.error !== 'no-speech' && event.error !== 'aborted') {
-                alert('Hubo un error con el dictado. Asegúrate de dar permiso al micrófono.');
+            if (event.error === 'no-speech') {
+                toast({
+                    variant: "destructive",
+                    title: "No se detectó audio",
+                    description: "Inténtalo de nuevo y asegúrate de hablar cerca del micrófono.",
+                });
+            } else if (event.error !== 'aborted') {
+                toast({
+                    variant: "destructive",
+                    title: "Error de Micrófono",
+                    description: "No se pudo iniciar el dictado. Revisa los permisos del micrófono en tu navegador.",
+                });
             }
             setIsDictating(false);
         };
         
         recognition.onend = () => {
-            if (recognitionRef.current) { // Check if it's still supposed to be dictating
-              setIsDictating(false);
-            }
+            // This ensures the button state is correct if recognition stops on its own
+            setIsDictating(false);
         };
 
         recognitionRef.current = recognition;
@@ -112,7 +131,7 @@ const InspectionPageContent = () => {
         }
       };
     }
-  }, []);
+  }, [toast]);
 
   const handleNavigate = (tab: string) => {
     setActiveTab(tab);
@@ -137,16 +156,16 @@ const InspectionPageContent = () => {
 
   const toggleDictation = () => {
     if (!isOnline) {
-        alert("La función de dictado por IA requiere conexión a internet.");
+        toast({ variant: "destructive", title: "Sin Conexión", description: "El dictado por IA requiere conexión a internet." });
         return;
     }
     if (!recognitionRef.current) {
-        alert("El dictado por voz no es compatible con este navegador. Prueba con Chrome.");
+        toast({ variant: "destructive", title: "Navegador no compatible", description: "El dictado por voz no funciona en este navegador. Prueba con Chrome." });
         return;
     }
     if (isDictating) {
         recognitionRef.current.stop();
-        // onend will set isDictating to false
+        setIsDictating(false); // Manually set state, onend can be slow
     } else {
         setAiData(null); // Reset previous data on new dictation
         recognitionRef.current.start();
