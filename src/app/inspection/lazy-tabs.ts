@@ -16,8 +16,8 @@ export const ProfileTabLazy = React.lazy(() =>
 export const AlbaranFormLazy = React.lazy(() =>
   import('./components/forms/AlbaranForm').then(module => ({ default: module.default }))
 );
-export const InformeTrabajoFormLazy = React.lazy(() =>
-  import('./components/forms/InformeTrabajoForm').then(module => ({ default: module.default }))
+export const InformeTecnicoFormLazy = React.lazy(() =>
+  import('./components/forms/InformeTecnicoForm').then(module => ({ default: module.default }))
 );
 export const HojaRevisionFormLazy = React.lazy(() =>
   import('./components/forms/HojaRevisionForm').then(module => ({ default: module.default }))

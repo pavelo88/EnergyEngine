@@ -20,13 +20,13 @@ import {
   ExpensesTabLazy, 
   ProfileTabLazy,
   AlbaranFormLazy,
-  InformeTrabajoFormLazy,
+  InformeTecnicoFormLazy,
   HojaRevisionFormLazy,
   RevisionBasicaFormLazy,
 } from './lazy-tabs';
 
 
-type FormType = 'albaran' | 'informe-trabajo' | 'hoja-revision' | 'revision-basica';
+type FormType = 'albaran' | 'informe-tecnico' | 'hoja-revision' | 'revision-basica';
 
 const InspectionPageContent = () => {
   const { user } = useUser();
@@ -102,7 +102,7 @@ const InspectionPageContent = () => {
         let FormComponent;
         switch (activeInspectionForm) {
             case 'albaran': FormComponent = AlbaranFormLazy; break;
-            case 'informe-trabajo': FormComponent = InformeTrabajoFormLazy; break;
+            case 'informe-tecnico': FormComponent = InformeTecnicoFormLazy; break;
             case 'hoja-revision': FormComponent = HojaRevisionFormLazy; break;
             case 'revision-basica': FormComponent = RevisionBasicaFormLazy; break;
             default: return <p>Formulario no encontrado</p>;

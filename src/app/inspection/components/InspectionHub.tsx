@@ -7,7 +7,7 @@ import { doc, getDoc } from 'firebase/firestore';
 
 // --- PROPS DE LA INTERFAZ ---
 interface HubProps {
-  onSelectInspectionType: (type: 'albaran' | 'informe-trabajo' | 'hoja-revision' | 'revision-basica', data?: any) => void;
+  onSelectInspectionType: (type: 'albaran' | 'informe-tecnico' | 'hoja-revision' | 'revision-basica', data?: any) => void;
 }
 
 const reportTypes = [
@@ -18,8 +18,8 @@ const reportTypes = [
     icon: FileText,
   },
   {
-    id: 'informe-trabajo',
-    title: 'Informe de Trabajo',
+    id: 'informe-tecnico',
+    title: 'Informe Técnico',
     desc: 'Reporte técnico detallado con mediciones y observaciones.',
     icon: ShieldCheck,
   },
