@@ -33,6 +33,7 @@ export const generatePDF = (report, inspectorName, reportId) => {
     const pageHeight = doc.internal.pageSize.height;
     const pageWidth = doc.internal.pageSize.width;
     
+    // Margins
     const leftMargin = 30;
     const rightMargin = 30;
     const bottomMargin = 30;
@@ -41,6 +42,7 @@ export const generatePDF = (report, inspectorName, reportId) => {
     let currentPage = 1;
 
     const drawHeader = () => {
+      // The header should not respect the margins
       doc.setFillColor(darkColor);
       doc.rect(0, 0, pageWidth, 28, 'F');
       doc.setTextColor('#FFFFFF');
@@ -53,12 +55,13 @@ export const generatePDF = (report, inspectorName, reportId) => {
       doc.text("info@energyengine.es | +34 925 15 43 54", pageWidth - 15, 18, { align: 'right' });
     };
 
-    const drawFooter = () => {
-      doc.setFontSize(8);
-      doc.setTextColor(100);
-      doc.text(`Página ${currentPage}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-      doc.setFillColor(darkColor);
-      doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
+    const drawFooter = (pageNumber: number, totalPages: number) => {
+        // The footer should not respect the margins
+        doc.setFontSize(8);
+        doc.setTextColor(100);
+        doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+        doc.setFillColor(darkColor);
+        doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
     };
     
     drawHeader();
@@ -102,46 +105,54 @@ export const generatePDF = (report, inspectorName, reportId) => {
     
     const rawText = report.reportContent || '';
     const textOptions = {
-        align: 'justify' as const,
+        align: 'center' as const, // User request for testing
         lineHeightFactor: 1.5,
     };
     
     const paragraphs = rawText.split('\n\n'); 
     const lineHeight = doc.getTextDimensions('M').h * textOptions.lineHeightFactor;
 
-    for (const paragraph of paragraphs) {
-      const cleanedParagraph = paragraph.replace(/\n/g, ' '); 
+    paragraphs.forEach((paragraph, pIndex) => {
+      const cleanedParagraph = paragraph.replace(/\n/g, ' ').trim();
       
-      if (cleanedParagraph.trim() === '') {
+      if (cleanedParagraph) {
+        const lines = doc.splitTextToSize(cleanedParagraph, contentWidth);
+        
+        lines.forEach((line: string) => {
+          if (currentY + lineHeight > pageHeight - bottomMargin) {
+            doc.addPage();
+            currentPage++;
+            drawHeader();
+            currentY = 40; 
+            doc.setTextColor(darkColor);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+          }
+          
+          const isTitle = line.trim().endsWith(':') && line.trim().toUpperCase() === line.trim();
+          doc.setFont('helvetica', isTitle ? 'bold' : 'normal');
+          
+          doc.text(line, pageWidth / 2, currentY, textOptions);
           currentY += lineHeight;
-          continue;
-      }
+        });
 
-      const lines = doc.splitTextToSize(cleanedParagraph, contentWidth);
-      
-      for (const line of lines) {
-        if (currentY + lineHeight > pageHeight - bottomMargin) {
-          drawFooter();
-          doc.addPage();
-          currentPage++;
-          drawHeader();
-          doc.setTextColor(darkColor);
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(9);
-          currentY = 40;
+        if (pIndex < paragraphs.length - 1) {
+          currentY += lineHeight * 0.5;
+          if (currentY + lineHeight > pageHeight - bottomMargin) {
+             doc.addPage();
+             currentPage++;
+             drawHeader();
+             currentY = 40;
+             doc.setTextColor(darkColor);
+             doc.setFont('helvetica', 'normal');
+             doc.setFontSize(9);
+          }
         }
-
-        const isTitle = line.endsWith(':') && line.toUpperCase() === line;
-        doc.setFont('helvetica', isTitle ? 'bold' : 'normal');
-
-        doc.text(line, leftMargin, currentY, textOptions);
-        currentY += lineHeight;
       }
-    }
+    });
 
     const signatureBlockHeight = 45;
     if (currentY + signatureBlockHeight > pageHeight - bottomMargin) {
-      drawFooter();
       doc.addPage();
       currentPage++;
       drawHeader();
@@ -157,9 +168,10 @@ export const generatePDF = (report, inspectorName, reportId) => {
     doc.text(`Firmado: ${inspectorName}`, leftMargin, currentY + 32);
     doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, leftMargin, currentY + 39);
 
-    for (let i = 1; i <= currentPage; i++) {
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.text(`Página ${i} de ${currentPage}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+        drawFooter(i, pageCount);
     }
 
     return doc;
