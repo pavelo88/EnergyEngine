@@ -36,10 +36,13 @@ export default function ProfileTab() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Ajustar coordenadas para Mouse o Touch
+    // Ajustar coordenadas para Mouse o Touch de forma segura para TypeScript
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || e.touches[0].clientX) - rect.left;
-    const y = (e.clientY || e.touches[0].clientY) - rect.top;
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
 
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';

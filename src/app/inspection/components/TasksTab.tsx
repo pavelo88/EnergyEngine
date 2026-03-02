@@ -34,8 +34,8 @@ export default function TasksTab({ onStartInspection }: { onStartInspection: (ta
       where("estado", "==", "asignada")
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const tasksData = snapshot.docs.map(doc => ({
+    const unsubscribe = onSnapshot(q, (snapshot: any) => {
+      const tasksData = snapshot.docs.map((doc: any) => ({
         id: doc.id,
         ...doc.data()
       })) as Task[];
@@ -89,7 +89,7 @@ export default function TasksTab({ onStartInspection }: { onStartInspection: (ta
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[9px] font-black rounded-full uppercase">
-                    {task.equipo.marca || 'Motor'} {task.equipo.modelo}
+                    {task.equipo?.marca || 'Motor'} {task.equipo?.modelo || ''}
                   </span>
                   <span className="flex items-center gap-1 text-[9px] font-bold text-slate-400">
                     <Clock size={10} /> Pendiente
@@ -97,12 +97,12 @@ export default function TasksTab({ onStartInspection }: { onStartInspection: (ta
                 </div>
                 
                 <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">
-                  {task.cliente.nombre}
+                  {task.cliente?.nombre || 'Cliente no asignado'}
                 </h3>
                 
                 <div className="flex items-center gap-2 text-slate-400">
                   <MapPin size={14} className="text-emerald-500" />
-                  <span className="text-xs font-medium">{task.cliente.instalacion || 'Ubicación no especificada'}</span>
+                  <span className="text-xs font-medium">{task.cliente?.instalacion || 'Ubicación no especificada'}</span>
                 </div>
               </div>
 

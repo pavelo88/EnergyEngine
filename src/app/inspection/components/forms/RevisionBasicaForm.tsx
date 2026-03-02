@@ -317,13 +317,13 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
         getDoc(doc(db, 'usuarios', user.email)).then(snap => {
             if (snap.exists()) setInspectorName(snap.data().nombre);
             else setInspectorName(user.email || 'Técnico');
-        });
+        }).catch((e: any) => console.error(e));
     }
   }, [user, db]);
 
   useEffect(() => {
     if (initialData) {
-      setFormData(prev => ({
+      setFormData((prev: any) => ({
           ...prev,
           cliente: initialData.clienteNombre || prev.cliente,
           instalacion: initialData.cliente?.instalacion || prev.instalacion,
@@ -340,7 +340,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
 
   useEffect(() => {
     if (aiData) {
-      setFormData(prev => {
+      setFormData((prev: any) => {
           const newChecklist = { ...prev.checklist, ...aiData.checklist_updates };
           if (aiData.all_ok) {
             Object.values(BASIC_REVISION_CHECKLIST).flat().forEach(item => {
@@ -408,15 +408,15 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
   }, [aiData]);
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({...prev, [field]: value}));
+    setFormData((prev: any) => ({...prev, [field]: value}));
   };
   
   const handleNestedChange = (section: string, field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [section]: { ...(prev as any)[section], [field]: value } }));
+    setFormData((prev: any) => ({ ...prev, [section]: { ...(prev as any)[section], [field]: value } }));
   };
 
   const handleChecklistChange = (item: string, status: string) => {
-    setFormData(prev => ({ ...prev, checklist: { ...prev.checklist, [item]: status } }));
+    setFormData((prev: any) => ({ ...prev, checklist: { ...prev.checklist, [item]: status } }));
   };
 
   const handleCaptureLocation = () => {
@@ -478,7 +478,10 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
       setSavedDocId(docId);
       setIsSaved(true);
       alert(`Revisión Básica guardada con éxito. ID: ${docId}`);
-    } catch (e) { console.error("Error saving document:", e); alert("Error al guardar."); }
+    } catch (e: any) { 
+      console.error("Error saving document:", e); 
+      alert("Error al guardar."); 
+    }
     finally { setSaving(false); }
   };
   

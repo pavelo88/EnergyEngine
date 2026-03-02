@@ -116,7 +116,7 @@ export default function RegistroJornadaForm() {
 
   // --- LÓGICA DEL FORMULARIO ---
   const handleHorasChange = (field: string, value: string) => {
-      setHoras(prev => ({...prev, [field]: value}));
+      setHoras((prev: any) => ({...prev, [field]: value}));
   };
 
   const handleAddGasto = () => {
@@ -129,7 +129,7 @@ export default function RegistroJornadaForm() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
-      setCurrentGasto(prev => ({ ...prev, comprobanteFile: e.target.files[0] }));
+      setCurrentGasto((prev: any) => ({ ...prev, comprobanteFile: e.target.files![0] }));
     }
   };
 

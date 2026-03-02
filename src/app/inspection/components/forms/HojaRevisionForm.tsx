@@ -11,24 +11,24 @@ import SignaturePad from '../SignaturePad';
 import { CHECKLIST_SECTIONS, INITIAL_FORM_DATA } from '../../lib/form-constants';
 
 
-const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }) => (
+const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
     <div className="relative group">
       {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={16}/>}
       <input 
-        type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        type={type} value={value || ''} onChange={(e: any) => onChange(e.target.value)} placeholder={placeholder}
         className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-blue-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
       />
     </div>
   </div>
 ));
 
-const LoadTestInput = React.memo(({ label, value, onChange }) => (
+const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
     <div className="flex flex-col items-center gap-1">
         <label className="text-[9px] font-black text-slate-500 w-full text-center">{label}</label>
         <input 
-            type="text" value={value || ''} onChange={e => onChange(e.target.value)}
+            type="text" value={value || ''} onChange={(e: any) => onChange(e.target.value)}
             className="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-2 outline-none focus:border-blue-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
         />
     </div>
@@ -251,6 +251,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
   return doc;
 };
+
 export default function HojaRevisionForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
   const db = useFirestore();
@@ -272,6 +273,8 @@ export default function HojaRevisionForm({ initialData, aiData }: { initialData?
         getDoc(doc(db, 'usuarios', user.email)).then(snap => {
             if (snap.exists()) setInspectorName(snap.data().nombre);
             else setInspectorName(user.email || 'Técnico');
+        }).catch((e: any) => {
+            console.error(e);
         });
     }
   }, [user, db]);
@@ -279,7 +282,7 @@ export default function HojaRevisionForm({ initialData, aiData }: { initialData?
   useEffect(() => {
     if (initialData) {
       // Deep merge initialData with formData
-      setFormData(prev => ({
+      setFormData((prev: any) => ({
           ...prev,
           cliente: initialData.clienteNombre || prev.cliente,
           instalacion: initialData.cliente?.instalacion || prev.instalacion,
@@ -297,7 +300,7 @@ export default function HojaRevisionForm({ initialData, aiData }: { initialData?
   // Effect to process incoming AI data from global dictation
   useEffect(() => {
     if (aiData) {
-      setFormData(prev => {
+      setFormData((prev: any) => {
           const newChecklist = { ...prev.checklist, ...aiData.checklist_updates };
           if (aiData.all_ok) {
             Object.values(CHECKLIST_SECTIONS).flat().forEach(item => {
@@ -343,16 +346,16 @@ export default function HojaRevisionForm({ initialData, aiData }: { initialData?
     }
   }, [aiData]);
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({...prev, [field]: value}));
+  const handleInputChange = (field: string, value: any) => {
+    setFormData((prev: any) => ({...prev, [field]: value}));
   };
   
-  const handleNestedChange = (section, field, value) => {
-    setFormData(prev => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
+  const handleNestedChange = (section: string, field: string, value: any) => {
+    setFormData((prev: any) => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
   };
 
-  const handleChecklistChange = (item, status) => {
-    setFormData(prev => ({ ...prev, checklist: { ...prev.checklist, [item]: status } }));
+  const handleChecklistChange = (item: string, status: string) => {
+    setFormData((prev: any) => ({ ...prev, checklist: { ...prev.checklist, [item]: status } }));
   };
 
     const handleCaptureLocation = () => {
@@ -414,7 +417,10 @@ export default function HojaRevisionForm({ initialData, aiData }: { initialData?
       setSavedDocId(docId);
       setIsSaved(true);
       alert(`Hoja de Revisión guardada con éxito. ID: ${docId}`);
-    } catch (e) { console.error("Error saving document:", e); alert("Error al guardar."); }
+    } catch (e: any) { 
+      console.error("Error saving document:", e); 
+      alert("Error al guardar."); 
+    }
     finally { setSaving(false); }
   };
   
@@ -445,15 +451,15 @@ export default function HojaRevisionForm({ initialData, aiData }: { initialData?
             <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
                 <h3 className="font-bold text-slate-500">Datos Generales</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <StableInput label="Cliente" icon={Users} value={formData.cliente} onChange={v => handleInputChange('cliente', v)}/>
-                    <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={v => handleInputChange('instalacion', v)}/>
-                    <StableInput label="Dirección" icon={MapPin} value={formData.direccion} onChange={v => handleInputChange('direccion', v)}/>
-                    <StableInput label="Fecha Revisión" icon={Calendar} type="date" value={formData.fecha_revision} onChange={v => handleInputChange('fecha_revision', v)}/>
-                    <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={v => handleInputChange('motor', v)}/>
-                    <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={v => handleInputChange('modelo', v)}/>
-                    <StableInput label="Nº Motor" icon={Hash} value={formData.n_motor} onChange={v => handleInputChange('n_motor', v)}/>
-                    <StableInput label="Nº Grupo" icon={Hash} value={formData.n_grupo} onChange={v => handleInputChange('n_grupo', v)}/>
-                    <StableInput label="Potencia" icon={Zap} value={formData.potencia} onChange={v => handleInputChange('potencia', v)}/>
+                    <StableInput label="Cliente" icon={Users} value={formData.cliente} onChange={(v: any) => handleInputChange('cliente', v)}/>
+                    <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={(v: any) => handleInputChange('instalacion', v)}/>
+                    <StableInput label="Dirección" icon={MapPin} value={formData.direccion} onChange={(v: any) => handleInputChange('direccion', v)}/>
+                    <StableInput label="Fecha Revisión" icon={Calendar} type="date" value={formData.fecha_revision} onChange={(v: any) => handleInputChange('fecha_revision', v)}/>
+                    <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: any) => handleInputChange('motor', v)}/>
+                    <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={(v: any) => handleInputChange('modelo', v)}/>
+                    <StableInput label="Nº Motor" icon={Hash} value={formData.n_motor} onChange={(v: any) => handleInputChange('n_motor', v)}/>
+                    <StableInput label="Nº Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: any) => handleInputChange('n_grupo', v)}/>
+                    <StableInput label="Potencia" icon={Zap} value={formData.potencia} onChange={(v: any) => handleInputChange('potencia', v)}/>
                     
                         <button 
                             onClick={handleCaptureLocation} 
@@ -491,29 +497,29 @@ export default function HojaRevisionForm({ initialData, aiData }: { initialData?
             <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
                 <h3 className="font-bold text-slate-500">Datos de Pruebas y Carga</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <StableInput icon={Clock} label="Horas" value={formData.datos_pruebas.horas} onChange={v => handleNestedChange('datos_pruebas', 'horas', v)} />
-                    <StableInput icon={Gauge} label="Presión Aceite" value={formData.datos_pruebas.presion} onChange={v => handleNestedChange('datos_pruebas', 'presion', v)} />
-                    <StableInput icon={Thermometer} label="Temperatura" value={formData.datos_pruebas.temperatura} onChange={v => handleNestedChange('datos_pruebas', 'temperatura', v)} />
-                    <StableInput icon={Droplets} label="Nivel Combustible" value={formData.datos_pruebas.nivel_combustible} onChange={v => handleNestedChange('datos_pruebas', 'nivel_combustible', v)} />
-                    <StableInput icon={Zap} label="Tensión Alternador" value={formData.datos_pruebas.tension_alternador} onChange={v => handleNestedChange('datos_pruebas', 'tension_alternador', v)} />
-                    <StableInput icon={Wind} label="Frecuencia" value={formData.datos_pruebas.frecuencia} onChange={v => handleNestedChange('datos_pruebas', 'frecuencia', v)} />
-                    <StableInput icon={Battery} label="Carga Baterías" value={formData.datos_pruebas.carga_baterias} onChange={v => handleNestedChange('datos_pruebas', 'carga_baterias', v)} />
+                    <StableInput icon={Clock} label="Horas" value={formData.datos_pruebas.horas} onChange={(v: any) => handleNestedChange('datos_pruebas', 'horas', v)} />
+                    <StableInput icon={Gauge} label="Presión Aceite" value={formData.datos_pruebas.presion} onChange={(v: any) => handleNestedChange('datos_pruebas', 'presion', v)} />
+                    <StableInput icon={Thermometer} label="Temperatura" value={formData.datos_pruebas.temperatura} onChange={(v: any) => handleNestedChange('datos_pruebas', 'temperatura', v)} />
+                    <StableInput icon={Droplets} label="Nivel Combustible" value={formData.datos_pruebas.nivel_combustible} onChange={(v: any) => handleNestedChange('datos_pruebas', 'nivel_combustible', v)} />
+                    <StableInput icon={Zap} label="Tensión Alternador" value={formData.datos_pruebas.tension_alternador} onChange={(v: any) => handleNestedChange('datos_pruebas', 'tension_alternador', v)} />
+                    <StableInput icon={Wind} label="Frecuencia" value={formData.datos_pruebas.frecuencia} onChange={(v: any) => handleNestedChange('datos_pruebas', 'frecuencia', v)} />
+                    <StableInput icon={Battery} label="Carga Baterías" value={formData.datos_pruebas.carga_baterias} onChange={(v: any) => handleNestedChange('datos_pruebas', 'carga_baterias', v)} />
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t mt-4">
-                    <LoadTestInput label="Tensión RS" value={formData.pruebas_carga.tension_rs} onChange={v => handleNestedChange('pruebas_carga', 'tension_rs', v)} />
-                    <LoadTestInput label="Tensión ST" value={formData.pruebas_carga.tension_st} onChange={v => handleNestedChange('pruebas_carga', 'tension_st', v)} />
-                    <LoadTestInput label="Tensión RT" value={formData.pruebas_carga.tension_rt} onChange={v => handleNestedChange('pruebas_carga', 'tension_rt', v)} />
-                    <LoadTestInput label="Intensidad R" value={formData.pruebas_carga.intensidad_r} onChange={v => handleNestedChange('pruebas_carga', 'intensidad_r', v)} />
-                    <LoadTestInput label="Intensidad S" value={formData.pruebas_carga.intensidad_s} onChange={v => handleNestedChange('pruebas_carga', 'intensidad_s', v)} />
-                    <LoadTestInput label="Intensidad T" value={formData.pruebas_carga.intensidad_t} onChange={v => handleNestedChange('pruebas_carga', 'intensidad_t', v)} />
-                    <LoadTestInput label="Potencia kW" value={formData.pruebas_carga.potencia_kw} onChange={v => handleNestedChange('pruebas_carga', 'potencia_kw', v)} />
+                    <LoadTestInput label="Tensión RS" value={formData.pruebas_carga.tension_rs} onChange={(v: any) => handleNestedChange('pruebas_carga', 'tension_rs', v)} />
+                    <LoadTestInput label="Tensión ST" value={formData.pruebas_carga.tension_st} onChange={(v: any) => handleNestedChange('pruebas_carga', 'tension_st', v)} />
+                    <LoadTestInput label="Tensión RT" value={formData.pruebas_carga.tension_rt} onChange={(v: any) => handleNestedChange('pruebas_carga', 'tension_rt', v)} />
+                    <LoadTestInput label="Intensidad R" value={formData.pruebas_carga.intensidad_r} onChange={(v: any) => handleNestedChange('pruebas_carga', 'intensidad_r', v)} />
+                    <LoadTestInput label="Intensidad S" value={formData.pruebas_carga.intensidad_s} onChange={(v: any) => handleNestedChange('pruebas_carga', 'intensidad_s', v)} />
+                    <LoadTestInput label="Intensidad T" value={formData.pruebas_carga.intensidad_t} onChange={(v: any) => handleNestedChange('pruebas_carga', 'intensidad_t', v)} />
+                    <LoadTestInput label="Potencia kW" value={formData.pruebas_carga.potencia_kw} onChange={(v: any) => handleNestedChange('pruebas_carga', 'potencia_kw', v)} />
                 </div>
             </section>
 
             {/* --- OBSERVACIONES Y FIRMAS --- */}
             <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
                 <h3 className="font-bold text-slate-500">Observaciones</h3>
-                <textarea className="w-full h-24 bg-slate-50 border-2 border-slate-100 rounded-xl p-4 resize-none" placeholder="Añade tus observaciones aquí..." value={formData.observaciones} onChange={e => handleInputChange('observaciones', e.target.value)}/>
+                <textarea className="w-full h-24 bg-slate-50 border-2 border-slate-100 rounded-xl p-4 resize-none" placeholder="Añade tus observaciones aquí..." value={formData.observaciones} onChange={(e: any) => handleInputChange('observaciones', e.target.value)}/>
                 <div className="grid md:grid-cols-2 gap-8 items-start pt-6">
                     <div>
                         <SignaturePad title="Firma del Inspector" onSignatureEnd={setInspectorSignature} />
@@ -522,7 +528,7 @@ export default function HojaRevisionForm({ initialData, aiData }: { initialData?
                     <div>
                         <SignaturePad title="Firma del Cliente" onSignatureEnd={setClientSignature} />
                         <div className="mt-2">
-                        <StableInput label="" icon={User} value={formData.recibidoPor} onChange={v => handleInputChange('recibidoPor', v)} placeholder="Nombre del receptor"/>
+                        <StableInput label="" icon={User} value={formData.recibidoPor} onChange={(v: any) => handleInputChange('recibidoPor', v)} placeholder="Nombre del receptor"/>
                         </div>
                     </div>
                 </div>

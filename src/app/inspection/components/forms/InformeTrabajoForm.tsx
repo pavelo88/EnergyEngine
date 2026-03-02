@@ -18,7 +18,7 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
       <input
         type={type}
         value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e: any) => onChange(e.target.value)}
         placeholder={placeholder}
         className={`w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 ${Icon ? 'pl-12' : ''} outline-none focus:border-green-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm`}
       />
@@ -216,7 +216,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         initialData.observaciones
       ].filter(Boolean).join('\n\n');
 
-      setFormData(prev => ({
+      setFormData((prev: any) => ({
         ...prev,
         motor: initialData.motor || initialData.equipo?.marca || prev.motor,
         modelo: initialData.modelo || initialData.equipo?.modelo || prev.modelo,
@@ -230,7 +230,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
   useEffect(() => {
     if (aiData) {
-      setFormData(prev => ({
+      setFormData((prev: any) => ({
         ...prev,
         motor: aiData.identidad.marca || prev.motor,
         modelo: aiData.identidad.modelo || prev.modelo,
@@ -244,7 +244,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
   const handleCaptureLocation = () => {
@@ -273,9 +273,12 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     try {
       const res = await splitTechnicalReport({ dictation: formData.reportContent });
       const formattedText = `ANTECEDENTES:\n\n${res.antecedentes}\n\nINTERVENCIÓN:\n\n${res.intervencion}\n\nRESUMEN Y SITUACIÓN ACTUAL:\n\n${res.resumen}`;
-      setFormData(p => ({ ...p, reportContent: formattedText }));
-    } catch (e) { console.error("AI enhancement failed:", e); }
-    finally { setAiLoading(false); }
+      setFormData((p: any) => ({ ...p, reportContent: formattedText }));
+    } catch (e: any) { 
+        console.error("AI enhancement failed:", e); 
+    } finally { 
+        setAiLoading(false); 
+    }
   };
 
   const handlePdfAction = () => {
@@ -312,8 +315,11 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       setSavedDocId(docId);
       setIsSaved(true);
       alert(`Informe Técnico guardado. ID: ${docId}`);
-    } catch (e) { console.error("Error saving document:", e); }
-    finally { setSaving(false); }
+    } catch (e: any) { 
+        console.error("Error saving document:", e); 
+    } finally { 
+        setSaving(false); 
+    }
   };
 
   return (
@@ -372,7 +378,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 outline-none focus:border-green-500 focus:bg-white font-medium text-slate-600 shadow-inner resize-y leading-relaxed" 
             placeholder="Dicte o escriba aquí el informe completo. La IA lo estructurará en Antecedentes, Intervención y Resumen."
             value={formData.reportContent} 
-            onChange={e => handleInputChange('reportContent', e.target.value)}
+            onChange={(e: any) => handleInputChange('reportContent', e.target.value)}
         />
       </section>
       
