@@ -18,7 +18,7 @@ export const CHECKLIST_SECTIONS = {
     potencia: '',
     fecha_revision: new Date().toISOString().split('T')[0],
     n_inspeccion: '',
-    location: null,
+    location: null as { lat: number; lon: number } | null,
     checklist: {},
     datos_pruebas: {
       horas: '',

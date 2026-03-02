@@ -155,14 +155,11 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   currentY += 4;
 
   const rawText = report.observaciones || '';
-  const blocks = rawText.split('\n');
+  const blocks = rawText.split('\n\n'); // Usar doble enter para párrafos
 
   blocks.forEach((block: string) => {
-      const text = block.trim();
-      if (!text) {
-          currentY += 3;
-          return;
-      }
+      const text = block.replace(/\n/g, ' ').trim(); // Limpiar saltos simples
+      if (!text) return;
 
       const isTitle = text.endsWith(':') && text.toUpperCase() === text;
 

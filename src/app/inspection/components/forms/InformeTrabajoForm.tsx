@@ -272,7 +272,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     setAiLoading(true);
     try {
       const res = await splitTechnicalReport({ dictation: formData.reportContent });
-      const formattedText = `ANTECEDENTES:\n${res.antecedentes}\n\nINTERVENCIÓN:\n${res.intervencion}\n\nRESUMEN Y SITUACIÓN ACTUAL:\n${res.resumen}`;
+      const formattedText = `ANTECEDENTES:\n\n${res.antecedentes}\n\nINTERVENCIÓN:\n\n${res.intervencion}\n\nRESUMEN Y SITUACIÓN ACTUAL:\n\n${res.resumen}`;
       setFormData(p => ({ ...p, reportContent: formattedText }));
     } catch (e) { console.error("AI enhancement failed:", e); }
     finally { setAiLoading(false); }

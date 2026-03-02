@@ -193,14 +193,11 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     currentY += 4;
 
     const rawText = report.observaciones || '';
-    const blocks = rawText.split('\n');
+    const blocks = rawText.split('\n\n');
 
     blocks.forEach((block: string) => {
-        const text = block.trim();
-        if (!text) {
-            currentY += 3;
-            return;
-        }
+        const text = block.replace(/\n/g, ' ').trim();
+        if (!text) return;
 
         const isTitle = text.endsWith(':') && text.toUpperCase() === text;
 
@@ -364,8 +361,9 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
           };
 
           for (const [item, status] of Object.entries(checklistUpdates)) {
-              if (recambiosMapping[item] && (status === 'CMB' || status === 'CAMBIO')) {
-                  const formKey = recambiosMapping[item];
+              const mappedKey = Object.keys(recambiosMapping).find(key => item.toLowerCase().includes(key.toLowerCase()));
+              if (mappedKey && (status === 'CMB' || status === 'CAMBIO')) {
+                  const formKey = recambiosMapping[mappedKey];
                   if (!recambiosUpdates[formKey]) { // Only update if empty
                       recambiosUpdates[formKey] = 'Cambiado';
                   }
