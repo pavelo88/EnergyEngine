@@ -39,36 +39,33 @@ const LoadTestInput = React.memo(({ label, value, onChange }) => (
     </div>
 ));
 
-export const generatePDF = (report, inspectorName, reportId) => {
+export const generatePDF = (report: any, inspectorName: string, reportId: string | null) => {
   const doc = new jsPDF();
   const finalID = reportId || 'BORRADOR';
-  const darkColor = '#0f172a'; // Slate-900 from theme
+  const darkColor = '#0f172a'; // Slate-900
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
 
-  // Header
-  doc.setFillColor(darkColor);
-  doc.rect(0, 0, 210, 28, 'F');
-  doc.setTextColor('#FFFFFF');
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text("ENERGY ENGINE", 15, 18);
-  
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", 205, 12, { align: 'right' });
-  doc.text("info@energyengine.es | +34 925 15 43 54", 205, 18, { align: 'right' });
-  
-  // Sub-header
+  // Márgenes
+  const leftMargin = 15;
+  const rightMargin = 15;
+  const topMargin = 40;
+  const bottomMargin = 30;
+  const contentWidth = pageWidth - leftMargin - rightMargin;
+
   let currentY = 40;
+
+  // 1. Sub-header (Título y Nº)
   doc.setTextColor(darkColor);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text("ALBARÁN DE TRABAJO", 15, currentY);
+  doc.text("ALBARÁN DE TRABAJO", leftMargin, currentY);
 
   doc.setFontSize(10);
-  doc.text(`Nº: ${finalID}`, 205, currentY, { align: 'right' });
-  currentY += 5;
+  doc.text(`Nº: ${finalID}`, pageWidth - rightMargin, currentY, { align: 'right' });
+  currentY += 6;
 
-  // Client and Service Data
+  // 2. Tabla de Cliente y Servicio
   autoTable(doc, {
       startY: currentY,
       body: [
@@ -82,16 +79,74 @@ export const generatePDF = (report, inspectorName, reportId) => {
       ],
       theme: 'grid',
       styles: {fontSize: 8, cellPadding: 2},
+      margin: { left: leftMargin, right: rightMargin }
   });
 
-  let finalYAfterHeader = (doc as any).lastAutoTable.finalY;
+  currentY = (doc as any).lastAutoTable.finalY + 8;
 
-  // Parámetros Técnicos
+  // 3. TRABAJOS REALIZADOS (Reubicado aquí arriba y con justificado/salto de página)
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text("PARÁMETROS TÉCNICOS", 15, finalYAfterHeader + 8);
+  doc.text("TRABAJOS REALIZADOS", leftMargin, currentY);
+  currentY += 4;
+
+  const rawText = report.trabajos_realizados || '';
+  const blocks = rawText.split('\n');
+
+  blocks.forEach((block: string) => {
+      const text = block.trim();
+      if (!text) {
+          currentY += 3;
+          return;
+      }
+
+      const isTitle = text.endsWith(':') && text.toUpperCase() === text;
+
+      if (isTitle) {
+          if (currentY + 15 > pageHeight - bottomMargin) {
+              doc.addPage();
+              currentY = topMargin;
+          }
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(darkColor);
+          doc.text(text, leftMargin, currentY);
+          currentY += 6;
+      } else {
+          autoTable(doc, {
+              startY: currentY,
+              margin: { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin },
+              body: [[text]],
+              theme: 'plain',
+              styles: {
+                  font: 'helvetica',
+                  fontSize: 9,
+                  cellPadding: 0,
+                  halign: 'justify', // Justificado perfecto
+                  textColor: darkColor
+              },
+              columnStyles: { 0: { cellWidth: contentWidth } }
+          });
+          currentY = (doc as any).lastAutoTable.finalY + 4;
+      }
+  });
+
+  currentY += 6;
+
+  // 4. PARÁMETROS TÉCNICOS
+  // Comprobamos si cabe en la página, si no, salto.
+  if (currentY + 40 > pageHeight - bottomMargin) {
+      doc.addPage();
+      currentY = topMargin;
+  }
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text("PARÁMETROS TÉCNICOS", leftMargin, currentY);
+  currentY += 4;
+
   autoTable(doc, {
-      startY: finalYAfterHeader + 10,
+      startY: currentY,
       body: [
           [`Horas: ${report.parametrosTecnicos.horas}`, `Presión Aceite: ${report.parametrosTecnicos.presionAceite}`, `Tensión: ${report.parametrosTecnicos.tension}`],
           [`Tª (°C): ${report.parametrosTecnicos.temperatura}`, `Nivel Combustible (%): ${report.parametrosTecnicos.nivelCombustible}`, `Frecuencia (Hz): ${report.parametrosTecnicos.frecuencia}`],
@@ -100,16 +155,25 @@ export const generatePDF = (report, inspectorName, reportId) => {
       theme: 'grid',
       styles: {fontSize: 8, cellPadding: 1.5, minCellHeight: 8},
       bodyStyles: {fontStyle: 'bold'},
+      margin: { left: leftMargin, right: rightMargin }
   });
 
-  let finalYAfterParams = (doc as any).lastAutoTable.finalY;
+  currentY = (doc as any).lastAutoTable.finalY + 8;
 
-  // Potencia con Carga
+  // 5. POTENCIA CON CARGA
+  // Comprobamos si cabe en la página
+  if (currentY + 45 > pageHeight - bottomMargin) {
+      doc.addPage();
+      currentY = topMargin;
+  }
+
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Potencia con carga: ${report.potenciaConCarga.potencia}`, 15, finalYAfterParams + 8);
+  doc.text(`Potencia con carga: ${report.potenciaConCarga.potencia}`, leftMargin, currentY);
+  currentY += 3;
+
   autoTable(doc, {
-      startY: finalYAfterParams + 10,
+      startY: currentY,
       head: [['Tensión', 'Intensidad', 'Potencia (kW)']],
       body: [
           [`RS: ${report.potenciaConCarga.tensionRS}`, `R: ${report.potenciaConCarga.intensidadR}`, {rowSpan: 3, content: report.potenciaConCarga.potenciaKW, styles: {valign: 'middle', halign: 'center'}}],
@@ -119,40 +183,75 @@ export const generatePDF = (report, inspectorName, reportId) => {
       theme: 'grid',
       styles: {fontSize: 9, cellPadding: 1.5, minCellHeight: 8},
       headStyles: { fillColor: darkColor, textColor: '#fff' },
-      bodyStyles: {fontStyle: 'bold'}
+      bodyStyles: {fontStyle: 'bold'},
+      margin: { left: leftMargin, right: rightMargin }
   });
 
-  let finalYAfterLoad = (doc as any).lastAutoTable.finalY;
+  currentY = (doc as any).lastAutoTable.finalY + 4;
 
-  // Trabajos Realizados
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text("TRABAJOS REALIZADOS", 15, finalYAfterLoad + 8);
-  const splitText = doc.splitTextToSize(report.trabajos_realizados, 180);
-  const textBoxHeight = (splitText.length * 4) + 10 > 40 ? (splitText.length * 4) + 10 : 40; 
+  // 6. FIRMAS
+  const signatureBlockHeight = 45;
+  // Si las firmas ya no caben al final de la hoja, creamos una página nueva solo para ellas
+  if (currentY + signatureBlockHeight > pageHeight - bottomMargin) {
+      doc.addPage();
+      currentY = topMargin;
+  }
+
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.rect(15, finalYAfterLoad + 10, 180, textBoxHeight, 'S');
-  doc.text(splitText, 17, finalYAfterLoad + 15);
+  
+  // Firma Técnico (Izquierda)
+  if (report.inspectorSignatureUrl) {
+      doc.addImage(report.inspectorSignatureUrl, 'PNG', 25, currentY, 60, 25);
+  }
+  doc.line(25, currentY + 25, 85, currentY + 25);
+  doc.text("Firma técnico:", 25, currentY + 30);
+  doc.text(inspectorName || '', 25, currentY + 35);
 
-  let finalY = finalYAfterLoad + 10 + textBoxHeight;
+  // Firma Cliente (Derecha)
+  if (report.clientSignatureUrl) {
+      doc.addImage(report.clientSignatureUrl, 'PNG', 125, currentY, 60, 25);
+  }
+  doc.line(125, currentY + 25, 185, currentY + 25);
+  doc.text("Conforme cliente:", 125, currentY + 30);
+  doc.text(report.recibidoPor || '', 125, currentY + 35);
+  
+  // 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
+  const drawHeader = () => {
+      doc.setFillColor(darkColor);
+      doc.rect(0, 0, pageWidth, 28, 'F');
+      doc.setTextColor('#FFFFFF');
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text("ENERGY ENGINE", 15, 18);
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", pageWidth - 15, 12, { align: 'right' });
+      doc.text("info@energyengine.es | +34 925 15 43 54", pageWidth - 15, 18, { align: 'right' });
+  };
 
-  // Signatures
-  const signatureY = finalY > 230 ? 230 : finalY + 15;
-  doc.setFontSize(9);
-  
-  if (report.clientSignatureUrl) doc.addImage(report.clientSignatureUrl, 'PNG', 115, signatureY, 60, 25);
-  doc.line(115, signatureY + 25, 185, signatureY + 25);
-  doc.text("Conforme cliente:", 115, signatureY + 30);
-  doc.text(report.recibidoPor, 115, signatureY + 35);
-  
-  if (report.inspectorSignatureUrl) doc.addImage(report.inspectorSignatureUrl, 'PNG', 15, signatureY, 60, 25);
-  doc.line(15, signatureY + 25, 85, signatureY + 25);
-  doc.text("Firma técnico:", 15, signatureY + 30);
-  doc.text(inspectorName, 15, signatureY + 35);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.text("GRACIAS POR CONFIAR EN NOSOTROS", 105, 285, { align: 'center' });
+  const drawFooter = (pageNumber: number, totalPages: number) => {
+      // Frase de agradecimiento centrada
+      doc.setTextColor(darkColor);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      
+      // Paginación y franja
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100);
+      doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+      doc.setFillColor(darkColor);
+      doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
+  };
+
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      drawHeader();
+      drawFooter(i, totalPages);
+  }
 
   return doc;
 };

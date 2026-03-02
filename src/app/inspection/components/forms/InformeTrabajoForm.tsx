@@ -40,28 +40,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const topMargin = 40; // Margen superior para cuando salta de página
     const contentWidth = pageWidth - leftMargin - rightMargin;
 
-    // --- FUNCIONES DE DIBUJO ---
-    const drawHeader = () => {
-      doc.setFillColor(darkColor);
-      doc.rect(0, 0, pageWidth, 28, 'F');
-      doc.setTextColor('#FFFFFF');
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text("ENERGY ENGINE", 15, 18);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", pageWidth - 15, 12, { align: 'right' });
-      doc.text("info@energyengine.es | +34 925 15 43 54", pageWidth - 15, 18, { align: 'right' });
-    };
-
-    const drawFooter = (pageNumber: number, totalPages: number) => {
-        doc.setFontSize(8);
-        doc.setTextColor(100);
-        doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - rightMargin, pageHeight - 10, { align: 'right' });
-        doc.setFillColor(darkColor);
-        doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
-    };
-
     let currentY = 40;
 
     // 1. Título
@@ -92,51 +70,71 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     currentY = (doc as any).lastAutoTable.finalY + 10;
     
-    // 3. Renderizado del Texto (con justificado y títulos en negrita)
-    const blocks = (report.reportContent || '').split('\n\n');
+    // 3. Título de Sección
+    doc.setTextColor(darkColor);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Descripción de la incidencia", leftMargin, currentY);
+    currentY += 8;
+
+    // 4. Renderizado del Texto (El truco del justificado)
+    const rawText = report.reportContent || '';
+    const blocks = rawText.split('\n'); // Cortamos por saltos de línea
 
     blocks.forEach((block: string) => {
-        if (currentY > pageHeight - bottomMargin) { // Salto de página manual si es necesario
-            doc.addPage();
-            currentY = topMargin;
+        const text = block.trim();
+        
+        // Si hay una línea vacía, solo añadimos un poco de espacio
+        if (!text) {
+            currentY += 3;
+            return;
         }
 
-        const cleanedBlock = block.replace(/\n/g, ' ').trim();
-        const isTitle = cleanedBlock.endsWith(':') && cleanedBlock.toUpperCase() === cleanedBlock;
+        // Detectar si la línea es un Título (todo mayúsculas y termina en dos puntos)
+        const isTitle = text.endsWith(':') && text.toUpperCase() === text;
 
         if (isTitle) {
+            // Comprobar si cabe en la página actual
+            if (currentY + 15 > pageHeight - bottomMargin) {
+                doc.addPage();
+                currentY = topMargin;
+            }
+            doc.setFontSize(9);
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9);
+            doc.setTextColor(darkColor);
+            doc.text(text, leftMargin, currentY);
+            currentY += 6;
+        } else {
+            // Usar autoTable invisible para los párrafos, lo que GARANTIZA el justificado
             autoTable(doc, {
                 startY: currentY,
-                body: [[cleanedBlock]],
+                margin: { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin },
+                body: [[text]],
                 theme: 'plain',
-                styles: { fontSize: 9, cellPadding: 0, fontStyle: 'bold' },
-                margin: { left: leftMargin, right: rightMargin },
+                styles: {
+                    font: 'helvetica',
+                    fontSize: 9,
+                    cellPadding: 0,
+                    halign: 'justify', // Justificado perfecto
+                    textColor: darkColor
+                },
+                columnStyles: {
+                    0: { cellWidth: contentWidth }
+                }
             });
-            currentY = (doc as any).lastAutoTable.finalY + 3; // Menos espacio después de un título
-        } else if (cleanedBlock) {
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(9);
-            autoTable(doc, {
-                startY: currentY,
-                body: [[cleanedBlock]],
-                theme: 'plain',
-                styles: { fontSize: 9, halign: 'justify', cellPadding: 0 },
-                margin: { left: leftMargin, right: rightMargin },
-            });
-            currentY = (doc as any).lastAutoTable.finalY + 5; // Espacio entre párrafos
+            // Actualizamos la posición Y basado en donde terminó la tabla
+            currentY = (doc as any).lastAutoTable.finalY + 4;
         }
     });
 
-    // 4. Bloque de Firma
+    // 5. Bloque de Firma
     const signatureBlockHeight = 45;
     if (currentY + signatureBlockHeight > pageHeight - bottomMargin) {
       doc.addPage();
       currentY = topMargin;
     }
     
-    currentY += 20;
+    currentY += 1;
 
     if (report.inspectorSignatureUrl) {
         doc.addImage(report.inspectorSignatureUrl, 'PNG', leftMargin, currentY, 60, 25);
@@ -146,7 +144,28 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text(`Firmado: ${inspectorName}`, leftMargin, currentY + 32);
     doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, leftMargin, currentY + 39);
 
-    // 5. Dibujar Encabezado y Pie de Página en TODAS las páginas
+    // 6. Dibujar Encabezado y Pie de Página en TODAS las páginas (incluidas las que se crearon automáticamente)
+    const drawHeader = () => {
+      doc.setFillColor(darkColor);
+      doc.rect(0, 0, pageWidth, 28, 'F');
+      doc.setTextColor('#FFFFFF');
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text("ENERGY ENGINE", 15, 18);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", pageWidth - 15, 12, { align: 'right' });
+      doc.text("info@energyengine.es | +34 925 15 43 54", pageWidth - 15, 18, { align: 'right' });
+    };
+
+    const drawFooter = (pageNumber: number, totalPages: number) => {
+        doc.setFontSize(8);
+        doc.setTextColor(100);
+        doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+        doc.setFillColor(darkColor);
+        doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
+    };
+
     const pageCount = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);

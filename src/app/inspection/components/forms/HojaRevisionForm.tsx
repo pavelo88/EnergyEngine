@@ -34,115 +34,225 @@ const LoadTestInput = React.memo(({ label, value, onChange }) => (
     </div>
 ));
 
-export const generatePDF = (report, inspectorName, reportId) => {
-    const doc = new jsPDF();
-    const finalID = reportId || 'BORRADOR';
-    const darkColor = '#0f172a';
-    
-    // Header
-    doc.setFillColor(darkColor);
-    doc.rect(0, 0, 210, 28, 'F');
-    doc.setTextColor('#FFFFFF');
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text("ENERGY ENGINE", 15, 18);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", 205, 12, { align: 'right' });
-    doc.text("info@energyengine.es | +34 925 15 43 54", 205, 18, { align: 'right' });
+export const generatePDF = (report: any, inspectorName: string, reportId: string | null) => {
+  const doc = new jsPDF();
+  const finalID = reportId || 'BORRADOR';
+  const darkColor = '#0f172a';
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
 
-    // Main Title
-    doc.setTextColor(darkColor);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`HOJA DE REVISIÓN - Nº: ${finalID}`, 15, 38);
+  // Márgenes (Definimos los 4 lados estrictamente)
+  const leftMargin = 15;
+  const rightMargin = 15;
+  const topMargin = 40;  // Espacio a salvo debajo del encabezado
+  const bottomMargin = 30; // Espacio a salvo encima del pie de página
+  const contentWidth = pageWidth - leftMargin - rightMargin;
+  
+  // Configuración global de márgenes para TODAS las tablas
+  const globalMargin = { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin };
 
-    // Client/Motor Data Table
-    autoTable(doc, {
-        startY: 42,
-        body: [
-            [{content: 'CLIENTE', styles: {fontStyle: 'bold'}}, report.cliente, {content: 'FECHA REVISION:', styles: {fontStyle: 'bold'}}, report.fecha_revision],
-            [{content: 'MOTOR', styles: {fontStyle: 'bold'}}, report.motor, {content: 'POTENCIA', styles: {fontStyle: 'bold'}}, report.potencia],
-            [{content: 'MODELO', styles: {fontStyle: 'bold'}}, report.modelo, '', ''],
-            [{content: 'Nº MOTOR', styles: {fontStyle: 'bold'}}, report.n_motor, '', ''],
-            [{content: 'Nº GRUPO', styles: {fontStyle: 'bold'}}, report.n_grupo, '', ''],
-            [{content: 'INSTALACION', styles: {fontStyle: 'bold'}}, report.instalacion, '', ''],
-            [{content: 'DIRECCION', styles: {fontStyle: 'bold'}}, report.direccion, '', ''],
-        ],
-        theme: 'grid', styles: {fontSize: 8, cellPadding: 1.5},
-        headStyles: { fillColor: darkColor }
-    });
+  let currentY = topMargin;
 
-    let lastY = (doc as any).lastAutoTable.finalY + 4;
+  // 1. Título Principal
+  doc.setTextColor(darkColor);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`HOJA DE REVISIÓN - Nº: ${finalID}`, leftMargin, currentY);
+  currentY += 6;
 
-    // Checklist Table
-    autoTable(doc, {
-        startY: lastY,
-        head: [['', 'OK', 'DEFECT', 'AVERIA', 'CAMBIO']],
-        body: Object.entries(CHECKLIST_SECTIONS).flatMap(([section, items]) => {
-            const sectionRows: any[] = [[{ content: section, colSpan: 5, styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#000' }}]];
-            (items as string[]).forEach(item => {
-                sectionRows.push([
-                    item,
-                    report.checklist[item] === 'OK' ? 'X' : '',
-                    report.checklist[item] === 'DEFECT' ? 'X' : '',
-                    report.checklist[item] === 'AVERIA' ? 'X' : '',
-                    report.checklist[item] === 'CAMBIO' ? 'X' : '',
-                ]);
-            });
-            return sectionRows;
-        }),
-        theme: 'grid', styles: { fontSize: 7, cellPadding: 1.5, halign: 'center' },
-        headStyles: { fillColor: darkColor, textColor: '#fff', halign: 'center' },
-        columnStyles: { 0: { halign: 'left' } }
-    });
+  // 2. Tabla de Datos Generales
+  autoTable(doc, {
+      startY: currentY,
+      body: [
+          [{ content: 'CLIENTE:', styles: { fontStyle: 'bold', cellWidth: 35 } }, { content: report.cliente || '', colSpan: 3 }],
+          [{ content: 'INSTALACIÓN:', styles: { fontStyle: 'bold' } }, { content: report.instalacion || '', colSpan: 3 }],
+          [{ content: 'DIRECCIÓN:', styles: { fontStyle: 'bold' } }, { content: report.direccion || '', colSpan: 3 }],
+          [{ content: 'FECHA REVISIÓN:', styles: { fontStyle: 'bold' } }, report.fecha_revision || '', { content: 'POTENCIA:', styles: { fontStyle: 'bold', cellWidth: 30 } }, report.potencia || ''],
+          [{ content: 'MOTOR:', styles: { fontStyle: 'bold' } }, report.motor || '', { content: 'Nº MOTOR:', styles: { fontStyle: 'bold' } }, report.n_motor || ''],
+          [{ content: 'MODELO:', styles: { fontStyle: 'bold' } }, report.modelo || '', { content: 'Nº GRUPO:', styles: { fontStyle: 'bold' } }, report.n_grupo || ''],
+      ],
+      theme: 'grid', 
+      styles: { fontSize: 8, cellPadding: 2 },
+      margin: globalMargin // <-- Aplicado aquí
+  });
 
-    lastY = (doc as any).lastAutoTable.finalY + 5;
-    
-    if (lastY > 260) doc.addPage();
-    lastY = lastY > 260 ? 20 : lastY;
+  currentY = (doc as any).lastAutoTable.finalY + 6;
 
-    // Test Data & Observations
-    autoTable(doc, {
-        startY: lastY,
-        body: [
-            [{ content: 'DATOS DE PRUEBAS', styles: { fontStyle: 'bold' }}, { content: 'VALORES', styles: { fontStyle: 'bold' }}],
-            ['Horas de funcionamiento', report.datos_pruebas.horas],
-            ['Presión aceite', report.datos_pruebas.presion],
-            ['Temperatura en bloque motor', report.datos_pruebas.temperatura],
-            ['Nivel de deposito de combustible', report.datos_pruebas.nivel_combustible],
-            ['Tensión en el alternador', report.datos_pruebas.tension_alternador],
-            ['Frecuencia', report.datos_pruebas.frecuencia],
-            ['Carga de baterías', report.datos_pruebas.carga_baterias],
-            [{ content: 'PRUEBAS CON CARGA', colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#f1f5f9' }}],
-            [{ content: `Tensión: RS: ${report.pruebas_carga.tension_rs} ST: ${report.pruebas_carga.tension_st} RT: ${report.pruebas_carga.tension_rt}`, colSpan: 2 }],
-            [{ content: `Intensidad: R: ${report.pruebas_carga.intensidad_r} S: ${report.pruebas_carga.intensidad_s} T: ${report.pruebas_carga.intensidad_t}`, colSpan: 2 }],
-            [{ content: `Potencia: ${report.pruebas_carga.potencia_kw} kW`, colSpan: 2 }],
-            [{ content: 'OBSERVACIONES', colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#f1f5f9' }}],
-            [{ content: report.observaciones, colSpan: 2, styles: { minCellHeight: 20 } }],
-        ],
-        theme: 'grid', styles: { fontSize: 8, cellPadding: 2 }
-    });
+  // 3. Tabla Checklist
+  const colWidth = 22; 
+  autoTable(doc, {
+      startY: currentY,
+      head: [['INSPECCIÓN / ESTADO', 'OK', 'DEFECTUOSO', 'AVERIADO', 'CAMBIO']],
+      body: Object.entries(CHECKLIST_SECTIONS).flatMap(([section, items]) => {
+          const sectionRows: any[] = [[{ content: section, colSpan: 5, styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#000', halign: 'left' }}]];
+          (items as string[]).forEach(item => {
+              sectionRows.push([
+                  item,
+                  report.checklist?.[item] === 'OK' ? 'X' : '',
+                  report.checklist?.[item] === 'DEFECT' ? 'X' : '',
+                  report.checklist?.[item] === 'AVERIA' ? 'X' : '',
+                  report.checklist?.[item] === 'CAMBIO' ? 'X' : '',
+              ]);
+          });
+          return sectionRows;
+      }),
+      theme: 'grid', 
+      styles: { fontSize: 7, cellPadding: 1.5, halign: 'center' },
+      headStyles: { fillColor: darkColor, textColor: '#fff', halign: 'center' },
+      columnStyles: { 
+          0: { halign: 'left' },
+          1: { cellWidth: colWidth },
+          2: { cellWidth: colWidth },
+          3: { cellWidth: colWidth },
+          4: { cellWidth: colWidth }
+      },
+      margin: globalMargin // <-- LA SOLUCIÓN AL CORTE ESTÁ AQUÍ
+  });
 
-    lastY = (doc as any).lastAutoTable.finalY;
+  currentY = (doc as any).lastAutoTable.finalY + 8;
 
-    // Signature
-    const signatureY = lastY + 5 > 250 ? 250 : lastY + 5;
-    doc.setFontSize(9);
-    
-    if (report.clientSignatureUrl) doc.addImage(report.clientSignatureUrl, 'PNG', 115, signatureY, 60, 25);
-    doc.line(115, signatureY + 25, 185, signatureY + 25);
-    doc.text("Conforme cliente:", 115, signatureY + 30);
-    doc.text(report.recibidoPor, 115, signatureY + 35);
+  if (currentY + 60 > pageHeight - bottomMargin) {
+      doc.addPage();
+      currentY = topMargin;
+  }
 
-    if (report.inspectorSignatureUrl) doc.addImage(report.inspectorSignatureUrl, 'PNG', 15, signatureY, 60, 25);
-    doc.line(15, signatureY + 25, 85, signatureY + 25);
-    doc.text("Firma técnico:", 15, signatureY + 30);
-    doc.text(inspectorName, 15, signatureY + 35);
-    
-    return doc;
+  // 4. Tabla de Pruebas
+  autoTable(doc, {
+      startY: currentY,
+      body: [
+          [{ content: 'DATOS DE PRUEBAS', styles: { fontStyle: 'bold', fillColor: darkColor, textColor: '#fff' }}, { content: 'VALORES', styles: { fontStyle: 'bold', fillColor: darkColor, textColor: '#fff' }}],
+          ['Horas de funcionamiento', report.datos_pruebas?.horas || ''],
+          ['Presión aceite', report.datos_pruebas?.presion || ''],
+          ['Temperatura en bloque motor', report.datos_pruebas?.temperatura || ''],
+          ['Nivel de deposito de combustible', report.datos_pruebas?.nivel_combustible || ''],
+          ['Tensión en el alternador', report.datos_pruebas?.tension_alternador || ''],
+          ['Frecuencia', report.datos_pruebas?.frecuencia || ''],
+          ['Carga de baterías', report.datos_pruebas?.carga_baterias || ''],
+          [{ content: 'PRUEBAS CON CARGA', colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#f1f5f9' }}],
+          [{ content: `Tensión: RS: ${report.pruebas_carga?.tension_rs || ''}   ST: ${report.pruebas_carga?.tension_st || ''}   RT: ${report.pruebas_carga?.tension_rt || ''}`, colSpan: 2 }],
+          [{ content: `Intensidad: R: ${report.pruebas_carga?.intensidad_r || ''}   S: ${report.pruebas_carga?.intensidad_s || ''}   T: ${report.pruebas_carga?.intensidad_t || ''}`, colSpan: 2 }],
+          [{ content: `Potencia: ${report.pruebas_carga?.potencia_kw || ''} kW`, colSpan: 2 }],
+      ],
+      theme: 'grid', 
+      styles: { fontSize: 8, cellPadding: 2 },
+      margin: globalMargin // <-- Aplicado aquí
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 8;
+
+  // 5. OBSERVACIONES
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(darkColor);
+  
+  if (currentY + 15 > pageHeight - bottomMargin) {
+      doc.addPage();
+      currentY = topMargin;
+  }
+  
+  doc.text("OBSERVACIONES", leftMargin, currentY);
+  currentY += 4;
+
+  const rawText = report.observaciones || '';
+  const blocks = rawText.split('\n');
+
+  blocks.forEach((block: string) => {
+      const text = block.trim();
+      if (!text) {
+          currentY += 3;
+          return;
+      }
+
+      const isTitle = text.endsWith(':') && text.toUpperCase() === text;
+
+      if (isTitle) {
+          if (currentY + 15 > pageHeight - bottomMargin) {
+              doc.addPage();
+              currentY = topMargin;
+          }
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(darkColor);
+          doc.text(text, leftMargin, currentY);
+          currentY += 6;
+      } else {
+          autoTable(doc, {
+              startY: currentY,
+              margin: globalMargin, // <-- Aplicado aquí
+              body: [[text]],
+              theme: 'plain',
+              styles: {
+                  font: 'helvetica',
+                  fontSize: 9,
+                  cellPadding: 0,
+                  halign: 'justify',
+                  textColor: darkColor
+              },
+              columnStyles: { 0: { cellWidth: contentWidth } }
+          });
+          currentY = (doc as any).lastAutoTable.finalY + 4;
+      }
+  });
+
+  currentY += 8;
+
+  // 6. FIRMAS
+  const signatureBlockHeight = 45;
+  if (currentY + signatureBlockHeight > pageHeight - bottomMargin) {
+      doc.addPage();
+      currentY = topMargin;
+  }
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  
+  if (report.inspectorSignatureUrl) {
+      doc.addImage(report.inspectorSignatureUrl, 'PNG', 25, currentY, 60, 25);
+  }
+  doc.line(25, currentY + 25, 85, currentY + 25);
+  doc.text("Firma técnico:", 25, currentY + 30);
+  doc.text(inspectorName || '', 25, currentY + 35);
+
+  if (report.clientSignatureUrl) {
+      doc.addImage(report.clientSignatureUrl, 'PNG', 125, currentY, 60, 25);
+  }
+  doc.line(125, currentY + 25, 185, currentY + 25);
+  doc.text("Conforme cliente:", 125, currentY + 30);
+  doc.text(report.recibidoPor || '', 125, currentY + 35);
+  
+  // 7. ENCABEZADOS Y PIES DE PÁGINA GLOBALES
+  const drawHeader = () => {
+      doc.setFillColor(darkColor);
+      doc.rect(0, 0, pageWidth, 28, 'F');
+      doc.setTextColor('#FFFFFF');
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text("ENERGY ENGINE", 15, 18);
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", pageWidth - 15, 12, { align: 'right' });
+      doc.text("info@energyengine.es | +34 925 15 43 54", pageWidth - 15, 18, { align: 'right' });
   };
 
+  const drawFooter = (pageNumber: number, totalPages: number) => {
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100);
+      doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+      doc.setFillColor(darkColor);
+      doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
+  };
+
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      drawHeader();
+      drawFooter(i, totalPages);
+  }
+
+  return doc;
+};
 export default function HojaRevisionForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
   const db = useFirestore();
