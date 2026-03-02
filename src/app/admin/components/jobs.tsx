@@ -46,7 +46,7 @@ export default function JobsPage() {
     });
     
     // Cargar solo los documentos que son "trabajos" manuales (no tienen formType o es 'job')
-    const qJobs = query(collection(db, 'trabajos'), where('formType', 'in', [null, undefined, 'job']));
+    const qJobs = query(collection(db, 'trabajos'), where('formType', 'not-in', ['albaran', 'hoja-revision', 'informe-tecnico', 'revision-basica']));
     const unsubJobs = onSnapshot(qJobs, snapshot => {
       const jobList = snapshot.docs.map(doc => ({
         id: doc.id,
