@@ -71,6 +71,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
       body: [
           [{content: 'CLIENTE:', styles: {fontStyle: 'bold'}}, report.cliente, {content: 'FECHA:', styles: {fontStyle: 'bold'}}, report.fecha],
           [{content: 'INSTALACIÓN:', styles: {fontStyle: 'bold'}}, report.instalacion, {content: 'TÉCNICOS:', styles: {fontStyle: 'bold'}}, report.tecnicos],
+          [{content: 'UBICACIÓN (LAT/LON):', styles: {fontStyle: 'bold'}}, {content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3}],
           [{content: 'MOTOR:', styles: {fontStyle: 'bold'}}, report.motor, {content: 'H. ASISTENCIA:', styles: {fontStyle: 'bold'}}, report.h_asistencia],
           [{content: 'Nº MOTOR:', styles: {fontStyle: 'bold'}}, report.n_motor, {content: 'TIPO DE SERVICIO:', styles: {fontStyle: 'bold'}}, report.tipo_servicio],
           [{content: 'GRUPO:', styles: {fontStyle: 'bold'}}, report.grupo, {content: 'KMS.:', styles: {fontStyle: 'bold'}}, report.kms],
@@ -270,6 +271,7 @@ export default function AlbaranForm({ initialData, aiData }: { initialData?: any
     grupo: '',
     n_grupo: '',
     n_pedido: '',
+    location: null as { lat: number, lon: number } | null,
     fecha: new Date().toISOString().split('T')[0], // YYYY-MM-DD
     tecnicos: '',
     h_asistencia: '',
@@ -309,6 +311,7 @@ export default function AlbaranForm({ initialData, aiData }: { initialData?: any
   const [isSaved, setIsSaved] = useState(false);
   const [savedDocId, setSavedDocId] = useState('');
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     const fetchUserName = async () => {
@@ -382,7 +385,7 @@ export default function AlbaranForm({ initialData, aiData }: { initialData?: any
     }
   }, [aiData]);
 
-  const handleInputChange = (field: string, value: string | boolean | number) => {
+  const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({...prev, [field]: value }));
   };
   
@@ -394,6 +397,26 @@ export default function AlbaranForm({ initialData, aiData }: { initialData?: any
             [field]: value
         }
     }));
+  };
+
+  const handleCaptureLocation = () => {
+    if (!navigator.geolocation) {
+      alert('La geolocalización no es soportada por tu navegador.');
+      setLocationStatus('error');
+      return;
+    }
+    setLocationStatus('loading');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        handleInputChange('location', { lat: latitude, lon: longitude });
+        setLocationStatus('success');
+      },
+      () => {
+        alert('No se pudo obtener la ubicación. Revisa los permisos del navegador.');
+        setLocationStatus('error');
+      }
+    );
   };
 
   const improveReport = async () => {
@@ -442,7 +465,10 @@ export default function AlbaranForm({ initialData, aiData }: { initialData?: any
     }
     
     setSaving(true);
-    const docId = `ALB-${Date.now().toString().slice(-6)}`;
+    const year = new Date().getFullYear();
+    const sequential = Date.now().toString().slice(-4).padStart(4, '0');
+    const docId = `ALB-${year}-${sequential}`;
+
     try {
       const docData = {
         ...formData,
@@ -502,6 +528,15 @@ export default function AlbaranForm({ initialData, aiData }: { initialData?: any
             </div>
             <div className="lg:col-span-2 space-y-3">
                <StableInput label="Fecha" icon={Calendar} type="date" value={formData.fecha} onChange={v => handleInputChange('fecha', v)}/>
+                <button 
+                    onClick={handleCaptureLocation} 
+                    disabled={locationStatus === 'loading'} 
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 flex items-center justify-center gap-3 font-bold text-slate-700 shadow-sm text-sm hover:border-amber-500 transition-colors disabled:opacity-50"
+                >
+                    {locationStatus === 'loading' && <Loader2 className="animate-spin text-amber-500" size={16}/>}
+                    {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 className="text-green-500" size={16}/> : <MapPin className="text-slate-400" size={16}/>)}
+                    <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación'}</span>
+                </button>
                <StableInput label="Técnicos" icon={User} value={formData.tecnicos} onChange={v => handleInputChange('tecnicos', v)}/>
                <StableInput label="H. Asistencia" icon={Clock} value={formData.h_asistencia} onChange={v => handleInputChange('h_asistencia', v)}/>
                <StableInput label="Tipo de Servicio" icon={Type} value={formData.tipo_servicio} onChange={v => handleInputChange('tipo_servicio', v)}/>

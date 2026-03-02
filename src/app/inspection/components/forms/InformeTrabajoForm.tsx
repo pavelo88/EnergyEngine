@@ -58,9 +58,10 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         startY: currentY,
         body: [
             ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
+            [{ content: 'Instalación:', styles: { fontStyle: 'bold' } }, { content: report.instalacion, colSpan: 3 }],
+            [{ content: 'UBICACIÓN (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
             ['Motor:', report.motor, 'Modelo:', report.modelo],
             ['Nº de motor:', report.n_motor, 'Grupo:', report.grupo],
-            [{ content: 'Instalación:', styles: { fontStyle: 'bold' } }, { content: report.instalacion, colSpan: 3 }],
         ],
         theme: 'grid',
         styles: { fontSize: 9, cellPadding: 2 },
@@ -79,22 +80,16 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     // 4. Renderizado del Texto (El truco del justificado)
     const rawText = report.reportContent || '';
-    const blocks = rawText.split('\n'); // Cortamos por saltos de línea
+    const blocks = rawText.split('\n\n'); // Cortamos por saltos de línea dobles
 
     blocks.forEach((block: string) => {
-        const text = block.trim();
+        const text = block.replace(/\n/g, ' ').trim(); // Limpiamos saltos de línea simples
         
-        // Si hay una línea vacía, solo añadimos un poco de espacio
-        if (!text) {
-            currentY += 3;
-            return;
-        }
+        if (!text) return;
 
-        // Detectar si la línea es un Título (todo mayúsculas y termina en dos puntos)
         const isTitle = text.endsWith(':') && text.toUpperCase() === text;
 
         if (isTitle) {
-            // Comprobar si cabe en la página actual
             if (currentY + 15 > pageHeight - bottomMargin) {
                 doc.addPage();
                 currentY = topMargin;
@@ -105,7 +100,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
             doc.text(text, leftMargin, currentY);
             currentY += 6;
         } else {
-            // Usar autoTable invisible para los párrafos, lo que GARANTIZA el justificado
             autoTable(doc, {
                 startY: currentY,
                 margin: { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin },
@@ -115,14 +109,13 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
                     font: 'helvetica',
                     fontSize: 9,
                     cellPadding: 0,
-                    halign: 'justify', // Justificado perfecto
+                    halign: 'justify',
                     textColor: darkColor
                 },
                 columnStyles: {
                     0: { cellWidth: contentWidth }
                 }
             });
-            // Actualizamos la posición Y basado en donde terminó la tabla
             currentY = (doc as any).lastAutoTable.finalY + 4;
         }
     });
@@ -188,6 +181,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     n_motor: '',
     grupo: '',
     instalacion: '',
+    location: null as { lat: number, lon: number } | null,
     fecha: new Date().toISOString().split('T')[0],
     reportContent: '',
   });
@@ -199,6 +193,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   const [isSaved, setIsSaved] = useState(false);
   const [savedDocId, setSavedDocId] = useState('');
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     if (user && user.email && db) {
@@ -248,8 +243,28 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   }, [aiData]);
 
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCaptureLocation = () => {
+    if (!navigator.geolocation) {
+      alert('La geolocalización no es soportada por tu navegador.');
+      setLocationStatus('error');
+      return;
+    }
+    setLocationStatus('loading');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        handleInputChange('location', { lat: latitude, lon: longitude });
+        setLocationStatus('success');
+      },
+      () => {
+        alert('No se pudo obtener la ubicación. Revisa los permisos del navegador.');
+        setLocationStatus('error');
+      }
+    );
   };
 
   const handleEnhanceReport = async () => {
@@ -281,7 +296,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     setSaving(true);
     const year = new Date().getFullYear();
     const sequential = Date.now().toString().slice(-4).padStart(4, '0');
-    const docId = `${year}-${sequential}`;
+    const docId = `IT-${year}-${sequential}`;
 
     try {
       const docData = { 
@@ -328,6 +343,17 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             <StableInput label="Grupo" icon={Settings} value={formData.grupo} onChange={(v: string) => handleInputChange('grupo', v)}/>
             <div className="md:col-span-2">
                 <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={(v: string) => handleInputChange('instalacion', v)}/>
+            </div>
+            <div className="md:col-span-2">
+              <button 
+                  onClick={handleCaptureLocation} 
+                  disabled={locationStatus === 'loading'} 
+                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 flex items-center justify-center gap-3 font-bold text-slate-700 shadow-sm hover:border-green-500 transition-colors disabled:opacity-50"
+              >
+                  {locationStatus === 'loading' && <Loader2 className="animate-spin text-green-500" size={18}/>}
+                  {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 className="text-green-500" size={18}/> : <MapPin className="text-slate-400" size={18}/>)}
+                  <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación'}</span>
+              </button>
             </div>
           </div>
       </section>

@@ -77,6 +77,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
             [{ content: 'CLIENTE:', styles: { fontStyle: 'bold', cellWidth: 35 } }, { content: report.cliente || '', colSpan: 3 }],
             [{ content: 'INSTALACIÓN:', styles: { fontStyle: 'bold' } }, { content: report.instalacion || '', colSpan: 3 }],
             [{ content: 'DIRECCIÓN:', styles: { fontStyle: 'bold' } }, { content: report.direccion || '', colSpan: 3 }],
+            [{ content: 'UBICACIÓN (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
             [{ content: 'FECHA REVISIÓN:', styles: { fontStyle: 'bold' } }, report.fecha_revision || '', { content: 'POTENCIA:', styles: { fontStyle: 'bold', cellWidth: 30 } }, report.potencia || ''],
             [{ content: 'MOTOR:', styles: { fontStyle: 'bold' } }, report.motor || '', { content: 'Nº MOTOR:', styles: { fontStyle: 'bold' } }, report.n_motor || ''],
             [{ content: 'MODELO:', styles: { fontStyle: 'bold' } }, report.modelo || '', { content: 'Nº GRUPO:', styles: { fontStyle: 'bold' } }, report.n_grupo || ''],
@@ -312,6 +313,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
   const [isSaved, setIsSaved] = useState(false);
   const [savedDocId, setSavedDocId] = useState('');
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     if (user && user.email && db) {
@@ -407,7 +409,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
     }
   }, [aiData]);
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({...prev, [field]: value}));
   };
   
@@ -417,6 +419,26 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
 
   const handleChecklistChange = (item: string, status: string) => {
     setFormData(prev => ({ ...prev, checklist: { ...prev.checklist, [item]: status } }));
+  };
+
+  const handleCaptureLocation = () => {
+    if (!navigator.geolocation) {
+      alert('La geolocalización no es soportada por tu navegador.');
+      setLocationStatus('error');
+      return;
+    }
+    setLocationStatus('loading');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        handleInputChange('location', { lat: latitude, lon: longitude });
+        setLocationStatus('success');
+      },
+      () => {
+        alert('No se pudo obtener la ubicación. Revisa los permisos del navegador.');
+        setLocationStatus('error');
+      }
+    );
   };
   
   const handlePdfAction = () => {
@@ -440,7 +462,9 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
     if (isSaved) return;
 
     setSaving(true);
-    const docId = `BAS-${Date.now().toString().slice(-6)}`;
+    const year = new Date().getFullYear();
+    const sequential = Date.now().toString().slice(-4).padStart(4, '0');
+    const docId = `BAS-${year}-${sequential}`;
     try {
       const docData = { 
           ...formData, 
@@ -491,6 +515,17 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
                     <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={(v: string) => handleInputChange('instalacion', v)}/>
                     <StableInput label="Dirección" icon={MapPin} value={formData.direccion} onChange={(v: string) => handleInputChange('direccion', v)}/>
                     <StableInput label="Fecha Revisión" icon={Calendar} type="date" value={formData.fecha_revision} onChange={(v: string) => handleInputChange('fecha_revision', v)}/>
+                    <div className="lg:col-span-4">
+                        <button 
+                            onClick={handleCaptureLocation} 
+                            disabled={locationStatus === 'loading'} 
+                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 flex items-center justify-center gap-3 font-bold text-slate-700 shadow-sm text-sm hover:border-purple-500 transition-colors disabled:opacity-50"
+                        >
+                            {locationStatus === 'loading' && <Loader2 className="animate-spin text-purple-500" size={16}/>}
+                            {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 className="text-green-500" size={16}/> : <MapPin className="text-slate-400" size={16}/>)}
+                            <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación'}</span>
+                        </button>
+                    </div>
                     <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: string) => handleInputChange('motor', v)}/>
                     <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={(v: string) => handleInputChange('modelo', v)}/>
                     <StableInput label="Nº Motor" icon={Hash} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>
