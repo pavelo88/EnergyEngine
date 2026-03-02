@@ -10,7 +10,7 @@ interface HubProps {
   onSelectInspectionType: (type: 'albaran' | 'informe-tecnico' | 'hoja-revision' | 'revision-basica', data?: any) => void;
 }
 
-const reportTypes = [
+const reportTypes = [ 
   {
     id: 'albaran',
     title: 'Albarán de Trabajo',
@@ -43,8 +43,7 @@ export default function InspectionHub({ onSelectInspectionType }: HubProps) {
   const [error, setError] = useState('');
   const db = useFirestore();
 
-  const handleLoadInspection = async (type) => {
-    if (!inspectionId.trim() || !db) {
+    const handleLoadInspection = async (type: string) => {    if (!inspectionId.trim() || !db) {
       onSelectInspectionType(type, null);
       return;
     }
