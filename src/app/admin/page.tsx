@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
-import { Users, Briefcase, Clock, CheckCircle } from 'lucide-react';
+import { Users, Briefcase, Clock } from 'lucide-react';
 
 // --- Tipos de Datos ---
 type StatCardProps = {
@@ -12,9 +12,9 @@ type StatCardProps = {
   icon: React.ElementType;
   color: string;
 };
+// Definimos el tipo Job asegurando que el id sea único
 type Job = { id: string; clienteNombre: string; estado: string; inspectorNombres: string[]; };
 
-// --- Componente de Tarjeta de Estadística ---
 const StatCard = ({ title, value, icon: Icon, color }: StatCardProps) => (
   <div className={`bg-white p-6 rounded-2xl shadow-sm flex items-center justify-between`}>
     <div>
@@ -27,7 +27,6 @@ const StatCard = ({ title, value, icon: Icon, color }: StatCardProps) => (
   </div>
 );
 
-// --- Componente Principal del Dashboard ---
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState({ clients: 0, pendingJobs: 0, inProgressJobs: 0, inspectors: 0 });
   const [recentJobs, setRecentJobs] = useState<Job[]>([]);
@@ -39,18 +38,16 @@ export default function AdminDashboardPage() {
         setLoading(false);
         return;
     }
-    // Suscripción a Clientes
+
     const unsubClients = onSnapshot(collection(db, 'clientes'), snapshot => {
       setStats(prev => ({ ...prev, clients: snapshot.size }));
     });
 
-    // Suscripción a Inspectores
     const qInspectors = query(collection(db, 'usuarios'), where("rol", "==", "inspector"));
     const unsubInspectors = onSnapshot(qInspectors, snapshot => {
         setStats(prev => ({ ...prev, inspectors: snapshot.size }));
     });
 
-    // Suscripción a Trabajos (para estadísticas y tabla de recientes)
     const qJobs = query(collection(db, 'trabajos'), orderBy('fechaCreacion', 'desc'));
     const unsubJobs = onSnapshot(qJobs, snapshot => {
       let pending = 0;
@@ -61,8 +58,11 @@ export default function AdminDashboardPage() {
         const jobData = doc.data() as Job;
         if (jobData.estado === 'Pendiente') pending++;
         if (jobData.estado === 'En Progreso') inProgress++;
-        if (jobs.length < 5) { // Limitar a los 5 más recientes para la tabla
-            jobs.push({ id: doc.id, ...jobData });
+        
+        if (jobs.length < 5) {
+            // LA CORRECCIÓN: Primero esparcimos jobData y al FINAL ponemos el id
+            // Así el id del documento manda y no hay duplicados para TypeScript
+            jobs.push({ ...jobData, id: doc.id }); 
         }
       });
 
@@ -71,7 +71,6 @@ export default function AdminDashboardPage() {
       setLoading(false);
     });
 
-    // Limpiar suscripciones al desmontar el componente
     return () => {
       unsubClients();
       unsubInspectors();
@@ -86,7 +85,6 @@ export default function AdminDashboardPage() {
           <p className="text-slate-500 mt-1">Un resumen de la actividad reciente.</p>
       </div>
 
-      {/* --- Grid de Estadísticas --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Clientes Totales" value={stats.clients} icon={Users} color="bg-blue-500" />
         <StatCard title="Trabajos Pendientes" value={stats.pendingJobs} icon={Clock} color="bg-amber-500" />
@@ -94,7 +92,6 @@ export default function AdminDashboardPage() {
         <StatCard title="Inspectores Activos" value={stats.inspectors} icon={Users} color="bg-green-500" />
       </div>
 
-      {/* --- Tabla de Trabajos Recientes --- */}
       <div className="bg-white p-6 rounded-2xl shadow-sm">
         <h2 className="text-xl font-bold text-slate-700 mb-4">Trabajos Recientes</h2>
         <div className="overflow-x-auto">
@@ -108,7 +105,7 @@ export default function AdminDashboardPage() {
                   recentJobs.map(job => (
                     <tr key={job.id} className="border-b hover:bg-gray-50">
                       <td className="p-3 font-medium">{job.clienteNombre}</td>
-                      <td className="p-3">{job.inspectorNombres.join(', ')}</td>
+                      <td className="p-3">{job.inspectorNombres?.join(', ') || 'Sin asignar'}</td>
                       <td className="p-3">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full 
                           ${job.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800' : ''}
