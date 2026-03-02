@@ -518,7 +518,6 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
                     <StableInput label="Nº Motor" icon={Hash} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>
                     <StableInput label="Nº Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: string) => handleInputChange('n_grupo', v)}/>
                     <StableInput label="Potencia" icon={Zap} value={formData.potencia} onChange={(v: string) => handleInputChange('potencia', v)}/>
-                    <div className="lg:col-span-4">
                         <button 
                             onClick={handleCaptureLocation} 
                             disabled={locationStatus === 'loading'} 
@@ -528,7 +527,6 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
                             {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 className="text-green-500" size={16}/> : <MapPin className="text-slate-400" size={16}/>)}
                             <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación'}</span>
                         </button>
-                    </div>
                 </div>
             </section>
             

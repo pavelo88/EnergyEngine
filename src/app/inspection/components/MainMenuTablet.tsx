@@ -38,8 +38,8 @@ const menuItems = [
   },
   {
     id: TABS.EXPENSES,
-    label: 'Recibos',
-    desc: 'Gestiona tus pagos.',
+    label: 'Jornada Laboral',
+    desc: 'Registro de horas de trabajo y gastos.',
     icon: <Receipt className="w-1/3 h-1/3" />,
     classes: 'bg-slate-900 border-slate-700 text-amber-500',
     labelColor: 'text-white',

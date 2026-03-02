@@ -19,7 +19,7 @@ import { processDictation, ProcessDictationOutput } from '@/ai/flows/process-dic
 
 import { 
   TasksTabLazy, 
-  ExpensesTabLazy, 
+  RegistroJornadaForm, 
   ProfileTabLazy,
   AlbaranFormLazy,
   InformeTecnicoFormLazy,
@@ -241,7 +241,7 @@ const InspectionPageContent = () => {
     
     switch (activeTab) {
         case TABS.TASKS: TabComponent = TasksTabLazy; props = { onStartInspection: handleStartInspectionFromTask }; break;
-        case TABS.EXPENSES: TabComponent = ExpensesTabLazy; break;
+        case TABS.EXPENSES: TabComponent = RegistroJornadaForm; break;
         case TABS.PROFILE: TabComponent = ProfileTabLazy; break;
         default: return <p>Pestaña no encontrada</p>;
     }
