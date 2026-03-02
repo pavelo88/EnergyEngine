@@ -55,14 +55,13 @@ export default function AdminDashboardPage() {
       const jobs: Job[] = [];
       
       snapshot.forEach(doc => {
-        const jobData = doc.data() as Job;
-        if (jobData.estado === 'Pendiente') pending++;
-        if (jobData.estado === 'En Progreso') inProgress++;
+        const data = doc.data(); // <-- Le quitamos el "as Job" aquí
+        if (data.estado === 'Pendiente') pending++;
+        if (data.estado === 'En Progreso') inProgress++;
         
         if (jobs.length < 5) {
-            // LA CORRECCIÓN: Primero esparcimos jobData y al FINAL ponemos el id
-            // Así el id del documento manda y no hay duplicados para TypeScript
-            jobs.push({ ...jobData, id: doc.id }); 
+            // Unimos el ID y los datos, y AHORA le decimos que es un Job
+            jobs.push({ id: doc.id, ...data } as Job); 
         }
       });
 
