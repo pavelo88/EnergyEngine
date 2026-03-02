@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { getDocs, collection, query, where } from 'firebase/firestore';
 import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { db } from '@/lib/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { Mail, Shield, Lock, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 
 // Estados del proceso
