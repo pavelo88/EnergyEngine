@@ -2,14 +2,16 @@
 
 import { useState } from 'react';
 import { getDocs, collection, query, where } from 'firebase/firestore';
-import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { useFirestore, useUser } from '@/firebase';
+import { getAuth, updatePassword } from 'firebase/auth';
+// Se corrigió la ruta de importación para evitar el error de Vercel 
+import { useFirestore } from '@/firebase'; 
 import { Mail, Shield, Lock, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 
 // Estados del proceso
 type ProcessStep = 'verify' | 'setPassword' | 'loading' | 'success' | 'error';
 
 export default function FirstLoginPage() {
+  const db = useFirestore(); // Se inicializa db correctamente desde el hook 
   const [step, setStep] = useState<ProcessStep>('verify');
   const [message, setMessage] = useState('');
   const [email, setEmail] = useState('');
@@ -21,6 +23,7 @@ export default function FirstLoginPage() {
     setStep('loading');
 
     try {
+      // Se utiliza db ya definido 
       const q = query(
         collection(db, 'usuarios'),
         where('email', '==', email),
@@ -32,7 +35,6 @@ export default function FirstLoginPage() {
       if (querySnapshot.empty) {
         throw new Error('No se encontró un administrador con esas credenciales. Por favor, verifica tus datos.');
       }
-      // Si la verificación es exitosa
       setMessage('Verificación exitosa. Ahora puedes establecer tu nueva contraseña.');
       setStep('setPassword');
 
@@ -45,23 +47,20 @@ export default function FirstLoginPage() {
   // --- 2. Establecer Nueva Contraseña ---
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    const target = e.target as typeof e.target & {
-        password: { value: string };
-        confirmPassword: { value: string };
-    };
+    const target = e.target as any;
     const password = target.password.value;
     const confirmPassword = target.confirmPassword.value;
 
     if (password !== confirmPassword) {
       setMessage('Las contraseñas no coinciden.');
       setStep('error');
-      setTimeout(() => setStep('setPassword'), 2000); // Vuelve al paso de contraseña
+      setTimeout(() => setStep('setPassword'), 2000);
       return;
     }
     if (password.length < 6) {
         setMessage('La contraseña debe tener al menos 6 caracteres.');
         setStep('error');
-        setTimeout(() => setStep('setPassword'), 2000); // Vuelve al paso de contraseña
+        setTimeout(() => setStep('setPassword'), 2000);
         return;
     }
 
@@ -72,26 +71,19 @@ export default function FirstLoginPage() {
       const user = auth.currentUser;
 
       if (!user) {
-        // Esto no debería pasar si el usuario está logueado, pero es un buen seguro
         throw new Error('No hay un usuario autenticado. Por favor, inicia sesión de nuevo.');
       }
       
-      // El usuario debe re-autenticarse para cambiar la contraseña
-      // Como no conocemos la contraseña antigua, usamos una estrategia diferente (esto es conceptual)
-      // Para un cambio real y seguro, se enviaría un link al correo.
-      // Por ahora, simularemos el cambio directo ya que verificamos DNI.
       await updatePassword(user, password);
-
       setMessage('¡Contraseña actualizada con éxito! Ya puedes iniciar sesión con tu nueva clave.');
       setStep('success');
 
     } catch (error: any) {
         console.error("Error al actualizar contraseña: ", error);
-        // Manejar errores comunes de Firebase Auth
         if (error.code === 'auth/requires-recent-login') {
-            setMessage('Esta operación es sensible y requiere una autenticación reciente. Por favor, inicia sesión de nuevo antes de cambiar la contraseña.');
+            setMessage('Esta operación requiere una autenticación reciente. Inicia sesión de nuevo antes de cambiar la contraseña.');
         } else {
-            setMessage('No se pudo actualizar la contraseña. Por favor, inténtalo de nuevo.');
+            setMessage('No se pudo actualizar la contraseña. Inténtalo de nuevo.');
         }
         setStep('error');
     }
