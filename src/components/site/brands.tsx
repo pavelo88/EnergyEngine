@@ -6,8 +6,8 @@ import React, { useState, useEffect, useRef } from 'react';
 export default function Brands() {
     const [rotation, setRotation] = useState(0);
     const [radius, setRadius] = useState(280); 
-    const requestRef = useRef<number>();
-
+    const requestRef = useRef<number>(0);
+    
     const totalDisplayBrands = brands.length;
 
     useEffect(() => {
