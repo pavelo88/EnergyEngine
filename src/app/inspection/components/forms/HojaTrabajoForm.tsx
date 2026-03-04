@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
 import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Car, Euro, Zap, Thermometer, Battery, Droplets, Wind, Gauge, Mic, Camera } from 'lucide-react';
 import { enhanceTechnicalRequest } from '@/ai/flows/enhance-technical-request-flow';
@@ -466,13 +466,10 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         alert("Error de autenticación. Por favor, recarga la página.");
         return;
     }
-    if (!clientSignature || !inspectorSignature) {
-        alert("Ambas firmas son obligatorias para guardar el albarán.");
+    // VALIDATION
+    if (!formData.cliente || !formData.instalacion || !formData.location || !inspectorSignature || !clientSignature) {
+        alert("Es obligatorio rellenar Cliente, Instalación, Localización y ambas Firmas para guardar.");
         return;
-    }
-     if (!formData.location) {
-      alert("La captura de la geolocalización es obligatoria para guardar.");
-      return;
     }
     
     setSaving(true);
@@ -481,6 +478,19 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     const docId = `HT-${year}-${sequential}`;
 
     try {
+       // AUTO-CREATE CLIENT
+        const clientesRef = collection(db, "clientes");
+        const q = query(clientesRef, where("nombre", "==", formData.cliente.trim()));
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty && formData.cliente.trim().length > 0) {
+            await addDoc(clientesRef, {
+                nombre: formData.cliente.trim(),
+                direccion: formData.instalacion || '',
+                email: '',
+                telefono: ''
+            });
+        }
+
        const storage = getStorage();
       const imageUrls = await Promise.all(
         images.map(async (image) => {
@@ -688,5 +698,3 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     </div>
   );
 }
-
-    

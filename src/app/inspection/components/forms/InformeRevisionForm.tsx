@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
 import { Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Wind, Gauge, Thermometer, Droplets, Battery, Zap, Mic, Camera } from 'lucide-react';
 import { ProcessDictationOutput } from '@/ai/flows/process-dictation-flow';
@@ -413,8 +413,10 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
   const handleSave = async () => {
     if (!db || !user) return alert("Error de autenticación.");
     if (isSaved) return;
-    if (!formData.location) {
-      alert("La captura de la geolocalización es obligatoria para guardar.");
+    
+    // VALIDATION
+    if (!formData.cliente || !formData.instalacion || !formData.location || !inspectorSignature || !clientSignature) {
+      alert("Es obligatorio rellenar Cliente, Instalación, Localización y ambas Firmas para guardar.");
       return;
     }
 
@@ -424,6 +426,19 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
     const docId = `IR-${year}-${sequential}`;
 
     try {
+        // AUTO-CREATE CLIENT
+        const clientesRef = collection(db, "clientes");
+        const q = query(clientesRef, where("nombre", "==", formData.cliente.trim()));
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty && formData.cliente.trim().length > 0) {
+            await addDoc(clientesRef, {
+                nombre: formData.cliente.trim(),
+                direccion: formData.direccion || '',
+                email: '',
+                telefono: ''
+            });
+        }
+
         const storage = getStorage();
         const imageUrls = await Promise.all(
             images.map(async (image) => {
@@ -602,5 +617,3 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
     </div>
   );
 }
-
-    

@@ -48,6 +48,7 @@ export default function RegistroJornadaForm() {
   const [observacionesDiarias, setObservacionesDiarias] = useState('');
   const [ubicacionPrincipal, setUbicacionPrincipal] = useState<{ lat: number, lon: number } | null>(null);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [lugarTrabajo, setLugarTrabajo] = useState('');
 
   // Estado para las horas
   const [horas, setHoras] = useState({
@@ -202,8 +203,9 @@ export default function RegistroJornadaForm() {
 
     autoTable(doc, {
         startY: currentY,
-        head: [['Horas Normales', 'Horas Extra (Tipo 1)', 'Horas Extra (Tipo 2)', 'Total Horas']],
+        head: [['Lugar de Trabajo', 'Horas Normales', 'Horas Extra (Tipo 1)', 'Horas Extra (Tipo 2)', 'Total Horas']],
         body: [[
+            data.lugarTrabajo,
             data.horas.normales || '0', 
             data.horas.extrasTipo1 || '0', 
             data.horas.extrasTipo2 || '0',
@@ -329,6 +331,7 @@ export default function RegistroJornadaForm() {
         inspectorNombre: user.displayName || user.email,
         fecha: reportDate,
         ubicacionPrincipal: ubicacionPrincipal,
+        lugarTrabajo,
         horas: horas,
         observaciones: observacionesDiarias,
         gastos: gastos,
@@ -381,6 +384,7 @@ export default function RegistroJornadaForm() {
             inspectorNombre: user.displayName || user.email,
             fecha: reportDate,
             ubicacionPrincipal: ubicacionPrincipal,
+            lugarTrabajo,
             horas: horas,
             observaciones: observacionesDiarias,
             montoTotalGastos: totalGastos,
@@ -409,6 +413,7 @@ export default function RegistroJornadaForm() {
         clearCanvas();
         setUbicacionPrincipal(null);
         setLocationStatus('idle');
+        setLugarTrabajo('');
 
     } catch (e: any) {
         console.error("Error al guardar el parte diario: ", e);
@@ -468,7 +473,7 @@ export default function RegistroJornadaForm() {
               >
                   {locationStatus === 'loading' && <Loader2 className="animate-spin text-indigo-500" size={16}/>}
                   {locationStatus !== 'loading' && (ubicacionPrincipal ? <CheckCircle2 size={16}/> : <MapPin size={16}/>)}
-                  <span>{ubicacionPrincipal ? `Ubicación Capturada: ${ubicacionPrincipal.lat.toFixed(4)}, ${ubicacionPrincipal.lon.toFixed(4)}` : 'INICIAR JORNADA (Capturar Ubicación)'}</span>
+                  <span>{ubicacionPrincipal ? `UBICACIÓN DE INICIO: ${ubicacionPrincipal.lat.toFixed(4)}, ${ubicacionPrincipal.lon.toFixed(4)}` : 'INICIAR JORNADA (Capturar Ubicación)'}</span>
               </button>
             </div>
         </div>
@@ -480,7 +485,11 @@ export default function RegistroJornadaForm() {
             <Clock size={18} className="text-indigo-500"/> Horas Trabajadas
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+             <div className="space-y-1 w-full text-left md:col-span-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Lugar de Trabajo</label>
+                <Input type="text" value={lugarTrabajo} onChange={e => setLugarTrabajo(e.target.value)} placeholder="Ej: Oficina / Cliente X" className="p-4 rounded-xl bg-slate-50 border-2 border-slate-100 focus:border-indigo-500 font-bold text-slate-700 shadow-sm" />
+            </div>
             <div className="space-y-1 w-full text-left">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Horas Normales</label>
                 <Input type="number" min="0" step="0.5" value={horas.normales} onChange={e => handleHorasChange('normales', e.target.value)} placeholder="Ej: 8" className="p-4 rounded-xl bg-slate-50 border-2 border-slate-100 focus:border-indigo-500 font-bold text-slate-700 shadow-sm" />

@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
 import { Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Wind, Gauge, Thermometer, Droplets, Battery, Zap, Wrench, Camera } from 'lucide-react';
 import { ProcessDictationOutput } from '@/ai/flows/process-dictation-flow';
@@ -11,18 +11,16 @@ import SignaturePad from '../SignaturePad';
 import { INITIAL_FORM_DATA } from '../../lib/form-constants';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-const SIMPLIFIED_CHECKLIST = {
-  "RECAMBIOS Y MATERIALES": [
-    "F.A. (Filtro de Aceite)",
-    "F.C. (Filtro de Combustible)",
-    "F.AR. (Filtro de Aire)",
-    "F.AG. (Filtro de Agua)",
-    "L.AC. (Litros de Aceite)",
-    "L.ANT. (Litros de Anticongelante)",
-    "BAT. (Baterías)",
-    "REST. (Resto / Otros)"
-  ]
-};
+const SIMPLIFIED_CHECKLIST_ITEMS = [
+    "Filtro de Aceite",
+    "Filtro de Combustible",
+    "Filtro de Aire",
+    "Filtro de Agua",
+    "Litros de Aceite",
+    "Litros de Anticongelante",
+    "Baterías",
+    "Otros"
+];
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
@@ -59,6 +57,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const rightMargin = 15;
     const topMargin = 40;
     const bottomMargin = 30;
+    const contentWidth = pageWidth - leftMargin - rightMargin;
     const globalMargin = { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin };
 
     let currentY = topMargin;
@@ -93,22 +92,16 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     autoTable(doc, {
         startY: currentY,
         head: [['RECAMBIOS Y MATERIALES', 'OK', 'DEFECTUOSO', 'CAMBIO']],
-        body: Object.entries(SIMPLIFIED_CHECKLIST).flatMap(([section, items]) => {
-            const sectionRows: any[] = [[{ content: section, colSpan: 4, styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#000', halign: 'left' }}]];
-            (items as string[]).forEach(item => {
-                sectionRows.push([
-                    item,
-                    report.recambios_checklist?.[item] === 'OK' ? 'X' : '',
-                    report.recambios_checklist?.[item] === 'DEFECTUOSO' ? 'X' : '',
-                    report.recambios_checklist?.[item] === 'CAMBIO' ? 'X' : '',
-                ]);
-            });
-            return sectionRows;
-        }),
+        body: SIMPLIFIED_CHECKLIST_ITEMS.map(item => [
+            item,
+            report.recambios_checklist?.[item] === 'OK' ? 'X' : '',
+            report.recambios_checklist?.[item] === 'DEFECTUOSO' ? 'X' : '',
+            report.recambios_checklist?.[item] === 'CAMBIO' ? 'X' : '',
+        ]),
         theme: 'grid',
         didParseCell: function (data) {
-          const item = data.row.raw[0];
-          const status = report.recambios_checklist?.[item as string];
+          const item = data.row.raw[0] as string;
+          const status = report.recambios_checklist?.[item];
           if (status === 'DEFECTUOSO') data.cell.styles.fillColor = '#fee2e2';
           if (status === 'CAMBIO') data.cell.styles.fillColor = '#dcfce7';
         }, 
@@ -120,9 +113,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     currentY = (doc as any).lastAutoTable.finalY + 8;
     
-    // El resto de las tablas (Pruebas, Observaciones, Firmas)
-    // ...
-
      // 4. Tabla de Pruebas
     autoTable(doc, {
         startY: currentY,
@@ -148,9 +138,73 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     currentY = (doc as any).lastAutoTable.finalY + 8;
 
     // 5. OBSERVACIONES
-    // ... (igual que otros formularios)
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(darkColor);
+
+    if (currentY + 15 > pageHeight - bottomMargin) {
+        doc.addPage();
+        currentY = topMargin;
+    }
     
-     // 7. ENCABEZADOS Y PIES DE PÁGINA GLOBALES
+    doc.text("OBSERVACIONES", leftMargin, currentY);
+    currentY += 4;
+    
+    const rawText = report.observaciones || '';
+    const blocks = rawText.split('\n\n');
+
+    blocks.forEach((block: string) => {
+      const text = block.replace(/\n/g, ' ').trim();
+      if (!text) return;
+
+      const isTitle = text.endsWith(':') && text.toUpperCase() === text;
+
+      if (isTitle) {
+          if (currentY + 15 > pageHeight - bottomMargin) {
+              doc.addPage();
+              currentY = topMargin;
+          }
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(darkColor);
+          doc.text(text, leftMargin, currentY);
+          currentY += 6;
+      } else {
+          autoTable(doc, {
+              startY: currentY,
+              margin: globalMargin,
+              body: [[text]],
+              theme: 'plain',
+              styles: { font: 'helvetica', fontSize: 9, cellPadding: 0, halign: 'justify', textColor: darkColor },
+              columnStyles: { 0: { cellWidth: contentWidth } }
+          });
+          currentY = (doc as any).lastAutoTable.finalY + 4;
+      }
+    });
+
+    currentY += 8;
+    
+     // 6. Firmas
+    const signatureBlockHeight = 45;
+    if (currentY + signatureBlockHeight > pageHeight - bottomMargin) {
+        doc.addPage();
+        currentY = topMargin;
+    }
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    
+    if (report.inspectorSignatureUrl) doc.addImage(report.inspectorSignatureUrl, 'PNG', 25, currentY, 60, 25);
+    doc.line(25, currentY + 25, 85, currentY + 25);
+    doc.text("Firma técnico:", 25, currentY + 30);
+    doc.text(inspectorName || '', 25, currentY + 35);
+
+    if (report.clientSignatureUrl) doc.addImage(report.clientSignatureUrl, 'PNG', 125, currentY, 60, 25);
+    doc.line(125, currentY + 25, 185, currentY + 25);
+    doc.text("Conforme cliente:", 125, currentY + 30);
+    doc.text(report.recibidoPor || '', 125, currentY + 35);
+
+    // 7. ENCABEZADOS Y PIES DE PÁGINA GLOBALES
     const drawHeader = () => {
         doc.setFillColor(darkColor);
         doc.rect(0, 0, pageWidth, 28, 'F');
@@ -231,6 +285,54 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
     }
   }, [initialData]);
 
+  useEffect(() => {
+    if (aiData) {
+      setFormData((prev: any) => {
+          const newRecambiosChecklist = { ...prev.recambios_checklist, ...aiData.checklist_updates };
+          if (aiData.all_ok) {
+            SIMPLIFIED_CHECKLIST_ITEMS.forEach(item => {
+              if (!newRecambiosChecklist[item]) {
+                newRecambiosChecklist[item] = 'OK';
+              }
+            });
+          }
+
+          return {
+            ...prev,
+            cliente: aiData.identidad.cliente || prev.cliente,
+            instalacion: aiData.identidad.instalacion || prev.instalacion,
+            direccion: aiData.identidad.direccion || prev.direccion,
+            motor: aiData.identidad.modelo || prev.motor,
+            modelo: aiData.identidad.marca || prev.modelo,
+            n_motor: aiData.identidad.sn || prev.n_motor,
+            n_grupo: aiData.identidad.n_grupo || prev.n_grupo,
+            potencia: aiData.identidad.potencia_kva || prev.potencia,
+            recibidoPor: aiData.identidad.recibe || prev.recibidoPor,
+            observaciones: aiData.observations_summary || prev.observaciones,
+            recambios_checklist: newRecambiosChecklist,
+            datos_pruebas: {
+              horas: aiData.mediciones_generales.horas || prev.datos_pruebas.horas,
+              presion: aiData.mediciones_generales.presion || prev.datos_pruebas.presion,
+              temperatura: aiData.mediciones_generales.temp || prev.datos_pruebas.temperatura,
+              nivel_combustible: aiData.mediciones_generales.combustible || prev.datos_pruebas.nivel_combustible,
+              tension_alternador: aiData.mediciones_generales.tensionAlt || prev.datos_pruebas.tension_alternador,
+              frecuencia: aiData.mediciones_generales.frecuencia || prev.datos_pruebas.frecuencia,
+              carga_baterias: aiData.mediciones_generales.cargaBat || prev.datos_pruebas.carga_baterias,
+            },
+            pruebas_carga: {
+              tension_rs: aiData.pruebas_carga.rs || prev.pruebas_carga.tension_rs,
+              tension_st: aiData.pruebas_carga.st || prev.pruebas_carga.tension_st,
+              tension_rt: aiData.pruebas_carga.rt || prev.pruebas_carga.tension_rt,
+              intensidad_r: aiData.pruebas_carga.r || prev.pruebas_carga.intensidad_r,
+              intensidad_s: aiData.pruebas_carga.s || prev.pruebas_carga.intensidad_s,
+              intensidad_t: aiData.pruebas_carga.t || prev.pruebas_carga.intensidad_t,
+              potencia_kw: aiData.pruebas_carga.kw || prev.pruebas_carga.potencia_kw,
+            }
+          };
+      });
+    }
+  }, [aiData]);
+
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev: any) => ({...prev, [field]: value}));
   };
@@ -288,8 +390,10 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
   const handleSave = async () => {
     if (!db || !user) return alert("Error de autenticación.");
     if (isSaved) return;
-     if (!formData.location) {
-      alert("La captura de la geolocalización es obligatoria para guardar.");
+
+    // VALIDATION
+    if (!formData.cliente || !formData.instalacion || !formData.location || !inspectorSignature || !clientSignature) {
+      alert("Es obligatorio rellenar Cliente, Instalación, Localización y ambas Firmas para guardar.");
       return;
     }
 
@@ -298,6 +402,19 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
     const sequential = Date.now().toString().slice(-6).padStart(6, '0');
     const docId = `IS-${year}-${sequential}`;
     try {
+        // AUTO-CREATE CLIENT
+        const clientesRef = collection(db, "clientes");
+        const q = query(clientesRef, where("nombre", "==", formData.cliente.trim()));
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty && formData.cliente.trim().length > 0) {
+            await addDoc(clientesRef, {
+                nombre: formData.cliente.trim(),
+                direccion: formData.direccion || '',
+                email: '',
+                telefono: ''
+            });
+        }
+
         const storage = getStorage();
         const imageUrls = await Promise.all(
             images.map(async (image) => {
@@ -379,23 +496,21 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
             </section>
             
             {/* --- CHECKLIST DE RECAMBIOS --- */}
-            {Object.entries(SIMPLIFIED_CHECKLIST).map(([section, items]) => (
-                <section key={section} className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
-                    <h3 className="font-bold text-slate-500">{section}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                        {(items as string[]).map(it => (
-                        <div key={it} className={`p-4 rounded-xl flex justify-between items-center transition-all border ${formData.recambios_checklist[it] ? 'bg-cyan-50/50 border-cyan-200/50' : 'bg-slate-50/50 border-slate-100'}`}>
-                            <span className="text-lg font-bold text-slate-700">{it}</span>
-                            <div className="flex gap-1">
-                            {["OK", "DEFECTUOSO", "CAMBIO"].map(st => (
-                                <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-20 h-8 rounded-lg text-[10px] font-black border-2 transition-all ${formData.recambios_checklist[it] === st ? 'bg-cyan-600 border-cyan-600 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-cyan-300'}`}>{st}</button>
-                            ))}
-                            </div>
-                        </div>
+            <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+                <h3 className="font-bold text-slate-500">Recambios y Materiales</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                    {SIMPLIFIED_CHECKLIST_ITEMS.map(it => (
+                    <div key={it} className={`p-4 rounded-xl flex justify-between items-center transition-all border ${formData.recambios_checklist[it] ? 'bg-cyan-50/50 border-cyan-200/50' : 'bg-slate-50/50 border-slate-100'}`}>
+                        <span className="text-lg font-bold text-slate-700">{it}</span>
+                        <div className="flex gap-1">
+                        {["OK", "DEFECTUOSO", "CAMBIO"].map(st => (
+                            <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-20 h-8 rounded-lg text-[10px] font-black border-2 transition-all ${formData.recambios_checklist[it] === st ? 'bg-cyan-600 border-cyan-600 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-cyan-300'}`}>{st}</button>
                         ))}
+                        </div>
                     </div>
-                </section>
-            ))}
+                    ))}
+                </div>
+            </section>
 
             {/* --- PRUEBAS --- */}
             <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
@@ -474,5 +589,3 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
     </div>
   );
 }
-
-    

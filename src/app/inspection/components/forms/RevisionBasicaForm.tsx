@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
 import { Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Wind, Gauge, Thermometer, Droplets, Battery, Zap, Wrench, Camera } from 'lucide-react';
 import { ProcessDictationOutput } from '@/ai/flows/process-dictation-flow';
@@ -13,15 +13,9 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // 1. Checklist específico y reducido para "Revisión Básica" (Sin filtros ni correas)
 const BASIC_REVISION_CHECKLIST = {
-  "INSPECCIÓN EN EL MOTOR": [
-    "Nivel de lubricante",
-    "Indicador nivel refrigerante",
-    "Tubo de escape",
-    "Circuito de refrigeración",
-    "Circuito de lubricación",
-    "Baterías",
-    "Motor de arranque"
-  ]
+  "INSPECCIÓN EN EL MOTOR": ["Nivel de lubricante", "Indicador nivel refrigerante", "Correa del ventilador", "Filtro de combustible y prefiltro", "Filtro de aire", "Filtro de aceite y prefiltro de aceite", "Tubo de escape", "Circuito de refrigeración", "Circuito de lubricación", "Baterías", "Motor de arranque"],
+  "INSPECCION EN EL ALTERNADOR": ["Placas de los bornes", "Regulador eléctrico", "Colector", "Rodamiento", "Ventilación", "Escobillas", "Maniobra"],
+  "INSPECCION EQUIPO ELECTRICO": ["Aparatos de medida", "Pilotos", "Mantenedor de baterías", "Interruptor general", "Resistencia de caldeo", "Contactores", "Reles auxiliares", "Apriete bornes", "Cableado"]
 };
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
@@ -474,8 +468,10 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
   const handleSave = async () => {
     if (!db || !user) return alert("Error de autenticación.");
     if (isSaved) return;
-     if (!formData.location) {
-      alert("La captura de la geolocalización es obligatoria para guardar.");
+
+    // VALIDATION
+    if (!formData.cliente || !formData.instalacion || !formData.location || !inspectorSignature || !clientSignature) {
+      alert("Es obligatorio rellenar Cliente, Instalación, Localización y ambas Firmas para guardar.");
       return;
     }
 
@@ -484,6 +480,19 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
     const sequential = Date.now().toString().slice(-6).padStart(6, '0');
     const docId = `BAS-${year}-${sequential}`;
     try {
+        // AUTO-CREATE CLIENT
+        const clientesRef = collection(db, "clientes");
+        const q = query(clientesRef, where("nombre", "==", formData.cliente.trim()));
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty && formData.cliente.trim().length > 0) {
+            await addDoc(clientesRef, {
+                nombre: formData.cliente.trim(),
+                direccion: formData.direccion || '',
+                email: '',
+                telefono: ''
+            });
+        }
+
         const storage = getStorage();
         const imageUrls = await Promise.all(
             images.map(async (image) => {
@@ -675,5 +684,3 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
     </div>
   );
 }
-
-    
