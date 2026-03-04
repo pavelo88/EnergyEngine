@@ -40,6 +40,9 @@ const InspectionPageContent = () => {
   const [hasMounted, setHasMounted] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
 
+  // --- PWA Install State ---
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+
   // --- Global Dictation State ---
   const [isDictating, setIsDictating] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -48,12 +51,19 @@ const InspectionPageContent = () => {
 
   useEffect(() => {
     setHasMounted(true);
+    
+    const handleInstallPrompt = (e: Event) => {
+        e.preventDefault();
+        setInstallPrompt(e);
+    };
+
     if (typeof window !== "undefined") {
       setIsOnline(navigator.onLine);
       const handleOnline = () => setIsOnline(true);
       const handleOffline = () => setIsOnline(false);
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
+      window.addEventListener('beforeinstallprompt', handleInstallPrompt);
 
       // --- Initialize Speech Recognition ---
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -126,6 +136,7 @@ const InspectionPageContent = () => {
       return () => {
         window.removeEventListener('online', handleOnline);
         window.removeEventListener('offline', handleOffline);
+        window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
         if (recognitionRef.current) {
             recognitionRef.current.abort();
         }
@@ -154,6 +165,19 @@ const InspectionPageContent = () => {
     setActiveInspectionForm(null);
   }
 
+  const handleInstallClick = () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    installPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult.outcome === 'accepted') {
+            console.log('User accepted the A2HS prompt');
+        } else {
+            console.log('User dismissed the A2HS prompt');
+        }
+        setInstallPrompt(null);
+    });
+  };
+
   const toggleDictation = () => {
     if (!isOnline) {
         toast({ variant: "destructive", title: "Sin Conexión", description: "El dictado por IA requiere conexión a internet." });
@@ -175,7 +199,7 @@ const InspectionPageContent = () => {
 
   const renderFloatingDictationButton = () => {
       // Show only on data-heavy forms that benefit from global dictation
-      const supportedForms: FormType[] = ['albaran', 'hoja-revision', 'informe-tecnico'];
+      const supportedForms: FormType[] = ['albaran', 'hoja-revision', 'informe-tecnico', 'revision-basica'];
       if (!activeInspectionForm || !supportedForms.includes(activeInspectionForm)) {
           return null;
       }
@@ -262,6 +286,8 @@ const InspectionPageContent = () => {
         isSubNavActive={!!activeInspectionForm}
         onBack={activeInspectionForm ? handleBackToHub : () => handleNavigate(TABS.MENU)}
         isOnline={isOnline}
+        onInstall={handleInstallClick}
+        canInstall={!!installPrompt}
       />
       <div className="flex-grow">
         {renderContent()}

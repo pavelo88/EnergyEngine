@@ -1,17 +1,19 @@
 'use client';
 
 import React from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Download } from 'lucide-react';
 import TABS from '../constants';
 
 interface HeaderProps {
   activeTab: string;
   isOnline: boolean;
   onBack: () => void;
-  isSubNavActive: boolean; // Nuevo: para saber si estamos dentro de un sub-menú como el de inspección
+  isSubNavActive: boolean;
+  onInstall: () => void;
+  canInstall: boolean;
 }
 
-export default function Header({ activeTab, isOnline, onBack, isSubNavActive }: HeaderProps) {
+export default function Header({ activeTab, isOnline, onBack, isSubNavActive, onInstall, canInstall }: HeaderProps) {
   const showBackButton = activeTab !== TABS.MENU || isSubNavActive;
 
   return (
@@ -26,9 +28,16 @@ export default function Header({ activeTab, isOnline, onBack, isSubNavActive }: 
         <span className="font-white text-white italic tracking-tighter text-xl">ENERGY ENGINE</span>
       </div>
 
-      <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black border ${isOnline ? 'border-emerald-500/30 text-emerald-500' : 'border-red-500/30 text-red-400'}`}>
-        <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-red-500'}`} />
-        {isOnline ? 'ONLINE' : 'OFFLINE'}
+      <div className="flex items-center gap-2">
+        <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black border ${isOnline ? 'border-emerald-500/30 text-emerald-500' : 'border-red-500/30 text-red-400'}`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-red-500'}`} />
+            {isOnline ? 'ONLINE' : 'OFFLINE'}
+        </div>
+        {canInstall && (
+            <button onClick={onInstall} className="w-8 h-8 bg-black/5 rounded-xl flex items-center justify-center text-white border border-black/10 hover:bg-black/10 transition-all" title="Instalar aplicación">
+                <Download size={14} />
+            </button>
+        )}
       </div>
     </header>
   );
