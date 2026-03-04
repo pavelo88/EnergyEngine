@@ -67,6 +67,18 @@ const InspectionPageContent = () => {
       window.addEventListener('offline', handleOffline);
       window.addEventListener('beforeinstallprompt', handleInstallPrompt);
 
+      // --- Service Worker Registration ---
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('Service Worker registered successfully with scope: ', registration.scope);
+          })
+          .catch((error) => {
+            console.error('Service Worker registration failed: ', error);
+          });
+      }
+      // --- End of Service Worker Registration ---
+
       // --- Initialize Speech Recognition ---
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
@@ -168,7 +180,14 @@ const InspectionPageContent = () => {
   }
 
   const handleInstallClick = () => {
-    if (!installPrompt) return;
+    if (!installPrompt) {
+      toast({
+        variant: "destructive",
+        title: "Instalación no disponible",
+        description: "Tu navegador no ha habilitado la instalación o la app ya está instalada.",
+      });
+      return;
+    }
     installPrompt.prompt();
     installPrompt.userChoice.then((choiceResult: any) => {
         if (choiceResult.outcome === 'accepted') {
@@ -201,7 +220,7 @@ const InspectionPageContent = () => {
 
   const renderFloatingDictationButton = () => {
       // Show only on data-heavy forms that benefit from global dictation
-      const supportedForms: FormType[] = ['hoja-trabajo', 'informe-revision', 'informe-tecnico', 'informe-simplificado'];
+      const supportedForms: FormType[] = ['hoja-trabajo', 'informe-tecnico', 'informe-revision', 'informe-simplificado'];
       if (!activeInspectionForm || !supportedForms.includes(activeInspectionForm)) {
           return null;
       }
