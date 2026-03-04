@@ -420,7 +420,7 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
 
     setSaving(true);
     const year = new Date().getFullYear().toString().slice(-2);
-    const sequential = Date.now().toString().slice(-4).padStart(4, '0');
+    const sequential = Date.now().toString().slice(-6).padStart(6, '0');
     const docId = `IR-${year}-${sequential}`;
 
     try {
@@ -442,7 +442,8 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
           tecnicoNombre: inspectorName, 
           fecha_guardado: Timestamp.now(), 
           formType: 'informe-revision',
-          id: docId
+          id: docId,
+          estado: 'Completado',
       };
       await setDoc(doc(db, 'trabajos', docId), docData);
       setSavedDocId(docId);
@@ -601,3 +602,5 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
     </div>
   );
 }
+
+    

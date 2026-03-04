@@ -295,7 +295,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
 
     setSaving(true);
     const year = new Date().getFullYear().toString().slice(-2);
-    const sequential = Date.now().toString().slice(-4).padStart(4, '0');
+    const sequential = Date.now().toString().slice(-6).padStart(6, '0');
     const docId = `IS-${year}-${sequential}`;
     try {
         const storage = getStorage();
@@ -316,7 +316,8 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
           tecnicoNombre: inspectorName, 
           fecha_guardado: Timestamp.now(), 
           formType: 'informe-simplificado',
-          id: docId
+          id: docId,
+          estado: 'Completado',
       };
       await setDoc(doc(db, 'trabajos', docId), docData);
       setSavedDocId(docId);
@@ -473,3 +474,5 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
     </div>
   );
 }
+
+    

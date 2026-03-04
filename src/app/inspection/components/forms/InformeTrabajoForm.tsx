@@ -298,7 +298,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     if (!db || !user || !inspectorSignature) return alert("La firma del inspector es obligatoria.");
     setSaving(true);
     const year = new Date().getFullYear().toString().slice(-2);
-    const sequential = Date.now().toString().slice(-4);
+    const sequential = Date.now().toString().slice(-6).padStart(6, '0');
     const docId = `IT-${year}-${sequential}`;
 
     try {
@@ -309,7 +309,9 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         tecnicoNombre: inspectorName,
         fecha_guardado: Timestamp.now(), 
         formType: 'informe-tecnico',
-        id_informe: docId
+        id_informe: docId,
+        id: docId,
+        estado: 'Completado',
       };
       await setDoc(doc(db, 'trabajos', docId), docData);
       setSavedDocId(docId);
@@ -401,3 +403,5 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     </main>
   );
 }
+
+    

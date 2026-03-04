@@ -481,7 +481,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
 
     setSaving(true);
     const year = new Date().getFullYear().toString().slice(-2);
-    const sequential = Date.now().toString().slice(-4).padStart(4, '0');
+    const sequential = Date.now().toString().slice(-6).padStart(6, '0');
     const docId = `BAS-${year}-${sequential}`;
     try {
         const storage = getStorage();
@@ -502,7 +502,8 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
           tecnicoNombre: inspectorName, 
           fecha_guardado: Timestamp.now(), 
           formType: 'revision-basica',
-          id: docId
+          id: docId,
+          estado: 'Completado',
       };
       await setDoc(doc(db, 'trabajos', docId), docData);
       setSavedDocId(docId);
@@ -674,3 +675,5 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
     </div>
   );
 }
+
+    

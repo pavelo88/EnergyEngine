@@ -477,7 +477,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     
     setSaving(true);
     const year = new Date().getFullYear().toString().slice(-2);
-    const sequential = Date.now().toString().slice(-4).padStart(4, '0');
+    const sequential = Date.now().toString().slice(-6).padStart(6, '0');
     const docId = `HT-${year}-${sequential}`;
 
     try {
@@ -502,6 +502,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         id_albaran: docId, // legacy id
         id: docId,
         formType: 'hoja-trabajo',
+        estado: 'Completado',
       };
 
       await setDoc(doc(db, 'trabajos', docId), docData);
@@ -687,3 +688,5 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     </div>
   );
 }
+
+    

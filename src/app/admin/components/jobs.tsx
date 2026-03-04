@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query, where } from "firebase/firestore";
 import { useFirestore } from '@/firebase';
 import { PlusCircle, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 // --- Tipos de Datos ---
 type Inspector = { id: string; nombre: string; };
@@ -29,24 +31,22 @@ export default function JobsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const [selectedInspectorIds, setSelectedInspectorIds] = useState<string[]>([]);
   const db = useFirestore();
 
   // --- Carga de Datos (Jobs, Inspectores, Clientes) ---
   useEffect(() => {
     if (!db) return;
-    // Cargar Inspectores (usuarios con rol 'inspector')
-    const qInspectors = query(collection(db, 'usuarios'), where("rol", "==", "inspector"));
+    const qInspectors = query(collection(db, 'usuarios'), where("roles", "array-contains", "inspector"));
     const unsubInspectors = onSnapshot(qInspectors, snapshot => {
       setInspectors(snapshot.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre })));
     });
 
-    // Cargar Clientes
     const unsubClients = onSnapshot(collection(db, 'clientes'), snapshot => {
       setClients(snapshot.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre })));
     });
     
-    // Cargar solo los documentos que son "trabajos" manuales (no tienen formType o es 'job')
-    const qJobs = query(collection(db, 'trabajos'), where('formType', 'not-in', ['albaran', 'hoja-revision', 'informe-tecnico', 'revision-basica']));
+    const qJobs = query(collection(db, 'trabajos'), where('formType', 'in', ['job', undefined]));
     const unsubJobs = onSnapshot(qJobs, snapshot => {
       const jobList = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -62,6 +62,15 @@ export default function JobsPage() {
       unsubJobs();
     };
   }, [db]);
+  
+  useEffect(() => {
+    if (editingJob) {
+      setSelectedInspectorIds(editingJob.inspectorIds || []);
+    } else {
+      setSelectedInspectorIds([]);
+    }
+  }, [editingJob]);
+
 
   // --- Manejo del Formulario (Añadir/Editar) ---
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -71,16 +80,14 @@ export default function JobsPage() {
     
     const clienteId = formData.get('clienteId') as string;
     const selectedClient = clients.find(c => c.id === clienteId);
-
-    // Permitir selección múltiple de inspectores
-    const inspectorIds = Array.from(formData.getAll('inspectorIds')) as string[];
-    const selectedInspectors = inspectors.filter(i => inspectorIds.includes(i.id));
+    
+    const selectedInspectors = inspectors.filter(i => selectedInspectorIds.includes(i.id));
 
     const jobData = {
       descripcion: formData.get('descripcion') as string,
       clienteId: clienteId,
       clienteNombre: selectedClient?.nombre || 'N/A',
-      inspectorIds: inspectorIds,
+      inspectorIds: selectedInspectorIds,
       inspectorNombres: selectedInspectors.map(i => i.nombre),
       estado: formData.get('estado') as Job['estado'],
       formType: 'job', // Marcamos este documento como un trabajo manual
@@ -105,6 +112,15 @@ export default function JobsPage() {
     }
     setFormLoading(false);
   };
+  
+  const handleInspectorSelection = (inspectorId: string) => {
+    setSelectedInspectorIds(prev => 
+      prev.includes(inspectorId)
+        ? prev.filter(id => id !== inspectorId)
+        : [...prev, inspectorId]
+    );
+  };
+
 
   // --- Acciones de la Tabla ---
   const handleDeleteJob = async (jobId: string) => {
@@ -158,7 +174,14 @@ export default function JobsPage() {
                     <td className="p-3 font-medium">{job.descripcion}</td>
                     <td className="p-3">{job.clienteNombre}</td>
                     <td className="p-3">{(job.inspectorNombres || []).join(', ')}</td>
-                    <td className="p-3">{job.estado}</td>
+                    <td className="p-3">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full 
+                          ${job.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800' : ''}
+                          ${job.estado === 'En Progreso' ? 'bg-indigo-100 text-indigo-800' : ''}
+                          ${job.estado === 'Completado' ? 'bg-green-100 text-green-800' : ''}`}>
+                          {job.estado}
+                        </span>
+                    </td>
                     <td className="p-3 flex items-center gap-4">
                         <button onClick={() => openModalForEdit(job)} className="text-slate-500 hover:text-amber-600"><Pencil size={18}/></button>
                         <button onClick={() => handleDeleteJob(job.id)} className="text-slate-500 hover:text-red-600"><Trash2 size={18}/></button>
@@ -189,10 +212,21 @@ export default function JobsPage() {
               </select>
 
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Asignar Inspectores</label>
-                <select multiple required className="p-3 border rounded-lg bg-white w-full h-32" name="inspectorIds" defaultValue={editingJob?.inspectorIds || []}>
-                  {inspectors.map(inspector => <option key={inspector.id} value={inspector.id}>{inspector.nombre}</option>)}
-                </select>
+                <label className="block text-sm font-medium text-slate-600 mb-2">Asignar Inspectores</label>
+                <div className="max-h-40 overflow-y-auto space-y-2 p-3 border rounded-lg bg-slate-50">
+                  {inspectors.map(inspector => (
+                    <div key={inspector.id} className="flex items-center">
+                      <Checkbox
+                        id={`inspector-${inspector.id}`}
+                        checked={selectedInspectorIds.includes(inspector.id)}
+                        onCheckedChange={() => handleInspectorSelection(inspector.id)}
+                      />
+                      <Label htmlFor={`inspector-${inspector.id}`} className="ml-2 text-sm font-medium text-slate-700">
+                        {inspector.nombre}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <select required className="p-3 border rounded-lg bg-white" name="estado" defaultValue={editingJob?.estado || 'Pendiente'}>
@@ -215,3 +249,5 @@ export default function JobsPage() {
     </div>
   );
 }
+
+    
