@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
-import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
 import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Mic } from 'lucide-react';
 import { splitTechnicalReport } from '@/ai/flows/split-technical-report-flow';
@@ -147,8 +147,8 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
       doc.text("ENERGY ENGINE", 15, 18);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", pageWidth - 15, 12, { align: 'right' });
-      doc.text("info@energyengine.es | +34 925 15 43 54", pageWidth - 15, 18, { align: 'right' });
+      doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - 15, 12, { align: 'right' });
+      doc.text("Tel: 92 515 43 53", pageWidth - 15, 18, { align: 'right' });
     };
 
     const drawFooter = (pageNumber: number, totalPages: number) => {
@@ -261,7 +261,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         setLocationStatus('success');
       },
       () => {
-        alert('No se pudo obtener la ubicación. Revisa los permisos del navegador.');
+        alert("No se pudo obtener la ubicación. Por favor, asegúrate de que los permisos de localización están activados para esta página en los ajustes de tu navegador e inténtalo de nuevo.");
         setLocationStatus('error');
       }
     );
@@ -297,19 +297,23 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   const handleSave = async () => {
     if (!db || !user || !inspectorSignature) return alert("La firma del inspector es obligatoria.");
     setSaving(true);
-    const year = new Date().getFullYear().toString().slice(-2);
-    const sequential = Date.now().toString().slice(-6).padStart(6, '0');
-    const docId = `IT-${year}-${sequential}`;
-
+    const formType = 'informe-tecnico';
     try {
+      // GENERATE SEQUENTIAL ID
+      const trabajosRef = collection(db, 'trabajos');
+      const qTrabajos = query(trabajosRef, where('formType', '==', formType));
+      const trabajosSnapshot = await getDocs(qTrabajos);
+      const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
+      const year = new Date().getFullYear();
+      const docId = `IT-${year}-${sequentialNumber}`;
+
       const docData = { 
         ...formData, 
         inspectorSignatureUrl: inspectorSignature, 
         tecnicoId: user.uid, 
         tecnicoNombre: inspectorName,
         fecha_guardado: Timestamp.now(), 
-        formType: 'informe-tecnico',
-        id_informe: docId,
+        formType: formType,
         id: docId,
         estado: 'Completado',
       };

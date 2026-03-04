@@ -227,8 +227,8 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
       
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", pageWidth - 15, 12, { align: 'right' });
-      doc.text("info@energyengine.es | +34 925 15 43 54", pageWidth - 15, 18, { align: 'right' });
+      doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - 15, 12, { align: 'right' });
+      doc.text("Tel: 92 515 43 53", pageWidth - 15, 18, { align: 'right' });
   };
 
   const drawFooter = (pageNumber: number, totalPages: number) => {
@@ -414,7 +414,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         setLocationStatus('success');
       },
       () => {
-        alert('No se pudo obtener la ubicación. Revisa los permisos del navegador.');
+        alert("No se pudo obtener la ubicación. Por favor, asegúrate de que los permisos de localización están activados para esta página en los ajustes de tu navegador e inténtalo de nuevo.");
         setLocationStatus('error');
       }
     );

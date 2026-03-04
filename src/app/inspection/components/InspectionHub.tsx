@@ -15,7 +15,7 @@ import {
 import { doc, getDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 
-type ReportType = 'hoja-trabajo' | 'informe-tecnico' | 'informe-revision' | 'revision-basica' | 'informe-simplificado';
+type ReportType = 'hoja-trabajo' | 'informe-tecnico' | 'informe-revision' | 'informe-simplificado';
 
 export default function InspectionHub({ onSelectInspectionType }: { onSelectInspectionType: (type: ReportType, data?: any) => void }) {
   const [inspectionId, setInspectionId] = useState('');
@@ -27,7 +27,6 @@ export default function InspectionHub({ onSelectInspectionType }: { onSelectInsp
     { id: 'hoja-trabajo' as ReportType, title: 'Hoja de Trabajo', icon: FileText, desc: 'Registro de materiales y servicios' },
     { id: 'informe-tecnico' as ReportType, title: 'Informe Técnico', icon: Settings, desc: 'Reporte detallado de intervenciones' },
     { id: 'informe-revision' as ReportType, title: 'Informe de Revisión', icon: ClipboardCheck, desc: 'Checklist completo de mantenimiento' },
-    { id: 'revision-basica' as ReportType, title: 'Revisión Básica', icon: ClipboardList, desc: 'Checklist rápido sin filtros/correas' },
     { id: 'informe-simplificado' as ReportType, title: 'Informe Simplificado', icon: Wrench, desc: 'Para equipos sin checklist (ej. motobombas)' },
   ];
 

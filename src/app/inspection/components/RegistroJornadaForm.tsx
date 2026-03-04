@@ -54,7 +54,7 @@ export default function RegistroJornadaForm() {
   const [horas, setHoras] = useState({
       normales: '',
       extrasTipo1: '', // Ej: Horas extra normales
-      extrasTipo2: ''  // Ej: Horas extra festivas/nocturnas o de fuerza mayor
+      extrasTipo2: ''  // Ej: Horas extra especiales
   });
 
   const [gastos, setGastos] = useState<GastoItem[]>([]);
@@ -131,7 +131,7 @@ export default function RegistroJornadaForm() {
         setLocationStatus('success');
       },
       () => {
-        alert('No se pudo obtener la ubicación. Revisa los permisos del navegador.');
+        alert("No se pudo obtener la ubicación. Por favor, asegúrate de que los permisos de localización están activados para esta página en los ajustes de tu navegador e inténtalo de nuevo.");
         setLocationStatus('error');
       }
     );
@@ -203,7 +203,7 @@ export default function RegistroJornadaForm() {
 
     autoTable(doc, {
         startY: currentY,
-        head: [['Lugar de Trabajo', 'Horas Normales', 'Horas Extra (Tipo 1)', 'Horas Extra (Tipo 2)', 'Total Horas']],
+        head: [['Lugar de Trabajo', 'Horas Normales', 'Horas Extra (Tipo 1)', 'Horas Extras Especiales', 'Total Horas']],
         body: [[
             data.lugarTrabajo,
             data.horas.normales || '0', 
@@ -301,8 +301,8 @@ export default function RegistroJornadaForm() {
         doc.text("ENERGY ENGINE", 15, 18);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", pageWidth - 15, 12, { align: 'right' });
-        doc.text("info@energyengine.es | +34 925 15 43 54", pageWidth - 15, 18, { align: 'right' });
+        doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - 15, 12, { align: 'right' });
+        doc.text("Tel: 92 515 43 53", pageWidth - 15, 18, { align: 'right' });
     };
 
     const drawFooter = (pageNumber: number, totalPages: number) => {
@@ -499,8 +499,8 @@ export default function RegistroJornadaForm() {
                 <Input type="number" min="0" step="0.5" value={horas.extrasTipo1} onChange={e => handleHorasChange('extrasTipo1', e.target.value)} placeholder="Ej: 2" className="p-4 rounded-xl bg-slate-50 border-2 border-slate-100 focus:border-emerald-500 font-bold text-slate-700 shadow-sm" />
             </div>
              <div className="space-y-1 w-full text-left">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 text-rose-600">Horas Extra (Tipo 2)</label>
-                <Input type="number" min="0" step="0.5" value={horas.extrasTipo2} onChange={e => handleHorasChange('extrasTipo2', e.target.value)} placeholder="Ej: Fuerza Mayor" className="p-4 rounded-xl bg-slate-50 border-2 border-slate-100 focus:border-rose-500 font-bold text-slate-700 shadow-sm" />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 text-rose-600">Horas Extras Especiales</label>
+                <Input type="number" min="0" step="0.5" value={horas.extrasTipo2} onChange={e => handleHorasChange('extrasTipo2', e.target.value)} placeholder="Ej: Festivas" className="p-4 rounded-xl bg-slate-50 border-2 border-slate-100 focus:border-rose-500 font-bold text-slate-700 shadow-sm" />
             </div>
         </div>
 

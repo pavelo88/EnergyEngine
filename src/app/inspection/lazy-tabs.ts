@@ -22,9 +22,6 @@ export const InformeTecnicoFormLazy = React.lazy(() =>
 export const InformeRevisionFormLazy = React.lazy(() =>
   import('./components/forms/InformeRevisionForm').then(module => ({ default: module.default }))
 );
-export const RevisionBasicaFormLazy = React.lazy(() =>
-  import('./components/forms/RevisionBasicaForm').then(module => ({ default: module.default }))
-);
 export const InformeSimplificadoFormLazy = React.lazy(() =>
   import('./components/forms/InformeSimplificadoForm').then(module => ({ default: module.default }))
 );

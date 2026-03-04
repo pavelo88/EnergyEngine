@@ -35,8 +35,9 @@ export const stats: Stat[] = [
 ];
 
 export const contactInfo = {
-  address: "NAVE, C. Miguel López Bravo, 6, 45313 Yepes, Toledo, España.",
-  phone: "+34 925 15 43 54",
+  address: "",
+  phone: "92 515 43 53",
+  emails: ["administracion@energyengine.es", "serviciotecnico@energyengine.es"],
   mapUrl: "https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d3060.5601159996186!2d-3.6247125!3d39.9064799!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd69fd9fca56779b%3A0xd8e264de001cf92b!2sEnergy%20Engine%20Grupos%20Electr%C3%B3genos%20S.L!5e0!3m2!1ses-419!2sec!4v1771523891979!5m2!1ses-419!2sec",
 };
 

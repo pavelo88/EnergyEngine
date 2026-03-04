@@ -24,12 +24,11 @@ import {
   HojaTrabajoFormLazy,
   InformeTecnicoFormLazy,
   InformeRevisionFormLazy,
-  RevisionBasicaFormLazy,
   InformeSimplificadoFormLazy
 } from './lazy-tabs';
 
 
-type FormType = 'hoja-trabajo' | 'informe-tecnico' | 'informe-revision' | 'revision-basica' | 'informe-simplificado';
+type FormType = 'hoja-trabajo' | 'informe-tecnico' | 'informe-revision' | 'informe-simplificado';
 
 const InspectionPageContent = () => {
   const { user } = useUser();
@@ -202,7 +201,7 @@ const InspectionPageContent = () => {
 
   const renderFloatingDictationButton = () => {
       // Show only on data-heavy forms that benefit from global dictation
-      const supportedForms: FormType[] = ['hoja-trabajo', 'informe-revision', 'informe-tecnico', 'revision-basica', 'informe-simplificado'];
+      const supportedForms: FormType[] = ['hoja-trabajo', 'informe-revision', 'informe-tecnico', 'informe-simplificado'];
       if (!activeInspectionForm || !supportedForms.includes(activeInspectionForm)) {
           return null;
       }
@@ -252,7 +251,6 @@ const InspectionPageContent = () => {
             case 'hoja-trabajo': FormComponent = HojaTrabajoFormLazy; break;
             case 'informe-tecnico': FormComponent = InformeTecnicoFormLazy; break;
             case 'informe-revision': FormComponent = InformeRevisionFormLazy; break;
-            case 'revision-basica': FormComponent = RevisionBasicaFormLazy; break;
             case 'informe-simplificado': FormComponent = InformeSimplificadoFormLazy; break;
             default: return <p>Formulario no encontrado</p>;
         }
