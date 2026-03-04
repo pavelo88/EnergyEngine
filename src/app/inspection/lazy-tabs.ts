@@ -13,15 +13,18 @@ export const ProfileTabLazy = React.lazy(() =>
 );
 
 // --- FORMULARIOS DE INSPECCIÓN (NUEVOS) ---
-export const AlbaranFormLazy = React.lazy(() =>
-  import('./components/forms/AlbaranForm').then(module => ({ default: module.default }))
+export const HojaTrabajoFormLazy = React.lazy(() =>
+  import('./components/forms/HojaTrabajoForm').then(module => ({ default: module.default }))
 );
 export const InformeTecnicoFormLazy = React.lazy(() =>
   import('./components/forms/InformeTrabajoForm').then(module => ({ default: module.default }))
 );
-export const HojaRevisionFormLazy = React.lazy(() =>
-  import('./components/forms/HojaRevisionForm').then(module => ({ default: module.default }))
+export const InformeRevisionFormLazy = React.lazy(() =>
+  import('./components/forms/InformeRevisionForm').then(module => ({ default: module.default }))
 );
 export const RevisionBasicaFormLazy = React.lazy(() =>
   import('./components/forms/RevisionBasicaForm').then(module => ({ default: module.default }))
+);
+export const InformeSimplificadoFormLazy = React.lazy(() =>
+  import('./components/forms/InformeSimplificadoForm').then(module => ({ default: module.default }))
 );

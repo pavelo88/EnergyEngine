@@ -9,12 +9,13 @@ import {
   HardDrive,
   Loader2,
   ArrowRight,
-  ClipboardList
+  ClipboardList,
+  Wrench
 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 
-type ReportType = 'albaran' | 'informe-tecnico' | 'hoja-revision' | 'revision-basica';
+type ReportType = 'hoja-trabajo' | 'informe-tecnico' | 'informe-revision' | 'revision-basica' | 'informe-simplificado';
 
 export default function InspectionHub({ onSelectInspectionType }: { onSelectInspectionType: (type: ReportType, data?: any) => void }) {
   const [inspectionId, setInspectionId] = useState('');
@@ -23,10 +24,11 @@ export default function InspectionHub({ onSelectInspectionType }: { onSelectInsp
   const db = useFirestore();
 
   const reportTypes = [
-    { id: 'albaran' as ReportType, title: 'Albarán', icon: FileText, desc: 'Registro de materiales y servicios' },
+    { id: 'hoja-trabajo' as ReportType, title: 'Hoja de Trabajo', icon: FileText, desc: 'Registro de materiales y servicios' },
     { id: 'informe-tecnico' as ReportType, title: 'Informe Técnico', icon: Settings, desc: 'Reporte detallado de intervenciones' },
-    { id: 'hoja-revision' as ReportType, title: 'Hoja de Revisión', icon: ClipboardCheck, desc: 'Checklist completo de mantenimiento' },
+    { id: 'informe-revision' as ReportType, title: 'Informe de Revisión', icon: ClipboardCheck, desc: 'Checklist completo de mantenimiento' },
     { id: 'revision-basica' as ReportType, title: 'Revisión Básica', icon: ClipboardList, desc: 'Checklist rápido sin filtros/correas' },
+    { id: 'informe-simplificado' as ReportType, title: 'Informe Simplificado', icon: Wrench, desc: 'Para equipos sin checklist (ej. motobombas)' },
   ];
 
   const handleLoadInspection = async (type: ReportType) => {
@@ -74,7 +76,7 @@ export default function InspectionHub({ onSelectInspectionType }: { onSelectInsp
             value={inspectionId}
             onChange={(e) => setInspectionId(e.target.value)}
             type="text" 
-            placeholder="Ej: REV-123456" 
+            placeholder="Ej: HT-24-1234" 
             className="flex-grow p-4 rounded-2xl bg-slate-50 border-none font-bold text-slate-700 placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500"
           />
           {loading && <Loader2 className="animate-spin text-blue-500" />}

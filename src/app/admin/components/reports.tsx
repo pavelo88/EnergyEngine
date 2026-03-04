@@ -8,17 +8,20 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 // Importar las funciones de generación de PDF de cada formulario
-import { generatePDF as generateAlbaranPDF } from '@/app/inspection/components/forms/AlbaranForm';
-import { generatePDF as generateHojaRevisionPDF } from '@/app/inspection/components/forms/HojaRevisionForm';
+import { generatePDF as generateHojaTrabajoPDF } from '@/app/inspection/components/forms/HojaTrabajoForm';
+import { generatePDF as generateInformeRevisionPDF } from '@/app/inspection/components/forms/InformeRevisionForm';
 import { generatePDF as generateInformeTecnicoPDF } from '@/app/inspection/components/forms/InformeTrabajoForm';
 import { generatePDF as generateRevisionBasicaPDF } from '@/app/inspection/components/forms/RevisionBasicaForm';
+// Asumimos que también existirá un generador para InformeSimplificadoForm
+// import { generatePDF as generateInformeSimplificadoPDF } from '@/app/inspection/components/forms/InformeSimplificadoForm';
+
 
 interface Report {
   id: string;
   cliente: string;
   clienteNombre?: string;
   fecha_guardado: any; 
-  formType: 'albaran' | 'hoja-revision' | 'informe-tecnico' | 'revision-basica' | 'job' | undefined;
+  formType: 'hoja-trabajo' | 'informe-revision' | 'informe-tecnico' | 'revision-basica' | 'informe-simplificado' | 'job' | undefined;
   [key: string]: any; // Para el resto de los datos
 }
 
@@ -58,11 +61,11 @@ export default function ReportsPage() {
     let doc: jsPDF | null = null;
     try {
         switch(report.formType) {
-            case 'albaran':
-                doc = generateAlbaranPDF(report, report.tecnicoNombre, report.id_albaran);
+            case 'hoja-trabajo':
+                doc = generateHojaTrabajoPDF(report, report.tecnicoNombre, report.id);
                 break;
-            case 'hoja-revision':
-                doc = generateHojaRevisionPDF(report, report.tecnicoNombre, report.id);
+            case 'informe-revision':
+                doc = generateInformeRevisionPDF(report, report.tecnicoNombre, report.id);
                 break;
             case 'revision-basica':
                 doc = generateRevisionBasicaPDF(report, report.tecnicoNombre, report.id);
@@ -70,6 +73,9 @@ export default function ReportsPage() {
             case 'informe-tecnico':
                 doc = generateInformeTecnicoPDF(report, report.tecnicoNombre, report.id_informe);
                 break;
+            // case 'informe-simplificado':
+            //     doc = generateInformeSimplificadoPDF(report, report.tecnicoNombre, report.id);
+            //     break;
             default:
                 alert('Este tipo de documento no tiene un formato de PDF para reimprimir.');
                 return;
@@ -86,10 +92,11 @@ export default function ReportsPage() {
   
   const getReportTitle = (formType: Report['formType']) => {
     switch(formType) {
-        case 'albaran': return 'Albarán de Trabajo';
-        case 'hoja-revision': return 'Hoja de Revisión';
+        case 'hoja-trabajo': return 'Hoja de Trabajo';
+        case 'informe-revision': return 'Informe de Revisión';
         case 'revision-basica': return 'Revisión Básica';
         case 'informe-tecnico': return 'Informe Técnico';
+        case 'informe-simplificado': return 'Informe Simplificado';
         case 'job': return 'Trabajo Manual';
         default: return 'Documento General';
     }

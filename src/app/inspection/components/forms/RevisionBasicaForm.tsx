@@ -2,13 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
-import { Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Wind, Gauge, Thermometer, Droplets, Battery, Zap, Wrench } from 'lucide-react';
+import { Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Wind, Gauge, Thermometer, Droplets, Battery, Zap, Wrench, Camera } from 'lucide-react';
 import { ProcessDictationOutput } from '@/ai/flows/process-dictation-flow';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
 import { INITIAL_FORM_DATA } from '../../lib/form-constants';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // 1. Checklist específico y reducido para "Revisión Básica" (Sin filtros ni correas)
 const BASIC_REVISION_CHECKLIST = {
@@ -90,24 +91,33 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     currentY = (doc as any).lastAutoTable.finalY + 6;
 
     // 3. Tabla Checklist (Reducida)
-    const colWidth = 22; 
+    const colWidth = 28; 
     autoTable(doc, {
         startY: currentY,
-        head: [['INSPECCIÓN / ESTADO', 'OK', 'DEFECTUOSO', 'AVERIADO', 'CAMBIO']],
+        head: [['INSPECCIÓN / ESTADO', 'OK', 'DEFECTUOSO', 'CAMBIO']],
         body: Object.entries(BASIC_REVISION_CHECKLIST).flatMap(([section, items]) => {
-            const sectionRows: any[] = [[{ content: section, colSpan: 5, styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#000', halign: 'left' }}]];
+            const sectionRows: any[] = [[{ content: section, colSpan: 4, styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#000', halign: 'left' }}]];
             (items as string[]).forEach(item => {
                 sectionRows.push([
                     item,
                     report.checklist?.[item] === 'OK' ? 'X' : '',
-                    report.checklist?.[item] === 'DEFECT' ? 'X' : '',
-                    report.checklist?.[item] === 'AVERIA' ? 'X' : '',
+                    report.checklist?.[item] === 'DEFECTUOSO' ? 'X' : '',
                     report.checklist?.[item] === 'CAMBIO' ? 'X' : '',
                 ]);
             });
             return sectionRows;
         }),
-        theme: 'grid', 
+        theme: 'grid',
+        didParseCell: function (data) {
+          const item = data.row.raw[0];
+          const status = report.checklist?.[item as string];
+          if (status === 'DEFECTUOSO') {
+            data.cell.styles.fillColor = '#fee2e2'; // red-100
+          }
+          if (status === 'CAMBIO') {
+            data.cell.styles.fillColor = '#dcfce7'; // green-100
+          }
+        }, 
         styles: { fontSize: 7, cellPadding: 1.5, halign: 'center' },
         headStyles: { fillColor: darkColor, textColor: '#fff', halign: 'center' },
         columnStyles: { 
@@ -115,7 +125,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
             1: { cellWidth: colWidth },
             2: { cellWidth: colWidth },
             3: { cellWidth: colWidth },
-            4: { cellWidth: colWidth }
         },
         margin: globalMargin
     });
@@ -294,6 +303,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
   const { user } = useUser();
   const db = useFirestore();
   const [inspectorName, setInspectorName] = useState('');
+  const [images, setImages] = useState<File[]>([]);
   
   // Extendemos INITIAL_FORM_DATA para incluir los recambios
   const [formData, setFormData] = useState<any>({
@@ -439,6 +449,12 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
     );
   };
   
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setImages(prev => [...prev, ...Array.from(e.target.files!)]);
+    }
+  };
+
   const handlePdfAction = () => {
     if (!saving) {
         const reportData = {
@@ -458,14 +474,28 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
   const handleSave = async () => {
     if (!db || !user) return alert("Error de autenticación.");
     if (isSaved) return;
+     if (!formData.location) {
+      alert("La captura de la geolocalización es obligatoria para guardar.");
+      return;
+    }
 
     setSaving(true);
     const year = new Date().getFullYear().toString().slice(-2);
-    const sequential = Date.now().toString().slice(-4);
+    const sequential = Date.now().toString().slice(-4).padStart(4, '0');
     const docId = `BAS-${year}-${sequential}`;
     try {
+        const storage = getStorage();
+        const imageUrls = await Promise.all(
+            images.map(async (image) => {
+            const imageRef = ref(storage, `informes/${docId}/${image.name}`);
+            await uploadBytes(imageRef, image);
+            return await getDownloadURL(imageRef);
+            })
+        );
+
       const docData = { 
-          ...formData, 
+          ...formData,
+          imageUrls,
           inspectorSignatureUrl: inspectorSignature, 
           clientSignatureUrl: clientSignature, 
           tecnicoId: user.uid, 
@@ -521,15 +551,15 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
                     <StableInput label="Nº Motor" icon={Hash} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>
                     <StableInput label="Nº Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: string) => handleInputChange('n_grupo', v)}/>
                     <StableInput label="Potencia" icon={Zap} value={formData.potencia} onChange={(v: string) => handleInputChange('potencia', v)}/>
-                        <button 
-                            onClick={handleCaptureLocation} 
-                            disabled={locationStatus === 'loading'} 
-                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 flex items-center justify-center gap-3 font-bold text-slate-700 shadow-sm text-sm hover:border-purple-500 transition-colors disabled:opacity-50"
-                        >
-                            {locationStatus === 'loading' && <Loader2 className="animate-spin text-purple-500" size={16}/>}
-                            {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 className="text-green-500" size={16}/> : <MapPin className="text-slate-400" size={16}/>)}
-                            <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación'}</span>
-                        </button>
+                    <button 
+                        onClick={handleCaptureLocation} 
+                        disabled={locationStatus === 'loading'} 
+                        className={`w-full bg-slate-50 border-2 rounded-xl p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 text-slate-700 hover:border-purple-500'}`}
+                    >
+                        {locationStatus === 'loading' && <Loader2 className="animate-spin text-purple-500" size={16}/>}
+                        {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 size={16}/> : <MapPin size={16}/>)}
+                        <span>{formData.location ? `Ubicación Capturada: ${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación (Obligatorio)'}</span>
+                    </button>
                 </div>
             </section>
             
@@ -542,8 +572,8 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
                         <div key={it} className={`p-4 rounded-xl flex justify-between items-center transition-all border ${formData.checklist[it] ? 'bg-purple-50/50 border-purple-200/50' : 'bg-slate-50/50 border-slate-100'}`}>
                             <span className="text-lg font-bold text-slate-700">{it}</span>
                             <div className="flex gap-1">
-                            {["OK", "DEFECT", "AVERIA", "CAMBIO"].map(st => (
-                                <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-14 h-8 rounded-lg text-[10px] font-black border-2 transition-all ${formData.checklist[it] === st ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-purple-300'}`}>{st}</button>
+                            {["OK", "DEFECTUOSO", "CAMBIO"].map(st => (
+                                <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-20 h-8 rounded-lg text-[10px] font-black border-2 transition-all ${formData.checklist[it] === st ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-purple-300'}`}>{st}</button>
                             ))}
                             </div>
                         </div>
@@ -588,6 +618,27 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
                     <LoadTestInput label="Intensidad T" value={formData.pruebas_carga.intensidad_t} onChange={(v: string) => handleNestedChange('pruebas_carga', 'intensidad_t', v)} />
                     <LoadTestInput label="Potencia kW" value={formData.pruebas_carga.potencia_kw} onChange={(v: string) => handleNestedChange('pruebas_carga', 'potencia_kw', v)} />
                 </div>
+            </section>
+
+             <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+                <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Camera className="text-purple-500"/> Evidencia Fotográfica</h2>
+                <div>
+                    <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-200 transition-colors">
+                        <Camera size={32} className="text-slate-400 mb-2"/>
+                        <span className="font-bold text-slate-600">Adjuntar Imágenes</span>
+                        <span className="text-xs text-slate-500">Toma una foto o selecciona archivos</span>
+                    </label>
+                    <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange}/>
+                </div>
+                {images.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        {images.map((img, i) => (
+                            <div key={i} className="relative aspect-square">
+                                <img src={URL.createObjectURL(img)} alt={`preview ${i}`} className="w-full h-full object-cover rounded-lg"/>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </section>
 
             {/* --- OBSERVACIONES Y FIRMAS --- */}
