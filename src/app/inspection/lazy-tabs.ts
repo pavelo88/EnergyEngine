@@ -3,7 +3,7 @@ import React from 'react';
 
 // --- TABS DEL MENÚ PRINCIPAL ---
 export const TasksTabLazy = React.lazy(() => 
-  import('./components/TasksTab').then(module => ({ default: module.default }))
+  import('./components/HistoryTab').then(module => ({ default: module.default }))
 );
 export const RegistroJornadaForm = React.lazy(() => 
   import('./components/RegistroJornadaForm').then(module => ({ default: module.default }))
