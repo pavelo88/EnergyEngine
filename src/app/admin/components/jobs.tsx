@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query, where } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query } from "firebase/firestore";
 import { useFirestore } from '@/firebase';
 import { PlusCircle, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -14,12 +14,15 @@ type Job = {
   id: string;
   descripcion: string;
   clienteId: string;
-  clienteNombre: string;
+  clienteNombre?: string;
+  cliente?: string; // from reports
   inspectorIds: string[];
-  inspectorNombres: string[];
+  inspectorNombres?: string[];
+  tecnicoNombre?: string; // from reports
   estado: 'Pendiente' | 'En Progreso' | 'Completado';
-  fechaCreacion: any;
-  formType?: string; // Campo opcional para diferenciar trabajos de informes
+  fechaCreacion?: any;
+  fecha_guardado?: any; // from reports
+  formType?: string;
 };
 
 export default function JobsPage() {
@@ -37,25 +40,37 @@ export default function JobsPage() {
   // --- Carga de Datos (Jobs, Inspectores, Clientes) ---
   useEffect(() => {
     if (!db) return;
-    const qInspectors = query(collection(db, 'usuarios'), where("roles", "array-contains", "inspector"));
+    const qInspectors = query(collection(db, 'usuarios'));
     const unsubInspectors = onSnapshot(qInspectors, snapshot => {
-      setInspectors(snapshot.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre })));
+      const inspectorList = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter((user: any) => user.roles && user.roles.includes('inspector'));
+      setInspectors(inspectorList.map((user: any) => ({ id: user.id, nombre: user.nombre })));
     });
 
     const unsubClients = onSnapshot(collection(db, 'clientes'), snapshot => {
       setClients(snapshot.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre })));
     });
     
-    // CORRECCIÓN: Para evitar el error de valor 'undefined' y obtener solo los trabajos, 
-    // buscamos explícitamente los documentos que tienen formType === 'job'.
-    // Esto es más seguro que usar 'not-in' si algunos documentos no tienen el campo.
-    const qJobs = query(collection(db, 'trabajos'), where('formType', '==', 'job'));
+    // CORRECCIÓN: Se quita el filtro para mostrar todos los trabajos, incluidos los informes.
+    const qJobs = query(collection(db, 'trabajos'));
 
     const unsubJobs = onSnapshot(qJobs, snapshot => {
       const jobList = snapshot.docs.map(doc => ({
         id: doc.id,
         ...(doc.data() as Omit<Job, 'id'>)
       }));
+      
+      // Ordenar por fecha, manejando ambos campos posibles
+      jobList.sort((a, b) => {
+        const dateA = a.fechaCreacion?.toDate() || a.fecha_guardado?.toDate() || 0;
+        const dateB = b.fechaCreacion?.toDate() || b.fecha_guardado?.toDate() || 0;
+        if (dateA === 0 && dateB === 0) return 0;
+        if (dateA === 0) return 1;
+        if (dateB === 0) return -1;
+        return dateB - dateA; // Descending
+      });
+
       setJobs(jobList);
       setLoading(false);
     }, (error) => {
@@ -141,6 +156,19 @@ export default function JobsPage() {
       }
     }
   };
+  
+  const getJobTitle = (job: Job) => {
+    if (job.formType === 'job') {
+        return job.descripcion;
+    }
+    switch(job.formType) {
+        case 'hoja-trabajo': return 'Hoja de Trabajo';
+        case 'informe-revision': return 'Informe de Revisión';
+        case 'informe-tecnico': return 'Informe Técnico';
+        case 'informe-simplificado': return 'Informe Simplificado';
+        default: return job.descripcion || `Documento ${job.id}`;
+    }
+  };
 
   const openModalForEdit = (job: Job) => {
     setEditingJob(job);
@@ -178,9 +206,9 @@ export default function JobsPage() {
               <tbody>
                 {jobs.map(job => (
                   <tr key={job.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-medium">{job.descripcion}</td>
-                    <td className="p-3">{job.clienteNombre}</td>
-                    <td className="p-3">{(job.inspectorNombres || []).join(', ')}</td>
+                    <td className="p-3 font-medium">{getJobTitle(job)}</td>
+                    <td className="p-3">{job.clienteNombre || job.cliente}</td>
+                    <td className="p-3">{(job.inspectorNombres || [job.tecnicoNombre]).join(', ')}</td>
                     <td className="p-3">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full 
                           ${job.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800' : ''}
@@ -190,7 +218,7 @@ export default function JobsPage() {
                         </span>
                     </td>
                     <td className="p-3 flex items-center gap-4">
-                        <button onClick={() => openModalForEdit(job)} className="text-slate-500 hover:text-amber-600"><Pencil size={18}/></button>
+                        <button onClick={() => openModalForEdit(job)} className="text-slate-500 hover:text-amber-600 disabled:opacity-50 disabled:cursor-not-allowed" disabled={job.formType !== 'job'}><Pencil size={18}/></button>
                         <button onClick={() => handleDeleteJob(job.id)} className="text-slate-500 hover:text-red-600"><Trash2 size={18}/></button>
                     </td>
                   </tr>
