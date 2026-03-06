@@ -23,16 +23,16 @@ export const TAB_LIST = [
     id: TABS.NEW_INSPECTION, 
     label: 'Inspección', 
     icon: Activity, 
-    color: 'bg-emerald-600', 
-    text: 'text-emerald-500', 
+    color: 'bg-primary', 
+    text: 'text-primary', 
     desc: 'NUEVA' 
   },
   { 
     id: TABS.EXPENSES, 
     label: 'Gastos', 
     icon: Receipt, 
-    color: 'bg-amber-500', 
-    text: 'text-amber-500', 
+    color: 'bg-yellow-500', 
+    text: 'text-yellow-500', 
     desc: 'CONTROL DIARIO' 
   },
   { 

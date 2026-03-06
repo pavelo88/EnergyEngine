@@ -23,11 +23,11 @@ const menuItems = [
     label: 'Inspección',
     desc: 'Inicia una nueva revisión.',
     icon: <ClipboardList size={28} />,
-    // === NARANJA (ÁMBAR) ===
-    classes: 'bg-amber-500/10 border-amber-500/70 text-amber-600',
+    // === CIAN (PRIMARIO) ===
+    classes: 'bg-primary/10 border-primary/70 text-primary',
     labelColor: 'text-slate-800',
     descColor: 'text-slate-500',
-    shadow: 'hover:shadow-amber-600/20',
+    shadow: 'hover:shadow-primary/20',
   },
   {
     id: TABS.TASKS,
@@ -46,7 +46,7 @@ const menuItems = [
     desc: 'Registro de horas de trabajo y gastos.',
     icon: <Receipt size={28} />,
     // === NEGRO (SLATE) ===
-    classes: 'bg-slate-900 border-slate-700 text-amber-500',
+    classes: 'bg-slate-900 border-slate-700 text-primary',
     labelColor: 'text-white', // Texto claro para contraste
     descColor: 'text-slate-400',
     shadow: 'hover:shadow-slate-900/40',

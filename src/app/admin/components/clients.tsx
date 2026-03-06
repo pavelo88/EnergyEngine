@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore"; 
 import { useFirestore } from '@/firebase';
 import { PlusCircle, Trash2, Pencil, Building } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 type Client = {
   id: string;
@@ -88,12 +89,10 @@ export default function ClientsPage() {
     <div className="space-y-8 text-slate-900">
         <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold text-slate-800">Gestión de Clientes</h1>
-            <button 
-                onClick={openModalForAdd}
-                className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+            <Button onClick={openModalForAdd}>
                 <PlusCircle size={20}/>
                 Añadir Cliente
-            </button>
+            </Button>
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm">
@@ -109,7 +108,7 @@ export default function ClientsPage() {
                         <td className="p-3">{client.email}</td>
                         <td className="p-3">{client.telefono}</td>
                         <td className="p-3 flex items-center gap-4">
-                            <button onClick={() => openModalForEdit(client)} className="text-slate-500 hover:text-amber-600"><Pencil size={18}/></button>
+                            <button onClick={() => openModalForEdit(client)} className="text-slate-500 hover:text-primary"><Pencil size={18}/></button>
                             <button onClick={() => handleDeleteClient(client)} className="text-slate-500 hover:text-red-600"><Trash2 size={18}/></button>
                         </td>
                     </tr>
@@ -130,8 +129,8 @@ export default function ClientsPage() {
                         <input className="p-3 border rounded-lg" name="email" type="email" placeholder="Email (opcional)" defaultValue={editingClient?.email || ''} />
                         <input className="p-3 border rounded-lg" name="telefono" placeholder="Teléfono (opcional)" defaultValue={editingClient?.telefono || ''} />
                         <div className="flex justify-end gap-4 mt-4">
-                            <button type="button" onClick={closeModal} className="text-slate-600 font-bold py-2 px-4 rounded-lg">Cancelar</button>
-                            <button type="submit" className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Guardar</button>
+                            <Button type="button" variant="ghost" onClick={closeModal}>Cancelar</Button>
+                            <Button type="submit">Guardar</Button>
                         </div>
                     </form>
                 </div>

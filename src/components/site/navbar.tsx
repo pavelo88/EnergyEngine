@@ -53,7 +53,7 @@ export default function Navbar() {
           <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button className="hidden md:block bg-amber-600 hover:bg-amber-700 text-white px-8 py-3 rounded-full font-bold shadow-lg transition-all uppercase tracking-wide">
+                <Button className="hidden md:block px-8 py-3 rounded-full font-bold shadow-lg transition-all uppercase tracking-wide">
                   Intranet
                 </Button>
               </DropdownMenuTrigger>

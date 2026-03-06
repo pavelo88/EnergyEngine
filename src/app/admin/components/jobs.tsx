@@ -6,6 +6,7 @@ import { useFirestore } from '@/firebase';
 import { PlusCircle, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 
 // --- Tipos de Datos ---
 type Inspector = { id: string; nombre: string; };
@@ -189,12 +190,10 @@ export default function JobsPage() {
     <div className="space-y-8 text-slate-900">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-slate-800">Gestión de Trabajos</h1>
-        <button
-          onClick={openModalForAdd}
-          className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+        <Button onClick={openModalForAdd}>
           <PlusCircle size={20} />
           Crear Nuevo Trabajo
-        </button>
+        </Button>
       </div>
 
       {/* --- Tabla de Trabajos --*/}
@@ -211,14 +210,14 @@ export default function JobsPage() {
                     <td className="p-3">{(job.inspectorNombres || [job.tecnicoNombre]).join(', ')}</td>
                     <td className="p-3">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full 
-                          ${job.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800' : ''}
+                          ${job.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' : ''}
                           ${job.estado === 'En Progreso' ? 'bg-indigo-100 text-indigo-800' : ''}
                           ${job.estado === 'Completado' ? 'bg-green-100 text-green-800' : ''}`}>
                           {job.estado}
                         </span>
                     </td>
                     <td className="p-3 flex items-center gap-4">
-                        <button onClick={() => openModalForEdit(job)} className="text-slate-500 hover:text-amber-600 disabled:opacity-50 disabled:cursor-not-allowed" disabled={job.formType !== 'job'}><Pencil size={18}/></button>
+                        <button onClick={() => openModalForEdit(job)} className="text-slate-500 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed" disabled={job.formType !== 'job'}><Pencil size={18}/></button>
                         <button onClick={() => handleDeleteJob(job.id)} className="text-slate-500 hover:text-red-600"><Trash2 size={18}/></button>
                     </td>
                   </tr>
@@ -271,11 +270,11 @@ export default function JobsPage() {
               </select>
 
               <div className="flex justify-end gap-4 mt-4">
-                <button type="button" onClick={closeModal} className="text-slate-600 font-bold py-2 px-4 rounded-lg">Cancelar</button>
-                <button type="submit" disabled={formLoading} className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">
+                <Button type="button" variant="ghost" onClick={closeModal}>Cancelar</Button>
+                <Button type="submit" disabled={formLoading}>
                   {formLoading && <Loader2 className="animate-spin" size={18}/>}
                   {formLoading ? 'Guardando...' : 'Guardar Trabajo'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>

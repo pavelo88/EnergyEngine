@@ -16,13 +16,13 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
   <div className="space-y-1 w-full text-left">
     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
     <div className="relative group">
-      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-amber-500 transition-colors" size={16}/>}
+      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={16}/>}
       <input 
         type={type}
         value={value || ''}
         onChange={(e: any) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-amber-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
+        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
       />
     </div>
   </div>
@@ -36,7 +36,7 @@ const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
             type="text" 
             value={value || ''} 
             onChange={(e: any) => onChange(e.target.value)}
-            className="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-2 outline-none focus:border-amber-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
+            className="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-2 outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
         />
     </div>
 ));
@@ -551,7 +551,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
       
       <main className="p-4 md:p-6 space-y-8 pb-40">
         <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-black text-slate-800 border-l-4 border-amber-500 pl-4 uppercase tracking-tighter">Hoja de Trabajo</h2>
+            <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Hoja de Trabajo</h2>
         </div>
       
       <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
@@ -574,7 +574,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                <StableInput label="Dieta (€)" icon={Euro} type="number" value={formData.dieta} onChange={(v: any) => handleInputChange('dieta', v)}/>
                <div className="flex items-center gap-2 pt-2">
                  <label className="flex items-center gap-2 text-sm font-bold text-slate-600">
-                    <input type="checkbox" checked={formData.media_dieta} onChange={(e: any) => handleInputChange('media_dieta', e.target.checked)} className="form-checkbox h-5 w-5 text-amber-600 rounded" />
+                    <input type="checkbox" checked={formData.media_dieta} onChange={(e: any) => handleInputChange('media_dieta', e.target.checked)} className="form-checkbox h-5 w-5 text-primary rounded" />
                     1/2 Dieta
                  </label>
                  {formData.media_dieta && <StableInput label="Cantidad" type="number" value={formData.media_dieta_cantidad} onChange={(v: any) => handleInputChange('media_dieta_cantidad', v)}/>}
@@ -584,9 +584,9 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
               <button 
                   onClick={handleCaptureLocation} 
                   disabled={locationStatus === 'loading'} 
-                  className={`w-full bg-slate-50 border-2 rounded-xl p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 text-slate-700 hover:border-amber-500'}`}
+                  className={`w-full bg-slate-50 border-2 rounded-xl p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 text-slate-700 hover:border-primary'}`}
               >
-                  {locationStatus === 'loading' && <Loader2 className="animate-spin text-amber-500" size={16}/>}
+                  {locationStatus === 'loading' && <Loader2 className="animate-spin text-primary" size={16}/>}
                   {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 size={16}/> : <MapPin size={16}/>)}
                   <span>{formData.location ? `Ubicación Capturada: ${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación (Obligatorio)'}</span>
               </button>
@@ -595,7 +595,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
       </section>
       
       <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-          <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Settings className="text-amber-500"/> Parámetros Técnicos</h2>
+          <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Settings className="text-primary"/> Parámetros Técnicos</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <StableInput icon={Clock} label="Horas" value={formData.parametrosTecnicos.horas} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'horas', v)} />
               <StableInput icon={Gauge} label="Presión Aceite" value={formData.parametrosTecnicos.presionAceite} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'presionAceite', v)} />
@@ -610,7 +610,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
       </section>
 
       <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-        <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Zap className="text-amber-500"/> Potencia con carga</h2>
+        <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Zap className="text-primary"/> Potencia con carga</h2>
         <div className="grid grid-cols-1 md:grid-cols-12 gap-x-8 gap-y-4 items-end">
             <div className="md:col-span-3">
               <StableInput label="Potencia con carga" value={formData.potenciaConCarga.potencia} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'potencia', v)} />
@@ -642,17 +642,17 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
 
       <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
         <div className="flex justify-between items-center">
-            <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Type className="text-amber-500"/> Trabajos Realizados</h2>
+            <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Type className="text-primary"/> Trabajos Realizados</h2>
             <button onClick={improveReport} disabled={aiLoading} className="flex items-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors active:scale-95">
                 {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />}
                 Pulir con IA
             </button>
         </div>
-        <textarea className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 outline-none focus:border-amber-500 focus:bg-white font-medium text-slate-600 shadow-inner resize-none leading-relaxed" placeholder="Describe los trabajos realizados..." value={formData.trabajos_realizados} onChange={(e: any) => handleInputChange('trabajos_realizados', e.target.value)}/>
+        <textarea className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600 shadow-inner resize-none leading-relaxed" placeholder="Describe los trabajos realizados..." value={formData.trabajos_realizados} onChange={(e: any) => handleInputChange('trabajos_realizados', e.target.value)}/>
      </section>
      
     <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-        <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Camera className="text-amber-500"/> Evidencia Fotográfica</h2>
+        <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Camera className="text-primary"/> Evidencia Fotográfica</h2>
         <div>
             <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-200 transition-colors">
                 <Camera size={32} className="text-slate-400 mb-2"/>
@@ -694,7 +694,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
             {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
         </button>
         <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
-          {saving ? <Loader2 className="animate-spin text-amber-500" /> : isSaved ? <CheckCircle2 className="text-amber-500" /> : <Save className="text-amber-500" />}
+          {saving ? <Loader2 className="animate-spin text-primary" /> : isSaved ? <CheckCircle2 className="text-primary" /> : <Save className="text-primary" />}
           {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR'}
         </button>
     </div>

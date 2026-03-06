@@ -28,7 +28,7 @@ export default function Footer() {
       <button onClick={() => handleButtonClick('left')} className={`p-4 rounded-full transition-all duration-300 ${activeButton === 'left' ? 'bg-slate-700' : 'text-slate-400 hover:bg-slate-700/50'}`}>
         <Compass size={24} />
       </button>
-      <button onClick={() => handleButtonClick('center')} className={`p-5 rounded-full transition-all duration-300 transform ${activeButton === 'center' ? 'bg-amber-500 text-slate-900 -translate-y-2 shadow-lg shadow-amber-500/30' : 'text-slate-400 hover:bg-slate-700/50'}`}>
+      <button onClick={() => handleButtonClick('center')} className={`p-5 rounded-full transition-all duration-300 transform ${activeButton === 'center' ? 'bg-primary text-slate-900 -translate-y-2 shadow-lg shadow-primary/30' : 'text-slate-400 hover:bg-slate-700/50'}`}>
         <Home size={28} />
       </button>
       <button onClick={() => handleButtonClick('right')} className={`p-4 rounded-full transition-all duration-300 ${activeButton === 'right' ? 'bg-slate-700' : 'text-slate-400 hover:bg-slate-700/50'}`}>
@@ -54,7 +54,7 @@ export default function Footer() {
       <div className="w-full max-w-6xl mx-auto flex justify-between items-center">
         {/* Contenedor para el avatar y el logout a la izquierda */}
         <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-amber-500 font-bold text-lg border-2 border-white shadow-md">N</div>
+            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-primary font-bold text-lg border-2 border-white shadow-md">N</div>
             <button onClick={handleSignOut} className="flex items-center gap-2 text-slate-500 font-semibold hover:text-red-500 transition-colors">
                 <Power size={16} />
                 <span>Cerrar Sesión</span>

@@ -132,7 +132,7 @@ export default function ExpensesPage() {
 
         {/* --- Tabla de Gastos --- */}
         {loading ? (
-          <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-amber-500" /></div>
+          <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
         ) : (
           <div className="bg-white rounded-xl shadow-lg overflow-x-auto">
             <table className="w-full text-left">

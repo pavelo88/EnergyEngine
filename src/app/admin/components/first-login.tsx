@@ -92,7 +92,7 @@ export default function FirstLoginPage() {
   // --- Renderizado Condicional ---
   const renderStep = () => {
     switch (step) {
-      case 'loading': return <Loader2 className="h-12 w-12 text-amber-500 animate-spin" />;
+      case 'loading': return <Loader2 className="h-12 w-12 text-primary animate-spin" />;
       case 'success': return <CheckCircle className="h-12 w-12 text-green-500" />;
       case 'error': return <AlertTriangle className="h-12 w-12 text-red-500" />;
       
@@ -101,13 +101,13 @@ export default function FirstLoginPage() {
           <form onSubmit={handleSetPassword} className="w-full space-y-4">
              <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <input required type="password" name="password" placeholder="Nueva Contraseña" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                <input required type="password" name="password" placeholder="Nueva Contraseña" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary" />
             </div>
              <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <input required type="password" name="confirmPassword" placeholder="Confirmar Nueva Contraseña" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                <input required type="password" name="confirmPassword" placeholder="Confirmar Nueva Contraseña" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary" />
             </div>
-            <button type="submit" className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">Establecer Contraseña</button>
+            <button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-4 rounded-lg transition-colors">Establecer Contraseña</button>
           </form>
         );
 
@@ -117,11 +117,11 @@ export default function FirstLoginPage() {
             <form onSubmit={handleVerifyIdentity} className="w-full space-y-4">
                 <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                    <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo Electrónico" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo Electrónico" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
                 <div className="relative">
                     <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                    <input required value={dni} onChange={(e) => setDni(e.target.value)} placeholder="DNI / NIE" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    <input required value={dni} onChange={(e) => setDni(e.target.value)} placeholder="DNI / NIE" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
                 <button type="submit" className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-4 rounded-lg transition-colors">Verificar Identidad</button>
             </form>

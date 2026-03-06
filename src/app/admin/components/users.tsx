@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PlusCircle, Edit, Trash2, UserPlus, Loader2, AlertTriangle, X, Link as LinkIcon, Shield, User, Database } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // --- DATOS PARA LA CARGA INICIAL ---
 const initialUsersData = [
@@ -147,15 +148,15 @@ export default function UsersPage() {
             <p className="mt-1 text-slate-600">Crea, edita y gestiona los usuarios del sistema.</p>
           </div>
           <div className="flex gap-3">
-            <button onClick={openModalForCreate} className="inline-flex items-center gap-2 justify-center rounded-lg bg-amber-600 px-4 py-2.5 text-base font-semibold text-white shadow-sm hover:bg-amber-700">
+            <Button onClick={openModalForCreate}>
               <UserPlus className="h-5 w-5"/>
               <span>Añadir</span>
-            </button>
+            </Button>
           </div>
         </div>
 
         {loading ? (
-          <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-amber-500" /></div>
+          <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
         ) : (
           <div className="bg-white rounded-xl shadow-lg overflow-x-auto">
             <table className="w-full text-left">
@@ -192,7 +193,7 @@ export default function UsersPage() {
                 </div>
                 {selectedRoles.includes('inspector') && (<InputField id="firmaUrl" label="URL de la Firma" register={register('firmaUrl')} error={errors.firmaUrl} icon={LinkIcon} placeholder="https://..." />)}
               </div>
-              <div className="p-6 bg-slate-50 rounded-b-2xl flex justify-end gap-3"><button type="button" onClick={closeModal} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border rounded-lg hover:bg-slate-50">Cancelar</button><button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-amber-600 border border-transparent rounded-lg hover:bg-amber-700">{editingUser ? 'Guardar Cambios' : 'Crear Usuario'}</button></div>
+              <div className="p-6 bg-slate-50 rounded-b-2xl flex justify-end gap-3"><Button type="button" variant="ghost" onClick={closeModal}>Cancelar</Button><Button type="submit">{editingUser ? 'Guardar Cambios' : 'Crear Usuario'}</Button></div>
             </form>
           </div>
         </div>
@@ -201,5 +202,5 @@ export default function UsersPage() {
   );
 }
 
-const InputField = ({ id, label, type = 'text', register, error, icon: Icon, ...props }: any) => (<div><label htmlFor={id} className="block text-sm font-medium text-slate-700 mb-2">{label}</label><div className="relative">{Icon && <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><Icon className="h-5 w-5 text-slate-400" /></div>}<input id={id} type={type} {...register} {...props} className={`block w-full rounded-lg border-slate-300 shadow-sm focus:border-amber-500 focus:ring-amber-500 sm:text-sm ${Icon ? 'pl-10' : 'pl-4'}`} /></div>{error && <p className="mt-2 text-sm text-red-600">{error.message}</p>}</div>);
-const CheckboxField = ({ id, label, value, register }: any) => (<div className="flex items-center"><input id={id} type="checkbox" value={value} {...register} className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" /><label htmlFor={id} className="ml-2 block text-sm text-slate-900">{label}</label></div>);
+const InputField = ({ id, label, type = 'text', register, error, icon: Icon, ...props }: any) => (<div><label htmlFor={id} className="block text-sm font-medium text-slate-700 mb-2">{label}</label><div className="relative">{Icon && <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><Icon className="h-5 w-5 text-slate-400" /></div>}<input id={id} type={type} {...register} {...props} className={`block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm ${Icon ? 'pl-10' : 'pl-4'}`} /></div>{error && <p className="mt-2 text-sm text-red-600">{error.message}</p>}</div>);
+const CheckboxField = ({ id, label, value, register }: any) => (<div className="flex items-center"><input id={id} type="checkbox" value={value} {...register} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" /><label htmlFor={id} className="ml-2 block text-sm text-slate-900">{label}</label></div>);

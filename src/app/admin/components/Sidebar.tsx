@@ -78,7 +78,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 onClick={onClose} // Cierra el menú en móvil al hacer clic en un enlace
                 className={cn(
                   'flex items-center gap-4 rounded-lg px-4 py-2.5 text-base font-medium text-gray-300 transition-all duration-200 hover:bg-gray-700 hover:text-white',
-                  isActive && 'bg-amber-600 text-white shadow-md'
+                  isActive && 'bg-primary text-white shadow-md'
                 )}
               >
                 <link.icon className="h-5 w-5 flex-shrink-0" />

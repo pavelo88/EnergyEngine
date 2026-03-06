@@ -111,12 +111,12 @@ export default function ImportPage() {
 
       <div className="bg-white p-8 rounded-2xl shadow-sm">
         {processState === 'idle' ? (
-          <div className="border-2 border-dashed border-slate-300 hover:border-amber-500 transition-colors rounded-lg p-8">
+          <div className="border-2 border-dashed border-slate-300 hover:border-primary transition-colors rounded-lg p-8">
             <div className="text-center">
               <FileUp className="mx-auto h-12 w-12 text-slate-400" />
               <h3 className="mt-2 text-lg font-medium text-slate-800">Selecciona un archivo para subir</h3>
               <div className="mt-6">
-                <label htmlFor="file-upload" className="cursor-pointer bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                <label htmlFor="file-upload" className="cursor-pointer bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-4 rounded-lg transition-colors">
                   <span>Cargar Archivo</span>
                   <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept=".xlsx, .xls, .csv" />
                 </label>

@@ -11,8 +11,6 @@ import 'jspdf-autotable';
 import { generatePDF as generateHojaTrabajoPDF } from '@/app/inspection/components/forms/HojaTrabajoForm';
 import { generatePDF as generateInformeRevisionPDF } from '@/app/inspection/components/forms/InformeRevisionForm';
 import { generatePDF as generateInformeTecnicoPDF } from '@/app/inspection/components/forms/InformeTrabajoForm';
-import { generatePDF as generateRevisionBasicaPDF } from '@/app/inspection/components/forms/RevisionBasicaForm';
-// Asumimos que también existirá un generador para InformeSimplificadoForm
 import { generatePDF as generateInformeSimplificadoPDF } from '@/app/inspection/components/forms/InformeSimplificadoForm';
 
 
@@ -68,8 +66,9 @@ export default function ReportsPage() {
                 doc = generateInformeRevisionPDF(report, report.tecnicoNombre, report.id);
                 break;
             case 'revision-basica':
-                doc = generateRevisionBasicaPDF(report, report.tecnicoNombre, report.id);
-                break;
+                // This form was removed
+                alert('El formulario de Revisión Básica ha sido eliminado.');
+                return;
             case 'informe-tecnico':
                 doc = generateInformeTecnicoPDF(report, report.tecnicoNombre, report.id_informe);
                 break;
@@ -111,7 +110,7 @@ export default function ReportsPage() {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="flex justify-center items-center p-20">
-            <Loader2 className="h-12 w-12 text-amber-500 animate-spin" />
+            <Loader2 className="h-12 w-12 text-primary animate-spin" />
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center p-20 text-red-600">
@@ -142,7 +141,7 @@ export default function ReportsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{report.cliente || report.clienteNombre}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{report.fecha_guardado?.toDate().toLocaleDateString() || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button onClick={() => handleReprintPDF(report)} className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">
+                    <button onClick={() => handleReprintPDF(report)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">
                       <Printer size={16}/>
                       Reimprimir
                     </button>

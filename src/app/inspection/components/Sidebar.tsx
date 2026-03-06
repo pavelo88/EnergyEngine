@@ -16,7 +16,7 @@ interface SidebarProps {
 const menuItems = [
   { id: TABS.MENU, label: 'Inicio / Dashboard', icon: LayoutDashboard, color: 'text-blue-600' },
   { id: TABS.TASKS, label: 'Tareas Pendientes', icon: ClipboardList, color: 'text-green-600' },
-  { id: TABS.NEW_INSPECTION, label: 'Nueva Inspección', icon: Activity, color: 'text-amber-600' },
+  { id: TABS.NEW_INSPECTION, label: 'Nueva Inspección', icon: Activity, color: 'text-primary' },
   { id: TABS.EXPENSES, label: 'Gastos y Viáticos', icon: Receipt, color: 'text-purple-600' },
   { id: TABS.PROFILE, label: 'Perfil de Usuario', icon: UserIcon, color: 'text-slate-500' },
 ];

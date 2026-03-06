@@ -86,7 +86,7 @@ export default function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Clientes Totales" value={stats.clients} icon={Users} color="bg-blue-500" />
-        <StatCard title="Trabajos Pendientes" value={stats.pendingJobs} icon={Clock} color="bg-amber-500" />
+        <StatCard title="Trabajos Pendientes" value={stats.pendingJobs} icon={Clock} color="bg-yellow-500" />
         <StatCard title="Trabajos En Progreso" value={stats.inProgressJobs} icon={Briefcase} color="bg-indigo-500" />
         <StatCard title="Inspectores Activos" value={stats.inspectors} icon={Users} color="bg-green-500" />
       </div>
@@ -107,7 +107,7 @@ export default function AdminDashboardPage() {
                       <td className="p-3">{job.inspectorNombres?.join(', ') || 'Sin asignar'}</td>
                       <td className="p-3">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full 
-                          ${job.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800' : ''}
+                          ${job.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' : ''}
                           ${job.estado === 'En Progreso' ? 'bg-indigo-100 text-indigo-800' : ''}
                           ${job.estado === 'Completado' ? 'bg-green-100 text-green-800' : ''}`}>
                           {job.estado}
