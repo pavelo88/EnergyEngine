@@ -55,7 +55,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     // Márgenes Globales
     const leftMargin = 15;
     const rightMargin = 15;
-    const topMargin = 40;
+    const topMargin = 42;
     const bottomMargin = 30;
     const contentWidth = pageWidth - leftMargin - rightMargin;
     const globalMargin = { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin };
@@ -207,16 +207,17 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     // 7. ENCABEZADOS Y PIES DE PÁGINA GLOBALES
     const drawHeader = () => {
         doc.setFillColor(darkColor);
-        doc.rect(0, 0, pageWidth, 28, 'F');
+        doc.rect(0, 0, pageWidth, 32, 'F'); // Increased height
         doc.setTextColor('#FFFFFF');
         doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
-        doc.text("energy engine", 15, 18);
+        doc.text("energy engine", 15, 22); // Centered vertically
         
-        doc.setFontSize(9);
+        doc.setFontSize(8); // Smaller font for contact info
         doc.setFont('helvetica', 'normal');
-        doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - 15, 12, { align: 'right' });
-        doc.text("Tel: 92 515 43 53", pageWidth - 15, 18, { align: 'right' });
+        doc.text("C/Miguel Lopez Bravo, 6 (Nave), Yepes (Toledo) CP:45313", pageWidth - 15, 12, { align: 'right' });
+        doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - 15, 18, { align: 'right' });
+        doc.text("Tel: 92 515 43 53", pageWidth - 15, 24, { align: 'right' });
     };
 
     const drawFooter = (pageNumber: number, totalPages: number) => {
@@ -359,7 +360,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
         setLocationStatus('success');
       },
       () => {
-        alert('No se pudo obtener la ubicación. Revisa los permisos del navegador.');
+        alert("No se pudo obtener la ubicación. Por favor, asegúrate de que los permisos de localización están activados para esta página en los ajustes de tu navegador e inténtalo de nuevo.");
         setLocationStatus('error');
       }
     );

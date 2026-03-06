@@ -51,11 +51,11 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   // Márgenes
   const leftMargin = 15;
   const rightMargin = 15;
-  const topMargin = 40;
+  const topMargin = 42; // Adjusted for new header
   const bottomMargin = 30;
   const contentWidth = pageWidth - leftMargin - rightMargin;
 
-  let currentY = 40;
+  let currentY = topMargin;
 
   // 1. Sub-header (Título y Nº)
   doc.setTextColor(darkColor);
@@ -219,16 +219,17 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   // 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
   const drawHeader = () => {
       doc.setFillColor(darkColor);
-      doc.rect(0, 0, pageWidth, 28, 'F');
+      doc.rect(0, 0, pageWidth, 32, 'F'); // Increased height
       doc.setTextColor('#FFFFFF');
       doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
-      doc.text("energy engine", 15, 18);
+      doc.text("energy engine", 15, 22); // Centered vertically
       
-      doc.setFontSize(9);
+      doc.setFontSize(8); // Smaller font for contact info
       doc.setFont('helvetica', 'normal');
-      doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - 15, 12, { align: 'right' });
-      doc.text("Tel: 92 515 43 53", pageWidth - 15, 18, { align: 'right' });
+      doc.text("C/Miguel Lopez Bravo, 6 (Nave), Yepes (Toledo) CP:45313", pageWidth - 15, 12, { align: 'right' });
+      doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - 15, 18, { align: 'right' });
+      doc.text("Tel: 92 515 43 53", pageWidth - 15, 24, { align: 'right' });
   };
 
   const drawFooter = (pageNumber: number, totalPages: number) => {
