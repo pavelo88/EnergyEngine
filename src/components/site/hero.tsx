@@ -8,7 +8,16 @@ import { Badge } from '@/components/ui/badge';
 
 export default function Hero() {
   return (
-    <section className="flex flex-col justify-center px-6 py-16 sm:py-20">
+    <section className="relative flex flex-col justify-center px-6 py-16 sm:py-20 overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 -z-10"
+      >
+        <div className="absolute inset-0 bg-background" />
+        <div
+          className="absolute inset-x-0 top-0 h-[50vh] bg-gradient-to-b from-primary/10 to-transparent"
+        />
+      </div>
       <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
           <Badge
@@ -18,7 +27,7 @@ export default function Hero() {
             Misión Crítica Garantizada
           </Badge>
           <h1 className="text-5xl md:text-6xl font-black uppercase leading-[0.85] tracking-tighter mb-8 font-headline">
-            Energía <br /> <span className="text-primary">Imparable</span>
+            energía <br /> <span className="text-primary">imparable</span>
           </h1>
           <p className="text-lg text-muted-foreground mb-8 max-w-md text-balance">
             Especialistas en mantenimiento industrial para infraestructuras de
