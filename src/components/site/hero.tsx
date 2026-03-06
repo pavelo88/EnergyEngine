@@ -1,22 +1,33 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight, Activity, Settings, Globe, PhoneCall } from 'lucide-react';
 import { stats } from '@/lib/data';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 export default function Hero() {
+  const heroImage = PlaceHolderImages.find(img => img.id === 'hero-background');
+
   return (
     <section className="relative flex flex-col justify-center px-6 py-16 sm:py-20 overflow-hidden">
       <div
         aria-hidden="true"
         className="absolute inset-0 -z-10"
       >
-        <div className="absolute inset-0 bg-background" />
-        <div
-          className="absolute inset-x-0 top-0 h-[50vh] bg-gradient-to-b from-primary/10 to-transparent"
-        />
+        {heroImage && (
+            <Image
+                src={heroImage.imageUrl}
+                alt="Abstract energy background"
+                fill
+                className="object-cover"
+                data-ai-hint={heroImage.imageHint}
+                priority
+            />
+        )}
+        <div className="absolute inset-0 bg-black/60" />
       </div>
       <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
@@ -26,10 +37,10 @@ export default function Hero() {
           >
             Misión Crítica Garantizada
           </Badge>
-          <h1 className="text-5xl md:text-6xl font-black uppercase leading-[0.85] tracking-tighter mb-8 font-headline">
+          <h1 className="text-5xl md:text-6xl font-black uppercase leading-[0.85] tracking-tighter mb-8 font-headline text-white">
             energía <br /> <span className="text-primary">imparable</span>
           </h1>
-          <p className="text-lg text-muted-foreground mb-8 max-w-md text-balance">
+          <p className="text-lg text-zinc-300 mb-8 max-w-md text-balance">
             Especialistas en mantenimiento industrial para infraestructuras de
             alta exigencia: Aeropuertos y Hospitales.
           </p>
@@ -44,15 +55,15 @@ export default function Hero() {
           {stats.map((m, i) => (
             <div
               key={i}
-              className="bg-secondary/50 dark:bg-white/[0.03] p-6 rounded-lg border flex flex-col items-center text-center"
+              className="bg-white/5 backdrop-blur-md p-6 rounded-lg border border-white/10 flex flex-col items-center text-center"
             >
               <div className="text-primary mb-4">
                 <m.icon className="size-7" />
               </div>
-              <div className="text-3xl lg:text-4xl font-bold mb-1 tracking-tighter">
+              <div className="text-3xl lg:text-4xl font-bold mb-1 tracking-tighter text-white">
                 {m.val}
               </div>
-              <div className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">
+              <div className="text-[10px] uppercase font-black text-white/50 tracking-widest">
                 {m.tag}
               </div>
             </div>
