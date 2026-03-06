@@ -3,6 +3,7 @@
 import React from 'react';
 import { ChevronLeft, Download } from 'lucide-react';
 import TABS from '../constants';
+import { Logo } from '@/components/icons';
 
 interface HeaderProps {
   activeTab: string;
@@ -25,7 +26,7 @@ export default function Header({ activeTab, isOnline, onBack, isSubNavActive, on
             <ChevronLeft size={20} />
           </button>
         )}
-        <span className="font-white text-white italic tracking-tighter text-xl">ENERGY ENGINE</span>
+        <span className="font-headline text-white italic tracking-tighter text-xl">energy engine</span>
       </div>
 
       <div className="flex items-center gap-2">

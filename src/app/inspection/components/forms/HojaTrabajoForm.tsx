@@ -223,7 +223,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
       doc.setTextColor('#FFFFFF');
       doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
-      doc.text("ENERGY ENGINE", 15, 18);
+      doc.text("energy engine", 15, 18);
       
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
@@ -546,7 +546,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
       </Dialog>
       
       <header className="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-20">
-        <h1 className="text-lg font-bold tracking-wider uppercase">Energy Engine</h1>
+        <h1 className="text-lg font-bold tracking-wider uppercase">energy engine</h1>
       </header>
       
       <main className="p-4 md:p-6 space-y-8 pb-40">

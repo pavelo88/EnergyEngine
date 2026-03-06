@@ -30,8 +30,8 @@ export default function Sidebar({ activeTab, onNavigate }: SidebarProps) {
       
       {/* Logo de la compañía */}
       <div className="mb-12 border-l-4 border-blue-600 pl-6">
-        <span className="font-black italic text-3xl tracking-tighter block leading-none text-slate-900">ENERGY</span>
-        <span className="font-black italic text-3xl tracking-tighter block leading-none text-blue-600">ENGINE</span>
+        <span className="font-black italic text-3xl tracking-tighter block leading-none text-slate-900">energy</span>
+        <span className="font-black italic text-3xl tracking-tighter block leading-none text-blue-600">engine</span>
         <p className="text-[9px] text-slate-500 font-black tracking-[0.4em] uppercase mt-2">Professional Suite</p>
       </div>
 

@@ -211,12 +211,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         doc.setTextColor('#FFFFFF');
         doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
-        doc.text("ENERGY ENGINE", 15, 18);
+        doc.text("energy engine", 15, 18);
         
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", pageWidth - 15, 12, { align: 'right' });
-        doc.text("info@energyengine.es | +34 925 15 43 54", pageWidth - 15, 18, { align: 'right' });
+        doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - 15, 12, { align: 'right' });
+        doc.text("Tel: 92 515 43 53", pageWidth - 15, 18, { align: 'right' });
     };
 
     const drawFooter = (pageNumber: number, totalPages: number) => {
@@ -467,7 +467,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
         </Dialog>
         
         <header className="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-20">
-          <h1 className="text-lg font-bold tracking-wider uppercase">Energy Engine</h1>
+          <h1 className="text-lg font-bold tracking-wider uppercase">energy engine</h1>
         </header>
 
         <main className="p-4 md:p-6 space-y-8 pb-40">

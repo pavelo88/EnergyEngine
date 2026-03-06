@@ -1,11 +1,10 @@
 import { Zap } from 'lucide-react';
 
 export const Logo = () => (
-  <div className="flex items-center gap-4">
-    <Zap className="text-primary fill-primary" size={32} />
-    <div className="leading-none">
-      <h1 className="font-bold text-xl tracking-tighter font-headline">ENERGY ENGINE</h1>
-      <p className="text-[10px] text-primary uppercase tracking-widest font-black">Grupos Electrógenos</p>
+  <div className="flex items-center gap-2">
+    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground">
+      <span className="font-headline text-sm font-bold text-background">ee</span>
     </div>
+    <span className="font-headline text-xl font-bold tracking-tighter">energy engine</span>
   </div>
 );

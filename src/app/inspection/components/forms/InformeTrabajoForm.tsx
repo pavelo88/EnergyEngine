@@ -144,7 +144,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
       doc.setTextColor('#FFFFFF');
       doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
-      doc.text("ENERGY ENGINE", 15, 18);
+      doc.text("energy engine", 15, 18);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - 15, 12, { align: 'right' });
@@ -407,5 +407,3 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     </main>
   );
 }
-
-    

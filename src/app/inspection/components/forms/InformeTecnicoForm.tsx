@@ -144,11 +144,11 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
       doc.setTextColor('#FFFFFF');
       doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
-      doc.text("ENERGY ENGINE", 15, 18);
+      doc.text("energy engine", 15, 18);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", pageWidth - 15, 12, { align: 'right' });
-      doc.text("info@energyengine.es | +34 925 15 43 54", pageWidth - 15, 18, { align: 'right' });
+      doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - 15, 12, { align: 'right' });
+      doc.text("Tel: 92 515 43 53", pageWidth - 15, 18, { align: 'right' });
     };
 
     const drawFooter = (pageNumber: number, totalPages: number) => {
