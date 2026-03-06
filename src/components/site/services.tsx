@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/carousel';
 import Autoplay from 'embla-carousel-autoplay';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 
 export default function Services() {
   const [api, setApi] = React.useState<CarouselApi>();
@@ -57,7 +58,13 @@ export default function Services() {
               const image = PlaceHolderImages.find(img => img.id === service.imgId);
               return (
                 <CarouselItem key={i} className="basis-[90%] md:basis-1/2 lg:basis-[40%]">
-                  <div className={cn("p-4 transition-transform duration-500", current === i ? 'scale-100' : 'scale-90 opacity-60')}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 50 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: i * 0.1 }}
+                    viewport={{ once: true, amount: 0.2 }}
+                    className={cn("p-4 transition-transform duration-500", current === i ? 'scale-100' : 'scale-90 opacity-60')}
+                  >
                     <div className="h-[55vh] relative rounded-lg overflow-hidden group border">
                       {image && (
                         <Image
@@ -88,7 +95,7 @@ export default function Services() {
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 </CarouselItem>
               );
             })}
