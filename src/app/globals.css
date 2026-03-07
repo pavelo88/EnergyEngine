@@ -10,7 +10,8 @@
     background-size: cover;
     background-position: center center;
     background-attachment: fixed;
-    background-image: url('https://images.unsplash.com/photo-1531736275454-2a5c487948de?q=80&w=2574&auto=format&fit=crop');
+    /* Inspirado en la referencia, un fondo oscuro y tecnológico */
+    background-image: url('https://images.unsplash.com/photo-1550745165-9bc0b252726a?q=80&w=2070&auto=format&fit=crop');
   }
 
   body::before {
@@ -20,8 +21,9 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background-color: rgba(0, 10, 20, 0.7);
-      backdrop-filter: blur(2px);
+      /* Superposición más oscura y con más desenfoque para mayor contraste y estética premium */
+      background-color: rgba(6, 7, 14, 0.8);
+      backdrop-filter: blur(4px);
       z-index: -1;
   }
 
