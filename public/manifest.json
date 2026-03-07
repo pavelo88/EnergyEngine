@@ -1,27 +1,29 @@
 {
   "name": "energy engine",
   "short_name": "energy engine",
-  "description": "Plataforma de mantenimiento industrial para infraestructuras de alta exigencia.",
-  "start_url": "/inspection",
-  "display": "standalone",
-  "background_color": "#0a0a0a",
-  "theme_color": "#00f0ff",
+  "description": "Especialistas en mantenimiento industrial para infraestructuras de alta exigencia.",
   "icons": [
     {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     },
     {
-      "src": "/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "https://placehold.co/192x192/0891b2/ffffff?text=ee",
+      "type": "image/png",
+      "sizes": "192x192"
     },
     {
-      "src": "/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "src": "https://placehold.co/512x512/0891b2/ffffff?text=ee",
+      "type": "image/png",
+      "sizes": "512x512"
     }
-  ]
+  ],
+  "theme_color": "#06b6d4",
+  "background_color": "#ffffff",
+  "start_url": "/inspection",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/"
 }

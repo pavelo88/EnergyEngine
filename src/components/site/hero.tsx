@@ -10,26 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 
 export default function Hero() {
-  const heroImage = PlaceHolderImages.find(img => img.id === 'hero-background');
 
   return (
     <section className="relative flex flex-col justify-center px-6 py-16 sm:py-20 overflow-hidden">
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 -z-10"
-      >
-        {heroImage && (
-            <Image
-                src={heroImage.imageUrl}
-                alt="Abstract energy background"
-                fill
-                className="object-cover"
-                data-ai-hint={heroImage.imageHint}
-                priority
-            />
-        )}
-        <div className="absolute inset-0 bg-black/60" />
-      </div>
       <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>

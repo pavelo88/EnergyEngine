@@ -30,7 +30,7 @@ export default function RootLayout({
       <body className={cn('min-h-screen font-body antialiased')}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="light"
           enableSystem
           disableTransitionOnChange
         >

@@ -1,6 +1,12 @@
 {
   "placeholderImages": [
     {
+      "id": "global-background",
+      "description": "Abstract dark background with energy flows.",
+      "imageUrl": "https://images.unsplash.com/photo-1531736275454-2a5c487948de?q=80&w=2574&auto=format&fit=crop",
+      "imageHint": "abstract technology"
+    },
+    {
       "id": "hero-background",
       "description": "Abstract lines of light representing energy and data flow.",
       "imageUrl": "https://images.unsplash.com/photo-1533208759549-8a7e5a07b7a0?q=80&w=2070&auto=format&fit=crop",

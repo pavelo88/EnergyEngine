@@ -3,6 +3,28 @@
 @tailwind utilities;
  
 @layer base {
+  body {
+    @apply text-foreground;
+    font-feature-settings: 'cv11', 'ss01';
+    position: relative;
+    background-size: cover;
+    background-position: center center;
+    background-attachment: fixed;
+    background-image: url('https://images.unsplash.com/photo-1531736275454-2a5c487948de?q=80&w=2574&auto=format&fit=crop');
+  }
+
+  body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 10, 20, 0.7);
+      backdrop-filter: blur(2px);
+      z-index: -1;
+  }
+
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
@@ -10,19 +32,19 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 170 80% 40%;
+    --primary: 190 80% 45%;
     --primary-foreground: 0 0% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 215.4 16.3% 46.9%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 170 80% 40%;
+    --accent: 190 80% 45%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 170 80% 40%;
+    --ring: 190 80% 45%;
     --radius: 1.5rem;
   }
  
@@ -33,19 +55,19 @@
     --card-foreground: 0 0% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 170 80% 40%;
+    --primary: 190 80% 45%;
     --primary-foreground: 0 0% 98%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 0 0% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 170 80% 40%;
+    --accent: 190 80% 45%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 170 80% 40%;
+    --ring: 190 80% 45%;
   }
 }
  
@@ -53,10 +75,7 @@
   * {
     @apply border-border;
   }
-  body {
-    @apply bg-background text-foreground;
-    font-feature-settings: 'cv11', 'ss01';
-  }
+  /* body is defined above */
 }
 
 @layer utilities {
