@@ -3,7 +3,7 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, persistentLocalCache } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
@@ -25,25 +25,14 @@ export function initializeFirebase() {
       firebaseApp = initializeApp(firebaseConfig);
     }
 
-    const firestore = getFirestore(firebaseApp);
+    const firestore = initializeFirestore(firebaseApp, {
+        localCache: persistentLocalCache(),
+    });
     
-    // KEY FIX: Enable persistence ONLY on the first initialization.
-    enableIndexedDbPersistence(firestore)
-      .catch((err) => {
-        if (err.code == 'failed-precondition') {
-          // This can happen if multiple tabs are open. Persistence can only be
-          // enabled in one tab at a time.
-          console.warn('Firestore persistence failed: multiple tabs open. Offline functionality may be limited.');
-        } else if (err.code == 'unimplemented') {
-          // The current browser does not support the required features.
-          console.warn('Firestore persistence not available in this browser.');
-        }
-      });
-
     return {
       firebaseApp,
       auth: getAuth(firebaseApp),
-      firestore, // Return the instance where persistence was enabled
+      firestore,
       storage: getStorage(firebaseApp),
     };
   }

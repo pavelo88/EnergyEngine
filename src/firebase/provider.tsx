@@ -28,7 +28,7 @@ export interface FirebaseContextState {
   firebaseApp: FirebaseApp | null;
   firestore: Firestore | null;
   auth: Auth | null; // The Auth service instance
-  storage: any; // <--- CORREGIDO
+  storage: FirebaseStorage | null;
   // User authentication state
   user: User | null;
   isUserLoading: boolean; // True during initial auth check
@@ -40,7 +40,7 @@ export interface FirebaseServicesAndUser {
   firebaseApp: FirebaseApp;
   firestore: Firestore;
   auth: Auth;
-  storage: any; // <--- CORREGIDO
+  storage: FirebaseStorage;
   user: User | null;
   isUserLoading: boolean;
   userError: Error | null;
@@ -162,7 +162,7 @@ export const useFirebaseApp = (): FirebaseApp => {
 };
 
 /** Hook to access Firebase Storage instance. */
-export const useStorage = (): any => { // <--- CORREGIDO
+export const useStorage = (): FirebaseStorage => {
   const { storage } = useFirebase();
   return storage;
 };
