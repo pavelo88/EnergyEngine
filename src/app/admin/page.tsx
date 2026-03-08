@@ -4,18 +4,13 @@ import { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { Users, Briefcase, Clock } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-
-// --- Tipos de Datos ---
 type StatCardProps = {
   title: string;
   value: number | string;
   icon: React.ElementType;
   color: string;
 };
-// Definimos el tipo Job asegurando que el id sea único
 type Job = { id: string; clienteNombre: string; estado: string; inspectorNombres: string[]; };
 
 const StatCard = ({ title, value, icon: Icon, color }: StatCardProps) => (
@@ -29,15 +24,6 @@ const StatCard = ({ title, value, icon: Icon, color }: StatCardProps) => (
     </div>
   </div>
 );
-
-const chartData = [
-    { month: 'Ene', "En Progreso": 4, "Completado": 24 },
-    { month: 'Feb', "En Progreso": 3, "Completado": 14 },
-    { month: 'Mar', "En Progreso": 5, "Completado": 32 },
-    { month: 'Abr', "En Progreso": 2, "Completado": 45 },
-    { month: 'May', "En Progreso": 6, "Completado": 38 },
-    { month: 'Jun', "En Progreso": 4, "Completado": 49 },
-];
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState({ clients: 0, pendingJobs: 0, inProgressJobs: 0, inspectors: 0 });
@@ -103,8 +89,7 @@ export default function AdminDashboardPage() {
         <StatCard title="Inspectores Activos" value={stats.inspectors} icon={Users} color="bg-green-500" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm">
+      <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm">
             <h2 className="text-xl font-bold text-slate-700 mb-4">Trabajos Recientes</h2>
             <div className="overflow-x-auto">
             {loading ? <p>Cargando...</p> : (
@@ -136,32 +121,6 @@ export default function AdminDashboardPage() {
             )}
             </div>
         </div>
-        
-        <Card>
-            <CardHeader>
-                <CardTitle>Trabajos por Mes</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                    <Tooltip
-                        contentStyle={{
-                            background: "hsl(var(--background))",
-                            border: "1px solid hsl(var(--border))",
-                            borderRadius: "var(--radius)",
-                        }}
-                    />
-                    <Legend iconSize={10} wrapperStyle={{fontSize: "12px"}}/>
-                    <Bar dataKey="En Progreso" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="Completado" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-                </ResponsiveContainer>
-            </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

@@ -35,3 +35,10 @@ export const navLinks = [
     { href: "#marcas", label: "Marcas" },
     { href: "#contacto", label: "Contacto" },
 ];
+
+export const stats = [
+    { val: '+12', tag: 'Años Exp.', icon: Activity },
+    { val: '+200', tag: 'Equipos', icon: Settings },
+    { val: '+5', tag: 'Países', icon: Globe },
+    { val: '24/7', tag: 'Soporte', icon: PhoneCall },
+];
