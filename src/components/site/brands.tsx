@@ -7,89 +7,84 @@ export default function Brands() {
     const [radius, setRadius] = useState(240);
     const containerRef = useRef<HTMLDivElement>(null);
     const isDragging = useRef(false);
-    const startX = useRef(0);
-    const rotationY = useRef(-15); // Initial rotation
-    const velocityY = useRef(0);
+    const rotationY = useRef(-15);
     const lastX = useRef(0);
-    const lastTime = useRef(Date.now());
+    const animationFrameId = useRef<number | null>(null);
+
+    // Function to handle the animation loop
+    const animate = () => {
+        const sphere = containerRef.current;
+        if (sphere) {
+            // Only auto-rotate when not being dragged
+            if (!isDragging.current) {
+                rotationY.current += 0.05;
+            }
+            sphere.style.transform = `rotateX(-15deg) rotateY(${rotationY.current}deg)`;
+        }
+        animationFrameId.current = requestAnimationFrame(animate);
+    };
 
     useEffect(() => {
         const handleResize = () => {
             const width = window.innerWidth;
-            if (width < 768) {
-                setRadius(150);
-            } else if (width < 1024) {
-                setRadius(200);
-            } else {
-                setRadius(240);
-            }
+            if (width < 768) setRadius(150);
+            else if (width < 1024) setRadius(200);
+            else setRadius(240);
         };
-
-        handleResize();
-        window.addEventListener('resize', handleResize);
-
-        const sphere = containerRef.current;
-        if (!sphere) return;
-
-        const animate = () => {
-            if (!isDragging.current) {
-                rotationY.current += 0.05; // Slow auto-rotation
-            }
-            sphere.style.transform = `rotateX(-15deg) rotateY(${rotationY.current}deg)`;
-            requestAnimationFrame(animate);
-        };
-        const animFrame = requestAnimationFrame(animate);
 
         const handleMouseDown = (e: MouseEvent) => {
             isDragging.current = true;
-            startX.current = e.clientX;
-            velocityY.current = 0;
-            sphere.style.transition = 'none';
+            lastX.current = e.clientX;
+            // Optional: Add a class to the body to change cursor
+            document.body.style.cursor = 'grabbing';
         };
 
         const handleMouseMove = (e: MouseEvent) => {
             if (!isDragging.current) return;
-            const x = e.clientX;
-            const deltaX = x - lastX.current;
-            const time = Date.now();
-            const deltaTime = time - lastTime.current;
-            
+            const deltaX = e.clientX - lastX.current;
             rotationY.current += deltaX * 0.2;
-            
-            if (deltaTime > 0) {
-              velocityY.current = deltaX / deltaTime;
-            }
-            
-            lastX.current = x;
-            lastTime.current = time;
+            lastX.current = e.clientX;
         };
 
         const handleMouseUp = () => {
             isDragging.current = false;
+            document.body.style.cursor = 'default';
         };
-        
-        lastX.current = window.innerWidth / 2;
 
+        // Initial setup
+        handleResize();
+        // Start animation
+        animate();
 
-        sphere.addEventListener('mousedown', handleMouseDown);
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
+        // Event listeners
+        window.addEventListener('resize', handleResize);
+        const sphere = containerRef.current;
+        if (sphere) {
+            sphere.addEventListener('mousedown', handleMouseDown);
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+        }
 
-
+        // Cleanup
         return () => {
+            if (animationFrameId.current) {
+                cancelAnimationFrame(animationFrameId.current);
+            }
             window.removeEventListener('resize', handleResize);
-            cancelAnimationFrame(animFrame);
-            sphere.removeEventListener('mousedown', handleMouseDown);
+            if (sphere) {
+                sphere.removeEventListener('mousedown', handleMouseDown);
+            }
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = 'default';
         };
-    }, []);
+    }, []); // Empty dependency array ensures this runs only once
 
     return (
         <div className="relative flex items-center justify-center h-96 [perspective:1200px]">
             <div
                 ref={containerRef}
-                className="absolute h-full w-full"
+                className="absolute h-full w-full cursor-grab active:cursor-grabbing"
                 style={{
                     transformStyle: "preserve-3d",
                 }}
