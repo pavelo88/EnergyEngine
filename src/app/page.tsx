@@ -3,14 +3,12 @@ import Contact from '@/components/site/contact';
 import Footer from '@/components/site/footer';
 import Hero from '@/components/site/hero';
 import Navbar from '@/components/site/navbar';
-import ParticleBackground from '@/components/site/particle-background';
 import Services from '@/components/site/services';
 import WhatsAppWidget from '@/components/site/whatsapp-widget';
 
 export default function Home() {
   return (
     <>
-      <ParticleBackground />
       <Navbar />
       <main className="overflow-x-hidden pt-20">
         <Hero />
