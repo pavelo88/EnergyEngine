@@ -27,17 +27,27 @@ export default function AdminLoginPage() {
   useEffect(() => {
     if (!isUserLoading && user) {
       const checkUserRole = async () => {
-        if (user && user.email && firestore) {
-          const userDocRef = doc(firestore, 'usuarios', user.email);
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists() && userDocSnap.data().roles?.includes('admin')) {
-            router.push('/admin');
+        if (user && user.email && firestore && auth) {
+          try {
+            const userDocRef = doc(firestore, 'usuarios', user.email);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists() && userDocSnap.data().roles?.includes('admin')) {
+              router.push('/admin');
+            } else {
+              // User is not an admin or document doesn't exist, so sign them out.
+              await auth.signOut();
+              setError("No tienes permisos de administrador o tu usuario no fue encontrado.");
+            }
+          } catch (e) {
+            console.error("Error checking admin role:", e);
+            await auth.signOut();
+            setError("Ocurrió un error al verificar tus permisos.");
           }
         }
       };
       checkUserRole();
     }
-  }, [user, isUserLoading, router, firestore]);
+  }, [user, isUserLoading, router, firestore, auth]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
