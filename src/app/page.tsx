@@ -12,8 +12,8 @@ export default function Home() {
       <Navbar />
       <main className="overflow-x-hidden pt-20">
         <Hero />
-        <Services />
         <Brands />
+        <Services />
         <Contact />
       </main>
       <Footer />

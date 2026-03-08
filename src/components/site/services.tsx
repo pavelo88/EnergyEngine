@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { services } from '@/lib/data';
+import BlueprintBackground from './blueprint-background';
 
 export default function Services() {
   return (
@@ -16,8 +17,9 @@ export default function Services() {
             return (
               <div
                 key={service.id}
-                className="group relative flex flex-col justify-between p-8 rounded-lg bg-secondary/50 border min-h-[280px]"
+                className="group relative flex flex-col justify-between p-8 rounded-lg bg-secondary/50 border min-h-[280px] overflow-hidden"
               >
+                <BlueprintBackground type={service.title} />
                 <div className="relative z-10">
                   <div className="p-3 bg-primary text-primary-foreground rounded-full w-fit mb-4">
                     <Icon />
