@@ -6,7 +6,7 @@ import { useFirestore } from '@/firebase';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PlusCircle, Edit, Trash2, UserPlus, Loader2, AlertTriangle, X, Link as LinkIcon, Shield, User, Database } from 'lucide-react';
+import { Edit, Trash2, UserPlus, Loader2, X, LinkIcon, User, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 // --- DATOS PARA LA CARGA INICIAL ---
@@ -148,6 +148,10 @@ export default function UsersPage() {
             <p className="mt-1 text-slate-600">Crea, edita y gestiona los usuarios del sistema.</p>
           </div>
           <div className="flex gap-3">
+             <Button onClick={handleSeedDatabase} variant="outline" disabled={seeding || loading}>
+              {seeding ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Database className="h-5 w-5 mr-2" />}
+              <span>{seeding ? 'Cargando...' : 'Cargar Datos Iniciales'}</span>
+            </Button>
             <Button onClick={openModalForCreate}>
               <UserPlus className="h-5 w-5"/>
               <span>Añadir</span>
