@@ -10,7 +10,7 @@ export default function ParticleBackground() {
 
   const particlesOptions = useMemo(() => {
     const particleColor = theme === 'dark' ? '#ffffff' : '#334155'; // white for dark, slate-700 for light
-    constlinkColor = theme === 'dark' ? '#475569' : '#cbd5e1'; // slate-600 for dark, slate-300 for light
+    const linkColor = theme === 'dark' ? '#475569' : '#cbd5e1'; // slate-600 for dark, slate-300 for light
 
     return {
       fullScreen: {
