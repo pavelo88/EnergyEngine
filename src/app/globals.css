@@ -73,3 +73,37 @@
       text-wrap: balance;
     }
 }
+
+@layer components {
+  /* Estilos para el contenedor 3D y el anillo */
+  .brands-sphere-container {
+    perspective: 1000px;
+  }
+
+  .brands-sphere {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    animation: spin-slow var(--animation-duration, 20s) linear infinite;
+  }
+
+  .brand-item {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) var(--transform);
+    background-color: hsl(var(--background) / 0.5);
+    border: 1px solid hsl(var(--border) / 0.2);
+    backdrop-filter: blur(4px);
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: bold;
+    color: hsl(var(--foreground));
+    transition: transform 0.3s ease;
+  }
+
+  .brand-item:hover {
+    transform: translate(-50%, -50%) var(--transform) scale(1.1);
+  }
+}

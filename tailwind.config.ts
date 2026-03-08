@@ -86,10 +86,15 @@ export default {
             height: '0',
           },
         },
+        'spin-slow': {
+          '0%': { transform: 'rotateY(0deg)' },
+          '100%': { transform: 'rotateY(360deg)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'spin-slow': 'spin-slow 20s linear infinite',
       },
       perspective: {
         '1000': '1000px',
