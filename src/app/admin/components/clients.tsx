@@ -86,12 +86,15 @@ export default function ClientsPage() {
   };
 
   return (
-    <div className="space-y-8 text-slate-900">
-        <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-slate-800">Gestión de Clientes</h1>
+    <div className="space-y-8">
+        <div className="flex justify-between items-center mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-slate-800">Gestión de Clientes</h1>
+              <p className="mt-1 text-slate-600">Añade, edita o elimina clientes de la base de datos.</p>
+            </div>
             <Button onClick={openModalForAdd}>
-                <PlusCircle size={20}/>
-                Añadir Cliente
+                <PlusCircle className="mr-2" size={20}/>
+                <span>Añadir Cliente</span>
             </Button>
         </div>
 

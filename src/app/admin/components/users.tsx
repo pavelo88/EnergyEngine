@@ -99,22 +99,19 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="bg-slate-50 p-4 sm:p-6 md:p-8 h-full">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-800">Gestión de Usuarios</h1>
-            <p className="mt-1 text-slate-600">Crea, edita y gestiona los usuarios del sistema.</p>
-          </div>
-          <div className="flex gap-3">
-            <Button onClick={openModalForCreate}>
-              <UserPlus className="h-5 w-5"/>
-              <span>Añadir</span>
-            </Button>
-          </div>
+    <div className="space-y-8">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-800">Gestión de Usuarios</h1>
+          <p className="mt-1 text-slate-600">Crea, edita y gestiona los usuarios del sistema.</p>
         </div>
+        <Button onClick={openModalForCreate}>
+          <UserPlus className="h-5 w-5 mr-2"/>
+          <span>Añadir Usuario</span>
+        </Button>
+      </div>
 
-        {loading ? (
+      {loading ? (
           <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
         ) : (
           <div className="bg-white rounded-xl shadow-lg overflow-x-auto">
@@ -135,7 +132,6 @@ export default function UsersPage() {
             </table>
           </div>
         )}
-      </div>
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">

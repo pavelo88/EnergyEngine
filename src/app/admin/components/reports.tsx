@@ -102,9 +102,12 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="p-6 h-full bg-slate-50">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-slate-800">Historial de Documentos</h1>
+    <div className="space-y-8">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-800">Historial de Documentos</h1>
+          <p className="mt-1 text-slate-600">Reimprime los PDFs de todos los informes y trabajos guardados.</p>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
