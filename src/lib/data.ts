@@ -8,13 +8,17 @@ type Service = {
     title: string;
     desc: string;
     icon: LucideIcon;
+    imgId: string;
+    bpType: string;
 };
 
 export const services: Service[] = [
-    { id: "01", title: "Mantenimiento Preventivo", desc: "Intervenciones críticas en motores diésel y gas de alto rendimiento.", icon: Activity },
-    { id: "02", title: "Pruebas de Carga", desc: "Simulación de fallos de red con bancos resistivos.", icon: ShieldCheck },
-    { id: "03", title: "Sistemas de Control", desc: "Ingeniería en cuadros de maniobra y equipos PLC/DEIF.", icon: Cpu },
-    { id: "04", title: "Rehabilitación Motor", desc: "Overhaul completo de grupos electrógenos de misión crítica.", icon: Zap },
+    { id: "01", title: "Mantenimiento Preventivo", desc: "Intervenciones críticas en motores diésel y gas de alto rendimiento.", icon: Activity, imgId: "service-1", bpType: "mantenimiento" },
+    { id: "02", title: "Pruebas de Carga", desc: "Simulación de fallos de red con bancos resistivos.", icon: ShieldCheck, imgId: "service-2", bpType: "carga" },
+    { id: "03", title: "Sistemas de Control", desc: "Ingeniería en cuadros de maniobra y equipos PLC/DEIF.", icon: Cpu, imgId: "service-3", bpType: "control" },
+    { id: "04", title: "Rehabilitación Motor", desc: "Overhaul completo de grupos electrógenos de misión crítica.", icon: Zap, imgId: "service-4", bpType: "rehabilitacion" },
+    { id: "05", title: "Telemetría y Control Remoto", desc: "Monitorización remota para prevenir paradas inesperadas y optimizar el rendimiento.", icon: Cpu, imgId: "service-5", bpType: "telemetria" },
+    { id: "06", title: "Logística de Repuestos", desc: "Suministro inmediato de filtros y componentes originales para todas las marcas.", icon: Settings, imgId: "service-6", bpType: "logistica" },
 ];
 
 export const contactInfo = {
