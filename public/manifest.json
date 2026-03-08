@@ -1,15 +1,16 @@
 {
   "name": "Energy Engine",
   "short_name": "EnergyEngine",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#06b6d4",
+  "description": "Especialistas en mantenimiento industrial para infraestructuras de alta exigencia.",
   "icons": [
     {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml"
     }
-  ]
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#10b981",
+  "background_color": "#f1f5f9"
 }
