@@ -10,8 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Logo } from '@/components/icons';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
+import { Checkbox } from '@/components/ui/checkbox';
+
 
 export default function InspectionLoginPage() {
   const router = useRouter();
@@ -21,6 +23,7 @@ export default function InspectionLoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -108,13 +111,13 @@ export default function InspectionLoginPage() {
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-slate-100 p-4">
-        <Card className="w-full max-w-2xl rounded-2xl shadow-xl">
+        <Card className="w-full max-w-sm rounded-2xl shadow-xl">
           <CardHeader className="text-center space-y-4">
             <div className="mx-auto mb-2 flex justify-center">
               <Logo />
             </div>
-            <CardTitle className="text-2xl font-bold text-slate-800">Módulo de Inspectores</CardTitle>
-            <CardDescription>Introduce tus credenciales de inspector.</CardDescription>
+            <CardTitle className="text-2xl font-bold text-slate-800">¡Bienvenido de nuevo!</CardTitle>
+            <CardDescription>Acceso al portal de inspección.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
@@ -131,14 +134,35 @@ export default function InspectionLoginPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Contraseña o DNI</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+                 <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-primary"
+                    >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                </div>
               </div>
+
+              <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                        <Checkbox id="remember-me-inspector" />
+                        <Label htmlFor="remember-me-inspector" className="text-muted-foreground font-medium">Recordarme</Label>
+                    </div>
+                    <Link href="#" className="underline text-muted-foreground hover:text-primary">
+                        ¿Olvidaste tu contraseña?
+                    </Link>
+                </div>
+
               {error && (
                 <div className="flex items-center gap-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-800">
                   <AlertCircle className="h-4 w-4" />
