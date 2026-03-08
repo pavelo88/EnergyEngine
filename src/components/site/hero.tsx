@@ -40,11 +40,11 @@ export default function Hero() {
             </Button>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 w-full">
+        <div className="grid grid-cols-2 gap-4 w-full justify-items-center">
           {stats.map((m, i) => (
             <div
               key={i}
-              className="bg-card/50 backdrop-blur-sm p-4 rounded-2xl border border-foreground/10 shadow-inner flex flex-col items-center justify-center text-center aspect-square"
+              className="bg-card/50 backdrop-blur-sm p-4 rounded-2xl border border-foreground/10 shadow-inner flex flex-col items-center justify-center text-center w-40 h-40"
             >
               <div className="text-primary mb-3">
                 <m.icon className="size-6" />
