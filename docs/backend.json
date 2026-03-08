@@ -1,0 +1,30 @@
+{
+  "entities": {},
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "user",
+          "schema": {
+            "$ref": "#/backend/entities/user"
+          },
+          "description": "Stores individual user profiles and their associated metadata. This collection is primarily for managing user-specific data. Access is strictly controlled, allowing only the authenticated user (`request.auth.uid`) to read or write their own document. This path inherently ensures authorization independence as the `userId` in the path directly links to the authenticated user's ID, simplifying security rules. While minimal for 'Hello World', it's a standard foundation for any authenticated application.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user, matching `request.auth.uid`."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "For the 'Hello World App' whose core feature is simply displaying a static message, a complex Firestore data structure is not strictly necessary to fulfill the stated requirements. The 'Hello World' message itself doesn't require database storage as it's static UI content. \n\nHowever, acknowledging that authentication providers ('password', 'anonymous') are enabled, a foundational `/users/{userId}` collection is recommended. This collection provides a standard place to store basic user metadata (like `email`, `displayName`, `createdAt`) that Firebase Authentication might provide, or any future user-specific preferences. While currently sparse for a 'Hello World' app, it establishes a robust and scalable pattern for future feature expansion.\n\n**Authorization Independence:** The `/users/{userId}` structure inherently achieves Authorization Independence. Access to a user's document (`/users/{userId}`) is solely dependent on the `userId` in the path matching `request.auth.uid`. This eliminates the need for `get()` calls in security rules, as the authorization context is directly available within the document's path. This also supports atomic operations for creating or updating user profiles.\n\n**QAPs (Rules are not Filters):** For the `/users/{userId}` collection, secure `list` operations (queries) are naturally supported. A client would typically query for their own document (e.g., `db.collection('users').doc(auth.uid).get()`), which is a direct `get` operation. If a list of users were needed (e.g., for an admin view), security rules could be crafted to allow specific roles to list, but the default secure posture for user profiles is private. The structure itself doesn't mix different security requirements, maintaining a homogeneous security posture for individual user profiles."
+  }
+}
