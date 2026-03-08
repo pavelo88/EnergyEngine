@@ -39,7 +39,7 @@ const ParticleBackground = () => {
         },
         modes: {
           grab: {
-            distance: 140,
+            distance: 154,
             links: {
               opacity: 1,
             },
@@ -58,7 +58,7 @@ const ParticleBackground = () => {
           color: linkColor,
           distance: 150,
           enable: true,
-          opacity: 0.2,
+          opacity: 0.1,
           width: 1,
         },
         move: {
@@ -79,13 +79,13 @@ const ParticleBackground = () => {
           value: 88,
         },
         opacity: {
-          value: 0.3,
+          value: 0.5,
         },
         shape: {
           type: 'triangle' as const,
         },
         size: {
-          value: { min: 1, max: 3 },
+          value: { min: 1, max: 5 },
         },
       },
       detectRetina: true,
