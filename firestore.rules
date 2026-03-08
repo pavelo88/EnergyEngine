@@ -31,24 +31,28 @@ service cloud.firestore {
     // ------------------------------------------------------------------------
     
     match /clientes/{clienteId} {
-      allow read, write: if isSignedIn();
+      // Temporarily open for initial data seeding
+      allow read, write: if true;
     }
 
     match /usuarios/{usuarioId} {
-      // Allow unauthenticated reads ONLY for the login page to check for DNI/email combinations.
-      // This is required for the first-time login flow.
-      // Write operations (creating, updating, deleting) are still protected and require authentication.
-      allow read: if true;
-      allow write: if isSignedIn();
+      // Temporarily open for initial data seeding.
+      // This allows the "Cargar Datos Iniciales" button to work without being authenticated.
+      allow read, write: if true;
     }
 
     match /trabajos/{trabajoId} {
-      allow read, write: if isSignedIn();
+      // Temporarily open for initial data seeding
+      allow read, write: if true;
     }
 
     match /gastos/{gastoId} {
-      allow read, write: if isSignedIn();
+      // Temporarily open for initial data seeding
+      allow read, write: if true;
     }
 
+    match /partes_diarios/{parteId} {
+      allow read, write: if true;
+    }
   }
 }
