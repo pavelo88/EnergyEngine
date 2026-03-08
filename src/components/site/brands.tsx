@@ -4,20 +4,20 @@ import React from 'react';
 import { brands } from '@/lib/data';
 
 const Brands = () => {
-  // Duplicamos las marcas para crear un efecto de bucle infinito y suave.
-  const extendedBrands = [...brands, ...brands, ...brands, ...brands];
-
   return (
-    <div
-      className="w-full inline-flex flex-nowrap overflow-hidden [mask-image:_linear-gradient(to_right,transparent_0,_black_128px,_black_calc(100%-128px),transparent_100%)]"
-    >
-      <ul className="flex items-center justify-center md:justify-start [&_li]:mx-8 animate-infinite-scroll">
-        {extendedBrands.map((brand, index) => (
-          <li key={index} className="text-2xl font-bold text-muted-foreground/60 whitespace-nowrap">
-            {brand}
-          </li>
-        ))}
-      </ul>
+    <div className="flex items-center justify-center h-full">
+        <div className="w-full space-y-8">
+            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest text-center lg:text-left">
+                Marcas Aliadas
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-6 gap-x-12">
+                {brands.map((brand, index) => (
+                <div key={index} className="text-center lg:text-left">
+                    <span className="text-2xl font-bold text-foreground/80 whitespace-nowrap">{brand}</span>
+                </div>
+                ))}
+            </div>
+        </div>
     </div>
   );
 };
