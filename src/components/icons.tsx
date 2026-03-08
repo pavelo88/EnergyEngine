@@ -3,6 +3,8 @@
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
+import logoLight from '@/app/logo.png';
+import logoDark from '@/app/logo2.jpg';
 
 export const Logo = () => {
   const { theme, systemTheme } = useTheme();
@@ -27,7 +29,7 @@ export const Logo = () => {
   }
 
   const currentTheme = theme === 'system' ? systemTheme : theme;
-  const logoSrc = currentTheme === 'dark' ? '/logo2.jpg' : '/logo.jpg';
+  const logoSrc = currentTheme === 'dark' ? logoDark : logoLight;
 
   return (
     <div className="flex items-center gap-3">
