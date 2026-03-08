@@ -19,9 +19,15 @@ const ParticleBackground = () => {
 
   const particleOptions = useMemo(() => {
     const currentTheme = theme === 'system' ? systemTheme : theme;
-    // Corregido: Colores de alto contraste para partículas y enlaces
-    const particleColor = currentTheme === 'dark' ? '#FFFFFF' : '#000000'; // Partículas negras en modo claro
-    const linkColor = currentTheme === 'dark' ? '#CCCCCC' : '#AAAAAA';     // Enlaces grises en ambos modos
+    
+    // Define professional, theme-aligned colors
+    const particleColor = currentTheme === 'dark' 
+      ? 'hsl(145, 63%, 45%)' // Green for dark mode (from primary theme color)
+      : 'hsl(220, 20%, 40%)';  // Medium-dark gray for light mode
+
+    const linkColor = currentTheme === 'dark' 
+      ? 'hsl(145, 25%, 20%)'  // Dark, subtle green for links
+      : 'hsl(220, 20%, 85%)';  // Very light gray for links
 
     return {
       background: {
@@ -40,9 +46,9 @@ const ParticleBackground = () => {
         },
         modes: {
           grab: {
-            distance: 170,
+            distance: 187, // Increased by 10% from 170
             links: {
-              opacity: 1,
+              opacity: 0.1, // Slightly more visible on grab
             },
           },
           repulse: {
@@ -59,7 +65,7 @@ const ParticleBackground = () => {
           color: linkColor,
           distance: 150,
           enable: true,
-          opacity: 0.05, 
+          opacity: 0.05, // very subtle
           width: 1,
         },
         move: {
@@ -83,10 +89,10 @@ const ParticleBackground = () => {
           value: 0.8,
         },
         shape: {
-          type: 'triangle' as const,
+          type: 'circle' as const, // Changed from 'triangle'
         },
         size: {
-          value: { min: 2, max: 6 },
+          value: { min: 1, max: 3 }, // Reduced size for subtlety
         },
       },
       detectRetina: true,
