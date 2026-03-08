@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Activity, Settings, Globe, PhoneCall } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { stats } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -44,7 +44,7 @@ export default function Hero() {
           {stats.map((m, i) => (
             <div
               key={i}
-              className="bg-secondary/50 p-6 rounded-lg border flex flex-col items-center text-center"
+              className="bg-card p-6 rounded-2xl border flex flex-col items-center justify-center text-center aspect-square"
             >
               <div className="text-primary mb-4">
                 <m.icon className="size-7" />
