@@ -11,8 +11,12 @@ export default function Home() {
     <>
       <Navbar />
       <main className="overflow-x-hidden pt-20">
-        <Hero />
-        <Brands />
+        <section className="relative flex flex-col justify-center px-6 py-16 sm:py-20 overflow-hidden">
+            <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                <Hero />
+                <Brands />
+            </div>
+        </section>
         <Services />
         <Contact />
       </main>

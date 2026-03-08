@@ -4,86 +4,113 @@ import { brands } from '@/lib/data';
 import React, { useState, useEffect, useRef } from 'react';
 
 export default function Brands() {
-    const [rotation, setRotation] = useState(0);
-    const [radius, setRadius] = useState(280); 
-    const requestRef = useRef<number>(0);
-    
-    const totalDisplayBrands = brands.length;
+    const [radius, setRadius] = useState(240);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const isDragging = useRef(false);
+    const startX = useRef(0);
+    const rotationY = useRef(-15); // Initial rotation
+    const velocityY = useRef(0);
+    const lastX = useRef(0);
+    const lastTime = useRef(Date.now());
 
     useEffect(() => {
         const handleResize = () => {
             const width = window.innerWidth;
-            // Configuramos 3 tamaños de radio para: Celular, Tablet y Escritorio
-            if (width < 640) {
-                setRadius(130); // Celular
+            if (width < 768) {
+                setRadius(150);
             } else if (width < 1024) {
-                setRadius(200); // Tablet
+                setRadius(200);
             } else {
-                setRadius(280); // Escritorio
+                setRadius(240);
             }
         };
 
         handleResize();
         window.addEventListener('resize', handleResize);
 
+        const sphere = containerRef.current;
+        if (!sphere) return;
+
         const animate = () => {
-            setRotation(prev => prev - 0.03); 
-            requestRef.current = requestAnimationFrame(animate);
+            if (!isDragging.current) {
+                rotationY.current += 0.05; // Slow auto-rotation
+            }
+            sphere.style.transform = `rotateX(-15deg) rotateY(${rotationY.current}deg)`;
+            requestAnimationFrame(animate);
         };
-        requestRef.current = requestAnimationFrame(animate);
+        const animFrame = requestAnimationFrame(animate);
+
+        const handleMouseDown = (e: MouseEvent) => {
+            isDragging.current = true;
+            startX.current = e.clientX;
+            velocityY.current = 0;
+            sphere.style.transition = 'none';
+        };
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isDragging.current) return;
+            const x = e.clientX;
+            const deltaX = x - lastX.current;
+            const time = Date.now();
+            const deltaTime = time - lastTime.current;
+            
+            rotationY.current += deltaX * 0.2;
+            
+            if (deltaTime > 0) {
+              velocityY.current = deltaX / deltaTime;
+            }
+            
+            lastX.current = x;
+            lastTime.current = time;
+        };
+
+        const handleMouseUp = () => {
+            isDragging.current = false;
+        };
+        
+        lastX.current = window.innerWidth / 2;
+
+
+        sphere.addEventListener('mousedown', handleMouseDown);
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+
 
         return () => {
             window.removeEventListener('resize', handleResize);
-            if (requestRef.current) {
-                cancelAnimationFrame(requestRef.current);
-            }
+            cancelAnimationFrame(animFrame);
+            sphere.removeEventListener('mousedown', handleMouseDown);
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
         };
     }, []);
-    
-    return (
-        <section id="marcas" className="py-12 scroll-mt-20 overflow-hidden">
-      
-            <div className="max-w-6xl mx-auto px-4">
-                {/* Redujimos el mb-10 a mb-4 para quitar el espacio en blanco gigante */}
-                <h2 className="text-center text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4 font-headline">
-                    Aliados Tecnológicos <span className="text-primary">Multimarca</span>
-                </h2>  
 
-            {/* Redujimos el mt-16 a mt-4 y ajustamos la altura dinámica del contenedor */}
-            <div className="relative mt-4 flex items-center justify-center [perspective:1200px] [mask-image:radial-gradient(circle_at_center,white_40%,transparent_80%)]" 
-                    style={{ height: radius < 150 ? "200px" : radius < 250 ? "250px" : "350px" }}>
-                
-                <div className="absolute h-full w-full"
-                    style={{
-                        transformStyle: "preserve-3d",
-                        transform: `rotateX(-15deg) rotateY(${rotation}deg)` 
-                    }}
-                >
-                    {brands.map((brand, index) => {
-                        const angle = (360 / totalDisplayBrands) * index;
-                        
-                        return (
-                            <div
-                                key={brand}
-                                // ¡OJO AQUÍ! 
-                                // 1. Quitamos los -translate de Tailwind
-                                // 2. Hicimos tarjetas pequeñas en móvil (w-28 h-12) y grandes en compu (md:w-44 md:h-20)
-                                className="absolute left-1/2 top-1/2 flex w-20 h-12 md:w-44 md:h-20 items-center justify-center rounded-2xl border bg-secondary/50 p-2 md:p-4 text-center dark:bg-white/[0.03] backdrop-blur-sm"
-                                style={{
-                                    // 3. Agregamos translate(-50%, -50%) directo al transform para arreglar el "baile"
-                                    transform: `translate(-50%, -50%) rotateY(${angle}deg) translateZ(${radius}px)`,
-                                }}
-                            >
-                                {/* El texto también es más pequeño en móvil (text-[10px]) */}
-                                <span className="text-[10px] md:text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                                    {brand}
-                                </span>
-                            </div>
-                        );
-                    })}
-                </div>
+    return (
+        <div className="relative flex items-center justify-center h-96 [perspective:1200px]">
+            <div
+                ref={containerRef}
+                className="absolute h-full w-full"
+                style={{
+                    transformStyle: "preserve-3d",
+                }}
+            >
+                {brands.map((brand, index) => {
+                    const angle = (360 / brands.length) * index;
+                    return (
+                        <div
+                            key={brand}
+                            className="absolute left-1/2 top-1/2 flex w-32 h-16 items-center justify-center rounded-lg border bg-card/50 p-2 text-center backdrop-blur-sm"
+                            style={{
+                                transform: `translate(-50%, -50%) rotateY(${angle}deg) translateZ(${radius}px)`,
+                            }}
+                        >
+                            <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                                {brand}
+                            </span>
+                        </div>
+                    );
+                })}
             </div>
-          </div>
-        </section>
+        </div>
     );
 }
