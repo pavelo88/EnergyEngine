@@ -1,29 +1,20 @@
 {
-  "name": "energy engine",
-  "short_name": "energy engine",
-  "description": "Especialistas en mantenimiento industrial para infraestructuras de alta exigencia.",
+  "name": "energy engine Inspection",
+  "short_name": "EE Inspect",
   "icons": [
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
     },
     {
-      "src": "https://placehold.co/192x192/0891b2/ffffff?text=ee",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "https://placehold.co/512x512/0891b2/ffffff?text=ee",
-      "type": "image/png",
-      "sizes": "512x512"
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ],
-  "theme_color": "#06b6d4",
-  "background_color": "#ffffff",
+  "theme_color": "#1A532A",
+  "background_color": "#14161a",
   "start_url": "/inspection",
-  "display": "standalone",
-  "orientation": "portrait",
-  "scope": "/"
+  "display": "standalone"
 }

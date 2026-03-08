@@ -1,33 +1,80 @@
-// This is a basic service worker to make the web application installable.
+// This is a basic service worker for caching assets.
+// It helps the app work offline and load faster.
 
-// On install, the service worker is installed.
-self.addEventListener('install', (event) => {
-  console.log('Service worker installing...');
-  // A real-world app would cache assets here.
-  self.skipWaiting();
+const CACHE_NAME = 'energy-engine-cache-v1';
+const urlsToCache = [
+  '/',
+  '/inspection',
+  // Next.js static files are automatically handled by its service worker integration,
+  // but we can add some explicit ones if needed. For now, we'll keep it simple.
+  // '/_next/static/css/...',
+  // '/_next/static/chunks/...',
+];
+
+// Install a service worker
+self.addEventListener('install', event => {
+  // Perform install steps
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(function(cache) {
+        console.log('Opened cache');
+        return cache.addAll(urlsToCache);
+      })
+  );
 });
 
-// On activate, clean up old caches if any.
-self.addEventListener('activate', (event) => {
-  console.log('Service worker activating...');
-  // Claim clients to take control immediately.
-  return self.clients.claim();
-});
-
-// On fetch, respond from the network.
-self.addEventListener('fetch', (event) => {
-  // This is required for the app to be considered a PWA.
-  // A real app would have a caching strategy here.
+// Cache and return requests
+self.addEventListener('fetch', event => {
   event.respondWith(
-    fetch(event.request).catch(() => {
-      // Basic offline fallback.
-      return new Response(
-        'Network error: You are offline and the resource is not cached.',
-        {
-          status: 503,
-          statusText: 'Service Unavailable',
-          headers: new Headers({ 'Content-Type': 'text/plain' })
+    caches.match(event.request)
+      .then(function(response) {
+        // Cache hit - return response
+        if (response) {
+          return response;
         }
+
+        // IMPORTANT: Clone the request. A request is a stream and
+        // can only be consumed once. Since we are consuming this
+        // once by cache and once by the browser for fetch, we need
+        // to clone the response.
+        const fetchRequest = event.request.clone();
+
+        return fetch(fetchRequest).then(
+          function(response) {
+            // Check if we received a valid response
+            if(!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+
+            // IMPORTANT: Clone the response. A response is a stream
+            // and because we want the browser to consume the response
+            // as well as the cache consuming the response, we need
+            // to clone it so we have two streams.
+            const responseToCache = response.clone();
+
+            caches.open(CACHE_NAME)
+              .then(function(cache) {
+                cache.put(event.request, responseToCache);
+              });
+
+            return response;
+          }
+        );
+      })
+    );
+});
+
+// Update a service worker
+self.addEventListener('activate', event => {
+  const cacheWhitelist = [CACHE_NAME];
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheWhitelist.indexOf(cacheName) === -1) {
+            return caches.delete(cacheName);
+          }
+        })
       );
     })
   );

@@ -30,14 +30,15 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const doc = new jsPDF();
     const finalID = reportId || 'BORRADOR';
     const darkColor = '#0f172a';
+    const corporateGreen = [26, 83, 42];
     const pageHeight = doc.internal.pageSize.height;
     const pageWidth = doc.internal.pageSize.width;
     
     // Márgenes
     const leftMargin = 30;
     const rightMargin = 30;
-    const bottomMargin = 30;
-    const topMargin = 42; // Margen superior para cuando salta de página
+    const bottomMargin = 20;
+    const topMargin = 32;
     const contentWidth = pageWidth - leftMargin - rightMargin;
 
     let currentY = topMargin;
@@ -78,12 +79,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text("Descripción de la incidencia", leftMargin, currentY);
     currentY += 8;
 
-    // 4. Renderizado del Texto (El truco del justificado)
+    // 4. Renderizado del Texto
     const rawText = report.reportContent || '';
-    const blocks = rawText.split('\n\n'); // Cortamos por saltos de línea dobles
+    const blocks = rawText.split('\n\n');
 
     blocks.forEach((block: string) => {
-        const text = block.replace(/\n/g, ' ').trim(); // Limpiamos saltos de línea simples
+        const text = block.replace(/\n/g, ' ').trim(); 
         
         if (!text) return;
 
@@ -105,16 +106,8 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
                 margin: { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin },
                 body: [[text]],
                 theme: 'plain',
-                styles: {
-                    font: 'helvetica',
-                    fontSize: 9,
-                    cellPadding: 0,
-                    halign: 'justify',
-                    textColor: darkColor
-                },
-                columnStyles: {
-                    0: { cellWidth: contentWidth }
-                }
+                styles: { font: 'helvetica', fontSize: 9, cellPadding: 0, halign: 'justify', textColor: darkColor },
+                columnStyles: { 0: { cellWidth: contentWidth } }
             });
             currentY = (doc as any).lastAutoTable.finalY + 4;
         }
@@ -137,27 +130,27 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text(`Firmado: ${inspectorName}`, leftMargin, currentY + 32);
     doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, leftMargin, currentY + 39);
 
-    // 6. Dibujar Encabezado y Pie de Página en TODAS las páginas (incluidas las que se crearon automáticamente)
+    // 6. Dibujar Encabezado y Pie de Página en TODAS las páginas
     const drawHeader = () => {
-      doc.setFillColor(darkColor);
-      doc.rect(0, 0, pageWidth, 32, 'F'); // Increased height
+      doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
+      doc.rect(0, 0, pageWidth, 24, 'F');
       doc.setTextColor('#FFFFFF');
-      doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
-      doc.text("energy engine", 15, 22); // Centered vertically
-      
-      doc.setFontSize(8); // Smaller font for contact info
+      doc.setFontSize(14);
+      doc.text("energyengine", 15, 12);
+      doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
-      doc.text("C/Miguel Lopez Bravo, 6 (Nave), Yepes (Toledo) CP:45313", pageWidth - 15, 12, { align: 'right' });
-      doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - 15, 18, { align: 'right' });
-      doc.text("Tel: 92 515 43 53", pageWidth - 15, 24, { align: 'right' });
+      doc.text("GRUPOS ELECTROGENOS", 15, 18);
+      
+      doc.setFontSize(8);
+      doc.text("Tel: 92 515 43 53 | serviciotecnico@energyengine.es", pageWidth - 15, 16, { align: 'right' });
     };
 
     const drawFooter = (pageNumber: number, totalPages: number) => {
         doc.setFontSize(8);
         doc.setTextColor(100);
         doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-        doc.setFillColor(darkColor);
+        doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
         doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
     };
 

@@ -39,17 +39,17 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   const doc = new jsPDF();
   const finalID = reportId || 'BORRADOR';
   const darkColor = '#0f172a';
+  const corporateGreen = [26, 83, 42];
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
 
-  // Márgenes (Definimos los 4 lados estrictamente)
+  // Márgenes
   const leftMargin = 15;
   const rightMargin = 15;
-  const topMargin = 42;  // Espacio a salvo debajo del encabezado
-  const bottomMargin = 30; // Espacio a salvo encima del pie de página
+  const topMargin = 32;
+  const bottomMargin = 20;
   const contentWidth = pageWidth - leftMargin - rightMargin;
   
-  // Configuración global de márgenes para TODAS las tablas
   const globalMargin = { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin };
 
   let currentY = topMargin;
@@ -75,7 +75,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
       ],
       theme: 'grid', 
       styles: { fontSize: 8, cellPadding: 2 },
-      margin: globalMargin // <-- Aplicado aquí
+      margin: globalMargin
   });
 
   currentY = (doc as any).lastAutoTable.finalY + 6;
@@ -145,7 +145,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
       ],
       theme: 'grid', 
       styles: { fontSize: 8, cellPadding: 2 },
-      margin: globalMargin // <-- Aplicado aquí
+      margin: globalMargin
   });
 
   currentY = (doc as any).lastAutoTable.finalY + 8;
@@ -164,10 +164,10 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   currentY += 4;
 
   const rawText = report.observaciones || '';
-  const blocks = rawText.split('\n\n'); // Usar doble enter para párrafos
+  const blocks = rawText.split('\n\n'); 
 
   blocks.forEach((block: string) => {
-      const text = block.replace(/\n/g, ' ').trim(); // Limpiar saltos simples
+      const text = block.replace(/\n/g, ' ').trim(); 
       if (!text) return;
 
       const isTitle = text.endsWith(':') && text.toUpperCase() === text;
@@ -185,16 +185,10 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
       } else {
           autoTable(doc, {
               startY: currentY,
-              margin: globalMargin, // <-- Aplicado aquí
+              margin: globalMargin,
               body: [[text]],
               theme: 'plain',
-              styles: {
-                  font: 'helvetica',
-                  fontSize: 9,
-                  cellPadding: 0,
-                  halign: 'justify',
-                  textColor: darkColor
-              },
+              styles: { font: 'helvetica', fontSize: 9, cellPadding: 0, halign: 'justify', textColor: darkColor },
               columnStyles: { 0: { cellWidth: contentWidth } }
           });
           currentY = (doc as any).lastAutoTable.finalY + 4;
@@ -229,18 +223,18 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   
   // 7. ENCABEZADOS Y PIES DE PÁGINA GLOBALES
   const drawHeader = () => {
-      doc.setFillColor(darkColor);
-      doc.rect(0, 0, pageWidth, 32, 'F'); // Increased height
+      doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
+      doc.rect(0, 0, pageWidth, 24, 'F');
       doc.setTextColor('#FFFFFF');
-      doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
-      doc.text("energy engine", 15, 22); // Centered vertically
-      
-      doc.setFontSize(8); // Smaller font for contact info
+      doc.setFontSize(14);
+      doc.text("energyengine", 15, 12);
+      doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
-      doc.text("C/Miguel Lopez Bravo, 6 (Nave), Yepes (Toledo) CP:45313", pageWidth - 15, 12, { align: 'right' });
-      doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - 15, 18, { align: 'right' });
-      doc.text("Tel: 92 515 43 53", pageWidth - 15, 24, { align: 'right' });
+      doc.text("GRUPOS ELECTROGENOS", 15, 18);
+      
+      doc.setFontSize(8);
+      doc.text("Tel: 92 515 43 53 | serviciotecnico@energyengine.es", pageWidth - 15, 16, { align: 'right' });
   };
 
   const drawFooter = (pageNumber: number, totalPages: number) => {
@@ -248,7 +242,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(100);
       doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-      doc.setFillColor(darkColor);
+      doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
       doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
   };
 

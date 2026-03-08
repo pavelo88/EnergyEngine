@@ -45,14 +45,15 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const doc = new jsPDF();
     const finalID = reportId || 'BORRADOR';
     const darkColor = '#0f172a';
+    const corporateGreen = [26, 83, 42];
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
 
     // Márgenes Globales estrictos
     const leftMargin = 15;
     const rightMargin = 15;
-    const topMargin = 40;
-    const bottomMargin = 30;
+    const topMargin = 32;
+    const bottomMargin = 20;
     const contentWidth = pageWidth - leftMargin - rightMargin;
     const globalMargin = { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin };
 
@@ -182,7 +183,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     currentY = (doc as any).lastAutoTable.finalY + 8;
 
-    // 6. OBSERVACIONES (Con Justificado y Salto de Página)
+    // 6. OBSERVACIONES
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(darkColor);
@@ -220,13 +221,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
                 margin: globalMargin,
                 body: [[text]],
                 theme: 'plain',
-                styles: {
-                    font: 'helvetica',
-                    fontSize: 9,
-                    cellPadding: 0,
-                    halign: 'justify',
-                    textColor: darkColor
-                },
+                styles: { font: 'helvetica', fontSize: 9, cellPadding: 0, halign: 'justify', textColor: darkColor },
                 columnStyles: { 0: { cellWidth: contentWidth } }
             });
             currentY = (doc as any).lastAutoTable.finalY + 4;
@@ -261,17 +256,18 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     
     // 8. ENCABEZADOS Y PIES DE PÁGINA GLOBALES
     const drawHeader = () => {
-        doc.setFillColor(darkColor);
-        doc.rect(0, 0, pageWidth, 28, 'F');
+        doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
+        doc.rect(0, 0, pageWidth, 24, 'F');
         doc.setTextColor('#FFFFFF');
-        doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
-        doc.text("ENERGY ENGINE", 15, 18);
-        
-        doc.setFontSize(9);
+        doc.setFontSize(14);
+        doc.text("energyengine", 15, 12);
+        doc.setFontSize(7);
         doc.setFont('helvetica', 'normal');
-        doc.text("C. Miguel López Bravo, 6, 45313 Yepes, Toledo", pageWidth - 15, 12, { align: 'right' });
-        doc.text("info@energyengine.es | +34 925 15 43 54", pageWidth - 15, 18, { align: 'right' });
+        doc.text("GRUPOS ELECTROGENOS", 15, 18);
+        
+        doc.setFontSize(8);
+        doc.text("Tel: 92 515 43 53 | serviciotecnico@energyengine.es", pageWidth - 15, 16, { align: 'right' });
     };
 
     const drawFooter = (pageNumber: number, totalPages: number) => {
@@ -279,7 +275,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(100);
         doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-        doc.setFillColor(darkColor);
+        doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
         doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
     };
 
