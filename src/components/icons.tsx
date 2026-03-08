@@ -2,7 +2,9 @@
 
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
-import { Zap } from 'lucide-react';
+import Image from 'next/image';
+import logoLight from '@/app/logo.png';
+import logoDark from '@/app/logo2.jpg';
 
 export const Logo = () => {
   const { theme, systemTheme } = useTheme();
@@ -24,11 +26,12 @@ export const Logo = () => {
     );
   }
 
+  const currentTheme = theme === 'system' ? systemTheme : theme;
+  const logoSrc = currentTheme === 'dark' ? logoDark : logoLight;
+
   return (
     <div className="flex items-center gap-3">
-       <div className="w-12 h-12 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center">
-            <Zap className="w-6 h-6 text-primary"/>
-       </div>
+      <Image src={logoSrc} alt="Energy Engine Logo" width={48} height={48} />
       <div className="flex flex-col leading-tight">
         <span className="font-headline text-xl font-bold tracking-tighter text-primary">energy engine</span>
         <span className="text-[10px] font-medium text-muted-foreground -mt-0.5">GRUPOS ELECTROGENOS</span>
