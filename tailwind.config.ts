@@ -86,15 +86,10 @@ export default {
             height: '0',
           },
         },
-        'spin-brands': {
-            '0%': { transform: 'rotateY(0deg)' },
-            '100%': { transform: 'rotateY(360deg)' },
-        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
-        'spin-brands': 'spin-brands 30s linear infinite',
       },
       perspective: {
         '1000': '1000px',
