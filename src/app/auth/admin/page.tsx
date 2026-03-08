@@ -175,7 +175,7 @@ export default function AdminLoginPage() {
                         <Checkbox id="remember-me-admin" />
                         <Label htmlFor="remember-me-admin" className="text-muted-foreground font-medium">Recordarme</Label>
                     </div>
-                    <Link href="#" className="underline text-muted-foreground hover:text-primary">
+                    <Link href="/auth/forgot-password" className="underline text-muted-foreground hover:text-primary">
                         ¿Olvidaste tu contraseña?
                     </Link>
                 </div>
