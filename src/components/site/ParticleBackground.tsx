@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useCallback, useMemo } from 'react';
-import Particles, { type Container, type Engine } from 'react-tsparticles';
-import { loadFull } from 'tsparticles'; // Changed from slim to full
+import Particles from 'react-tsparticles';
+import type { Container, Engine } from 'tsparticles-engine';
+import { loadFull } from 'tsparticles';
 import { useTheme } from 'next-themes';
 
 const ParticleBackground = () => {
@@ -32,7 +33,7 @@ const ParticleBackground = () => {
         events: {
           onHover: {
             enable: true,
-            mode: 'grab', // Changed from repulse to grab
+            mode: 'grab',
           },
           resize: true,
         },
@@ -57,7 +58,7 @@ const ParticleBackground = () => {
           color: linkColor,
           distance: 150,
           enable: true,
-          opacity: 0.2, // Slightly more visible links
+          opacity: 0.2,
           width: 1,
         },
         move: {
@@ -75,13 +76,13 @@ const ParticleBackground = () => {
             enable: true,
             area: 800,
           },
-          value: 80, // Increased density
+          value: 80,
         },
         opacity: {
-          value: 0.3, // Slightly more visible particles
+          value: 0.3,
         },
         shape: {
-          type: 'triangle' as const, // Changed to triangle
+          type: 'triangle' as const,
         },
         size: {
           value: { min: 1, max: 3 },
