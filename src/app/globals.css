@@ -7,11 +7,6 @@
     @apply text-foreground;
     font-feature-settings: 'cv11', 'ss01';
     @apply bg-background;
-    background-image:
-      linear-gradient(hsl(var(--border)) 1px, transparent 1px),
-      linear-gradient(to right, hsl(var(--border)) 1px, hsl(var(--background)) 1px);
-    background-size: 2rem 2rem;
-    background-attachment: fixed;
   }
 
   :root {

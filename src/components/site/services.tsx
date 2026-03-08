@@ -1,11 +1,9 @@
-
 'use client';
 
 import React from 'react';
 import Image from 'next/image';
 import { services } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import BlueprintBackground from './blueprint-background';
 import {
   Carousel,
   CarouselContent,
@@ -70,7 +68,6 @@ export default function Services() {
                         />
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
-                      <BlueprintBackground type={service.bpType} />
                       <div className="absolute inset-0 p-8 md:p-12 flex flex-col justify-between z-10 text-white">
                         <div className="flex justify-between items-start">
                         
