@@ -1,67 +1,89 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
 import { brands } from '@/lib/data';
+import React, { useState, useEffect, useRef } from 'react';
 
-const Brands = () => {
-  const sphereRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const sphere = sphereRef.current;
-    const container = containerRef.current;
-
-    if (!sphere || !container) return;
-
-    // Reparte las marcas alrededor del anillo
-    const items = sphere.children;
-    const total = items.length;
-    const angleStep = (2 * Math.PI) / total;
-    const radius = 180; // Radio del anillo
-
-    for (let i = 0; i < total; i++) {
-      const item = items[i] as HTMLElement;
-      const angle = i * angleStep;
-
-      // Posición en el círculo 3D
-      const x = radius * Math.cos(angle);
-      const z = radius * Math.sin(angle);
-
-      item.style.setProperty('--transform', `rotateY(${angle}rad) translateZ(${radius}px)`);
-    }
-
-    // Interacción con el ratón
-    let mouseX = 0;
-    let mouseY = 0;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
-      mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
-      
-      const rotateX = -mouseY * 15; // Rotación vertical
-      const rotateY = mouseX * 15;  // Rotación horizontal
-      
-      sphere.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
-    };
+export default function Brands() {
+    const [rotation, setRotation] = useState(0);
+    const [radius, setRadius] = useState(280); 
+    const requestRef = useRef<number>(0);
     
-    container.addEventListener('mousemove', handleMouseMove);
+    const totalDisplayBrands = brands.length;
 
-    return () => {
-      container.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, []);
+    useEffect(() => {
+        const handleResize = () => {
+            const width = window.innerWidth;
+            // Configuramos 3 tamaños de radio para: Celular, Tablet y Escritorio
+            if (width < 640) {
+                setRadius(130); // Celular
+            } else if (width < 1024) {
+                setRadius(200); // Tablet
+            } else {
+                setRadius(280); // Escritorio
+            }
+        };
 
-  return (
-    <div ref={containerRef} className="brands-sphere-container w-full h-96 flex items-center justify-center">
-      <div ref={sphereRef} className="brands-sphere">
-        {brands.map((brand, i) => (
-          <div key={i} className="brand-item">
-            {brand}
+        handleResize();
+        window.addEventListener('resize', handleResize);
+
+        const animate = () => {
+            setRotation(prev => prev - 0.03); 
+            requestRef.current = requestAnimationFrame(animate);
+        };
+        requestRef.current = requestAnimationFrame(animate);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            if (requestRef.current) {
+                cancelAnimationFrame(requestRef.current);
+            }
+        };
+    }, []);
+    
+    return (
+        <section id="marcas" className="py-12 scroll-mt-20 overflow-hidden">
+      
+            <div className="max-w-6xl mx-auto px-4">
+                {/* Redujimos el mb-10 a mb-4 para quitar el espacio en blanco gigante */}
+                <h2 className="text-center text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4 font-headline">
+                    Aliados Tecnológicos <span className="text-primary">Multimarca</span>
+                </h2>  
+
+            {/* Redujimos el mt-16 a mt-4 y ajustamos la altura dinámica del contenedor */}
+            <div className="relative mt-4 flex items-center justify-center [perspective:1200px] [mask-image:radial-gradient(circle_at_center,white_40%,transparent_80%)]" 
+                    style={{ height: radius < 150 ? "200px" : radius < 250 ? "250px" : "350px" }}>
+                
+                <div className="absolute h-full w-full"
+                    style={{
+                        transformStyle: "preserve-3d",
+                        transform: `rotateX(-15deg) rotateY(${rotation}deg)` 
+                    }}
+                >
+                    {brands.map((brand, index) => {
+                        const angle = (360 / totalDisplayBrands) * index;
+                        
+                        return (
+                            <div
+                                key={brand}
+                                // ¡OJO AQUÍ! 
+                                // 1. Quitamos los -translate de Tailwind
+                                // 2. Hicimos tarjetas pequeñas en móvil (w-28 h-12) y grandes en compu (md:w-44 md:h-20)
+                                className="absolute left-1/2 top-1/2 flex w-20 h-12 md:w-44 md:h-20 items-center justify-center rounded-2xl border bg-secondary/50 p-2 md:p-4 text-center dark:bg-white/[0.03] backdrop-blur-sm"
+                                style={{
+                                    // 3. Agregamos translate(-50%, -50%) directo al transform para arreglar el "baile"
+                                    transform: `translate(-50%, -50%) rotateY(${angle}deg) translateZ(${radius}px)`,
+                                }}
+                            >
+                                {/* El texto también es más pequeño en móvil (text-[10px]) */}
+                                <span className="text-[10px] md:text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                                    {brand}
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
           </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-export default Brands;
+        </section>
+    );
+}
