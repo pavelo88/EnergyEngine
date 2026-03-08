@@ -1,10 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { ArrowRight, Activity, Settings, Globe, PhoneCall } from 'lucide-react';
 import { stats } from '@/lib/data';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -23,12 +21,12 @@ export default function Hero() {
             </Badge>
           </div>
           <h1 
-            className="text-5xl md:text-6xl font-black uppercase leading-[0.85] tracking-tighter mb-8 font-headline text-white"
+            className="text-5xl md:text-6xl font-black uppercase leading-[0.85] tracking-tighter mb-8 font-headline text-foreground"
           >
             energía <br /> <span className="text-primary">imparable</span>
           </h1>
           <p 
-            className="text-lg text-zinc-300 mb-8 max-w-md text-balance"
+            className="text-lg text-muted-foreground mb-8 max-w-md text-balance"
           >
             Especialistas en mantenimiento industrial para infraestructuras de
             alta exigencia: Aeropuertos y Hospitales.
@@ -46,15 +44,15 @@ export default function Hero() {
           {stats.map((m, i) => (
             <div
               key={i}
-              className="bg-white/5 backdrop-blur-md p-6 rounded-lg border border-white/10 flex flex-col items-center text-center"
+              className="bg-secondary/50 p-6 rounded-lg border flex flex-col items-center text-center"
             >
               <div className="text-primary mb-4">
                 <m.icon className="size-7" />
               </div>
-              <div className="text-3xl lg:text-4xl font-bold mb-1 tracking-tighter text-white">
+              <div className="text-3xl lg:text-4xl font-bold mb-1 tracking-tighter text-foreground">
                 {m.val}
               </div>
-              <div className="text-[10px] uppercase font-black text-white/50 tracking-widest">
+              <div className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">
                 {m.tag}
               </div>
             </div>
