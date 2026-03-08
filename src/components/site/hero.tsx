@@ -44,7 +44,7 @@ export default function Hero() {
           {stats.map((m, i) => (
             <div
               key={i}
-              className="bg-card/50 backdrop-blur-sm p-4 rounded-2xl border border-foreground/10 shadow-inner flex flex-col items-center justify-center text-center"
+              className="bg-card/50 backdrop-blur-sm p-4 rounded-2xl border border-foreground/10 shadow-inner flex flex-col items-center justify-center text-center aspect-square"
             >
               <div className="text-primary mb-3">
                 <m.icon className="size-6" />

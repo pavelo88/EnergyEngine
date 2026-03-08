@@ -2,7 +2,7 @@
 
 import React, { useCallback, useMemo } from 'react';
 import Particles, { type Container, type Engine } from 'react-tsparticles';
-import { loadFull } from 'tsparticles';
+import { loadFull } from 'tsparticles'; // Changed from slim to full
 import { useTheme } from 'next-themes';
 
 const ParticleBackground = () => {
@@ -32,11 +32,17 @@ const ParticleBackground = () => {
         events: {
           onHover: {
             enable: true,
-            mode: 'repulse',
+            mode: 'grab', // Changed from repulse to grab
           },
           resize: true,
         },
         modes: {
+          grab: {
+            distance: 140,
+            links: {
+              opacity: 1,
+            },
+          },
           repulse: {
             distance: 80,
             duration: 0.4,
@@ -51,7 +57,7 @@ const ParticleBackground = () => {
           color: linkColor,
           distance: 150,
           enable: true,
-          opacity: 0.1,
+          opacity: 0.2, // Slightly more visible links
           width: 1,
         },
         move: {
@@ -69,16 +75,16 @@ const ParticleBackground = () => {
             enable: true,
             area: 800,
           },
-          value: 80,
+          value: 80, // Increased density
         },
         opacity: {
-          value: 0.2,
+          value: 0.3, // Slightly more visible particles
         },
         shape: {
-          type: 'circle' as const,
+          type: 'triangle' as const, // Changed to triangle
         },
         size: {
-          value: { min: 1, max: 2 },
+          value: { min: 1, max: 3 },
         },
       },
       detectRetina: true,
