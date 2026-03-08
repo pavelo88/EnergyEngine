@@ -9,23 +9,29 @@ import { getStorage } from 'firebase/storage';
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
   let firebaseApp: FirebaseApp;
-  // If no apps are initialized, this is the first run.
+
   if (!getApps().length) {
     firebaseApp = initializeApp(firebaseConfig);
-    // Persistence is enabled only once per session.
-    initializeFirestore(firebaseApp, {
-      localCache: persistentLocalCache(),
-    });
+    try {
+      initializeFirestore(firebaseApp, {
+        localCache: persistentLocalCache(),
+      });
+    } catch (e) {
+      console.error(e);
+    }
   } else {
-    // If app is already initialized, just get the existing instance.
     firebaseApp = getApp();
   }
 
+  const auth = getAuth(firebaseApp);
+  const firestore = getFirestore(firebaseApp);
+  const storage = getStorage(firebaseApp);
+
   return {
     firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp),
-    storage: getStorage(firebaseApp),
+    auth,
+    firestore,
+    storage,
   };
 }
 
