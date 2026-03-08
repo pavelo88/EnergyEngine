@@ -1,57 +1,7 @@
-rules_version = '2'; 
-
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ------------------------------------------------------------------------
-    // Helper Functions
-    // ------------------------------------------------------------------------
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // Role-check functions using exists() for DBAC
-    function isAdmin() {
-      return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
-             'admin' in get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.roles;
-    }
-
-    function isInspector() {
-       return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
-             'inspector' in get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.roles;
-    }
-
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-    
-    // ------------------------------------------------------------------------
-    // Application Collections
-    // ------------------------------------------------------------------------
-    
-    match /clientes/{clienteId} {
-      // Temporarily open for initial data seeding
-      allow read, write: if true;
-    }
-
-    match /usuarios/{usuarioId} {
-      // Temporarily open for initial data seeding.
-      // This allows the "Cargar Datos Iniciales" button to work without being authenticated.
-      allow read, write: if true;
-    }
-
-    match /trabajos/{trabajoId} {
-      // Temporarily open for initial data seeding
-      allow read, write: if true;
-    }
-
-    match /gastos/{gastoId} {
-      // Temporarily open for initial data seeding
-      allow read, write: if true;
-    }
-
-    match /partes_diarios/{parteId} {
+    match /{document=**} {
       allow read, write: if true;
     }
   }
