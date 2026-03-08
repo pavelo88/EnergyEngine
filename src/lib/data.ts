@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Activity, Cpu, Globe, LineChart, PhoneCall, ShieldCheck, Settings, Truck, Zap } from 'lucide-react';
+import { Activity, Cpu, ShieldCheck, Zap } from 'lucide-react';
 
 export const brands: string[] = ["Perkins", "Guascor", "Cummins", "Iveco", "Ruggerini", "Volvo Penta", "Lombardini", "MAN", "Rolls-Royce", "MTU"];
 
@@ -7,31 +7,14 @@ type Service = {
     id: string;
     title: string;
     desc: string;
-    imgId: string;
-    bpType: string;
     icon: LucideIcon;
 };
 
 export const services: Service[] = [
-    { id: "01", title: "Mantenimiento Preventivo", desc: "Intervenciones críticas en motores diésel y gas de alto rendimiento.", imgId: "service-1", bpType: "mantenimiento", icon: Activity },
-    { id: "02", title: "Pruebas de Carga", desc: "Simulación de fallos de red con bancos resistivos de 600kW.", imgId: "service-2", bpType: "carga", icon: ShieldCheck },
-    { id: "03", title: "Sistemas de Control", desc: "Ingeniería en cuadros de maniobra y equipos PLC/DEIF.", imgId: "service-3", bpType: "control", icon: Cpu },
-    { id: "04", title: "Rehabilitación Motor", desc: "Overhaul completo de grupos electrógenos de misión crítica.", imgId: "service-4", bpType: "rehabilitacion", icon: Zap },
-    { id: "05", title: "Telemetría 24/7", desc: "Monitorización remota para prevenir paradas inesperadas.", imgId: "service-5", bpType: "telemetria", icon: LineChart },
-    { id: "06", title: "Logística Repuestos", desc: "Suministro inmediato de filtros y componentes originales.", imgId: "service-6", bpType: "logistica", icon: Truck }
-];
-
-type Stat = {
-    val: string;
-    tag: string;
-    icon: LucideIcon;
-};
-
-export const stats: Stat[] = [
-    { val: "500+", tag: "Proyectos", icon: Globe },
-    { val: "15+", tag: "Años Exp", icon: Settings },
-    { val: "99.7%", tag: "Uptime", icon: Activity },
-    { val: "24/7", tag: "Soporte", icon: PhoneCall }
+    { id: "01", title: "Mantenimiento Preventivo", desc: "Intervenciones críticas en motores diésel y gas de alto rendimiento.", icon: Activity },
+    { id: "02", title: "Pruebas de Carga", desc: "Simulación de fallos de red con bancos resistivos.", icon: ShieldCheck },
+    { id: "03", title: "Sistemas de Control", desc: "Ingeniería en cuadros de maniobra y equipos PLC/DEIF.", icon: Cpu },
+    { id: "04", title: "Rehabilitación Motor", desc: "Overhaul completo de grupos electrógenos de misión crítica.", icon: Zap },
 ];
 
 export const contactInfo = {

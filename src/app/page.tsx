@@ -1,7 +1,6 @@
 import Brands from '@/components/site/brands';
 import Contact from '@/components/site/contact';
 import Footer from '@/components/site/footer';
-import Hero from '@/components/site/hero';
 import Navbar from '@/components/site/navbar';
 import Services from '@/components/site/services';
 import WhatsAppWidget from '@/components/site/whatsapp-widget';
@@ -11,9 +10,8 @@ export default function Home() {
     <>
       <Navbar />
       <main className="overflow-x-hidden pt-20">
-        <Hero />
-        <Brands />
         <Services />
+        <Brands />
         <Contact />
       </main>
       <Footer />
