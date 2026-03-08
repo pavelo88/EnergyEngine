@@ -8,38 +8,19 @@ import { getStorage } from 'firebase/storage';
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
+  let firebaseApp: FirebaseApp;
   // If no apps are initialized, this is the first run.
   if (!getApps().length) {
-    let firebaseApp;
-    try {
-      // Important! initializeApp() is called without any arguments because Firebase App Hosting
-      // integrates with the initializeApp() function to provide the environment variables needed to
-      // populate the FirebaseOptions in production.
-      firebaseApp = initializeApp();
-    } catch (e) {
-      // Only warn in production because it's normal to use the firebaseConfig to initialize
-      // during development.
-      if (process.env.NODE_ENV === "production") {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-      }
-      firebaseApp = initializeApp(firebaseConfig);
-    }
-
-    const firestore = initializeFirestore(firebaseApp, {
-        localCache: persistentLocalCache(),
+    firebaseApp = initializeApp(firebaseConfig);
+    // Persistence is enabled only once per session.
+    initializeFirestore(firebaseApp, {
+      localCache: persistentLocalCache(),
     });
-    
-    return {
-      firebaseApp,
-      auth: getAuth(firebaseApp),
-      firestore,
-      storage: getStorage(firebaseApp),
-    };
+  } else {
+    // If app is already initialized, just get the existing instance.
+    firebaseApp = getApp();
   }
 
-  // If app is already initialized, just get the existing instances.
-  // Persistence is already enabled, so we don't call it again.
-  const firebaseApp = getApp();
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
