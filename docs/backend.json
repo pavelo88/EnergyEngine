@@ -1,5 +1,272 @@
 {
-  "entities": {},
+  "entities": {
+    "WebContent": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "WebContent",
+      "type": "object",
+      "description": "Manages content for the public-facing landing page of AssetTrack AI.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the WebContent entity. Expected to be 'config_principal'."
+        },
+        "hero": {
+          "type": "string",
+          "description": "Hero section content including title, subtitle, and background image.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "services": {
+          "type": "array",
+          "description": "List of services offered, each with an icon, title, and description.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "publicStats": {
+          "type": "string",
+          "description": "Public statistics displayed on the landing page.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "hero",
+        "services",
+        "publicStats"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the AssetTrack AI platform, including their role and signature.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity (Firebase Auth UID)."
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the user."
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user within the system.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "signatureStorageUrl": {
+          "type": "string",
+          "description": "URL to the user's stored digital signature image in cloud storage."
+        },
+        "isFirstLogin": {
+          "type": "boolean",
+          "description": "Indicates if it's the user's first login, used for initial setup or signature capture."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "role",
+        "isFirstLogin"
+      ]
+    },
+    "Asset": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Asset",
+      "type": "object",
+      "description": "Details of an industrial asset managed by Energy Engine España.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Asset entity (id_bien)."
+        },
+        "airportId": {
+          "type": "string",
+          "description": "Identifier for the airport where the asset is located.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sectorId": {
+          "type": "string",
+          "description": "Identifier for the specific sector within the airport."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the asset (e.g., Energy, BHS, Climate).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "brandModel": {
+          "type": "string",
+          "description": "Brand and model of the asset."
+        },
+        "serialNumber": {
+          "type": "string",
+          "description": "Serial number of the asset."
+        },
+        "power": {
+          "type": "string",
+          "description": "Power specification of the asset (e.g., '300 kW')."
+        },
+        "status": {
+          "type": "string",
+          "description": "Current operational status of the asset.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "technicalSpecifications": {
+          "type": "string",
+          "description": "Detailed technical specifications or 'ficha técnica' of the asset, including components like filters, batteries, etc.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "airportId",
+        "sectorId",
+        "category",
+        "brandModel",
+        "serialNumber",
+        "power",
+        "status"
+      ]
+    },
+    "ReportLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ReportLog",
+      "type": "object",
+      "description": "Logs detailed information about an inspection report, including times, inspection findings, and location.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ReportLog entity (id_informe)."
+        },
+        "assetId": {
+          "type": "string",
+          "description": "Reference to the Asset being inspected. (Relationship: Asset 1:N ReportLog)"
+        },
+        "technicianId": {
+          "type": "string",
+          "description": "Reference to the User (technician) who performed the inspection. (Relationship: User 1:N ReportLog)"
+        },
+        "times": {
+          "type": "string",
+          "description": "Timestamps related to the inspection duration.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inspectionDetails": {
+          "type": "string",
+          "description": "Detailed findings of the inspection, mapping a component/field to its status.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "location": {
+          "type": "string",
+          "description": "Geographical location where the inspection was performed.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "needsList": {
+          "type": "array",
+          "description": "A list of items (e.g., parts, services) identified as 'OFE' (Ofertar) during the inspection, requiring action by a supervisor.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "assetId",
+        "technicianId",
+        "times",
+        "inspectionDetails",
+        "location"
+      ]
+    },
+    "GlobalStats": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "GlobalStats",
+      "type": "object",
+      "description": "Aggregated statistics for the entire system, updated periodically or via Cloud Functions.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the GlobalStats entity. Expected to be 'global_config'."
+        },
+        "totalMonthlyHours": {
+          "type": "number",
+          "description": "Total accumulated man-hours worked across all inspections for the current month."
+        },
+        "downAssets": {
+          "type": "number",
+          "description": "Current count of assets marked as 'PAR' (Parada) or otherwise non-operational."
+        },
+        "completedTasksToday": {
+          "type": "number",
+          "description": "Number of inspection tasks completed today."
+        }
+      },
+      "required": [
+        "id",
+        "totalMonthlyHours",
+        "downAssets",
+        "completedTasksToday"
+      ]
+    },
+    "Multimedia": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Multimedia",
+      "type": "object",
+      "description": "References to multimedia files (e.g., photos) uploaded as part of an inspection report.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Multimedia entity."
+        },
+        "reportId": {
+          "type": "string",
+          "description": "Reference to the ReportLog this multimedia is associated with. (Relationship: ReportLog 1:N Multimedia)"
+        },
+        "storageUrl": {
+          "type": "string",
+          "description": "URL to the multimedia file stored in cloud storage."
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of the multimedia file (e.g., 'image', 'video')."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description or context for the multimedia file."
+        },
+        "isEvidenceForOFE": {
+          "type": "boolean",
+          "description": "Indicates if this multimedia file serves as evidence for an 'OFE' (Ofertar) marked item in the inspection report."
+        }
+      },
+      "required": [
+        "id",
+        "reportId",
+        "storageUrl",
+        "type"
+      ]
+    }
+  },
   "auth": {
     "providers": [
       "password",
@@ -9,22 +276,148 @@
   "firestore": {
     "structure": [
       {
+        "path": "/web_content/{configId}",
+        "definition": {
+          "entityName": "WebContent",
+          "schema": {
+            "$ref": "#/backend/entities/WebContent"
+          },
+          "description": "Public content for the landing page of AssetTrack AI. The document ID is expected to be 'config_principal'. Includes denormalized public statistics from `GlobalStats` for independent public read access, aligning with the `stats_publicas` requirement. The schema properties `hero`, `services`, and `publicStats` should be treated as structured objects/arrays despite potentially being typed as `string` in the provided entity schema."
+        }
+      },
+      {
         "path": "/users/{userId}",
         "definition": {
-          "entityName": "user",
+          "entityName": "User",
           "schema": {
-            "$ref": "#/backend/entities/user"
+            "$ref": "#/backend/entities/User"
           },
-          "description": "Stores individual user profiles and their associated metadata. This collection is primarily for managing user-specific data. Access is strictly controlled, allowing only the authenticated user (`request.auth.uid`) to read or write their own document. This path inherently ensures authorization independence as the `userId` in the path directly links to the authenticated user's ID, simplifying security rules. While minimal for 'Hello World', it's a standard foundation for any authenticated application.",
+          "description": "User profiles, indexed by their Firebase Authentication UID. Contains personal details, signature URL, and first login status. User roles ('admin', 'gerente', 'inspector') are managed in separate `/roles` collections for Database-Backed Access Control (DBAC) as per design principles, not directly in this document for authorization checks.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier of the user, matching `request.auth.uid`."
+              "description": "The Firebase Authentication UID of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles/admin/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Dedicated collection for identifying users with the 'admin' role. The document ID corresponds to the user's UID. This facilitates Authorization Independence (DBAC) by allowing simple `exists()` checks in security rules to determine admin privileges without relying on custom claims or document `get()` operations.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Authentication UID of the user with the 'admin' role."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles/gerente/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Dedicated collection for identifying users with the 'gerente' role. The document ID corresponds to the user's UID. This facilitates Authorization Independence (DBAC) by allowing simple `exists()` checks in security rules to determine gerente privileges without relying on custom claims or document `get()` operations.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Authentication UID of the user with the 'gerente' role."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles/inspector/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Dedicated collection for identifying users with the 'inspector' role. The document ID corresponds to the user's UID. This facilitates Authorization Independence (DBAC) by allowing simple `exists()` checks in security rules to determine inspector privileges without relying on custom claims or document `get()` operations.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Authentication UID of the user with the 'inspector' role."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/assets/{assetId}",
+        "definition": {
+          "entityName": "Asset",
+          "schema": {
+            "$ref": "#/backend/entities/Asset"
+          },
+          "description": "Master list of industrial assets. All authenticated users with appropriate roles (Admin, Gerente, Inspector) can read these documents to view asset details, supporting efficient global `list` operations. Only users with the 'admin' role can create, update, or delete assets. Includes fields like `airportId` and `sectorId` for potential filtering and access control based on location.",
+          "params": [
+            {
+              "name": "assetId",
+              "description": "Unique identifier for the asset (e.g., 'id_bien' like M-3209)."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/reports/{reportId}",
+        "definition": {
+          "entityName": "ReportLog",
+          "schema": {
+            "$ref": "#/backend/entities/ReportLog"
+          },
+          "description": "Detailed inspection reports. Each document contains a `technicianId` field, which is used for ownership-based authorization, allowing inspectors to create and read their own reports. Admin and Gerente roles have global `list` and `read` access. Only Admin can `update` reports, and `delete` is strictly forbidden to maintain auditability. This structure supports QAPs by allowing global queries for management while enforcing individual `read` ownership.",
+          "params": [
+            {
+              "name": "reportId",
+              "description": "Unique identifier for the inspection report (e.g., 'id_informe')."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/reports/{reportId}/multimedia/{multimediaId}",
+        "definition": {
+          "entityName": "Multimedia",
+          "schema": {
+            "$ref": "#/backend/entities/Multimedia"
+          },
+          "description": "Multimedia files (e.g., photos) associated with a specific inspection report. Each document includes denormalized `reportId` and `reportOwnerId` (the `technicianId` from the parent report) to achieve Authorization Independence, enabling direct ownership checks in rules without a `get()` operation on the parent report. This ensures atomic creation and secure access for inspectors to their own report's multimedia.",
+          "params": [
+            {
+              "name": "reportId",
+              "description": "The unique identifier of the parent inspection report."
+            },
+            {
+              "name": "multimediaId",
+              "description": "Unique identifier for the multimedia file."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/global_stats/{configId}",
+        "definition": {
+          "entityName": "GlobalStats",
+          "schema": {
+            "$ref": "#/backend/entities/GlobalStats"
+          },
+          "description": "Aggregated system-wide statistics for management dashboards. The document ID is expected to be 'global_config'. This collection is primarily managed by Cloud Functions that update counters based on new `ReportLog` entries. Read access is granted to Admin and Gerente roles. Public statistics are denormalized into `web_content` for public display.",
+          "params": [
+            {
+              "name": "configId",
+              "description": "The unique identifier for the global statistics configuration document (e.g., 'global_config')."
             }
           ]
         }
       }
     ],
-    "reasoning": "For the 'Hello World App' whose core feature is simply displaying a static message, a complex Firestore data structure is not strictly necessary to fulfill the stated requirements. The 'Hello World' message itself doesn't require database storage as it's static UI content. \n\nHowever, acknowledging that authentication providers ('password', 'anonymous') are enabled, a foundational `/users/{userId}` collection is recommended. This collection provides a standard place to store basic user metadata (like `email`, `displayName`, `createdAt`) that Firebase Authentication might provide, or any future user-specific preferences. While currently sparse for a 'Hello World' app, it establishes a robust and scalable pattern for future feature expansion.\n\n**Authorization Independence:** The `/users/{userId}` structure inherently achieves Authorization Independence. Access to a user's document (`/users/{userId}`) is solely dependent on the `userId` in the path matching `request.auth.uid`. This eliminates the need for `get()` calls in security rules, as the authorization context is directly available within the document's path. This also supports atomic operations for creating or updating user profiles.\n\n**QAPs (Rules are not Filters):** For the `/users/{userId}` collection, secure `list` operations (queries) are naturally supported. A client would typically query for their own document (e.g., `db.collection('users').doc(auth.uid).get()`), which is a direct `get` operation. If a list of users were needed (e.g., for an admin view), security rules could be crafted to allow specific roles to list, but the default secure posture for user profiles is private. The structure itself doesn't mix different security requirements, maintaining a homogeneous security posture for individual user profiles."
+    "reasoning": "The Firestore structure for AssetTrack AI prioritizes Authorization Independence and DBAC (Database-Backed Access Control) to ensure secure, scalable, and debuggable security rules. The core strategy involves denormalization of authorization context and structural segregation.\n\n**Authorization Independence via Denormalization:**\n1.  **Roles:** Instead of relying on Firebase Custom Claims (which would tie authorization logic to `request.auth.token.role` and contradict the 'DBAC (No Custom Claims)' principle), user roles (`admin`, `gerente`, `inspector`) are explicitly denormalized into dedicated top-level collections (e.g., `/roles/admin/{userId}`). Authorization rules can then perform a simple `exists()` check on these collections (e.g., `exists(/databases/$(database)/documents/roles/admin/$(request.auth.uid))`) without complex `get()` calls, enabling atomic operations and clear intent.\n2.  **Multimedia Ownership:** For `Multimedia` documents, which are subcollections of `ReportLog`, the `reportOwnerId` (the `technicianId` of the parent report) and `reportId` are denormalized into each `Multimedia` document. This allows security rules to verify ownership and association directly on the `Multimedia` document (e.g., `resource.data.reportOwnerId == request.auth.uid`) without needing to perform a `get()` operation on the parent `ReportLog` document. This is critical for atomic writes and simplified rules for subcollections.\n3.  **Public Content:** The `WebContent` collection, specifically the `config_principal` document, directly stores `publicStats`. This prevents the public-facing landing page from needing to query internal `GlobalStats` for public information, ensuring independent read access.\n\n**QAPs (Queries as Authorization Primitives) and Structural Segregation:**\n1.  **Global Data (e.g., Assets):** The `/assets/{assetId}` collection is designed with a homogeneous security posture, allowing all authenticated users (Admin, Gerente, Inspector via their respective roles) to `read` all assets, while `Admin` has `write` access. This supports efficient `list` operations for dashboards and asset selection without needing complex `get()`s or client-side filtering for basic visibility.\n2.  **ReportLog Access:** The `/reports/{reportId}` collection serves as the central repository for all inspection reports. `Admin` and `Gerente` roles have global `list` and `read` access to all reports, enabling their dashboard views. For `Inspectors`, the `technicianId` field within each `ReportLog` document allows security rules to enforce ownership for individual `read` and `create` operations (`resource.data.technicianId == request.auth.uid`). While a `list` operation by an inspector might technically return all report IDs (depending on the rule), the `read` rule ensures they can only fetch the full content of their own reports. Client-side filtering is expected for inspectors to display only their own reports, as enforcing `list` filters in rules is not directly supported by Firestore and violates the principle of rules not being filters. The structure allows for secure `read` of individual documents based on ownership.\n3.  **Private User Data:** The `/users/{userId}` path ensures private data is path-based and accessible only by the owning user (`request.auth.uid == userId`) or an `admin`.\n\n**Consistency and Predictability:** Semantic naming conventions are used (e.g., `assets`, `reports`, `multimedia`), and wildcards are descriptive (`{assetId}`, `{reportId}`). Explicit fields like `technicianId` and `reportOwnerId` clearly indicate ownership and simplify rule writing."
   }
 }

@@ -1,12 +1,23 @@
+import Brands from '@/components/site/brands';
+import Contact from '@/components/site/contact';
+import Footer from '@/components/site/footer';
+import Hero from '@/components/site/hero';
+import Navbar from '@/components/site/navbar';
+import Services from '@/components/site/services';
+import WhatsAppWidget from '@/components/site/whatsapp-widget';
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-5xl font-bold tracking-tighter text-foreground">
-        Firebase está listo
-      </h1>
-      <p className="mt-4 text-muted-foreground">
-        Ahora puedes empezar a construir tu aplicación.
-      </p>
-    </main>
+    <>
+      <Navbar />
+      <main className="overflow-x-hidden pt-20">
+        <Hero />
+        <Brands />
+        <Services />
+        <Contact />
+      </main>
+      <Footer />
+      <WhatsAppWidget />
+    </>
   );
 }

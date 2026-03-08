@@ -1,70 +1,54 @@
-/**
- * Core Philosophy: This ruleset enforces a strict user-ownership model. The primary goal is to ensure that each user can only access and manage their own data.
- * Data Structure: All data is organized under the `/users/{userId}` collection. This structure inherently isolates user data, making security rules simple and efficient. The document ID (`userId`) must match the authenticated user's UID.
- * Key Security Decisions:
- *   - User Data Privacy: All read and write operations on a user's document are restricted to the owner of that document.
- *   - No User Enumeration: Listing the entire `/users` collection is explicitly disallowed to protect user privacy and prevent data scraping.
- *   - Self-Creation: A user is permitted to create their own user document, establishing their presence in the database.
- * Denormalization for Authorization: This ruleset relies on the path parameter `{userId}` for authorization, which is the most performant method. It avoids any need for `get()` calls or denormalized fields because the ownership context is part of the document path itself.
- * Structural Segregation: Not applicable in this simple model, as there is only one type of data with a uniform security requirement.
- */
-rules_version = '2';
+rules_version = '2'; 
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ----------------------------------------------------------------------
+    // ------------------------------------------------------------------------
     // Helper Functions
-    // ----------------------------------------------------------------------
+    // ------------------------------------------------------------------------
 
-    /**
-     * Checks if the user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Validates if the currently authenticated user is the owner of the document,
-     * based on the `userId` in the path.
-     * @param userId The user ID from the document path.
-     */
+    // Role-check functions using exists() for DBAC
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+             'admin' in get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.roles;
+    }
+
+    function isInspector() {
+       return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+             'inspector' in get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.roles;
+    }
+
     function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
+    // ------------------------------------------------------------------------
+    // Application Collections
+    // ------------------------------------------------------------------------
+    
+    match /clientes/{clienteId} {
+      allow read, write: if isSignedIn();
     }
 
-    /**
-     * Validates ownership for an existing document. Used for update and delete
-     * operations to ensure the target document exists before modification.
-     * @param userId The user ID from the document path.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+    match /usuarios/{usuarioId} {
+      // Allow unauthenticated reads ONLY for the login page to check for DNI/email combinations.
+      // This is required for the first-time login flow.
+      // Write operations (creating, updating, deleting) are still protected and require authentication.
+      allow read: if true;
+      allow write: if isSignedIn();
     }
 
-    // ----------------------------------------------------------------------
-    // Collection Rules
-    // ----------------------------------------------------------------------
-
-    /**
-     * @description Controls access to individual user profile documents.
-     * @path /users/{userId}
-     * @allow (get, create) A signed-in user ('user123') can get or create their own document at `/users/user123`.
-     * @deny (get) A signed-in user ('user456') cannot get another user's document at `/users/user123`.
-     * @deny (list) No user, authenticated or not, can list all documents in the `/users` collection.
-     * @principle Restricts access to a user's own data tree, enforcing strict data privacy.
-     */
-    match /users/{userId} {
-      // READ: Only the document owner can get their own profile.
-      allow get: if isOwner(userId);
-      // READ: Listing all users is explicitly forbidden to prevent user enumeration.
-      allow list: if false;
-
-      // WRITE: A user can create their own user document.
-      allow create: if isOwner(userId);
-      // WRITE: Only the owner of an existing document can update it.
-      allow update: if isExistingOwner(userId);
-      // WRITE: Only the owner of an existing document can delete it.
-      allow delete: if isExistingOwner(userId);
+    match /trabajos/{trabajoId} {
+      allow read, write: if isSignedIn();
     }
+
+    match /gastos/{gastoId} {
+      allow read, write: if isSignedIn();
+    }
+
   }
 }
