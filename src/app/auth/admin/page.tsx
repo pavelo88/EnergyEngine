@@ -4,14 +4,23 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Logo } from '@/components/icons';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Database } from 'lucide-react';
 import Link from 'next/link';
+
+const initialUsersData = [
+    { nombre: 'Carlos Esteban Amarilla Bogado', dni: '70287885-T', email: 'carlosamarilla@energyengine.es', roles: ['inspector'], firmaUrl: '' },
+    { nombre: 'Antonio Ugena Del Cerro', dni: '50475775-K', email: 'antoniougena@energyengine.es', roles: ['inspector'], firmaUrl: '' },
+    { nombre: 'Mocanu Baluta', dni: 'X4266252-M', email: 'mocanubaluta@energyengine.es', roles: ['inspector'], firmaUrl: '' },
+    { nombre: 'Juan Carlos Cabral', dni: 'X-6112156-K', email: 'juancabral@energyengine.es', roles: ['inspector'], firmaUrl: '' },
+    { nombre: 'Pablo Garcia Flores', dni: 'Admin123', email: 'pablofgarciaf@gmail.com', roles: ['inspector'], firmaUrl: '' },
+    { nombre: 'Pruebas 123', dni: 'Pruebas123', email: 'admin@energyengine.es', roles: ['admin', 'inspector'], firmaUrl: '' }
+];
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -23,6 +32,7 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     if (!isUserLoading && user) {
@@ -116,6 +126,34 @@ export default function AdminLoginPage() {
     }
   };
 
+  const handleSeedDatabase = async () => {
+    if (!firestore) return;
+    if (!window.confirm('Esto borrará los usuarios existentes y cargará la lista inicial de usuarios. ¿Estás seguro?')) return;
+    setSeeding(true);
+    try {
+        const querySnapshot = await getDocs(collection(firestore, 'usuarios'));
+        const deletePromises = querySnapshot.docs.map(d => deleteDoc(d.ref));
+        await Promise.all(deletePromises);
+
+        const createPromises = initialUsersData.map(userData => {
+            const userDocRef = doc(firestore, 'usuarios', userData.email);
+            return setDoc(userDocRef, {
+                ...userData,
+                activo: true,
+                forcePasswordChange: true,
+            });
+        });
+        await Promise.all(createPromises);
+
+        alert('¡Base de datos cargada! Ahora puedes iniciar sesión con un usuario administrador (p. ej., admin@energyengine.es con contraseña Pruebas123).');
+    } catch (error) {
+        console.error("Error al cargar los datos: ", error);
+        alert('Hubo un error al cargar los datos. Revisa la consola.');
+    } finally {
+        setSeeding(false);
+    }
+  };
+
   if (isUserLoading || user) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -173,6 +211,17 @@ export default function AdminLoginPage() {
                 </Link>
               </div>
             </form>
+
+            <div className="mt-6 border-t pt-6 text-center">
+                <p className="text-sm text-muted-foreground mb-4">
+                Si es la primera vez que usas la aplicación o no puedes entrar, carga los usuarios iniciales.
+                </p>
+                <Button onClick={handleSeedDatabase} variant="outline" disabled={seeding || loading}>
+                {seeding ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Database className="h-5 w-5 mr-2" />}
+                <span>{seeding ? 'Cargando...' : 'Cargar Datos Iniciales'}</span>
+              </Button>
+            </div>
+
           </CardContent>
         </Card>
     </div>

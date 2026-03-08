@@ -6,19 +6,8 @@ import { useFirestore } from '@/firebase';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Edit, Trash2, UserPlus, Loader2, X, LinkIcon, User, Database } from 'lucide-react';
+import { Edit, Trash2, UserPlus, Loader2, X, LinkIcon, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-// --- DATOS PARA LA CARGA INICIAL ---
-const initialUsersData = [
-    { nombre: 'Carlos Esteban Amarilla Bogado', dni: '70287885-T', email: 'carlosamarilla@energyengine.es', roles: ['inspector'], firmaUrl: '' },
-    { nombre: 'Antonio Ugena Del Cerro', dni: '50475775-K', email: 'antoniougena@energyengine.es', roles: ['inspector'], firmaUrl: '' },
-    { nombre: 'Mocanu Baluta', dni: 'X4266252-M', email: 'mocanubaluta@energyengine.es', roles: ['inspector'], firmaUrl: '' },
-    { nombre: 'Juan Carlos Cabral', dni: 'X-6112156-K', email: 'juancabral@energyengine.es', roles: ['inspector'], firmaUrl: '' },
-    { nombre: 'Pablo Garcia Flores', dni: 'Admin123', email: 'pablofgarciaf@gmail.com', roles: ['inspector'], firmaUrl: '' },
-    { nombre: 'Pruebas 123', dni: 'Pruebas123', email: 'admin@energyengine.es', roles: ['admin', 'inspector'], firmaUrl: '' }
-];
-
 
 // Esquema de validación para el formulario de usuario
 const userSchema = z.object({
@@ -35,7 +24,6 @@ type UserData = UserFormInputs & { id: string; activo: boolean };
 export default function UsersPage() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [seeding, setSeeding] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const db = useFirestore();
@@ -63,35 +51,6 @@ export default function UsersPage() {
   useEffect(() => {
     fetchUsers();
   }, [db]);
-
-  const handleSeedDatabase = async () => {
-    if (!db) return;
-    if (!window.confirm('Esto borrará los usuarios existentes y cargará la lista inicial. ¿Continuar?')) return;
-    setSeeding(true);
-    try {
-      const querySnapshot = await getDocs(collection(db, 'usuarios'));
-      const deletePromises = querySnapshot.docs.map(d => deleteDoc(d.ref));
-      await Promise.all(deletePromises);
-
-      const createPromises = initialUsersData.map(userData => {
-        const userDocRef = doc(db, 'usuarios', userData.email);
-        return setDoc(userDocRef, {
-          ...userData,
-          activo: true,
-          forcePasswordChange: true,
-        });
-      });
-      await Promise.all(createPromises);
-
-      alert('¡Base de datos de usuarios cargada con éxito!');
-      fetchUsers();
-    } catch (error) {
-      console.error("Error al cargar los datos: ", error);
-      alert('Hubo un error al cargar los datos.');
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   const openModalForCreate = () => {
     setEditingUser(null);
@@ -148,10 +107,6 @@ export default function UsersPage() {
             <p className="mt-1 text-slate-600">Crea, edita y gestiona los usuarios del sistema.</p>
           </div>
           <div className="flex gap-3">
-             <Button onClick={handleSeedDatabase} variant="outline" disabled={seeding || loading}>
-              {seeding ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Database className="h-5 w-5 mr-2" />}
-              <span>{seeding ? 'Cargando...' : 'Cargar Datos Iniciales'}</span>
-            </Button>
             <Button onClick={openModalForCreate}>
               <UserPlus className="h-5 w-5"/>
               <span>Añadir</span>
