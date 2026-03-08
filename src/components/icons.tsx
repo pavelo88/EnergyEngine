@@ -13,12 +13,13 @@ export const Logo = () => {
   }, []);
 
   if (!mounted) {
-    // Render a placeholder or default logo on the server to avoid hydration mismatch
+    // Render a placeholder on the server to avoid hydration mismatch
+    // and prevent layout shift.
     return (
-      <div className="flex items-center gap-3">
-        <Image src="/favicon.ico" alt="energy engine logo" width={48} height={48} />
+      <div className="flex items-center gap-3 h-[48px]">
+        <div className="w-[48px] h-[48px] bg-secondary rounded-md" />
         <div className="flex flex-col leading-tight">
-          <span className="font-headline text-xl font-bold tracking-tighter text-foreground">energy engine</span>
+          <span className="font-headline text-xl font-bold tracking-tighter text-transparent">energy engine</span>
           <span className="text-[10px] font-medium text-muted-foreground -mt-0.5">GRUPOS ELECTROGENOS</span>
         </div>
       </div>
@@ -30,9 +31,9 @@ export const Logo = () => {
 
   return (
     <div className="flex items-center gap-3">
-      <Image src={logoSrc} alt="energy engine logo" width={48} height={48} />
+      <Image src={logoSrc} alt="energy engine logo" width={48} height={48} className="rounded-md" />
       <div className="flex flex-col leading-tight">
-        <span className="font-headline text-xl font-bold tracking-tighter text-foreground">energy engine</span>
+        <span className="font-headline text-xl font-bold tracking-tighter text-primary">energy engine</span>
         <span className="text-[10px] font-medium text-muted-foreground -mt-0.5">GRUPOS ELECTROGENOS</span>
       </div>
     </div>
