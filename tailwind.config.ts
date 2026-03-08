@@ -86,17 +86,29 @@ export default {
             height: '0',
           },
         },
-        'infinite-scroll': {
-          from: { transform: 'translateX(0)' },
-          to: { transform: 'translateX(-50%)' },
+        'spin-brands': {
+            '0%': { transform: 'rotateY(0deg)' },
+            '100%': { transform: 'rotateY(360deg)' },
         },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
-        'infinite-scroll': 'infinite-scroll 60s linear infinite',
+        'spin-brands': 'spin-brands 30s linear infinite',
+      },
+      perspective: {
+        '1000': '1000px',
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [
+    require('tailwindcss-animate'),
+    function ({ addUtilities }: { addUtilities: any }) {
+      addUtilities({
+        '.perspective-1000': {
+          perspective: '1000px',
+        },
+      });
+    },
+  ],
 } satisfies Config;

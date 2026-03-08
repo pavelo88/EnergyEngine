@@ -4,22 +4,33 @@ import React from 'react';
 import { brands } from '@/lib/data';
 
 const Brands = () => {
-  return (
-    <div className="flex items-center justify-center h-full">
-        <div className="w-full space-y-8">
-            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest text-center lg:text-left">
-                Marcas Aliadas
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-6 gap-x-12">
-                {brands.map((brand, index) => (
-                <div key={index} className="text-center lg:text-left">
-                    <span className="text-2xl font-bold text-foreground/80 whitespace-nowrap">{brand}</span>
-                </div>
-                ))}
+    const totalBrands = brands.length;
+    const angleStep = 360 / totalBrands;
+    // Adjust radius based on the number of brands to avoid overlap
+    const radius = totalBrands > 10 ? 220 : 180;
+
+    return (
+        <div className="flex items-center justify-center h-full w-full perspective-[1000px]">
+            <div className="relative w-full h-64 animate-spin-brands [transform-style:preserve-3d]">
+                {brands.map((brand, index) => {
+                    const angle = angleStep * index;
+                    return (
+                        <div
+                            key={index}
+                            className="absolute top-1/2 left-1/2 w-48 h-16 -mt-8 -ml-24 flex items-center justify-center rounded-lg border border-primary/10 bg-primary/5 p-4 shadow-sm backdrop-blur-sm"
+                            style={{
+                                transform: `rotateY(${angle}deg) translateZ(${radius}px)`,
+                            }}
+                        >
+                            <span className="text-xl font-bold text-foreground/80 whitespace-nowrap">
+                                {brand}
+                            </span>
+                        </div>
+                    );
+                })}
             </div>
         </div>
-    </div>
-  );
+    );
 };
 
 export default Brands;
