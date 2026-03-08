@@ -1,3 +1,4 @@
+import ParticleBackground from '@/components/site/ParticleBackground';
 import Contact from '@/components/site/contact';
 import Footer from '@/components/site/footer';
 import Hero from '@/components/site/hero';
@@ -10,6 +11,7 @@ import Brands from '@/components/site/brands';
 export default function Home() {
   return (
     <>
+      <ParticleBackground />
       <Navbar />
       <main className="overflow-x-hidden pt-20">
         <section className="relative flex flex-col justify-center px-6 py-16 sm:py-20 overflow-hidden min-h-[70vh]">
@@ -18,14 +20,7 @@ export default function Home() {
             <Stats />
           </div>
         </section>
-        <section id="marcas" className="py-16 scroll-mt-10">
-          <div className="max-w-6xl mx-auto px-6">
-            <h2 className="text-center text-4xl md:text-5xl font-black uppercase tracking-tighter mb-10 font-headline">
-              Marcas con las que <span className="text-primary">trabajamos</span>
-            </h2>
-            <Brands />
-          </div>
-        </section>
+        <Brands />
         <Services />
         <Contact />
       </main>
