@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { services } from '@/lib/data';
-import { motion } from 'framer-motion';
 
 export default function Services() {
   return (
@@ -33,12 +32,8 @@ export default function Services() {
             }
 
             return (
-              <motion.div
+              <div
                 key={service.id}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
-                viewport={{ once: true, amount: 0.2 }}
                 className={`group relative flex flex-col justify-between p-8 rounded-3xl bg-slate-900 text-white min-h-[280px] ${gridClasses}`}
               >
                 <div>
@@ -52,7 +47,7 @@ export default function Services() {
                 <p className="text-sm text-zinc-300 max-w-sm">
                   {service.desc}
                 </p>
-              </motion.div>
+              </div>
             );
           })}
         </div>
