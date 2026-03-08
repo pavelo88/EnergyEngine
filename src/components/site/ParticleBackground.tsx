@@ -1,15 +1,15 @@
 'use client';
 
 import React, { useCallback, useMemo } from 'react';
-import Particles, { type Container } from 'react-tsparticles';
-import { loadSlim } from 'tsparticles-slim';
+import Particles, { type Container, type Engine } from 'react-tsparticles';
+import { loadFull } from 'tsparticles';
 import { useTheme } from 'next-themes';
 
 const ParticleBackground = () => {
   const { theme, systemTheme } = useTheme();
 
-  const particlesInit = useCallback(async (engine: any) => {
-    await loadSlim(engine);
+  const particlesInit = useCallback(async (engine: Engine) => {
+    await loadFull(engine);
   }, []);
 
   const particlesLoaded = useCallback(async (container: Container | undefined) => {
