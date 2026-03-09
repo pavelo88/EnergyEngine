@@ -7,19 +7,21 @@ import Stats from '@/components/site/stats';
 import WhatsAppWidget from '@/components/site/whatsapp-widget';
 import Brands from '@/components/site/brands';
 import Image from 'next/image';
+import fondo from './fondo.jpg';
+import fondo2 from './fondo2.jpg';
 
 export default function Home() {
   return (
     <>
       <Image
-        src="/fondo.jpg"
+        src={fondo}
         alt="Fondo de escritorio de Energy Engine"
         fill
         className="fixed inset-0 object-cover -z-10 opacity-15 hidden md:block"
         priority
       />
       <Image
-        src="/fondo2.jpg"
+        src={fondo2}
         alt="Fondo móvil de Energy Engine"
         fill
         className="fixed inset-0 object-cover -z-10 opacity-15 md:hidden"
