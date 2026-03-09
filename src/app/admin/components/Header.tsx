@@ -1,6 +1,6 @@
 'use client';
 
-import { Menu, Bell, UserCircle } from 'lucide-react';
+import { Menu } from 'lucide-react';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -17,14 +17,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
         </button>
       </div>
       
-      {/* Iconos de la derecha (ejemplo) */}
+      {/* Iconos de la derecha eliminados */}
       <div className="flex items-center gap-4">
-        <button className="p-2 rounded-full hover:bg-gray-100">
-          <Bell className="h-5 w-5 text-gray-600" />
-        </button>
-        <button className="p-2 rounded-full hover:bg-gray-100">
-          <UserCircle className="h-6 w-6 text-gray-600" />
-        </button>
+        {/* No content */}
       </div>
     </header>
   );

@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query } from "firebase/firestore";
 import { useFirestore } from '@/firebase';
-import { PlusCircle, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { PlusCircle, Loader2, Pencil, Trash2, Download, MapPin } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
 
 // --- Tipos de Datos ---
 type Inspector = { id: string; nombre: string; };
@@ -17,6 +19,10 @@ type Job = {
   clienteId: string;
   clienteNombre?: string;
   cliente?: string; // from reports
+  instalacion?: string;
+  location?: { lat: number, lon: number };
+  modelo?: string;
+  n_motor?: string;
   inspectorIds: string[];
   inspectorNombres?: string[];
   tecnicoNombre?: string; // from reports
@@ -171,6 +177,26 @@ export default function JobsPage() {
     }
   };
 
+  const handleExport = () => {
+    const dataToExport = jobs.map(job => ({
+      ID: job.id,
+      Descripción: getJobTitle(job),
+      Cliente: job.clienteNombre || job.cliente,
+      Instalación: job.instalacion || 'N/A',
+      Inspectores: (job.inspectorNombres || [job.tecnicoNombre]).join(', '),
+      Estado: job.estado,
+      Fecha: job.fecha_guardado?.toDate()?.toLocaleDateString() || job.fechaCreacion?.toDate()?.toLocaleDateString() || 'N/A',
+      Modelo: job.modelo || 'N/A',
+      "Nº Motor/Serie": job.n_motor || 'N/A',
+      Ubicación: job.location ? `${job.location.lat.toFixed(5)}, ${job.location.lon.toFixed(5)}` : 'N/A'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Trabajos");
+    XLSX.writeFile(workbook, `Reporte_Trabajos_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  };
+
   const openModalForEdit = (job: Job) => {
     setEditingJob(job);
     setIsModalOpen(true);
@@ -188,15 +214,21 @@ export default function JobsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center">
         <div>
             <h1 className="text-3xl font-bold text-slate-800">Gestión de Trabajos</h1>
             <p className="mt-1 text-slate-600">Crea, asigna y gestiona los trabajos de los inspectores.</p>
         </div>
-        <Button onClick={openModalForAdd}>
-          <PlusCircle className="mr-2" size={20} />
-          <span>Crear Nuevo Trabajo</span>
-        </Button>
+        <div className="flex items-center gap-4">
+            <Button onClick={handleExport} variant="outline">
+                <Download className="mr-2" size={16} />
+                Exportar a Excel
+            </Button>
+            <Button onClick={openModalForAdd}>
+            <PlusCircle className="mr-2" size={20} />
+            <span>Crear Nuevo Trabajo</span>
+            </Button>
+        </div>
       </div>
 
       {/* --- Tabla de Trabajos --*/}
@@ -204,12 +236,17 @@ export default function JobsPage() {
         <div className="overflow-x-auto">
           {loading ? <p>Cargando trabajos...</p> : (
             <table className="w-full text-left">
-              <thead><tr className="border-b"><th className="p-3">Descripción</th><th className="p-3">Cliente</th><th className="p-3">Inspectores</th><th className="p-3">Estado</th><th className="p-3">Acciones</th></tr></thead>
+              <thead><tr className="border-b"><th className="p-3">Descripción</th><th className="p-3">Cliente / Instalación</th><th className="p-3">Equipo</th><th className="p-3">Inspectores</th><th className="p-3">Estado</th><th className="p-3">Acciones</th></tr></thead>
               <tbody>
                 {jobs.map(job => (
                   <tr key={job.id} className="border-b hover:bg-gray-50">
                     <td className="p-3 font-medium">{getJobTitle(job)}</td>
-                    <td className="p-3">{job.clienteNombre || job.cliente}</td>
+                    <td className="p-3">{job.clienteNombre || job.cliente}<br/><span className="text-xs text-slate-500">{job.instalacion || ''}</span></td>
+                    <td className="p-3 text-xs">
+                        {job.modelo && <div><b>Modelo:</b> {job.modelo}</div>}
+                        {job.n_motor && <div><b>S/N:</b> {job.n_motor}</div>}
+                        {job.location && <div className="flex items-center gap-1 mt-1"><MapPin size={12} className="text-slate-400"/> {job.location.lat.toFixed(4)}, {job.location.lon.toFixed(4)}</div>}
+                    </td>
                     <td className="p-3">{(job.inspectorNombres || [job.tecnicoNombre]).join(', ')}</td>
                     <td className="p-3">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full 
@@ -226,7 +263,7 @@ export default function JobsPage() {
                   </tr>
                 ))}
                  {jobs.length === 0 && (
-                    <tr><td colSpan={5} className="p-4 text-center text-slate-500">No hay trabajos creados todavía.</td></tr>
+                    <tr><td colSpan={6} className="p-4 text-center text-slate-500">No hay trabajos creados todavía.</td></tr>
                 )}
               </tbody>
             </table>

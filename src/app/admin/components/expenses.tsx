@@ -3,9 +3,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
-import { Filter, Loader2, DollarSign, User, Briefcase, Calendar } from 'lucide-react';
+import { Filter, Loader2, DollarSign, User, Briefcase, Calendar, Download } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
-import { addDays } from 'date-fns';
+import { addDays, format } from 'date-fns';
+import * as XLSX from 'xlsx';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -73,17 +74,40 @@ export default function ExpensesPage() {
     return gastosFiltrados.reduce((acc, gasto) => acc + gasto.monto, 0);
   }, [gastosFiltrados]);
 
+    const handleExport = () => {
+    const dataToExport = gastosFiltrados.map(g => ({
+        Fecha: g.fecha.toDate().toLocaleDateString(),
+        Inspector: g.inspectorNombre,
+        Cliente: g.clienteNombre,
+        Descripcion: g.descripcion,
+        Categoria: g.categoria,
+        Monto: g.monto,
+        Estado: g.estado,
+    }));
+    
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Gastos");
+    XLSX.writeFile(workbook, `Reporte_Gastos_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  };
+
   return (
     <div className="bg-slate-50 p-4 sm:p-6 md:p-8 h-full">
       <div className="max-w-7xl mx-auto">
         {/* --- Cabecera --- */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-800">Reporte de Gastos</h1>
-          <p className="mt-1 text-slate-600">Visualiza y filtra los gastos registrados por el equipo.</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800">Reporte de Gastos</h1>
+            <p className="mt-1 text-slate-600">Visualiza y filtra los gastos registrados por el equipo.</p>
+          </div>
+           <Button onClick={handleExport} variant="outline">
+            <Download className="mr-2" size={16} />
+            Exportar a Excel
+          </Button>
         </div>
 
         {/* --- Filtros --- */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 bg-white p-4 rounded-xl shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 my-8 bg-white p-4 rounded-xl shadow-sm">
           {/* Filtro por Inspector */}
           <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Inspector</label>

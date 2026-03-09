@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import Sidebar from '@/app/admin/components/Sidebar';
 import Header from '@/app/admin/components/Header';
 import { useUser, useAuth, useFirestore } from '@/firebase';
@@ -15,8 +16,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
+  const { setTheme } = useTheme();
+  
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [authStatus, setAuthStatus] = useState<'loading' | 'authorized' | 'unauthorized' | 'needs_password_change'>('loading');
+
+  useEffect(() => {
+    // Force light theme for the admin panel
+    setTheme('light');
+  }, [setTheme]);
 
   useEffect(() => {
     if (isUserLoading || !firestore) return;
@@ -81,10 +89,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar isOpen={isSidebarOpen} onClose={handleSidebarClose} />
+      <Sidebar isOpen={isSidebarOpen} onClose={handleSidebarClose} user={user}/>
       <div className="flex flex-1 flex-col">
         <Header onMenuClick={handleMenuClick} title="" />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 pb-4 sm:pb-6 md:pb-8">
           {children}
         </main>
       </div>
