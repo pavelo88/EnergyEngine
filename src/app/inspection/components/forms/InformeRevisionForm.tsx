@@ -539,7 +539,7 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
             {Object.entries(CHECKLIST_SECTIONS).map(([section, items]) => (
                 <section key={section} className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
                     <h3 className="font-bold text-slate-500">{section}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                    <div className="grid grid-cols-1 gap-y-4">
                         {(items as string[]).map(it => (
                         <div key={it} className={`p-4 rounded-xl flex justify-between items-center transition-all border ${formData.checklist[it] ? 'bg-blue-50/50 border-blue-200/50' : 'bg-slate-50/50 border-slate-100'}`}>
                             <span className="text-lg font-bold text-slate-700">{it}</span>

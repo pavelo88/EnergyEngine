@@ -521,7 +521,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
             {/* --- CHECKLIST DE RECAMBIOS --- */}
             <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
                 <h3 className="font-bold text-slate-500">Recambios y Materiales</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                <div className="grid grid-cols-1 gap-y-4">
                     {SIMPLIFIED_CHECKLIST_ITEMS.map(it => (
                     <div key={it} className={`p-4 rounded-xl flex justify-between items-center transition-all border ${formData.recambios_checklist[it] ? 'bg-primary/10 border-primary/20' : 'bg-slate-50/50 border-slate-100'}`}>
                         <span className="text-lg font-bold text-slate-700">{it}</span>
