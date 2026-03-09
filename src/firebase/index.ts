@@ -2,7 +2,7 @@
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, initializeFirestore, persistentLocalCache } from 'firebase/firestore';
+import { getFirestore, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Hardcoded configuration to ensure connectivity
@@ -24,13 +24,6 @@ export function initializeFirebase() {
   // This check prevents re-initializing the app on every render.
   if (!getApps().length) {
     firebaseApp = initializeApp(firebaseConfig);
-    try {
-      initializeFirestore(firebaseApp, {
-        localCache: persistentLocalCache(),
-      });
-    } catch (e) {
-      console.error("Firestore persistence error:", e);
-    }
   } else {
     firebaseApp = getApp();
   }
@@ -38,6 +31,16 @@ export function initializeFirebase() {
   const auth = getAuth(firebaseApp);
   const firestore = getFirestore(firebaseApp);
   const storage = getStorage(firebaseApp);
+
+  try {
+    enableMultiTabIndexedDbPersistence(firestore);
+  } catch (error: any) {
+    if (error.code === 'failed-precondition') {
+      console.warn('Firestore persistence failed: multi-tab execution.');
+    } else if (error.code === 'unimplemented') {
+      console.warn('Firestore persistence failed: browser not supported.');
+    }
+  }
 
   return {
     firebaseApp,

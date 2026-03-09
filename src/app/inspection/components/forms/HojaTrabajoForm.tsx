@@ -219,14 +219,14 @@ const drawHeader = () => {
   // Establece el color de relleno verde. He usado un verde de contraste (RGB).
   doc.setFillColor(39, 180, 96); // Un verde esmeralda para el fondo
   // Dibuja un rectángulo lleno (modo 'F') que cubre todo el ancho y una altura de 25mm.
-  doc.rect(0, 0, pageWidth, 25, 'F'); 
+  doc.rect(0, 0, pageWidth, 26, 'F'); 
 
   // --- 2. DIBUJAR EL LOGO ---
   doc.addImage(logoLight.src, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
   // --- 3. DIBUJAR EL TEXTO DE LA EMPRESA ---
-  const textX = logoX + logoWidth + 4; // Margen de 4mm tras el logo
-  const textYStart = logoY + 8; // Ajuste vertical para alinearse con el logo
+  const textX = logoX + logoWidth + 6; // Margen de 4mm tras el logo
+  const textYStart = logoY + 9; // Ajuste vertical para alinearse con el logo
 
   doc.setFont('helvetica', 'bold');
   
