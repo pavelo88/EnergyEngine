@@ -8,6 +8,7 @@ import { signOut, User } from 'firebase/auth';
 import { GanttChartSquare, Users, Wrench, DollarSign, LayoutDashboard, Building, Upload, LogOut, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { Logo } from '@/components/icons';
 
 // Tipos para las props del componente
 interface SidebarProps {
@@ -65,11 +66,7 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
         {/* Header con Logo y botón de cerrar para móvil */}
         <div className="flex h-20 items-center justify-between px-6 border-b border-gray-800">
           <Link href="/admin" className="flex items-center gap-3">
-            <Image src="/logo.png" alt="Energy Engine Logo" width={40} height={40} />
-            <div className="flex flex-col leading-tight">
-                <span className="font-headline text-2xl font-bold tracking-tighter text-white">energy engine</span>
-                <span className="text-[9px] font-medium text-slate-400 -mt-0.5">GRUPOS ELECTROGENOS</span>
-            </div>
+            <Logo />
           </Link>
           <button onClick={onClose} className="md:hidden p-1 rounded-full hover:bg-gray-700">
             <X className="h-6 w-6" />
