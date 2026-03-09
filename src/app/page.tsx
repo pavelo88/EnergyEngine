@@ -22,7 +22,7 @@ export default function Home() {
               src={heroBg.imageUrl}
               alt={heroBg.description}
               fill
-              className="object-cover z-[-1] opacity-10 dark:opacity-5"
+              className="object-cover z-[-1] opacity-15 dark:opacity-10"
               data-ai-hint={heroBg.imageHint}
               priority
             />

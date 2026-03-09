@@ -12,7 +12,7 @@ const Stats = () => {
           return (
              <div
               key={index}
-              className="flex flex-col items-center justify-center text-center p-6 h-40 rounded-2xl border bg-background/50 backdrop-blur-sm shadow-lg"
+              className="flex flex-col items-center justify-center text-center p-6 h-40 rounded-2xl border bg-secondary backdrop-blur-sm shadow-lg"
             >
                 <Icon className="text-primary size-7 mb-2" />
                 <span className="text-3xl font-black text-foreground">{stat.val}</span>
