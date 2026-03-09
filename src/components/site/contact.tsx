@@ -50,7 +50,7 @@ export default function Contact() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
           
           {/* Form Column */}
-          <div className="bg-secondary/50 dark:bg-white/[0.03] p-8 rounded-lg border h-full flex flex-col">
+          <div className="p-8 rounded-lg border h-full flex flex-col">
             <h3 className="text-base font-bold uppercase mb-6 font-headline flex items-center gap-3">
               <Mail className="text-primary" />
               Enviar Requerimiento
@@ -110,7 +110,7 @@ export default function Contact() {
           </div>
 
           {/* Info Column */}
-          <div className="bg-secondary/50 dark:bg-white/[0.03] p-8 rounded-lg border h-full flex flex-col">
+          <div className="p-8 rounded-lg border h-full flex flex-col">
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <p className="text-xs uppercase text-muted-foreground font-bold tracking-widest">Oficina Central</p>

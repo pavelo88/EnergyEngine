@@ -29,7 +29,7 @@ export default function Services() {
   }, [api]);
 
   return (
-    <section id="servicios" className="py-16 border-y scroll-mt-10">
+    <section id="servicios" className="py-16 scroll-mt-10">
       <div className="max-w-6xl mx-auto px-4">
         <h2 className="text-center text-4xl md:text-5xl font-black uppercase tracking-tighter mb-4 font-headline">
           Nuestros <span className="text-primary">Servicios</span>
