@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth } from '@/firebase';
 import { signOut, User } from 'firebase/auth';
 import { GanttChartSquare, Users, Wrench, DollarSign, LayoutDashboard, Building, Upload, LogOut, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { Logo } from '@/components/icons';
 
 // Tipos para las props del componente
 interface SidebarProps {
@@ -58,13 +58,14 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
 
       <div 
         className={cn(
-          'fixed inset-y-0 left-0 z-30 flex h-full w-full max-w-xs transform flex-col bg-slate-900 text-white shadow-lg transition-transform duration-300 ease-in-out md:relative md:w-64 md:translate-x-0',
+          'fixed inset-y-0 left-0 z-30 flex h-full w-full transform flex-col bg-slate-900 text-white shadow-lg transition-transform duration-300 ease-in-out md:relative md:w-64 md:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         {/* Header con Logo y botón de cerrar para móvil */}
         <div className="flex h-20 items-center justify-between px-6 border-b border-gray-800">
-          <Link href="/admin" className="flex items-center gap-2">
+          <Link href="/admin" className="flex items-center gap-3">
+            <Image src="/logo.png" alt="Energy Engine Logo" width={40} height={40} />
             <div className="flex flex-col leading-tight">
                 <span className="font-headline text-2xl font-bold tracking-tighter text-white">energy engine</span>
                 <span className="text-[9px] font-medium text-slate-400 -mt-0.5">GRUPOS ELECTROGENOS</span>

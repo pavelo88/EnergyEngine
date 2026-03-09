@@ -8,6 +8,7 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
 
 // Importar las funciones de generación de PDF de cada formulario
 import { generatePDF as generateHojaTrabajoPDF } from '@/app/inspection/components/forms/HojaTrabajoForm';
