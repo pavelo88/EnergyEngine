@@ -31,7 +31,7 @@ export const Logo = () => {
 
   return (
     <div className="flex items-center gap-3">
-      <Image src={logoSrc} alt="Energy Engine Logo" width={48} height={48} />
+      <Image src={logoSrc} alt="Energy Engine Logo" width={48} height={48} style={{ height: 'auto' }}/>
       <div className="flex flex-col leading-tight">
         <span className="font-headline text-xl font-bold tracking-tighter text-primary">energy engine</span>
         <span className="text-[10px] font-medium text-muted-foreground -mt-0.5">GRUPOS ELECTROGENOS</span>
