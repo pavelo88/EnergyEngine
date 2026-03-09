@@ -6,65 +6,54 @@ import {
 } from 'lucide-react';
 import TABS from '../constants';
 
-// --- PROPS DE LA INTERFAZ ---
 interface MainMenuProps {
   onNavigate: (tab: string) => void;
   userName: string;
 }
 
-// ======================================================================
-// ===> PALETA DE 4 COLORES CON IDENTIDAD (MODO CLARO)
-// ======================================================================
-// Cada botón tiene una personalidad única basada en tu visión.
-//
 const menuItems = [
   {
     id: TABS.NEW_INSPECTION,
     label: 'Inspección',
     desc: 'Inicia una nueva revisión.',
     icon: <ClipboardList size={28} />,
-    // === CIAN (PRIMARIO) ===
-    classes: 'bg-primary/10 border-primary/70 text-primary',
+    classes: 'bg-blue-500/10 border-blue-500/70 text-blue-500',
     labelColor: 'text-slate-800',
     descColor: 'text-slate-500',
-    shadow: 'hover:shadow-primary/20',
+    shadow: 'hover:shadow-blue-500/20',
   },
   {
     id: TABS.TASKS,
     label: 'Historial',
     desc: 'Consulta revisiones pasadas.',
     icon: <Activity size={28} />,
-    // === VERDE ===
-    classes: 'bg-green-600/10 border-green-600/70 text-green-600',
+    classes: 'bg-cyan-500/10 border-cyan-500/70 text-cyan-500',
     labelColor: 'text-slate-800',
     descColor: 'text-slate-500',
-    shadow: 'hover:shadow-green-600/20',
+    shadow: 'hover:shadow-cyan-500/20',
   },
   {
     id: TABS.EXPENSES,
     label: 'Jornada Laboral',
-    desc: 'Registro de horas de trabajo y gastos.',
+    desc: 'Registro de horas y gastos.',
     icon: <Receipt size={28} />,
-    // === NEGRO (SLATE) ===
-    classes: 'bg-slate-900 border-slate-700 text-primary',
-    labelColor: 'text-white', // Texto claro para contraste
-    descColor: 'text-slate-400',
-    shadow: 'hover:shadow-slate-900/40',
+    classes: 'bg-purple-500/10 border-purple-500/70 text-purple-500',
+    labelColor: 'text-slate-800',
+    descColor: 'text-slate-500',
+    shadow: 'hover:shadow-purple-500/20',
   },
   {
     id: TABS.PROFILE,
     label: 'Mi Perfil',
     desc: 'Ajusta tu cuenta.',
     icon: <User size={28} />,
-    // === GRIS ===
-    classes: 'bg-slate-200 border-slate-300 text-slate-600',
+    classes: 'bg-slate-600/10 border-slate-500/70 text-slate-600',
     labelColor: 'text-slate-800',
     descColor: 'text-slate-500',
-    shadow: 'hover:shadow-slate-300/50',
+    shadow: 'hover:shadow-slate-400/20',
   },
 ];
 
-// --- COMPONENTE DE ESCRITORIO CON NUEVO DISEÑO ---
 export default function MainMenuDesktop({ onNavigate, userName }: MainMenuProps) {
   return (
     <div className="min-h-full w-full bg-slate-100 flex flex-col p-8 pt-12 pb-32 font-sans">

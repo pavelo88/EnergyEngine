@@ -53,9 +53,7 @@ const InspectionPageContent = () => {
     setHasMounted(true);
     
     const handleInstallPrompt = (e: Event) => {
-        // Prevent the mini-infobar from appearing on mobile
         e.preventDefault();
-        // Stash the event so it can be triggered later.
         setInstallPrompt(e);
     };
 
@@ -67,19 +65,12 @@ const InspectionPageContent = () => {
       window.addEventListener('offline', handleOffline);
       window.addEventListener('beforeinstallprompt', handleInstallPrompt);
 
-      // --- Service Worker Registration ---
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js')
-          .then((registration) => {
-            console.log('Service Worker registered successfully with scope: ', registration.scope);
-          })
-          .catch((error) => {
-            console.error('Service Worker registration failed: ', error);
-          });
+          .then((registration) => console.log('Service Worker registered.', registration.scope))
+          .catch((error) => console.error('Service Worker registration failed:', error));
       }
-      // --- End of Service Worker Registration ---
 
-      // --- Initialize Speech Recognition ---
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
@@ -139,13 +130,11 @@ const InspectionPageContent = () => {
         };
         
         recognition.onend = () => {
-            // This ensures the button state is correct if recognition stops on its own
             setIsDictating(false);
         };
 
         recognitionRef.current = recognition;
       }
-      // --- End of Speech Recognition Init ---
 
       return () => {
         window.removeEventListener('online', handleOnline);
@@ -168,15 +157,20 @@ const InspectionPageContent = () => {
   const handleSelectInspectionType = (formType: FormType, data?: any) => {
     setSelectedTask(data);
     setActiveInspectionForm(formType);
+    setActiveTab(TABS.NEW_INSPECTION); // Navega a la pestaña de inspección
   };
   
   const handleStartInspectionFromTask = (task: any) => {
     setSelectedTask(task);
+    // Asume un tipo de formulario por defecto o extrae el tipo de la tarea
+    setActiveInspectionForm('informe-revision'); 
     setActiveTab(TABS.NEW_INSPECTION);
   };
 
   const handleBackToHub = () => {
     setActiveInspectionForm(null);
+    // Opcional: volver al menú principal si es lo deseado
+    setActiveTab(TABS.MENU);
   }
 
   const handleInstallClick = () => {
@@ -200,26 +194,25 @@ const InspectionPageContent = () => {
   };
 
   const toggleDictation = () => {
-    if (!isOnline) {
-        toast({ variant: "destructive", title: "Sin Conexión", description: "El dictado por IA requiere conexión a internet." });
-        return;
-    }
-    if (!recognitionRef.current) {
-        toast({ variant: "destructive", title: "Navegador no compatible", description: "El dictado por voz no funciona en este navegador. Prueba con Chrome." });
-        return;
-    }
-    if (isDictating) {
-        recognitionRef.current.stop();
-        setIsDictating(false); // Manually set state, onend can be slow
-    } else {
-        setAiData(null); // Reset previous data on new dictation
-        recognitionRef.current.start();
-        setIsDictating(true);
-    }
+      if (!isOnline) {
+          toast({ variant: "destructive", title: "Sin Conexión", description: "El dictado por IA requiere conexión a internet." });
+          return;
+      }
+      if (!recognitionRef.current) {
+          toast({ variant: "destructive", title: "Navegador no compatible", description: "El dictado por voz no funciona en este navegador. Prueba con Chrome." });
+          return;
+      }
+      if (isDictating) {
+          recognitionRef.current.stop();
+          setIsDictating(false);
+      } else {
+          setAiData(null);
+          recognitionRef.current.start();
+          setIsDictating(true);
+      }
   };
 
   const renderFloatingDictationButton = () => {
-      // Show only on data-heavy forms that benefit from global dictation
       const supportedForms: FormType[] = ['hoja-trabajo', 'informe-tecnico', 'informe-revision', 'informe-simplificado'];
       if (!activeInspectionForm || !supportedForms.includes(activeInspectionForm)) {
           return null;
@@ -240,11 +233,11 @@ const InspectionPageContent = () => {
   };
 
   if (!user) {
-     return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+     return <div className="flex h-screen items-center justify-center bg-slate-100"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
   const renderContent = () => {
-    if (!hasMounted) return null;
+    if (!hasMounted) return <div className="flex h-full items-center justify-center p-20"><Loader2 className="animate-spin" /></div>;
 
     if (activeTab === TABS.MENU) {
       const userName = user?.displayName || user?.email?.split('@')[0] || 'Inspector';
@@ -285,7 +278,7 @@ const InspectionPageContent = () => {
     let props: any = {};
     
     switch (activeTab) {
-        case TABS.TASKS: TabComponent = TasksTabLazy; props = { onStartInspection: handleStartInspectionFromTask }; break;
+        case TABS.TASKS: TabComponent = TasksTabLazy; props = { onStartInspection: handleSelectInspectionType }; break;
         case TABS.EXPENSES: TabComponent = RegistroJornadaForm; break;
         case TABS.PROFILE: TabComponent = ProfileTabLazy; break;
         default: return <p>Pestaña no encontrada</p>;
@@ -305,16 +298,16 @@ const InspectionPageContent = () => {
       <Header 
         activeTab={activeTab}
         isSubNavActive={!!activeInspectionForm}
-        onBack={activeInspectionForm ? handleBackToHub : () => handleNavigate(TABS.MENU)}
+        onBack={activeInspectionForm ? () => setActiveInspectionForm(null) : () => handleNavigate(TABS.MENU)}
         isOnline={isOnline}
         onInstall={handleInstallClick}
-        canInstall={true}
+        canInstall={!!installPrompt}
       />
       <div className="flex-grow">
         {renderContent()}
       </div>
       {renderFloatingDictationButton()}
-      {activeTab === TABS.MENU && <Footer />}
+      <Footer activeTab={activeTab} onNavigate={handleNavigate} />
     </main>
   );
 }
