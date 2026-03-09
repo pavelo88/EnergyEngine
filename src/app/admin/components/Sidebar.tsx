@@ -60,7 +60,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="flex h-20 items-center justify-between px-6 border-b border-gray-800">
           <Link href="/admin" className="flex items-center gap-2">
             <Logo />
-            <span className="font-bold text-lg">Panel</span>
           </Link>
           <button onClick={onClose} className="md:hidden p-1 rounded-full hover:bg-gray-700">
             <X className="h-6 w-6" />

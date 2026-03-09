@@ -7,34 +7,24 @@ import Stats from '@/components/site/stats';
 import WhatsAppWidget from '@/components/site/whatsapp-widget';
 import Brands from '@/components/site/brands';
 import Image from 'next/image';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function Home() {
-  const bgDesktop = PlaceHolderImages.find(p => p.id === 'global-background');
-  const bgMobile = PlaceHolderImages.find(p => p.id === 'hero-background');
-
   return (
     <>
-      {bgDesktop && (
-        <Image
-          src={bgDesktop.imageUrl}
-          alt={bgDesktop.description}
-          fill
-          className="fixed inset-0 object-cover z-[-10] opacity-15 dark:opacity-10 hidden md:block"
-          data-ai-hint={bgDesktop.imageHint}
-          priority
-        />
-      )}
-      {bgMobile && (
-        <Image
-          src={bgMobile.imageUrl}
-          alt={bgMobile.description}
-          fill
-          className="fixed inset-0 object-cover z-[-10] opacity-15 dark:opacity-10 md:hidden"
-          data-ai-hint={bgMobile.imageHint}
-          priority
-        />
-      )}
+      <Image
+        src="/fondo.jpg"
+        alt="Fondo de escritorio de Energy Engine"
+        fill
+        className="fixed inset-0 object-cover -z-10 opacity-15 hidden md:block"
+        priority
+      />
+      <Image
+        src="/fondo2.jpg"
+        alt="Fondo móvil de Energy Engine"
+        fill
+        className="fixed inset-0 object-cover -z-10 opacity-15 md:hidden"
+        priority
+      />
       <Navbar />
       <main className="overflow-x-hidden pt-20">
         <section className="flex flex-col justify-center px-6 py-16 sm:py-20 overflow-hidden">

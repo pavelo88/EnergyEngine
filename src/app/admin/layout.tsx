@@ -69,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   
   if (authStatus === 'loading' || authStatus === 'unauthorized') {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-16 w-16 animate-spin" />
       </div>
     );
@@ -80,7 +80,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-background">
       <Sidebar isOpen={isSidebarOpen} onClose={handleSidebarClose} />
       <div className="flex flex-1 flex-col">
         <Header onMenuClick={handleMenuClick} title="" />
