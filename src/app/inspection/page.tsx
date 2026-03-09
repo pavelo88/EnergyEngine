@@ -222,7 +222,7 @@ const InspectionPageContent = () => {
           <button
               onClick={toggleDictation}
               className={`fixed bottom-28 md:bottom-10 right-6 w-16 h-16 rounded-full text-white shadow-2xl flex items-center justify-center z-50 transition-all duration-300 transform active:scale-90
-              ${isDictating ? 'bg-red-600 animate-pulse' : 'bg-blue-600'}
+              ${isDictating ? 'bg-red-600 animate-pulse' : 'bg-primary'}
               ${aiLoading ? 'bg-gray-400 cursor-not-allowed' : ''}`}
               disabled={aiLoading}
               aria-label={isDictating ? 'Detener dictado' : 'Iniciar dictado'}

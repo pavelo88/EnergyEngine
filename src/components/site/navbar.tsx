@@ -84,7 +84,7 @@ export default function Navbar() {
               <SheetContent side="right">
                 <SheetHeader>
                   <SheetTitle>Menú</SheetTitle>
-                  <SheetDescription>
+                  <SheetDescription className='sr-only'>
                     Menú principal de navegación del sitio.
                   </SheetDescription>
                 </SheetHeader>
