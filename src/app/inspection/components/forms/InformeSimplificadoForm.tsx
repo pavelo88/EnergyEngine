@@ -207,19 +207,26 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     // 7. ENCABEZADOS Y PIES DE PÁGINA GLOBALES
     const drawHeader = () => {
-        // Logo a la izquierda
-        doc.addImage(logoLight.src, 'PNG', leftMargin, 8, 20, 20);
-    
-        // Datos a la derecha
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(darkColor);
-        doc.text("https://www.energyengine.es/", pageWidth - rightMargin, 12, { align: 'right' });
-        
-        doc.setFont('helvetica', 'normal');
-        doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - rightMargin, 18, { align: 'right' });
-        
-        doc.text("Tel: 92 515 43 53", pageWidth - rightMargin, 24, { align: 'right' });
+      const logoX = leftMargin;
+      const logoY = 8;
+      const logoWidth = 20;
+      const logoHeight = 20;
+      doc.addImage(logoLight.src, 'PNG', logoX, logoY, logoWidth, logoHeight);
+  
+      const textX = logoX + logoWidth + 4;
+      const textY = logoY + (logoHeight / 2);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(darkColor);
+      doc.text("energy engine", textX, textY, { baseline: 'middle' });
+      
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(darkColor);
+      const rightTextX = pageWidth - rightMargin;
+      doc.text("https://www.energyengine.es", rightTextX, 12, { align: 'right' });
+      doc.text("Tel: 92 515 43 53", rightTextX, 18, { align: 'right' });
+      doc.text("serviciotecnico@energyengine.es", rightTextX, 24, { align: 'right' });
     };
 
     const drawFooter = (pageNumber: number, totalPages: number) => {

@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from '@/components/ui/input';
+import logoLight from '@/app/logo.png';
 
 // --- TIPOS DE DATOS ---
 type GastoItem = {
@@ -162,7 +163,6 @@ export default function RegistroJornadaForm() {
   const createParteDiarioPDF = (data: any) => {
     const doc = new jsPDF();
     const darkColor = '#0f172a';
-    const corporateGreen = [26, 83, 42];
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
     
@@ -294,25 +294,33 @@ export default function RegistroJornadaForm() {
     
     // Encabezado y Pie de página globales
     const drawHeader = () => {
-        doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
-        doc.rect(0, 0, pageWidth, 24, 'F');
-        doc.setTextColor('#FFFFFF');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.text("energyengine", 15, 12);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.text("GRUPOS ELECTROGENOS", 15, 18);
-        
-        doc.setFontSize(8);
-        doc.text("Tel: 92 515 43 53 | serviciotecnico@energyengine.es", pageWidth - 15, 16, { align: 'right' });
+      const logoX = leftMargin;
+      const logoY = 8;
+      const logoWidth = 20;
+      const logoHeight = 20;
+      doc.addImage(logoLight.src, 'PNG', logoX, logoY, logoWidth, logoHeight);
+
+      const textX = logoX + logoWidth + 4;
+      const textY = logoY + (logoHeight / 2);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(darkColor);
+      doc.text("energy engine", textX, textY, { baseline: 'middle' });
+      
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(darkColor);
+      const rightTextX = pageWidth - rightMargin;
+      doc.text("https://www.energyengine.es", rightTextX, 12, { align: 'right' });
+      doc.text("Tel: 92 515 43 53", rightTextX, 18, { align: 'right' });
+      doc.text("serviciotecnico@energyengine.es", rightTextX, 24, { align: 'right' });
     };
 
     const drawFooter = (pageNumber: number, totalPages: number) => {
         doc.setFontSize(8);
         doc.setTextColor('#94A3B8');
         doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-        doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
+        doc.setFillColor(darkColor);
         doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
     };
 
