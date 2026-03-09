@@ -487,10 +487,7 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
         </Dialog>
         
         <main className="p-4 md:p-6 space-y-8 pb-40">
-            <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-lg">
-                <h2 className="text-xl font-bold">ENERGY ENGINE</h2>
-                <p className="text-sm font-light border-b border-blue-400 pb-2 mb-2">INFORME DE REVISIÓN</p>
-            </div>
+
 
             {/* --- DATOS GENERALES --- */}
             <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">

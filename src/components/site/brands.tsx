@@ -46,7 +46,7 @@ export default function Brands() {
             <div className="max-w-6xl mx-auto px-4">
                 {/* Redujimos el mb-10 a mb-4 para quitar el espacio en blanco gigante */}
                 <h2 className="text-center text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4 font-headline">
-                    Aliados<span className="text-primary">Tecnológicos</span>
+                    Aliados <span className="text-primary">Tecnológicos</span>
                 </h2>  
 
             {/* Redujimos el mt-16 a mt-4 y ajustamos la altura dinámica del contenedor */}

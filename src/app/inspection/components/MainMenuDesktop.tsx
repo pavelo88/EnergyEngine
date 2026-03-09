@@ -17,10 +17,10 @@ const menuItems = [
     label: 'Inspección',
     desc: 'Inicia una nueva revisión.',
     icon: <ClipboardList size={28} />,
-    classes: 'bg-blue-500/10 border-blue-500/70 text-blue-500',
+    classes: 'bg-primary/10 border-primary/70 text-primary',
     labelColor: 'text-slate-800',
     descColor: 'text-slate-500',
-    shadow: 'hover:shadow-blue-500/20',
+    shadow: 'hover:shadow-primary/20',
   },
   {
     id: TABS.TASKS,
