@@ -4,14 +4,12 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import Sidebar from '@/app/admin/components/Sidebar';
-import Header from '@/app/admin/components/Header';
 import { useUser, useAuth, useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import ForceChangePassword from '@/components/auth/ForceChangePassword';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const router = useRouter();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
@@ -67,10 +65,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [user, isUserLoading, router, auth, firestore]);
 
-  const handleMenuClick = () => {
-    setSidebarOpen(!isSidebarOpen);
-  };
-
   const handleSidebarClose = () => {
     setSidebarOpen(false);
   };
@@ -88,11 +82,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-slate-50">
       <Sidebar isOpen={isSidebarOpen} onClose={handleSidebarClose} user={user}/>
-      <div className="flex flex-1 flex-col">
-        <Header onMenuClick={handleMenuClick} title="" />
-        <main className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 pb-4 sm:pb-6 md:pb-8">
+      <div className="flex flex-1 flex-col overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 md:p-8">
           {children}
         </main>
       </div>
