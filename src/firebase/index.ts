@@ -28,19 +28,24 @@ export function initializeFirebase() {
     firebaseApp = getApp();
   }
 
-  const auth = getAuth(firebaseApp);
   const firestore = getFirestore(firebaseApp);
-  const storage = getStorage(firebaseApp);
 
-  try {
-    enableMultiTabIndexedDbPersistence(firestore);
-  } catch (error: any) {
+  // Enable persistence FIRST, before any other service is initialized.
+  enableMultiTabIndexedDbPersistence(firestore).catch((error: any) => {
     if (error.code === 'failed-precondition') {
-      console.warn('Firestore persistence failed: multi-tab execution.');
+      console.warn(
+        'Firestore persistence failed: multi-tab execution is likely already running in another tab.'
+      );
     } else if (error.code === 'unimplemented') {
-      console.warn('Firestore persistence failed: browser not supported.');
+      console.warn(
+        'Firestore persistence failed: the browser does not support the required features.'
+      );
     }
-  }
+  });
+
+  // NOW initialize other services
+  const auth = getAuth(firebaseApp);
+  const storage = getStorage(firebaseApp);
 
   return {
     firebaseApp,
