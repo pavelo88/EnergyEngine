@@ -4,15 +4,24 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
+<<<<<<< HEAD
 import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+=======
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Logo } from '@/components/icons';
+<<<<<<< HEAD
 import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { Checkbox } from '@/components/ui/checkbox';
+=======
+import { Loader2, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -22,13 +31,17 @@ export default function AdminLoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+<<<<<<< HEAD
   const [showPassword, setShowPassword] = useState(false);
+=======
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!isUserLoading && user) {
       const checkUserRole = async () => {
+<<<<<<< HEAD
         if (user && user.email && firestore && auth) {
           try {
             const userDocRef = doc(firestore, 'usuarios', user.email);
@@ -44,12 +57,23 @@ export default function AdminLoginPage() {
             console.error("Error checking admin role:", e);
             await auth.signOut();
             setError("Ocurrió un error al verificar tus permisos.");
+=======
+        if (user && user.email && firestore) {
+          const userDocRef = doc(firestore, 'usuarios', user.email);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists() && userDocSnap.data().roles?.includes('admin')) {
+            router.push('/admin');
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
           }
         }
       };
       checkUserRole();
     }
+<<<<<<< HEAD
   }, [user, isUserLoading, router, firestore, auth]);
+=======
+  }, [user, isUserLoading, router, firestore]);
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,13 +152,22 @@ export default function AdminLoginPage() {
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-slate-100 p-4">
+<<<<<<< HEAD
         <Card className="w-full max-w-sm rounded-2xl shadow-xl">
+=======
+        <Card className="w-full max-w-2xl rounded-2xl shadow-xl">
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
           <CardHeader className="text-center space-y-4">
             <div className="mx-auto mb-2 flex justify-center">
               <Logo />
             </div>
+<<<<<<< HEAD
             <CardTitle className="text-2xl font-bold text-slate-800">¡Bienvenido de nuevo!</CardTitle>
             <CardDescription>Acceso al panel de administración.</CardDescription>
+=======
+            <CardTitle className="text-2xl font-bold text-slate-800">Módulo Administrativo</CardTitle>
+            <CardDescription>Introduce tus credenciales de administrador.</CardDescription>
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
@@ -151,6 +184,7 @@ export default function AdminLoginPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Contraseña o DNI</Label>
+<<<<<<< HEAD
                  <div className="relative">
                     <Input
                       id="password"
@@ -180,6 +214,16 @@ export default function AdminLoginPage() {
                     </Link>
                 </div>
 
+=======
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
               {error && (
                 <div className="flex items-center gap-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-800">
                   <AlertCircle className="h-4 w-4" />

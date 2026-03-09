@@ -1,8 +1,63 @@
+<<<<<<< HEAD
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
       allow read, write: if true;
     }
+=======
+rules_version = '2'; 
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------------------------------------
+    // Helper Functions
+    // ------------------------------------------------------------------------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Role-check functions using exists() for DBAC
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+             'admin' in get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.roles;
+    }
+
+    function isInspector() {
+       return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+             'inspector' in get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.roles;
+    }
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
+    // ------------------------------------------------------------------------
+    // Application Collections
+    // ------------------------------------------------------------------------
+    
+    match /clientes/{clienteId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /usuarios/{usuarioId} {
+      // Allow unauthenticated reads ONLY for the login page to check for DNI/email combinations.
+      // This is required for the first-time login flow.
+      // Write operations (creating, updating, deleting) are still protected and require authentication.
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /trabajos/{trabajoId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /gastos/{gastoId} {
+      allow read, write: if isSignedIn();
+    }
+
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   }
 }

@@ -10,17 +10,27 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import SignaturePad from '../SignaturePad';
 import { CHECKLIST_SECTIONS, INITIAL_FORM_DATA } from '../../lib/form-constants';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+<<<<<<< HEAD
 import logoLight from '@/app/logo.png';
+=======
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
     <div className="relative group">
+<<<<<<< HEAD
       {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={16}/>}
       <input 
         type={type} value={value || ''} onChange={(e: any) => onChange(e.target.value)} placeholder={placeholder}
         className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
+=======
+      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={16}/>}
+      <input 
+        type={type} value={value || ''} onChange={(e: any) => onChange(e.target.value)} placeholder={placeholder}
+        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-blue-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
       />
     </div>
   </div>
@@ -31,7 +41,11 @@ const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
         <label className="text-[9px] font-black text-slate-500 w-full text-center">{label}</label>
         <input 
             type="text" value={value || ''} onChange={(e: any) => onChange(e.target.value)}
+<<<<<<< HEAD
             className="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-2 outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
+=======
+            className="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-2 outline-none focus:border-blue-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         />
     </div>
 ));
@@ -40,13 +54,21 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   const doc = new jsPDF();
   const finalID = reportId || 'BORRADOR';
   const darkColor = '#0f172a';
+<<<<<<< HEAD
+=======
+  const corporateGreen = [26, 83, 42];
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
 
   // Márgenes
   const leftMargin = 15;
   const rightMargin = 15;
+<<<<<<< HEAD
   const topMargin = 40;
+=======
+  const topMargin = 32;
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   const bottomMargin = 20;
   const contentWidth = pageWidth - leftMargin - rightMargin;
   
@@ -221,6 +243,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   doc.text("Conforme cliente:", 125, currentY + 30);
   doc.text(report.recibidoPor || '', 125, currentY + 35);
   
+<<<<<<< HEAD
   // 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
 const drawHeader = () => {
   const logoX = leftMargin;
@@ -268,13 +291,34 @@ const drawHeader = () => {
   // Email abajo
   doc.text("serviciotecnico@energyengine.es", rightTextX, logoY + 16, { align: 'right' });
 };
+=======
+  // 7. ENCABEZADOS Y PIES DE PÁGINA GLOBALES
+  const drawHeader = () => {
+      doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
+      doc.rect(0, 0, pageWidth, 24, 'F');
+      doc.setTextColor('#FFFFFF');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text("energyengine", 15, 12);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.text("GRUPOS ELECTROGENOS", 15, 18);
+      
+      doc.setFontSize(8);
+      doc.text("Tel: 92 515 43 53 | serviciotecnico@energyengine.es", pageWidth - 15, 16, { align: 'right' });
+  };
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
   const drawFooter = (pageNumber: number, totalPages: number) => {
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(100);
       doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
+<<<<<<< HEAD
       doc.setFillColor(darkColor);
+=======
+      doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
       doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
   };
 
@@ -517,8 +561,19 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
             </DialogContent>
         </Dialog>
         
+<<<<<<< HEAD
         <main className="p-4 md:p-6 space-y-8 pb-40">
             <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe de Revisión</h2>
+=======
+        <header className="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-20">
+          <h1 className="text-lg font-bold tracking-wider uppercase">energy engine</h1>
+        </header>
+
+        <main className="p-4 md:p-6 space-y-8 pb-40">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-black text-slate-800 border-l-4 border-blue-500 pl-4 uppercase tracking-tighter">Informe de Revisión</h2>
+            </div>
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
             {/* --- DATOS GENERALES --- */}
             <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">

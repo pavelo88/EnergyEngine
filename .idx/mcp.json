@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "mcpServers": {
     "firebase": {
       "command": "npx",
@@ -11,4 +12,7 @@
       ]
     }
   }
+=======
+  "mcpServers": {}
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 }

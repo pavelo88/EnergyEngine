@@ -3,12 +3,18 @@
 import { useState, useEffect } from 'react';
 import { collection, query, getDocs, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
+<<<<<<< HEAD
 import { Loader2, FileText, AlertTriangle, Printer, Download, MapPin } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
+=======
+import { Loader2, FileText, AlertTriangle, Printer } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
 // Importar las funciones de generación de PDF de cada formulario
 import { generatePDF as generateHojaTrabajoPDF } from '@/app/inspection/components/forms/HojaTrabajoForm';
@@ -21,10 +27,13 @@ interface Report {
   id: string;
   cliente: string;
   clienteNombre?: string;
+<<<<<<< HEAD
   instalacion?: string;
   location?: { lat: number, lon: number };
   modelo?: string;
   n_motor?: string;
+=======
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   fecha_guardado: any; 
   formType: 'hoja-trabajo' | 'informe-revision' | 'informe-tecnico' | 'revision-basica' | 'informe-simplificado' | 'job' | undefined;
   [key: string]: any; // Para el resto de los datos
@@ -108,6 +117,7 @@ export default function ReportsPage() {
     }
   };
 
+<<<<<<< HEAD
   const handleExport = () => {
     const dataToExport = reports.map(report => ({
       ID: report.id,
@@ -137,6 +147,12 @@ export default function ReportsPage() {
             <Download className="mr-2" size={16} />
             Exportar a Excel
         </Button>
+=======
+  return (
+    <div className="p-6 h-full bg-slate-50">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-slate-800">Historial de Documentos</h1>
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
       </div>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -155,6 +171,7 @@ export default function ReportsPage() {
                 <p className='text-center'>No hay documentos guardados todavía.</p>
             </div>
         ) : (
+<<<<<<< HEAD
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-100">
@@ -191,6 +208,35 @@ export default function ReportsPage() {
               </tbody>
             </table>
           </div>
+=======
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-100">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ID Documento</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tipo</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Cliente</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Fecha</th>
+                <th scope="col" className="relative px-6 py-3"><span className="sr-only">Acciones</span></th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-slate-200">
+              {reports.map((report) => (
+                <tr key={report.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{report.id}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-bold">{getReportTitle(report.formType)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{report.cliente || report.clienteNombre}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{report.fecha_guardado?.toDate().toLocaleDateString() || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button onClick={() => handleReprintPDF(report)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">
+                      <Printer size={16}/>
+                      Reimprimir
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         )}
       </div>
     </div>

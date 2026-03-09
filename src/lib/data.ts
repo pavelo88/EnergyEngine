@@ -1,7 +1,11 @@
 import type { LucideIcon } from 'lucide-react';
 import { Activity, Cpu, ShieldCheck, Zap, Settings, Globe, PhoneCall } from 'lucide-react';
 
+<<<<<<< HEAD
 export const brands: string[] = ["Perkins", "Guascor", "Cummins", "Iveco", "Ruggerini", "Volvo Penta", "Lombardini", "MAN", "Rolls-Royce", "MTU", "Deif"];
+=======
+export const brands: string[] = ["Perkins", "Guascor", "Cummins", "Iveco", "Ruggerini", "Volvo Penta", "Lombardini", "MAN", "Rolls-Royce", "MTU"];
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
 type Service = {
     id: string;

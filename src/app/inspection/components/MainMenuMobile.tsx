@@ -6,17 +6,31 @@ import {
 } from 'lucide-react';
 import TABS from '../constants';
 
+<<<<<<< HEAD
+=======
+// --- PROPS DE LA INTERFAZ ---
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 interface MainMenuProps {
   onNavigate: (tab: string) => void;
   userName: string;
 }
 
+<<<<<<< HEAD
+=======
+// ======================================================================
+// ===> PALETA DE 4 COLORES CON IDENTIDAD (MODO CLARO)
+// ======================================================================
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 const menuItems = [
   {
     id: TABS.NEW_INSPECTION,
     label: 'Inspección',
     desc: 'Inicia una nueva revisión.',
+<<<<<<< HEAD
     icon: <ClipboardList size={28} />,
+=======
+    icon: <ClipboardList size={24} />, 
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     classes: 'bg-primary/10 border-primary/70 text-primary',
     labelColor: 'text-slate-800',
     descColor: 'text-slate-500',
@@ -26,26 +40,44 @@ const menuItems = [
     id: TABS.TASKS,
     label: 'Historial',
     desc: 'Consulta revisiones pasadas.',
+<<<<<<< HEAD
     icon: <Activity size={28} />,
     classes: 'bg-cyan-500/10 border-cyan-500/70 text-cyan-500',
     labelColor: 'text-slate-800',
     descColor: 'text-slate-500',
     shadow: 'active:shadow-cyan-500/20',
+=======
+    icon: <Activity size={24} />,
+    classes: 'bg-green-600/10 border-green-600/70 text-green-600',
+    labelColor: 'text-slate-800',
+    descColor: 'text-slate-500',
+    shadow: 'active:shadow-green-600/20',
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   },
   {
     id: TABS.EXPENSES,
     label: 'Jornada Laboral',
+<<<<<<< HEAD
     desc: 'Registro de horas y gastos.',
     icon: <Receipt size={28} />,
     classes: 'bg-purple-500/10 border-purple-500/70 text-purple-500',
     labelColor: 'text-slate-800',
     descColor: 'text-slate-500',
     shadow: 'active:shadow-purple-500/20',
+=======
+    desc: 'Registro de horas de trabajo y gastos.',
+    icon: <Receipt size={24} />,
+    classes: 'bg-slate-900 border-slate-700 text-primary',
+    labelColor: 'text-white',
+    descColor: 'text-slate-400',
+    shadow: 'active:shadow-slate-900/40',
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   },
   {
     id: TABS.PROFILE,
     label: 'Mi Perfil',
     desc: 'Ajusta tu cuenta.',
+<<<<<<< HEAD
     icon: <User size={28} />,
     classes: 'bg-slate-600/10 border-slate-500/70 text-slate-600',
     labelColor: 'text-slate-800',
@@ -54,6 +86,17 @@ const menuItems = [
   },
 ];
 
+=======
+    icon: <User size={24} />,
+    classes: 'bg-slate-200 border-slate-300 text-slate-600',
+    labelColor: 'text-slate-800',
+    descColor: 'text-slate-500',
+    shadow: 'active:shadow-slate-300/50',
+  },
+];
+
+// --- COMPONENTE MÓVIL CON NUEVO DISEÑO ---
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 export default function MainMenuMobile({ onNavigate, userName }: MainMenuProps) {
   return (
     <div className="bg-slate-100 min-h-full px-4 pt-4 pb-32 font-sans">

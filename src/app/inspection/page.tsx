@@ -53,7 +53,13 @@ const InspectionPageContent = () => {
     setHasMounted(true);
     
     const handleInstallPrompt = (e: Event) => {
+<<<<<<< HEAD
         e.preventDefault();
+=======
+        // Prevent the mini-infobar from appearing on mobile
+        e.preventDefault();
+        // Stash the event so it can be triggered later.
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         setInstallPrompt(e);
     };
 
@@ -65,12 +71,28 @@ const InspectionPageContent = () => {
       window.addEventListener('offline', handleOffline);
       window.addEventListener('beforeinstallprompt', handleInstallPrompt);
 
+<<<<<<< HEAD
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js')
           .then((registration) => console.log('Service Worker registered.', registration.scope))
           .catch((error) => console.error('Service Worker registration failed:', error));
       }
 
+=======
+      // --- Service Worker Registration ---
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('Service Worker registered successfully with scope: ', registration.scope);
+          })
+          .catch((error) => {
+            console.error('Service Worker registration failed: ', error);
+          });
+      }
+      // --- End of Service Worker Registration ---
+
+      // --- Initialize Speech Recognition ---
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
@@ -130,11 +152,19 @@ const InspectionPageContent = () => {
         };
         
         recognition.onend = () => {
+<<<<<<< HEAD
+=======
+            // This ensures the button state is correct if recognition stops on its own
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
             setIsDictating(false);
         };
 
         recognitionRef.current = recognition;
       }
+<<<<<<< HEAD
+=======
+      // --- End of Speech Recognition Init ---
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
       return () => {
         window.removeEventListener('online', handleOnline);
@@ -157,20 +187,29 @@ const InspectionPageContent = () => {
   const handleSelectInspectionType = (formType: FormType, data?: any) => {
     setSelectedTask(data);
     setActiveInspectionForm(formType);
+<<<<<<< HEAD
     setActiveTab(TABS.NEW_INSPECTION); // Navega a la pestaña de inspección
+=======
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   };
   
   const handleStartInspectionFromTask = (task: any) => {
     setSelectedTask(task);
+<<<<<<< HEAD
     // Asume un tipo de formulario por defecto o extrae el tipo de la tarea
     setActiveInspectionForm('informe-revision'); 
+=======
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     setActiveTab(TABS.NEW_INSPECTION);
   };
 
   const handleBackToHub = () => {
     setActiveInspectionForm(null);
+<<<<<<< HEAD
     // Al limpiar el formulario activo, la vista vuelve al "Hub" de selección
     // siempre que la pestaña activa siga siendo TABS.NEW_INSPECTION.
+=======
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   }
 
   const handleInstallClick = () => {
@@ -194,6 +233,7 @@ const InspectionPageContent = () => {
   };
 
   const toggleDictation = () => {
+<<<<<<< HEAD
       if (!isOnline) {
           toast({ variant: "destructive", title: "Sin Conexión", description: "El dictado por IA requiere conexión a internet." });
           return;
@@ -213,6 +253,28 @@ const InspectionPageContent = () => {
   };
 
   const renderFloatingDictationButton = () => {
+=======
+    if (!isOnline) {
+        toast({ variant: "destructive", title: "Sin Conexión", description: "El dictado por IA requiere conexión a internet." });
+        return;
+    }
+    if (!recognitionRef.current) {
+        toast({ variant: "destructive", title: "Navegador no compatible", description: "El dictado por voz no funciona en este navegador. Prueba con Chrome." });
+        return;
+    }
+    if (isDictating) {
+        recognitionRef.current.stop();
+        setIsDictating(false); // Manually set state, onend can be slow
+    } else {
+        setAiData(null); // Reset previous data on new dictation
+        recognitionRef.current.start();
+        setIsDictating(true);
+    }
+  };
+
+  const renderFloatingDictationButton = () => {
+      // Show only on data-heavy forms that benefit from global dictation
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
       const supportedForms: FormType[] = ['hoja-trabajo', 'informe-tecnico', 'informe-revision', 'informe-simplificado'];
       if (!activeInspectionForm || !supportedForms.includes(activeInspectionForm)) {
           return null;
@@ -222,7 +284,11 @@ const InspectionPageContent = () => {
           <button
               onClick={toggleDictation}
               className={`fixed bottom-28 md:bottom-10 right-6 w-16 h-16 rounded-full text-white shadow-2xl flex items-center justify-center z-50 transition-all duration-300 transform active:scale-90
+<<<<<<< HEAD
               ${isDictating ? 'bg-red-600 animate-pulse' : 'bg-primary'}
+=======
+              ${isDictating ? 'bg-red-600 animate-pulse' : 'bg-blue-600'}
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
               ${aiLoading ? 'bg-gray-400 cursor-not-allowed' : ''}`}
               disabled={aiLoading}
               aria-label={isDictating ? 'Detener dictado' : 'Iniciar dictado'}
@@ -233,11 +299,19 @@ const InspectionPageContent = () => {
   };
 
   if (!user) {
+<<<<<<< HEAD
      return <div className="flex h-screen items-center justify-center bg-slate-100"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
   const renderContent = () => {
     if (!hasMounted) return <div className="flex-grow flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>;
+=======
+     return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
+
+  const renderContent = () => {
+    if (!hasMounted) return null;
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
     if (activeTab === TABS.MENU) {
       const userName = user?.displayName || user?.email?.split('@')[0] || 'Inspector';
@@ -249,7 +323,11 @@ const InspectionPageContent = () => {
         case 'desktop':
           return <MainMenuDesktop onNavigate={handleNavigate} userName={userName} />;
         default:
+<<<<<<< HEAD
           return <div className="flex-grow flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>;
+=======
+          return <div className="flex h-full items-center justify-center p-20"><Loader2 className="animate-spin" /></div>;
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
       }
     }
 
@@ -268,7 +346,11 @@ const InspectionPageContent = () => {
         }
 
         return (
+<<<<<<< HEAD
             <Suspense fallback={<div className="flex-grow flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>}>
+=======
+            <Suspense fallback={<div className="flex h-full items-center justify-center p-20"><Loader2 className="animate-spin" /></div>}>
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
                 <FormComponent initialData={selectedTask} aiData={aiData} />
             </Suspense>
         );
@@ -285,20 +367,33 @@ const InspectionPageContent = () => {
     }
 
     return (
+<<<<<<< HEAD
       <Suspense fallback={<div className="flex-grow flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>}>
         <TabComponent {...props} />
       </Suspense>
+=======
+        <div className="animate-in slide-in-from-right duration-300 w-full max-w-4xl mx-auto">
+            <Suspense fallback={<div className="flex h-full items-center justify-center p-20"><Loader2 className="animate-spin" /></div>}>
+              <TabComponent {...props} />
+            </Suspense>
+        </div>
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     );
   };
 
   return (
+<<<<<<< HEAD
     <div className="flex flex-col min-h-screen bg-slate-50">
+=======
+    <main className="bg-slate-100 min-h-screen flex flex-col">
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
       <Header 
         activeTab={activeTab}
         isSubNavActive={!!activeInspectionForm}
         onBack={activeInspectionForm ? handleBackToHub : () => handleNavigate(TABS.MENU)}
         isOnline={isOnline}
         onInstall={handleInstallClick}
+<<<<<<< HEAD
         canInstall={!!installPrompt}
       />
       <div className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -307,6 +402,16 @@ const InspectionPageContent = () => {
       {renderFloatingDictationButton()}
       <Footer activeTab={activeTab} onNavigate={handleNavigate} />
     </div>
+=======
+        canInstall={true}
+      />
+      <div className="flex-grow">
+        {renderContent()}
+      </div>
+      {renderFloatingDictationButton()}
+      {activeTab === TABS.MENU && <Footer />}
+    </main>
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   );
 }
 

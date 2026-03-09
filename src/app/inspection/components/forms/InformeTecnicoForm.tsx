@@ -9,7 +9,10 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
+<<<<<<< HEAD
 import logoLight from '@/app/logo.png';
+=======
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
@@ -35,12 +38,18 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const pageWidth = doc.internal.pageSize.width;
     
     // Márgenes
+<<<<<<< HEAD
     const leftMargin = 15;
     const rightMargin = 15;
+=======
+    const leftMargin = 30;
+    const rightMargin = 30;
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     const bottomMargin = 30;
     const topMargin = 40; // Margen superior para cuando salta de página
     const contentWidth = pageWidth - leftMargin - rightMargin;
 
+<<<<<<< HEAD
     let currentY = topMargin;
 
     // 1. Título
@@ -49,6 +58,19 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.text(title, leftMargin, currentY);
+=======
+    let currentY = 40;
+
+    // 1. Título
+    const title = `INFORME TÉCNICO Nº: ${finalID}`;
+    const titleWidth = doc.getStringUnitWidth(title) * doc.getFontSize() / doc.internal.scaleFactor;
+    const titleX = (pageWidth - titleWidth) / 2;
+
+    doc.setTextColor(darkColor);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title, titleX, currentY);
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     currentY += 10;
     
     // 2. Tabla de Datos
@@ -56,15 +78,22 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         startY: currentY,
         body: [
             ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
+<<<<<<< HEAD
             [{ content: 'Cliente:', styles: { fontStyle: 'bold' } }, { content: report.cliente, colSpan: 3 }],
+=======
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
             [{ content: 'Instalación:', styles: { fontStyle: 'bold' } }, { content: report.instalacion, colSpan: 3 }],
             [{ content: 'UBICACIÓN (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
             ['Motor:', report.motor, 'Modelo:', report.modelo],
             ['Nº de motor:', report.n_motor, 'Grupo:', report.grupo],
         ],
         theme: 'grid',
+<<<<<<< HEAD
         styles: { fontSize: 9, cellPadding: 2, lineColor: '#ccc', lineWidth: 0.1 },
         headStyles: { fillColor: '#fff', textColor: '#000'},
+=======
+        styles: { fontSize: 9, cellPadding: 2 },
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         columnStyles: { 0: { fontStyle: 'bold' }, 2: { fontStyle: 'bold' } },
         margin: { left: leftMargin, right: rightMargin },
     });
@@ -137,6 +166,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text(`Firmado: ${inspectorName}`, leftMargin, currentY + 32);
     doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, leftMargin, currentY + 39);
 
+<<<<<<< HEAD
 // 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
 const drawHeader = () => {
   const logoX = leftMargin;
@@ -184,6 +214,21 @@ const drawHeader = () => {
   // Email abajo
   doc.text("serviciotecnico@energyengine.es", rightTextX, logoY + 16, { align: 'right' });
 };
+=======
+    // 6. Dibujar Encabezado y Pie de Página en TODAS las páginas (incluidas las que se crearon automáticamente)
+    const drawHeader = () => {
+      doc.setFillColor(darkColor);
+      doc.rect(0, 0, pageWidth, 28, 'F');
+      doc.setTextColor('#FFFFFF');
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text("energy engine", 15, 18);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - 15, 12, { align: 'right' });
+      doc.text("Tel: 92 515 43 53", pageWidth - 15, 18, { align: 'right' });
+    };
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
     const drawFooter = (pageNumber: number, totalPages: number) => {
         doc.setFontSize(8);
@@ -210,7 +255,10 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   const [inspectorName, setInspectorName] = useState('');
   
   const [formData, setFormData] = useState({
+<<<<<<< HEAD
     cliente: '',
+=======
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     motor: '',
     modelo: '',
     n_motor: '',
@@ -253,7 +301,10 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
       setFormData((prev: any) => ({
         ...prev,
+<<<<<<< HEAD
         cliente: initialData.cliente || prev.cliente,
+=======
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         motor: initialData.motor || initialData.equipo?.marca || prev.motor,
         modelo: initialData.modelo || initialData.equipo?.modelo || prev.modelo,
         n_motor: initialData.n_motor || initialData.equipo?.sn || prev.n_motor,
@@ -268,7 +319,10 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     if (aiData) {
       setFormData((prev: any) => ({
         ...prev,
+<<<<<<< HEAD
         cliente: aiData.identidad.cliente || prev.cliente,
+=======
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         motor: aiData.identidad.marca || prev.motor,
         modelo: aiData.identidad.modelo || prev.modelo,
         n_motor: aiData.identidad.sn || prev.n_motor,
@@ -298,7 +352,11 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         setLocationStatus('success');
       },
       () => {
+<<<<<<< HEAD
         alert("No se pudo obtener la ubicación. Por favor, asegúrate de que los permisos de localización están activados para esta página en los ajustes de tu navegador e inténtalo de nuevo.");
+=======
+        alert('No se pudo obtener la ubicación. Revisa los permisos del navegador.');
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         setLocationStatus('error');
       }
     );
@@ -378,11 +436,21 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
           </div>
         </DialogContent>
       </Dialog>
+<<<<<<< HEAD
+=======
+
+      <header className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
+        <h2 className="text-2xl font-black text-slate-800 border-l-4 border-green-500 pl-4 uppercase tracking-tighter">Descripción de la incidencia</h2>
+      </header>
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
       
       <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
          <h3 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Datos de Identificación</h3>
          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+<<<<<<< HEAD
             <StableInput label="Cliente" icon={User} value={formData.cliente} onChange={(v: string) => handleInputChange('cliente', v)}/>
+=======
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
             <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: string) => handleInputChange('motor', v)}/>
             <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={(v: string) => handleInputChange('modelo', v)}/>
             <StableInput label="Nº de motor" icon={Type} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>

@@ -5,18 +5,29 @@ import {
   ClipboardList, MapPin, Search, Filter, Clock, CheckCircle2, Loader2, ArrowRight
 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
+<<<<<<< HEAD
 import { collection, query, where, getDocs } from 'firebase/firestore';
+=======
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 interface Task {
   id: string;
+<<<<<<< HEAD
   clienteNombre?: string;
   cliente?: string;
   instalacion: string;
   estado: 'Pendiente' | 'En Progreso' | 'Completado';
   fechaCreacion?: any;
   fecha_guardado?: any;
+=======
+  clienteNombre: string;
+  instalacion: string;
+  estado: 'Pendiente' | 'En Progreso' | 'Completado';
+  fechaCreacion?: any;
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   [key: string]: any;
 }
 
@@ -30,6 +41,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
   useEffect(() => {
     if (!user || !db) return;
 
+<<<<<<< HEAD
     const fetchTasks = async () => {
       setLoading(true);
       try {
@@ -74,6 +86,31 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
     };
 
     fetchTasks();
+=======
+    setLoading(true);
+    
+    // CORRECCION: Se ajusta la consulta para filtrar por ID de técnico y se añade el estado 'En Progreso' a los pendientes
+    const q = query(
+      collection(db, "trabajos"),
+      where("inspectorIds", "array-contains", user.uid),
+      orderBy('fechaCreacion', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const tasksData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Task[];
+      
+      setTasks(tasksData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching tasks: ", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   }, [user, db]);
 
   const filteredTasks = useMemo(() => {
@@ -118,7 +155,11 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
                 </div>
                 
                 <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">
+<<<<<<< HEAD
                   {task.clienteNombre || task.cliente || 'Cliente no asignado'}
+=======
+                  {task.clienteNombre || 'Cliente no asignado'}
+>>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
                 </h3>
                 
                 <div className="flex items-center gap-2 text-slate-400">
