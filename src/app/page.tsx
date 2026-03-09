@@ -6,13 +6,27 @@ import Services from '@/components/site/services';
 import Stats from '@/components/site/stats';
 import WhatsAppWidget from '@/components/site/whatsapp-widget';
 import Brands from '@/components/site/brands';
+import Image from 'next/image';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function Home() {
+  const heroBg = PlaceHolderImages.find(img => img.id === 'hero-background');
+
   return (
     <>
       <Navbar />
       <main className="overflow-x-hidden pt-20">
         <section className="relative flex flex-col justify-center px-6 py-16 sm:py-20 overflow-hidden min-h-[70vh]">
+          {heroBg && (
+            <Image
+              src={heroBg.imageUrl}
+              alt={heroBg.description}
+              fill
+              className="object-cover z-[-1] opacity-10 dark:opacity-5"
+              data-ai-hint={heroBg.imageHint}
+              priority
+            />
+          )}
           <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <Hero />
             <Stats />
