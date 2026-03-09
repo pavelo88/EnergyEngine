@@ -10,10 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import SignaturePad from '../SignaturePad';
 import { INITIAL_FORM_DATA } from '../../lib/form-constants';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-<<<<<<< HEAD
 import logoLight from '@/app/logo.png';
-=======
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
 // 1. Checklist específico y reducido para "Revisión Básica" (Sin filtros ni correas)
 const BASIC_REVISION_CHECKLIST = {
@@ -49,21 +46,13 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const doc = new jsPDF();
     const finalID = reportId || 'BORRADOR';
     const darkColor = '#0f172a';
-<<<<<<< HEAD
-=======
-    const corporateGreen = [26, 83, 42];
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
 
     // Márgenes Globales estrictos
     const leftMargin = 15;
     const rightMargin = 15;
-<<<<<<< HEAD
     const topMargin = 40;
-=======
-    const topMargin = 32;
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     const bottomMargin = 20;
     const contentWidth = pageWidth - leftMargin - rightMargin;
     const globalMargin = { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin };
@@ -265,7 +254,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text("Conforme cliente:", 125, currentY + 30);
     doc.text(report.recibidoPor || '', 125, currentY + 35);
     
-<<<<<<< HEAD
   // 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
 const drawHeader = () => {
   const logoX = leftMargin;
@@ -313,34 +301,13 @@ const drawHeader = () => {
   // Email abajo
   doc.text("serviciotecnico@energyengine.es", rightTextX, logoY + 16, { align: 'right' });
 };
-=======
-    // 8. ENCABEZADOS Y PIES DE PÁGINA GLOBALES
-    const drawHeader = () => {
-        doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
-        doc.rect(0, 0, pageWidth, 24, 'F');
-        doc.setTextColor('#FFFFFF');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.text("energyengine", 15, 12);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.text("GRUPOS ELECTROGENOS", 15, 18);
-        
-        doc.setFontSize(8);
-        doc.text("Tel: 92 515 43 53 | serviciotecnico@energyengine.es", pageWidth - 15, 16, { align: 'right' });
-    };
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
     const drawFooter = (pageNumber: number, totalPages: number) => {
         doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(100);
         doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-<<<<<<< HEAD
         doc.setFillColor(darkColor);
-=======
-        doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
     };
 
@@ -606,13 +573,6 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
             </DialogContent>
         </Dialog>
         
-<<<<<<< HEAD
-=======
-        <header className="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-20">
-          <h1 className="text-lg font-bold tracking-wider uppercase">Energy Engine</h1>
-        </header>
-
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         <main className="p-4 md:p-6 space-y-8 pb-40">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-black text-slate-800 border-l-4 border-purple-500 pl-4 uppercase tracking-tighter">Revisión Básica</h2>

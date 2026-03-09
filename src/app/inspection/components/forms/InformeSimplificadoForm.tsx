@@ -10,10 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import SignaturePad from '../SignaturePad';
 import { INITIAL_FORM_DATA } from '../../lib/form-constants';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-<<<<<<< HEAD
 import logoLight from '@/app/logo.png';
-=======
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
 const SIMPLIFIED_CHECKLIST_ITEMS = [
     "Filtro de Aceite",
@@ -30,17 +27,10 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
   <div className="space-y-1 w-full text-left">
     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
     <div className="relative group">
-<<<<<<< HEAD
       {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={16}/>}
       <input 
         type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
         className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
-=======
-      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-cyan-500 transition-colors" size={16}/>}
-      <input 
-        type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-cyan-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
       />
     </div>
   </div>
@@ -51,11 +41,7 @@ const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
         <label className="text-[9px] font-black text-slate-500 w-full text-center">{label}</label>
         <input 
             type="text" value={value || ''} onChange={e => onChange(e.target.value)}
-<<<<<<< HEAD
             className="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-2 outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
-=======
-            className="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-2 outline-none focus:border-cyan-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         />
     </div>
 ));
@@ -64,21 +50,13 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const doc = new jsPDF();
     const finalID = reportId || 'BORRADOR';
     const darkColor = '#0f172a';
-<<<<<<< HEAD
-=======
-    const corporateGreen = [26, 83, 42];
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
 
     // Márgenes Globales
     const leftMargin = 15;
     const rightMargin = 15;
-<<<<<<< HEAD
     const topMargin = 40;
-=======
-    const topMargin = 32;
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     const bottomMargin = 20;
     const contentWidth = pageWidth - leftMargin - rightMargin;
     const globalMargin = { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin };
@@ -227,7 +205,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text("Conforme cliente:", 125, currentY + 30);
     doc.text(report.recibidoPor || '', 125, currentY + 35);
 
-<<<<<<< HEAD
 // 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
 const drawHeader = () => {
   const logoX = leftMargin;
@@ -275,34 +252,13 @@ const drawHeader = () => {
   // Email abajo
   doc.text("serviciotecnico@energyengine.es", rightTextX, logoY + 16, { align: 'right' });
 };
-=======
-    // 7. ENCABEZADOS Y PIES DE PÁGINA GLOBALES
-    const drawHeader = () => {
-        doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
-        doc.rect(0, 0, pageWidth, 24, 'F');
-        doc.setTextColor('#FFFFFF');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.text("energyengine", 15, 12);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.text("GRUPOS ELECTROGENOS", 15, 18);
-        
-        doc.setFontSize(8);
-        doc.text("Tel: 92 515 43 53 | serviciotecnico@energyengine.es", pageWidth - 15, 16, { align: 'right' });
-    };
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
     const drawFooter = (pageNumber: number, totalPages: number) => {
         doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(100);
         doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-<<<<<<< HEAD
         doc.setFillColor(darkColor);
-=======
-        doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
     };
 
@@ -544,19 +500,9 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
             </DialogContent>
         </Dialog>
         
-<<<<<<< HEAD
         <main className="p-4 md:p-6 space-y-8 pb-40">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Simplificado</h2>
-=======
-        <header className="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-20">
-          <h1 className="text-lg font-bold tracking-wider uppercase">energy engine</h1>
-        </header>
-
-        <main className="p-4 md:p-6 space-y-8 pb-40">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-black text-slate-800 border-l-4 border-cyan-500 pl-4 uppercase tracking-tighter">Informe Simplificado</h2>
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
             </div>
 
             {/* --- DATOS GENERALES --- */}
@@ -575,15 +521,9 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
                     <button 
                         onClick={handleCaptureLocation} 
                         disabled={locationStatus === 'loading'} 
-<<<<<<< HEAD
                         className={`w-full bg-slate-50 border-2 rounded-xl p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 text-slate-700 hover:border-primary'}`}
                     >
                         {locationStatus === 'loading' && <Loader2 className="animate-spin text-primary" size={16}/>}
-=======
-                        className={`w-full bg-slate-50 border-2 rounded-xl p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 text-slate-700 hover:border-cyan-500'}`}
-                    >
-                        {locationStatus === 'loading' && <Loader2 className="animate-spin text-cyan-500" size={16}/>}
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
                         {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 size={16}/> : <MapPin size={16}/>)}
                         <span>{formData.location ? `Ubicación Capturada: ${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación (Obligatorio)'}</span>
                     </button>
@@ -595,19 +535,11 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
                 <h3 className="font-bold text-slate-500">Recambios y Materiales</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                     {SIMPLIFIED_CHECKLIST_ITEMS.map(it => (
-<<<<<<< HEAD
                     <div key={it} className={`p-4 rounded-xl flex justify-between items-center transition-all border ${formData.recambios_checklist[it] ? 'bg-primary/10 border-primary/20' : 'bg-slate-50/50 border-slate-100'}`}>
                         <span className="text-lg font-bold text-slate-700">{it}</span>
                         <div className="flex gap-1">
                         {["OK", "DEFECTUOSO", "CAMBIO"].map(st => (
                             <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-20 h-8 rounded-lg text-[10px] font-black border-2 transition-all ${formData.recambios_checklist[it] === st ? 'bg-primary border-primary text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-primary/50'}`}>{st}</button>
-=======
-                    <div key={it} className={`p-4 rounded-xl flex justify-between items-center transition-all border ${formData.recambios_checklist[it] ? 'bg-cyan-50/50 border-cyan-200/50' : 'bg-slate-50/50 border-slate-100'}`}>
-                        <span className="text-lg font-bold text-slate-700">{it}</span>
-                        <div className="flex gap-1">
-                        {["OK", "DEFECTUOSO", "CAMBIO"].map(st => (
-                            <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-20 h-8 rounded-lg text-[10px] font-black border-2 transition-all ${formData.recambios_checklist[it] === st ? 'bg-cyan-600 border-cyan-600 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-cyan-300'}`}>{st}</button>
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
                         ))}
                         </div>
                     </div>
@@ -639,11 +571,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
             </section>
             
              <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-<<<<<<< HEAD
                 <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Camera className="text-primary"/> Evidencia Fotográfica</h2>
-=======
-                <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Camera className="text-cyan-500"/> Evidencia Fotográfica</h2>
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
                 <div>
                     <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-200 transition-colors">
                         <Camera size={32} className="text-slate-400 mb-2"/>
@@ -688,11 +616,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
                     {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
                 </button>
                 <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
-<<<<<<< HEAD
                     {saving ? <Loader2 className="animate-spin text-primary" /> : isSaved ? <CheckCircle2 className="text-primary" /> : <Save className="text-primary" />}
-=======
-                    {saving ? <Loader2 className="animate-spin text-cyan-500" /> : isSaved ? <CheckCircle2 className="text-cyan-500" /> : <Save className="text-cyan-500" />}
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
                     {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR INFORME'}
                 </button>
             </div>

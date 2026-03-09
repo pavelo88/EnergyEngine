@@ -9,30 +9,19 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
-<<<<<<< HEAD
 import logoLight from '@/app/logo.png';
-=======
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
     <div className="relative group">
-<<<<<<< HEAD
       {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={18}/>}
-=======
-      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-green-500 transition-colors" size={18}/>}
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
       <input
         type={type}
         value={value || ''}
         onChange={(e: any) => onChange(e.target.value)}
         placeholder={placeholder}
-<<<<<<< HEAD
         className={`w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 ${Icon ? 'pl-12' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm`}
-=======
-        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 ${Icon ? 'pl-12' : ''} outline-none focus:border-green-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm`}
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
       />
     </div>
   </div>
@@ -42,45 +31,24 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const doc = new jsPDF();
     const finalID = reportId || 'BORRADOR';
     const darkColor = '#0f172a';
-<<<<<<< HEAD
-=======
-    const corporateGreen = [26, 83, 42];
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     const pageHeight = doc.internal.pageSize.height;
     const pageWidth = doc.internal.pageSize.width;
     
     // Márgenes
-<<<<<<< HEAD
     const leftMargin = 15;
     const rightMargin = 15;
     const bottomMargin = 30;
     const topMargin = 40; // Margen superior para cuando salta de página
-=======
-    const leftMargin = 30;
-    const rightMargin = 30;
-    const bottomMargin = 20;
-    const topMargin = 32;
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     const contentWidth = pageWidth - leftMargin - rightMargin;
 
     let currentY = topMargin;
 
     // 1. Título
     const title = `INFORME TÉCNICO Nº: ${finalID}`;
-<<<<<<< HEAD
     doc.setTextColor(darkColor);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.text(title, leftMargin, currentY);
-=======
-    const titleWidth = doc.getStringUnitWidth(title) * doc.getFontSize() / doc.internal.scaleFactor;
-    const titleX = (pageWidth - titleWidth) / 2;
-
-    doc.setTextColor(darkColor);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text(title, titleX, currentY);
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     currentY += 10;
     
     // 2. Tabla de Datos
@@ -88,22 +56,15 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         startY: currentY,
         body: [
             ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
-<<<<<<< HEAD
             [{ content: 'Cliente:', styles: { fontStyle: 'bold' } }, { content: report.cliente, colSpan: 3 }],
-=======
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
             [{ content: 'Instalación:', styles: { fontStyle: 'bold' } }, { content: report.instalacion, colSpan: 3 }],
             [{ content: 'UBICACIÓN (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
             ['Motor:', report.motor, 'Modelo:', report.modelo],
             ['Nº de motor:', report.n_motor, 'Grupo:', report.grupo],
         ],
         theme: 'grid',
-<<<<<<< HEAD
         styles: { fontSize: 9, cellPadding: 2, lineColor: '#ccc', lineWidth: 0.1 },
         headStyles: { fillColor: '#fff', textColor: '#000'},
-=======
-        styles: { fontSize: 9, cellPadding: 2 },
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         columnStyles: { 0: { fontStyle: 'bold' }, 2: { fontStyle: 'bold' } },
         margin: { left: leftMargin, right: rightMargin },
     });
@@ -117,21 +78,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text("Descripción de la incidencia", leftMargin, currentY);
     currentY += 8;
 
-<<<<<<< HEAD
     // 4. Renderizado del Texto (El truco del justificado)
     const rawText = report.reportContent || '';
     const blocks = rawText.split('\n\n'); // Cortamos por saltos de línea dobles
 
     blocks.forEach((block: string) => {
         const text = block.replace(/\n/g, ' ').trim(); // Limpiamos saltos de línea simples
-=======
-    // 4. Renderizado del Texto
-    const rawText = report.reportContent || '';
-    const blocks = rawText.split('\n\n');
-
-    blocks.forEach((block: string) => {
-        const text = block.replace(/\n/g, ' ').trim(); 
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         
         if (!text) return;
 
@@ -153,7 +105,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
                 margin: { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin },
                 body: [[text]],
                 theme: 'plain',
-<<<<<<< HEAD
                 styles: {
                     font: 'helvetica',
                     fontSize: 9,
@@ -164,10 +115,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
                 columnStyles: {
                     0: { cellWidth: contentWidth }
                 }
-=======
-                styles: { font: 'helvetica', fontSize: 9, cellPadding: 0, halign: 'justify', textColor: darkColor },
-                columnStyles: { 0: { cellWidth: contentWidth } }
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
             });
             currentY = (doc as any).lastAutoTable.finalY + 4;
         }
@@ -190,7 +137,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text(`Firmado: ${inspectorName}`, leftMargin, currentY + 32);
     doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, leftMargin, currentY + 39);
 
-<<<<<<< HEAD
 // 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
 const drawHeader = () => {
   const logoX = leftMargin;
@@ -238,33 +184,11 @@ const drawHeader = () => {
   // Email abajo
   doc.text("serviciotecnico@energyengine.es", rightTextX, logoY + 16, { align: 'right' });
 };
-=======
-    // 6. Dibujar Encabezado y Pie de Página en TODAS las páginas
-    const drawHeader = () => {
-      doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
-      doc.rect(0, 0, pageWidth, 24, 'F');
-      doc.setTextColor('#FFFFFF');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text("energyengine", 15, 12);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.text("GRUPOS ELECTROGENOS", 15, 18);
-      
-      doc.setFontSize(8);
-      doc.text("Tel: 92 515 43 53 | serviciotecnico@energyengine.es", pageWidth - 15, 16, { align: 'right' });
-    };
-
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     const drawFooter = (pageNumber: number, totalPages: number) => {
         doc.setFontSize(8);
         doc.setTextColor(100);
         doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-<<<<<<< HEAD
         doc.setFillColor(darkColor);
-=======
-        doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
     };
 
@@ -285,10 +209,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   const [inspectorName, setInspectorName] = useState('');
   
   const [formData, setFormData] = useState({
-<<<<<<< HEAD
     cliente: '',
-=======
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
     motor: '',
     modelo: '',
     n_motor: '',
@@ -331,10 +252,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
       setFormData((prev: any) => ({
         ...prev,
-<<<<<<< HEAD
         cliente: initialData.cliente || prev.cliente,
-=======
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         motor: initialData.motor || initialData.equipo?.marca || prev.motor,
         modelo: initialData.modelo || initialData.equipo?.modelo || prev.modelo,
         n_motor: initialData.n_motor || initialData.equipo?.sn || prev.n_motor,
@@ -349,10 +267,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     if (aiData) {
       setFormData((prev: any) => ({
         ...prev,
-<<<<<<< HEAD
         cliente: aiData.identidad.cliente || prev.cliente,
-=======
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         motor: aiData.identidad.marca || prev.motor,
         modelo: aiData.identidad.modelo || prev.modelo,
         n_motor: aiData.identidad.sn || prev.n_motor,
@@ -463,21 +378,12 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         </DialogContent>
       </Dialog>
 
-<<<<<<< HEAD
       <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Técnico</h2>
-=======
-      <header className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
-        <h2 className="text-2xl font-black text-slate-800 border-l-4 border-green-500 pl-4 uppercase tracking-tighter">Descripción de la incidencia</h2>
-      </header>
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
       
       <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
          <h3 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Datos de Identificación</h3>
          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-<<<<<<< HEAD
             <StableInput label="Cliente" icon={User} value={formData.cliente} onChange={(v: string) => handleInputChange('cliente', v)}/>
-=======
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
             <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: string) => handleInputChange('motor', v)}/>
             <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={(v: string) => handleInputChange('modelo', v)}/>
             <StableInput label="Nº de motor" icon={Type} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>
@@ -489,17 +395,10 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
               <button 
                   onClick={handleCaptureLocation} 
                   disabled={locationStatus === 'loading'} 
-<<<<<<< HEAD
                   className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 flex items-center justify-center gap-3 font-bold text-slate-700 shadow-sm hover:border-primary transition-colors disabled:opacity-50"
               >
                   {locationStatus === 'loading' && <Loader2 className="animate-spin text-primary" size={18}/>}
                   {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 className="text-primary" size={18}/> : <MapPin className="text-slate-400" size={18}/>)}
-=======
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 flex items-center justify-center gap-3 font-bold text-slate-700 shadow-sm hover:border-green-500 transition-colors disabled:opacity-50"
-              >
-                  {locationStatus === 'loading' && <Loader2 className="animate-spin text-green-500" size={18}/>}
-                  {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 className="text-green-500" size={18}/> : <MapPin className="text-slate-400" size={18}/>)}
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
                   <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación'}</span>
               </button>
             </div>
@@ -509,11 +408,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-8 border border-slate-100">
          <div className="flex justify-between items-center">
             <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">
-<<<<<<< HEAD
                 <Type size={18} className="text-primary" /> Descripción de la incidencia
-=======
-                <Type size={18} className="text-green-500" /> Descripción de la incidencia
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
             </h3>
             <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors active:scale-95">
                 {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />}
@@ -521,11 +416,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             </button>
         </div>
         <textarea 
-<<<<<<< HEAD
             className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600 shadow-inner resize-y leading-relaxed" 
-=======
-            className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 outline-none focus:border-green-500 focus:bg-white font-medium text-slate-600 shadow-inner resize-y leading-relaxed" 
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
             placeholder="Dicte o escriba aquí el informe completo. La IA lo estructurará en Antecedentes, Intervención y Resumen."
             value={formData.reportContent} 
             onChange={(e: any) => handleInputChange('reportContent', e.target.value)}
@@ -545,11 +436,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             {isSaved ? <Printer/> : <FileSearch/>} {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
         </button>
         <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
-<<<<<<< HEAD
           {saving ? <Loader2 className="animate-spin text-primary"/> : isSaved ? <CheckCircle2 className="text-primary"/> : <Save className="text-primary"/>} {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR INFORME'}
-=======
-          {saving ? <Loader2 className="animate-spin text-green-500"/> : isSaved ? <CheckCircle2 className="text-green-500"/> : <Save className="text-green-500"/>} {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR INFORME'}
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
         </button>
       </div>
     </main>
