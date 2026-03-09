@@ -5,7 +5,14 @@ import Link from 'next/link';
 import { Menu } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { Logo } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { navLinks } from '@/lib/data';
@@ -75,6 +82,12 @@ export default function Navbar() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right">
+                <SheetHeader className="sr-only">
+                  <SheetTitle>Menú</SheetTitle>
+                  <SheetDescription>
+                    Menú principal de navegación del sitio.
+                  </SheetDescription>
+                </SheetHeader>
                 <div className="flex flex-col items-center gap-8 mt-16">
                   {renderNavLinks()}
                   <Button asChild className="w-full bg-foreground text-background px-6 py-2 rounded-full font-bold text-xs uppercase tracking-widest hover:bg-foreground/80 transition-all">
