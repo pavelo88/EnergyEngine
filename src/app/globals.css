@@ -4,7 +4,7 @@
  
 @layer base {
   body {
-    @apply text-foreground bg-slate-50;
+    @apply bg-background text-foreground;
     font-feature-settings: 'cv11', 'ss01';
   }
 
@@ -18,7 +18,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
  
-    --primary: 217 91% 60%;
+    --primary: 145 63% 36%;
     --primary-foreground: 210 40% 98%;
  
     --secondary: 210 40% 96.1%;
@@ -35,7 +35,7 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 217 91% 60%;
+    --ring: 145 63% 36%;
  
     --radius: 1.5rem;
   }
@@ -50,8 +50,8 @@
     --popover: 224 71% 4%;
     --popover-foreground: 213 31% 91%;
 
-    --primary: 173 97% 39%;
-    --primary-foreground: 173 100% 5%;
+    --primary: 145 63% 36%;
+    --primary-foreground: 210 40% 98%;
 
     --secondary: 215 28% 17%;
     --secondary-foreground: 213 31% 91%;
@@ -67,7 +67,7 @@
 
     --border: 215 28% 17%;
     --input: 215 28% 17%;
-    --ring: 173 97% 39%;
+    --ring: 145 63% 36%;
   }
 }
  
