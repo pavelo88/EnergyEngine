@@ -1,4 +1,3 @@
-import ParticleBackground from '@/components/site/ParticleBackground';
 import Contact from '@/components/site/contact';
 import Footer from '@/components/site/footer';
 import Hero from '@/components/site/hero';
@@ -11,7 +10,6 @@ import Brands from '@/components/site/brands';
 export default function Home() {
   return (
     <>
-      <ParticleBackground />
       <Navbar />
       <main className="overflow-x-hidden pt-20">
         <section className="relative flex flex-col justify-center px-6 py-16 sm:py-20 overflow-hidden min-h-[70vh]">
