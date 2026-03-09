@@ -5,7 +5,7 @@ import {
   ClipboardList, MapPin, Search, Filter, Clock, CheckCircle2, Loader2, ArrowRight
 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -15,6 +15,7 @@ interface Task {
   instalacion: string;
   estado: 'Pendiente' | 'En Progreso' | 'Completado';
   fechaCreacion?: any;
+  fecha_guardado?: any;
   [key: string]: any;
 }
 
@@ -28,36 +29,50 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
   useEffect(() => {
     if (!user || !db) return;
 
-    setLoading(true);
-    
-    // Consulta para obtener los trabajos del inspector
-    const q = query(
-      collection(db, "trabajos"),
-      where("inspectorIds", "array-contains", user.uid)
-    );
+    const fetchTasks = async () => {
+      setLoading(true);
+      try {
+        // Query 1: Jobs assigned to the inspector via admin panel
+        const q1 = query(
+          collection(db, "trabajos"),
+          where("inspectorIds", "array-contains", user.uid)
+        );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const tasksData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Task[];
-      
-      // Ordenar por fecha en el cliente para evitar el índice compuesto
-      tasksData.sort((a, b) => {
-        const dateA = a.fechaCreacion?.toDate() || 0;
-        const dateB = b.fechaCreacion?.toDate() || 0;
-        return dateB - dateA;
-      });
-      
-      setTasks(tasksData);
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching tasks: ", error);
-      // Aquí podrías mostrar un mensaje de error al usuario
-      setLoading(false);
-    });
+        // Query 2: Reports created directly by the inspector
+        const q2 = query(
+          collection(db, "trabajos"),
+          where("tecnicoId", "==", user.uid)
+        );
 
-    return () => unsubscribe();
+        const [assignedSnapshot, createdSnapshot] = await Promise.all([
+          getDocs(q1),
+          getDocs(q2),
+        ]);
+
+        const assignedTasks = assignedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Task[];
+        const createdTasks = createdSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Task[];
+
+        // Merge and deduplicate results, just in case a job appears in both
+        const allTasks = [...assignedTasks, ...createdTasks];
+        const uniqueTasks = Array.from(new Map(allTasks.map(task => [task.id, task])).values());
+        
+        // Sort by the most relevant date available
+        uniqueTasks.sort((a, b) => {
+          const dateA = a.fecha_guardado?.toDate() || a.fechaCreacion?.toDate() || 0;
+          const dateB = b.fecha_guardado?.toDate() || b.fechaCreacion?.toDate() || 0;
+          return dateB - dateA; // Descending order
+        });
+
+        setTasks(uniqueTasks);
+
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTasks();
   }, [user, db]);
 
   const filteredTasks = useMemo(() => {
