@@ -25,10 +25,7 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from '@/components/ui/input';
-<<<<<<< HEAD
 import logoLight from '@/app/logo.png';
-=======
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
 // --- TIPOS DE DATOS ---
 type GastoItem = {
