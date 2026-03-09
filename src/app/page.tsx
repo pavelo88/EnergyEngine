@@ -12,19 +12,17 @@ import heroBgImage from '@/app/fondo.jpg';
 export default function Home() {
   return (
     <>
+      <Image
+        src={heroBgImage}
+        alt="Fondo tecnológico de energía"
+        fill
+        className="fixed inset-0 object-cover z-[-10] opacity-15 dark:opacity-10"
+        data-ai-hint="abstract technology"
+        priority
+      />
       <Navbar />
       <main className="overflow-x-hidden pt-20">
-        <section className="relative flex flex-col justify-center px-6 py-16 sm:py-20 overflow-hidden min-h-[70vh]">
-          
-            <Image
-              src={heroBgImage}
-              alt="Fondo tecnológico de energía"
-              fill
-              className="object-cover z-[-1] opacity-15 dark:opacity-10"
-              data-ai-hint="abstract technology"
-              priority
-            />
-          
+        <section className="flex flex-col justify-center px-6 py-16 sm:py-20 overflow-hidden min-h-[70vh]">
           <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <Hero />
             <Stats />
