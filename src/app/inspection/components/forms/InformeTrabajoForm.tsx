@@ -9,6 +9,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
+import logoLight from '@/app/logo.png';
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
@@ -30,28 +31,24 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const doc = new jsPDF();
     const finalID = reportId || 'BORRADOR';
     const darkColor = '#0f172a';
-    const corporateGreen = [26, 83, 42];
     const pageHeight = doc.internal.pageSize.height;
     const pageWidth = doc.internal.pageSize.width;
     
     // Márgenes
-    const leftMargin = 30;
-    const rightMargin = 30;
+    const leftMargin = 15;
+    const rightMargin = 15;
     const bottomMargin = 20;
-    const topMargin = 32;
+    const topMargin = 40; // Margen superior para cuando salta de página
     const contentWidth = pageWidth - leftMargin - rightMargin;
 
     let currentY = topMargin;
 
     // 1. Título
     const title = `INFORME TÉCNICO Nº: ${finalID}`;
-    const titleWidth = doc.getStringUnitWidth(title) * doc.getFontSize() / doc.internal.scaleFactor;
-    const titleX = (pageWidth - titleWidth) / 2;
-
     doc.setTextColor(darkColor);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text(title, titleX, currentY);
+    doc.text(title, leftMargin, currentY);
     currentY += 10;
     
     // 2. Tabla de Datos
@@ -65,7 +62,8 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
             ['Nº de motor:', report.n_motor, 'Grupo:', report.grupo],
         ],
         theme: 'grid',
-        styles: { fontSize: 9, cellPadding: 2 },
+        styles: { fontSize: 9, cellPadding: 2, lineColor: '#ccc', lineWidth: 0.1 },
+        headStyles: { fillColor: '#fff', textColor: '#000'},
         columnStyles: { 0: { fontStyle: 'bold' }, 2: { fontStyle: 'bold' } },
         margin: { left: leftMargin, right: rightMargin },
     });
@@ -79,12 +77,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text("Descripción de la incidencia", leftMargin, currentY);
     currentY += 8;
 
-    // 4. Renderizado del Texto
+    // 4. Renderizado del Texto (El truco del justificado)
     const rawText = report.reportContent || '';
-    const blocks = rawText.split('\n\n');
+    const blocks = rawText.split('\n\n'); // Cortamos por saltos de línea dobles
 
     blocks.forEach((block: string) => {
-        const text = block.replace(/\n/g, ' ').trim(); 
+        const text = block.replace(/\n/g, ' ').trim(); // Limpiamos saltos de línea simples
         
         if (!text) return;
 
@@ -106,8 +104,16 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
                 margin: { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin },
                 body: [[text]],
                 theme: 'plain',
-                styles: { font: 'helvetica', fontSize: 9, cellPadding: 0, halign: 'justify', textColor: darkColor },
-                columnStyles: { 0: { cellWidth: contentWidth } }
+                styles: {
+                    font: 'helvetica',
+                    fontSize: 9,
+                    cellPadding: 0,
+                    halign: 'justify',
+                    textColor: darkColor
+                },
+                columnStyles: {
+                    0: { cellWidth: contentWidth }
+                }
             });
             currentY = (doc as any).lastAutoTable.finalY + 4;
         }
@@ -130,27 +136,28 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text(`Firmado: ${inspectorName}`, leftMargin, currentY + 32);
     doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, leftMargin, currentY + 39);
 
-    // 6. Dibujar Encabezado y Pie de Página en TODAS las páginas
+    // 6. Dibujar Encabezado y Pie de Página en TODAS las páginas (incluidas las que se crearon automáticamente)
     const drawHeader = () => {
-      doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
-      doc.rect(0, 0, pageWidth, 24, 'F');
-      doc.setTextColor('#FFFFFF');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text("energyengine", 15, 12);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.text("GRUPOS ELECTROGENOS", 15, 18);
-      
-      doc.setFontSize(8);
-      doc.text("Tel: 92 515 43 53 | serviciotecnico@energyengine.es", pageWidth - 15, 16, { align: 'right' });
+        // Logo a la izquierda
+        doc.addImage(logoLight.src, 'PNG', leftMargin, 8, 20, 20);
+    
+        // Datos a la derecha
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(darkColor);
+        doc.text("https://www.energyengine.es/", pageWidth - rightMargin, 12, { align: 'right' });
+        
+        doc.setFont('helvetica', 'normal');
+        doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - rightMargin, 18, { align: 'right' });
+        
+        doc.text("Tel: 92 515 43 53", pageWidth - rightMargin, 24, { align: 'right' });
     };
 
     const drawFooter = (pageNumber: number, totalPages: number) => {
         doc.setFontSize(8);
         doc.setTextColor(100);
         doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-        doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
+        doc.setFillColor(darkColor);
         doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
     };
 
@@ -171,6 +178,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   const [inspectorName, setInspectorName] = useState('');
   
   const [formData, setFormData] = useState({
+    cliente: '',
     motor: '',
     modelo: '',
     n_motor: '',
@@ -213,6 +221,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
       setFormData((prev: any) => ({
         ...prev,
+        cliente: initialData.cliente || prev.cliente,
         motor: initialData.motor || initialData.equipo?.marca || prev.motor,
         modelo: initialData.modelo || initialData.equipo?.modelo || prev.modelo,
         n_motor: initialData.n_motor || initialData.equipo?.sn || prev.n_motor,
@@ -227,6 +236,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     if (aiData) {
       setFormData((prev: any) => ({
         ...prev,
+        cliente: aiData.identidad.cliente || prev.cliente,
         motor: aiData.identidad.marca || prev.motor,
         modelo: aiData.identidad.modelo || prev.modelo,
         n_motor: aiData.identidad.sn || prev.n_motor,
@@ -344,6 +354,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
          <h3 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Datos de Identificación</h3>
          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <StableInput label="Cliente" icon={User} value={formData.cliente} onChange={(v: string) => handleInputChange('cliente', v)}/>
             <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: string) => handleInputChange('motor', v)}/>
             <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={(v: string) => handleInputChange('modelo', v)}/>
             <StableInput label="Nº de motor" icon={Type} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>

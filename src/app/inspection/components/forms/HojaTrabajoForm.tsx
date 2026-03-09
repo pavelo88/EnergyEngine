@@ -10,6 +10,7 @@ import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import logoLight from '@/app/logo.png';
 
 // Memoized input component for performance
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
@@ -45,14 +46,13 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   const doc = new jsPDF();
   const finalID = reportId || 'BORRADOR';
   const darkColor = '#0f172a'; // Slate-900
-  const corporateGreen = [26, 83, 42]; // RGB for hsl(145 63% 25%)
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
 
   // Márgenes
   const leftMargin = 15;
   const rightMargin = 15;
-  const topMargin = 32;
+  const topMargin = 40;
   const bottomMargin = 20;
   const contentWidth = pageWidth - leftMargin - rightMargin;
 
@@ -209,19 +209,20 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   doc.text(report.recibidoPor || '', 125, currentY + 35);
   
   // 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
-    const drawHeader = () => {
-      doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
-      doc.rect(0, 0, pageWidth, 24, 'F');
-      doc.setTextColor('#FFFFFF');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text("energyengine", 15, 12);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.text("GRUPOS ELECTROGENOS", 15, 18);
-      
-      doc.setFontSize(8);
-      doc.text("Tel: 92 515 43 53 | serviciotecnico@energyengine.es", pageWidth - 15, 16, { align: 'right' });
+  const drawHeader = () => {
+    // Logo a la izquierda
+    doc.addImage(logoLight.src, 'PNG', leftMargin, 8, 20, 20);
+
+    // Datos a la derecha
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(darkColor);
+    doc.text("https://www.energyengine.es/", pageWidth - rightMargin, 12, { align: 'right' });
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text("administracion@energyengine.es | serviciotecnico@energyengine.es", pageWidth - rightMargin, 18, { align: 'right' });
+    
+    doc.text("Tel: 92 515 43 53", pageWidth - rightMargin, 24, { align: 'right' });
   };
 
   const drawFooter = (pageNumber: number, totalPages: number) => {
@@ -229,7 +230,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(100);
       doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-      doc.setFillColor(corporateGreen[0], corporateGreen[1], corporateGreen[2]);
+      doc.setFillColor(darkColor);
       doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
   };
 
@@ -531,10 +532,6 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
           </div>
         </DialogContent>
       </Dialog>
-      
-      <header className="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-20">
-        <h1 className="text-lg font-bold tracking-wider uppercase">energy engine</h1>
-      </header>
       
       <main className="p-4 md:p-6 space-y-8 pb-40">
         <div className="flex justify-between items-center">
