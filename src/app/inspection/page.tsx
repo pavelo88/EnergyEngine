@@ -169,8 +169,8 @@ const InspectionPageContent = () => {
 
   const handleBackToHub = () => {
     setActiveInspectionForm(null);
-    // Opcional: volver al menú principal si es lo deseado
-    setActiveTab(TABS.MENU);
+    // Al limpiar el formulario activo, la vista vuelve al "Hub" de selección
+    // siempre que la pestaña activa siga siendo TABS.NEW_INSPECTION.
   }
 
   const handleInstallClick = () => {

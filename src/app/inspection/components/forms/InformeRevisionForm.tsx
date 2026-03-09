@@ -494,7 +494,7 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
         </Dialog>
         
         <main className="p-4 md:p-6 space-y-8 pb-40">
-
+            <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe de Revisión</h2>
 
             {/* --- DATOS GENERALES --- */}
             <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">

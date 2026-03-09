@@ -354,6 +354,8 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
           </div>
         </DialogContent>
       </Dialog>
+
+      <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Técnico</h2>
       
       <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
          <h3 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Datos de Identificación</h3>
