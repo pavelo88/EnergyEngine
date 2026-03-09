@@ -237,7 +237,7 @@ const InspectionPageContent = () => {
   }
 
   const renderContent = () => {
-    if (!hasMounted) return <div className="flex h-full items-center justify-center p-20"><Loader2 className="animate-spin" /></div>;
+    if (!hasMounted) return <div className="flex-grow flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>;
 
     if (activeTab === TABS.MENU) {
       const userName = user?.displayName || user?.email?.split('@')[0] || 'Inspector';
@@ -249,7 +249,7 @@ const InspectionPageContent = () => {
         case 'desktop':
           return <MainMenuDesktop onNavigate={handleNavigate} userName={userName} />;
         default:
-          return <div className="flex h-full items-center justify-center p-20"><Loader2 className="animate-spin" /></div>;
+          return <div className="flex-grow flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>;
       }
     }
 
@@ -268,7 +268,7 @@ const InspectionPageContent = () => {
         }
 
         return (
-            <Suspense fallback={<div className="flex h-full items-center justify-center p-20"><Loader2 className="animate-spin" /></div>}>
+            <Suspense fallback={<div className="flex-grow flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>}>
                 <FormComponent initialData={selectedTask} aiData={aiData} />
             </Suspense>
         );
@@ -278,37 +278,35 @@ const InspectionPageContent = () => {
     let props: any = {};
     
     switch (activeTab) {
-        case TABS.TASKS: TabComponent = TasksTabLazy; props = { onStartInspection: handleSelectInspectionType }; break;
+        case TABS.TASKS: TabComponent = TasksTabLazy; props = { onStartInspection: handleStartInspectionFromTask }; break;
         case TABS.EXPENSES: TabComponent = RegistroJornadaForm; break;
         case TABS.PROFILE: TabComponent = ProfileTabLazy; break;
         default: return <p>Pestaña no encontrada</p>;
     }
 
     return (
-        <div className="animate-in slide-in-from-right duration-300 w-full max-w-4xl mx-auto">
-            <Suspense fallback={<div className="flex h-full items-center justify-center p-20"><Loader2 className="animate-spin" /></div>}>
-              <TabComponent {...props} />
-            </Suspense>
-        </div>
+      <Suspense fallback={<div className="flex-grow flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>}>
+        <TabComponent {...props} />
+      </Suspense>
     );
   };
 
   return (
-    <main className="bg-slate-100 min-h-screen flex flex-col">
+    <div className="flex flex-col min-h-screen bg-slate-50">
       <Header 
         activeTab={activeTab}
         isSubNavActive={!!activeInspectionForm}
-        onBack={activeInspectionForm ? () => setActiveInspectionForm(null) : () => handleNavigate(TABS.MENU)}
+        onBack={activeInspectionForm ? handleBackToHub : () => handleNavigate(TABS.MENU)}
         isOnline={isOnline}
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
       />
-      <div className="flex-grow">
+      <div className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {renderContent()}
       </div>
       {renderFloatingDictationButton()}
       <Footer activeTab={activeTab} onNavigate={handleNavigate} />
-    </main>
+    </div>
   );
 }
 

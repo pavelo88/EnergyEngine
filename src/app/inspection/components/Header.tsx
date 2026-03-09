@@ -18,7 +18,7 @@ export default function Header({ activeTab, isOnline, onBack, isSubNavActive, on
   const showBackButton = activeTab !== TABS.MENU || isSubNavActive;
 
   return (
-    <header className="px-6 py-4 bg-white/80 backdrop-blur-lg border-b border-slate-200/80 flex justify-between items-center sticky top-0 z-50 shadow-sm">
+    <header className="px-6 py-4 bg-white/80 backdrop-blur-lg border-b border-slate-200/80 flex justify-between items-center sticky top-0 z-40 shadow-sm">
       
       <div className="flex items-center gap-4">
         {showBackButton && (
@@ -30,8 +30,8 @@ export default function Header({ activeTab, isOnline, onBack, isSubNavActive, on
       </div>
 
       <div className="flex items-center gap-2">
-        <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black border ${isOnline ? 'bg-emerald-50 border-emerald-500/30 text-emerald-600' : 'bg-red-50 border-red-500/30 text-red-600'}`}>
-            <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-red-500'}`} />
+        <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border ${isOnline ? 'bg-emerald-50 border-emerald-500/30 text-emerald-600' : 'bg-red-50 border-red-500/30 text-red-600'}`}>
+            <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
             {isOnline ? 'ONLINE' : 'OFFLINE'}
         </div>
         {canInstall && (

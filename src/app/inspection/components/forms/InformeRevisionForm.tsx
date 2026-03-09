@@ -17,10 +17,10 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
   <div className="space-y-1 w-full text-left">
     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
     <div className="relative group">
-      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={16}/>}
+      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={16}/>}
       <input 
         type={type} value={value || ''} onChange={(e: any) => onChange(e.target.value)} placeholder={placeholder}
-        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-blue-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
+        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
       />
     </div>
   </div>
@@ -31,7 +31,7 @@ const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
         <label className="text-[9px] font-black text-slate-500 w-full text-center">{label}</label>
         <input 
             type="text" value={value || ''} onChange={(e: any) => onChange(e.target.value)}
-            className="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-2 outline-none focus:border-blue-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
+            className="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-2 outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
         />
     </div>
 ));
@@ -487,8 +487,9 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
         </Dialog>
         
         <main className="p-4 md:p-6 space-y-8 pb-40">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-black text-slate-800 border-l-4 border-blue-500 pl-4 uppercase tracking-tighter">Informe de Revisión</h2>
+            <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-lg">
+                <h2 className="text-xl font-bold">ENERGY ENGINE</h2>
+                <p className="text-sm font-light border-b border-blue-400 pb-2 mb-2">INFORME DE REVISIÓN</p>
             </div>
 
             {/* --- DATOS GENERALES --- */}
