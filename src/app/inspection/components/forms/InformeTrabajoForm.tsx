@@ -144,44 +144,32 @@ const drawHeader = () => {
   const logoWidth = 20; // Tamaño del logo ligeramente reducido para mayor elegancia
   const logoHeight = 20;
   
-  // --- 1. DIBUJAR EL FONDO VERDE PARA TODO EL ENCABEZADO ---
-  // Establece el color de relleno verde. He usado un verde de contraste (RGB).
   doc.setFillColor(39, 180, 96); // Un verde esmeralda para el fondo
-  // Dibuja un rectángulo lleno (modo 'F') que cubre todo el ancho y una altura de 25mm.
   doc.rect(0, 0, pageWidth, 26, 'F'); 
 
-  // --- 2. DIBUJAR EL LOGO ---
   doc.addImage(logoLight.src, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
-  // --- 3. DIBUJAR EL TEXTO DE LA EMPRESA ---
   const textX = logoX + logoWidth + 6; // Margen de 4mm tras el logo
   const textYStart = logoY + 9; // Ajuste vertical para alinearse con el logo
 
   doc.setFont('helvetica', 'bold');
   
-  // Línea 1: "energy engine" en BLANCO
   doc.setFontSize(18); // Ligeramente más grande para que sea el título principal
   doc.setTextColor(255, 255, 255); // Blanco puro
   doc.text("energy engine", textX, textYStart);
   
-  // Línea 2: "GRUPOS ELECTRÓGENOS" en GRIS CLARO
   doc.setFontSize(10);
   doc.setTextColor(220, 220, 220); // Gris muy claro
   doc.text("GRUPOS ELECTRÓGENOS", textX, textYStart + 6);
   
-  // --- 4. DIBUJAR LA INFORMACIÓN DE CONTACTO A LA DERECHA ---
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(220, 220, 220); // Gris muy claro para los links
 
   const rightTextX = pageWidth - rightMargin;
   
-  // Subimos las coordenadas Y de los textos de la derecha para alinearlos con el logo superior.
-  // URL arriba
   doc.text("https://www.energyengine.es", rightTextX, logoY + 8, { align: 'right' });
-  // Teléfono en medio
   doc.text("Tel: 92 515 43 53", rightTextX, logoY + 13, { align: 'right' });
-  // Email abajo
   doc.text("serviciotecnico@energyengine.es", rightTextX, logoY + 16, { align: 'right' });
 };
     const drawFooter = (pageNumber: number, totalPages: number) => {
