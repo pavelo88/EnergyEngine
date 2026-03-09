@@ -15,8 +15,7 @@ interface Task {
   cliente?: string;
   instalacion: string;
   estado: 'Pendiente' | 'En Progreso' | 'Completado';
-  fechaCreacion?: any;
-  fecha_guardado?: any;
+  fecha_creacion?: any;
   [key: string]: any;
 }
 
@@ -59,8 +58,8 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
         
         // Sort by the most relevant date available
         uniqueTasks.sort((a, b) => {
-          const dateA = a.fecha_guardado?.toDate() || a.fechaCreacion?.toDate() || 0;
-          const dateB = b.fecha_guardado?.toDate() || b.fechaCreacion?.toDate() || 0;
+          const dateA = a.fecha_creacion?.toDate() || 0;
+          const dateB = b.fecha_creacion?.toDate() || 0;
           return dateB - dateA; // Descending order
         });
 

@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 
 // --- Tipos de Datos ---
-type Gasto = { id: string; fecha: any; inspectorNombre: string; clienteNombre: string; descripcion: string; categoria: string; monto: number; estado: string; };
+type Gasto = { id: string; fecha: any; inspectorNombre: string; clienteNombre: string; descripcion: string; categoria: string; monto: number; estado: string; forma_pago: string, comprobanteUrl?: string };
 type Inspector = { id: string; nombre: string; };
 type Cliente = { id: string; nombre: string; };
 
@@ -36,7 +36,7 @@ export default function ExpensesPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Cargar Inspectores
+        // Cargar Inspectores (ahora usa la colección 'usuarios' como en otros componentes)
         const qInspectores = query(collection(db, 'usuarios'), where("roles", "array-contains", "inspector"));
         const inspectoresSnap = await getDocs(qInspectores);
         setInspectores(inspectoresSnap.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre })));
@@ -61,6 +61,7 @@ export default function ExpensesPage() {
   // --- Lógica de Filtrado ---
   const gastosFiltrados = useMemo(() => {
     return gastos.filter(gasto => {
+      if (!gasto.fecha?.toDate) return false; // Proteger contra datos malformados
       const fechaGasto = gasto.fecha.toDate();
       const enRangoFecha = filtroFecha?.from && filtroFecha?.to ? (fechaGasto >= filtroFecha.from && fechaGasto <= filtroFecha.to) : true;
       const matchInspector = filtroInspector === 'all' || gasto.inspectorNombre === filtroInspector;
@@ -71,18 +72,20 @@ export default function ExpensesPage() {
 
   // --- Lógica de Resumen ---
   const totalGastado = useMemo(() => {
-    return gastosFiltrados.reduce((acc, gasto) => acc + gasto.monto, 0);
+    return gastosFiltrados.reduce((acc, gasto) => acc + (gasto.monto || 0), 0);
   }, [gastosFiltrados]);
 
     const handleExport = () => {
     const dataToExport = gastosFiltrados.map(g => ({
         Fecha: g.fecha.toDate().toLocaleDateString(),
         Inspector: g.inspectorNombre,
-        Cliente: g.clienteNombre,
+        Cliente_Lugar: g.clienteNombre,
         Descripcion: g.descripcion,
         Categoria: g.categoria,
         Monto: g.monto,
         Estado: g.estado,
+        "Forma de Pago": g.forma_pago,
+        Comprobante: g.comprobanteUrl || 'No',
     }));
     
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -112,7 +115,7 @@ export default function ExpensesPage() {
           <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Inspector</label>
               <Select value={filtroInspector} onValueChange={setFiltroInspector}>
-                  <SelectTrigger><SelectValue/></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar inspector..."/></SelectTrigger>
                   <SelectContent>
                       <SelectItem value="all">Todos los Inspectores</SelectItem>
                       {inspectores.map(i => <SelectItem key={i.id} value={i.nombre}>{i.nombre}</SelectItem>)}
@@ -121,12 +124,12 @@ export default function ExpensesPage() {
           </div>
           {/* Filtro por Cliente */}
           <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Cliente / Lugar</label>
               <Select value={filtroCliente} onValueChange={setFiltroCliente}>
-                  <SelectTrigger><SelectValue/></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar cliente..."/></SelectTrigger>
                   <SelectContent>
-                      <SelectItem value="all">Todos los Clientes</SelectItem>
-                      {clientes.map(c => <SelectItem key={c.id} value={c.nombre}>{c.nombre}</SelectItem>)}
+                      <SelectItem value="all">Todos los Clientes / Lugares</SelectItem>
+                      {[...new Set(gastos.map(g => g.clienteNombre))].map(c => c && <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
               </Select>
           </div>
@@ -148,7 +151,7 @@ export default function ExpensesPage() {
           {/* Resumen Total */}
           <div className='bg-slate-100 p-4 rounded-lg flex items-center justify-center'>
               <div>
-                <p className='text-sm text-slate-500 font-medium'>Total Gastado</p>
+                <p className='text-sm text-slate-500 font-medium'>Total Gastado (Filtrado)</p>
                 <p className='text-2xl font-bold text-slate-800'>${totalGastado.toFixed(2)}</p>
               </div>
           </div>
@@ -160,7 +163,7 @@ export default function ExpensesPage() {
         ) : (
           <div className="bg-white rounded-xl shadow-lg overflow-x-auto">
             <table className="w-full text-left">
-              <thead className="bg-slate-100"><tr><th className="p-4 text-sm font-semibold text-slate-600">Fecha</th><th className="p-4 text-sm font-semibold text-slate-600">Inspector</th><th className="p-4 text-sm font-semibold text-slate-600">Cliente</th><th className="p-4 text-sm font-semibold text-slate-600">Descripción</th><th className="p-4 text-sm font-semibold text-slate-600">Monto</th></tr></thead>
+              <thead className="bg-slate-100"><tr><th className="p-4 text-sm font-semibold text-slate-600">Fecha</th><th className="p-4 text-sm font-semibold text-slate-600">Inspector</th><th className="p-4 text-sm font-semibold text-slate-600">Lugar/Cliente</th><th className="p-4 text-sm font-semibold text-slate-600">Descripción</th><th className="p-4 text-sm font-semibold text-slate-600">Monto</th><th className="p-4 text-sm font-semibold text-slate-600">Estado</th></tr></thead>
               <tbody>
                 {gastosFiltrados.map((gasto) => (
                   <tr key={gasto.id} className="border-b border-slate-100">
@@ -169,9 +172,15 @@ export default function ExpensesPage() {
                     <td className="p-4 text-slate-700">{gasto.clienteNombre}</td>
                     <td className="p-4 text-slate-700">{gasto.descripcion}</td>
                     <td className="p-4 font-medium text-right text-slate-800">${gasto.monto.toFixed(2)}</td>
+                    <td className="p-4">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full 
+                          ${gasto.estado === 'Pendiente de Aprobación' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                          {gasto.estado}
+                        </span>
+                    </td>
                   </tr>
                 ))}
-                {gastosFiltrados.length === 0 && (<tr><td colSpan={5} className="text-center p-8 text-slate-500">No hay gastos que coincidan con los filtros seleccionados.</td></tr>)}
+                {gastosFiltrados.length === 0 && (<tr><td colSpan={6} className="text-center p-8 text-slate-500">No hay gastos que coincidan con los filtros seleccionados.</td></tr>)}
               </tbody>
             </table>
           </div>

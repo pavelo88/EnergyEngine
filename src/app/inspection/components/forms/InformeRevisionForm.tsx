@@ -475,7 +475,7 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
           clientSignatureUrl: clientSignature, 
           tecnicoId: user.uid, 
           tecnicoNombre: inspectorName, 
-          fecha_guardado: Timestamp.now(), 
+          fecha_creacion: Timestamp.now(), 
           formType: formType,
           id: docId,
           estado: 'Completado',

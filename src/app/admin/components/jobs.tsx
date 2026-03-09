@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { useFirestore } from '@/firebase';
 import { PlusCircle, Loader2, Pencil, Trash2, Download, MapPin } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -27,8 +27,7 @@ type Job = {
   inspectorNombres?: string[];
   tecnicoNombre?: string; // from reports
   estado: 'Pendiente' | 'En Progreso' | 'Completado';
-  fechaCreacion?: any;
-  fecha_guardado?: any; // from reports
+  fecha_creacion?: any;
   formType?: string;
 };
 
@@ -59,8 +58,8 @@ export default function JobsPage() {
       setClients(snapshot.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre })));
     });
     
-    // CORRECCIÓN: Se quita el filtro para mostrar todos los trabajos, incluidos los informes.
-    const qJobs = query(collection(db, 'trabajos'));
+    // Consulta unificada que ordena por el campo estandarizado 'fecha_creacion'
+    const qJobs = query(collection(db, 'trabajos'), orderBy('fecha_creacion', 'desc'));
 
     const unsubJobs = onSnapshot(qJobs, snapshot => {
       const jobList = snapshot.docs.map(doc => ({
@@ -68,16 +67,6 @@ export default function JobsPage() {
         ...(doc.data() as Omit<Job, 'id'>)
       }));
       
-      // Ordenar por fecha, manejando ambos campos posibles
-      jobList.sort((a, b) => {
-        const dateA = a.fechaCreacion?.toDate() || a.fecha_guardado?.toDate() || 0;
-        const dateB = b.fechaCreacion?.toDate() || b.fecha_guardado?.toDate() || 0;
-        if (dateA === 0 && dateB === 0) return 0;
-        if (dateA === 0) return 1;
-        if (dateB === 0) return -1;
-        return dateB - dateA; // Descending
-      });
-
       setJobs(jobList);
       setLoading(false);
     }, (error) => {
@@ -130,7 +119,7 @@ export default function JobsPage() {
       } else {
         await addDoc(collection(db, "trabajos"), {
           ...jobData,
-          fechaCreacion: serverTimestamp(),
+          fecha_creacion: serverTimestamp(),
         });
         alert('Nuevo trabajo creado.');
       }
@@ -183,9 +172,9 @@ export default function JobsPage() {
       Descripción: getJobTitle(job),
       Cliente: job.clienteNombre || job.cliente,
       Instalación: job.instalacion || 'N/A',
-      Inspectores: (job.inspectorNombres || [job.tecnicoNombre]).join(', '),
+      Inspectores: job.inspectorNombres?.join(', ') || job.tecnicoNombre || 'No Asignado',
       Estado: job.estado,
-      Fecha: job.fecha_guardado?.toDate()?.toLocaleDateString() || job.fechaCreacion?.toDate()?.toLocaleDateString() || 'N/A',
+      Fecha: job.fecha_creacion?.toDate()?.toLocaleDateString() || 'N/A',
       Modelo: job.modelo || 'N/A',
       "Nº Motor/Serie": job.n_motor || 'N/A',
       Ubicación: job.location ? `${job.location.lat.toFixed(5)}, ${job.location.lon.toFixed(5)}` : 'N/A'
@@ -247,7 +236,7 @@ export default function JobsPage() {
                         {job.n_motor && <div><b>S/N:</b> {job.n_motor}</div>}
                         {job.location && <div className="flex items-center gap-1 mt-1"><MapPin size={12} className="text-slate-400"/> {job.location.lat.toFixed(4)}, {job.location.lon.toFixed(4)}</div>}
                     </td>
-                    <td className="p-3">{(job.inspectorNombres || [job.tecnicoNombre]).join(', ')}</td>
+                    <td className="p-3">{job.inspectorNombres?.join(', ') || job.tecnicoNombre || 'No Asignado'}</td>
                     <td className="p-3">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full 
                           ${job.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' : ''}

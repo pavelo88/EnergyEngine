@@ -458,7 +458,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
           clientSignatureUrl: clientSignature, 
           tecnicoId: user.uid, 
           tecnicoNombre: inspectorName, 
-          fecha_guardado: Timestamp.now(), 
+          fecha_creacion: Timestamp.now(), 
           formType: 'informe-simplificado',
           id: docId,
           estado: 'Completado',

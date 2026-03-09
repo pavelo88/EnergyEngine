@@ -25,8 +25,10 @@ interface Report {
   location?: { lat: number, lon: number };
   modelo?: string;
   n_motor?: string;
-  fecha_guardado: any; 
+  fecha_creacion: any; 
   formType: 'hoja-trabajo' | 'informe-revision' | 'informe-tecnico' | 'revision-basica' | 'informe-simplificado' | 'job' | undefined;
+  tecnicoNombre?: string;
+  inspectorNombres?: string[];
   [key: string]: any; // Para el resto de los datos
 }
 
@@ -41,7 +43,7 @@ export default function ReportsPage() {
     const fetchAllReports = async () => {
       try {
         setLoading(true);
-        const q = query(collection(db, 'trabajos'), orderBy('fecha_guardado', 'desc'));
+        const q = query(collection(db, 'trabajos'), orderBy('fecha_creacion', 'desc'));
         const querySnapshot = await getDocs(q);
         
         const allDocs = querySnapshot.docs.map(doc => ({
@@ -64,23 +66,20 @@ export default function ReportsPage() {
 
   const handleReprintPDF = (report: Report) => {
     let doc: jsPDF | null = null;
+    const inspectorName = report.tecnicoNombre || report.inspectorNombres?.join(', ') || 'No asignado';
     try {
         switch(report.formType) {
             case 'hoja-trabajo':
-                doc = generateHojaTrabajoPDF(report, report.tecnicoNombre, report.id);
+                doc = generateHojaTrabajoPDF(report, inspectorName, report.id);
                 break;
             case 'informe-revision':
-                doc = generateInformeRevisionPDF(report, report.tecnicoNombre, report.id);
+                doc = generateInformeRevisionPDF(report, inspectorName, report.id);
                 break;
-            case 'revision-basica':
-                // This form was removed
-                alert('El formulario de Revisión Básica ha sido eliminado.');
-                return;
             case 'informe-tecnico':
-                doc = generateInformeTecnicoPDF(report, report.tecnicoNombre, report.id_informe);
+                doc = generateInformeTecnicoPDF(report, inspectorName, report.id_informe);
                 break;
             case 'informe-simplificado':
-                doc = generateInformeSimplificadoPDF(report, report.tecnicoNombre, report.id);
+                doc = generateInformeSimplificadoPDF(report, inspectorName, report.id);
                 break;
             default:
                 alert('Este tipo de documento no tiene un formato de PDF para reimprimir.');
@@ -100,7 +99,7 @@ export default function ReportsPage() {
     switch(formType) {
         case 'hoja-trabajo': return 'Hoja de Trabajo';
         case 'informe-revision': return 'Informe de Revisión';
-        case 'revision-basica': return 'Revisión Básica';
+        case 'revision-basica': return 'Revisión Básica (Obsoleto)';
         case 'informe-tecnico': return 'Informe Técnico';
         case 'informe-simplificado': return 'Informe Simplificado';
         case 'job': return 'Trabajo Manual';
@@ -114,7 +113,8 @@ export default function ReportsPage() {
       Tipo: getReportTitle(report.formType),
       Cliente: report.cliente || report.clienteNombre,
       Instalación: report.instalacion || 'N/A',
-      Fecha: report.fecha_guardado?.toDate()?.toLocaleDateString() || 'N/A',
+      Fecha: report.fecha_creacion?.toDate()?.toLocaleDateString() || 'N/A',
+      Técnico: report.tecnicoNombre || report.inspectorNombres?.join(', ') || 'No Asignado',
       Modelo: report.modelo || 'N/A',
       "Nº Motor/Serie": report.n_motor || 'N/A',
       Ubicación: report.location ? `${report.location.lat.toFixed(5)}, ${report.location.lon.toFixed(5)}` : 'N/A'
@@ -162,6 +162,7 @@ export default function ReportsPage() {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Documento</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Cliente / Instalación</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Equipo</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Técnico</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Fecha</th>
                   <th scope="col" className="relative px-6 py-3"><span className="sr-only">Acciones</span></th>
                 </tr>
@@ -179,7 +180,8 @@ export default function ReportsPage() {
                         {report.n_motor && <div><b>S/N:</b> {report.n_motor}</div>}
                         {report.location && <div className="flex items-center gap-1 mt-1"><MapPin size={12} className="text-slate-400"/> {report.location.lat.toFixed(4)}, {report.location.lon.toFixed(4)}</div>}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{report.fecha_guardado?.toDate().toLocaleDateString() || 'N/A'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-800">{report.tecnicoNombre || report.inspectorNombres?.join(', ')}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{report.fecha_creacion?.toDate().toLocaleDateString() || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button onClick={() => handleReprintPDF(report)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">
                         <Printer size={16}/>

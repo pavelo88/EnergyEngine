@@ -532,7 +532,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         clientSignatureUrl: clientSignature,      
         tecnicoId: user.uid,
         tecnicoNombre: inspectorName,
-        fecha_guardado: Timestamp.now(),
+        fecha_creacion: Timestamp.now(),
         id: docId,
         formType: formType,
         estado: 'Completado',

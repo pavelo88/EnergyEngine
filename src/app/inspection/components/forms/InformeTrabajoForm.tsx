@@ -336,7 +336,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         inspectorSignatureUrl: inspectorSignature, 
         tecnicoId: user.uid, 
         tecnicoNombre: inspectorName,
-        fecha_guardado: Timestamp.now(), 
+        fecha_creacion: Timestamp.now(), 
         formType: formType,
         id: docId,
         estado: 'Completado',
