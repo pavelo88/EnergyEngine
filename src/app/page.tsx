@@ -22,7 +22,7 @@ export default function Home() {
       />
       <Navbar />
       <main className="overflow-x-hidden pt-20">
-        <section className="flex flex-col justify-center px-6 py-16 sm:py-20 overflow-hidden min-h-[70vh]">
+        <section className="flex flex-col justify-center px-6 py-16 sm:py-20 overflow-hidden min-h-screen">
           <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <Hero />
             <Stats />
