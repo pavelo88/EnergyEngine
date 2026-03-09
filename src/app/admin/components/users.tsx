@@ -6,26 +6,9 @@ import { useFirestore } from '@/firebase';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-<<<<<<< HEAD
 import { Edit, Trash2, UserPlus, Loader2, X, LinkIcon, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-=======
-import { PlusCircle, Edit, Trash2, UserPlus, Loader2, AlertTriangle, X, Link as LinkIcon, Shield, User, Database } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-
-// --- DATOS PARA LA CARGA INICIAL ---
-const initialUsersData = [
-    { nombre: 'Carlos Esteban Amarilla Bogado', dni: '70287885-T', email: 'carlosamarilla@energyengine.es', roles: ['inspector'], firmaUrl: '' },
-    { nombre: 'Antonio Ugena Del Cerro', dni: '50475775-K', email: 'antoniougena@energyengine.es', roles: ['inspector'], firmaUrl: '' },
-    { nombre: 'Mocanu Baluta', dni: 'X4266252-M', email: 'mocanubaluta@energyengine.es', roles: ['inspector'], firmaUrl: '' },
-    { nombre: 'Juan Carlos Cabral', dni: 'X-6112156-K', email: 'juancabral@energyengine.es', roles: ['inspector'], firmaUrl: '' },
-    { nombre: 'Pablo Garcia Flores', dni: 'Admin123', email: 'pablofgarciaf@gmail.com', roles: ['inspector'], firmaUrl: '' },
-    { nombre: 'Pruebas 123', dni: 'Pruebas123', email: 'admin@energyengine.es', roles: ['admin', 'inspector'], firmaUrl: '' }
-];
-
-
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 // Esquema de validación para el formulario de usuario
 const userSchema = z.object({
   nombre: z.string().min(3, 'El nombre es demasiado corto.'),
@@ -41,10 +24,6 @@ type UserData = UserFormInputs & { id: string; activo: boolean };
 export default function UsersPage() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
-<<<<<<< HEAD
-=======
-  const [seeding, setSeeding] = useState(false);
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const db = useFirestore();
@@ -73,38 +52,6 @@ export default function UsersPage() {
     fetchUsers();
   }, [db]);
 
-<<<<<<< HEAD
-=======
-  const handleSeedDatabase = async () => {
-    if (!db) return;
-    if (!window.confirm('Esto borrará los usuarios existentes y cargará la lista inicial. ¿Continuar?')) return;
-    setSeeding(true);
-    try {
-      const querySnapshot = await getDocs(collection(db, 'usuarios'));
-      const deletePromises = querySnapshot.docs.map(d => deleteDoc(d.ref));
-      await Promise.all(deletePromises);
-
-      const createPromises = initialUsersData.map(userData => {
-        const userDocRef = doc(db, 'usuarios', userData.email);
-        return setDoc(userDocRef, {
-          ...userData,
-          activo: true,
-          forcePasswordChange: true,
-        });
-      });
-      await Promise.all(createPromises);
-
-      alert('¡Base de datos de usuarios cargada con éxito!');
-      fetchUsers();
-    } catch (error) {
-      console.error("Error al cargar los datos: ", error);
-      alert('Hubo un error al cargar los datos.');
-    } finally {
-      setSeeding(false);
-    }
-  };
-
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   const openModalForCreate = () => {
     setEditingUser(null);
     reset({ nombre: '', dni: '', email: '', roles: [], firmaUrl: '' });
@@ -152,7 +99,6 @@ export default function UsersPage() {
   };
 
   return (
-<<<<<<< HEAD
     <div className="space-y-8">
       <div className="flex justify-between items-center mb-8">
         <div>
@@ -166,24 +112,6 @@ export default function UsersPage() {
       </div>
 
       {loading ? (
-=======
-    <div className="bg-slate-50 p-4 sm:p-6 md:p-8 h-full">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-800">Gestión de Usuarios</h1>
-            <p className="mt-1 text-slate-600">Crea, edita y gestiona los usuarios del sistema.</p>
-          </div>
-          <div className="flex gap-3">
-            <Button onClick={openModalForCreate}>
-              <UserPlus className="h-5 w-5"/>
-              <span>Añadir</span>
-            </Button>
-          </div>
-        </div>
-
-        {loading ? (
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
           <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
         ) : (
           <div className="bg-white rounded-xl shadow-lg overflow-x-auto">
@@ -204,10 +132,6 @@ export default function UsersPage() {
             </table>
           </div>
         )}
-<<<<<<< HEAD
-=======
-      </div>
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">

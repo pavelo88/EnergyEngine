@@ -1,12 +1,5 @@
 'use client';
 
-<<<<<<< HEAD
-import React from 'react';
-
-export default function ParticleBackground() {
-  return null;
-}
-=======
 import React, { useCallback, useMemo } from 'react';
 import Particles from 'react-tsparticles';
 import type { Container, Engine } from 'tsparticles-engine';
@@ -112,4 +105,3 @@ const ParticleBackground = () => {
 };
 
 export default ParticleBackground;
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de

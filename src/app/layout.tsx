@@ -4,10 +4,7 @@ import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
 import { ThemeProvider } from '@/components/site/theme-provider';
-<<<<<<< HEAD
-=======
 import ParticleBackground from '@/components/site/ParticleBackground';
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
 export const metadata: Metadata = {
   title: 'energy engine',
@@ -39,12 +36,8 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <FirebaseClientProvider>
-<<<<<<< HEAD
-            <div className="relative">{children}</div>
-=======
             <ParticleBackground />
             <div className="relative z-10">{children}</div>
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
             <Toaster />
           </FirebaseClientProvider>
         </ThemeProvider>

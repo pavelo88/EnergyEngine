@@ -46,11 +46,7 @@ export default function Brands() {
             <div className="max-w-6xl mx-auto px-4">
                 {/* Redujimos el mb-10 a mb-4 para quitar el espacio en blanco gigante */}
                 <h2 className="text-center text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4 font-headline">
-<<<<<<< HEAD
-                    Aliados <span className="text-primary">Tecnológicos</span>
-=======
                     Aliados Tecnológicos <span className="text-primary">Multimarca</span>
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
                 </h2>  
 
             {/* Redujimos el mt-16 a mt-4 y ajustamos la altura dinámica del contenedor */}

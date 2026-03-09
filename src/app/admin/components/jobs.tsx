@@ -3,19 +3,12 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query } from "firebase/firestore";
 import { useFirestore } from '@/firebase';
-<<<<<<< HEAD
 import { PlusCircle, Loader2, Pencil, Trash2, Download, MapPin } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
-=======
-import { PlusCircle, Loader2, Pencil, Trash2 } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
 
 // --- Tipos de Datos ---
 type Inspector = { id: string; nombre: string; };
@@ -26,13 +19,10 @@ type Job = {
   clienteId: string;
   clienteNombre?: string;
   cliente?: string; // from reports
-<<<<<<< HEAD
   instalacion?: string;
   location?: { lat: number, lon: number };
   modelo?: string;
   n_motor?: string;
-=======
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   inspectorIds: string[];
   inspectorNombres?: string[];
   tecnicoNombre?: string; // from reports
@@ -187,7 +177,6 @@ export default function JobsPage() {
     }
   };
 
-<<<<<<< HEAD
   const handleExport = () => {
     const dataToExport = jobs.map(job => ({
       ID: job.id,
@@ -208,8 +197,6 @@ export default function JobsPage() {
     XLSX.writeFile(workbook, `Reporte_Trabajos_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   };
 
-=======
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
   const openModalForEdit = (job: Job) => {
     setEditingJob(job);
     setIsModalOpen(true);
@@ -226,7 +213,6 @@ export default function JobsPage() {
   };
 
   return (
-<<<<<<< HEAD
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <div>
@@ -243,15 +229,6 @@ export default function JobsPage() {
             <span>Crear Nuevo Trabajo</span>
             </Button>
         </div>
-=======
-    <div className="space-y-8 text-slate-900">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-slate-800">Gestión de Trabajos</h1>
-        <Button onClick={openModalForAdd}>
-          <PlusCircle size={20} />
-          Crear Nuevo Trabajo
-        </Button>
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
       </div>
 
       {/* --- Tabla de Trabajos --*/}
@@ -259,25 +236,17 @@ export default function JobsPage() {
         <div className="overflow-x-auto">
           {loading ? <p>Cargando trabajos...</p> : (
             <table className="w-full text-left">
-<<<<<<< HEAD
               <thead><tr className="border-b"><th className="p-3">Descripción</th><th className="p-3">Cliente / Instalación</th><th className="p-3">Equipo</th><th className="p-3">Inspectores</th><th className="p-3">Estado</th><th className="p-3">Acciones</th></tr></thead>
-=======
-              <thead><tr className="border-b"><th className="p-3">Descripción</th><th className="p-3">Cliente</th><th className="p-3">Inspectores</th><th className="p-3">Estado</th><th className="p-3">Acciones</th></tr></thead>
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
               <tbody>
                 {jobs.map(job => (
                   <tr key={job.id} className="border-b hover:bg-gray-50">
                     <td className="p-3 font-medium">{getJobTitle(job)}</td>
-<<<<<<< HEAD
                     <td className="p-3">{job.clienteNombre || job.cliente}<br/><span className="text-xs text-slate-500">{job.instalacion || ''}</span></td>
                     <td className="p-3 text-xs">
                         {job.modelo && <div><b>Modelo:</b> {job.modelo}</div>}
                         {job.n_motor && <div><b>S/N:</b> {job.n_motor}</div>}
                         {job.location && <div className="flex items-center gap-1 mt-1"><MapPin size={12} className="text-slate-400"/> {job.location.lat.toFixed(4)}, {job.location.lon.toFixed(4)}</div>}
                     </td>
-=======
-                    <td className="p-3">{job.clienteNombre || job.cliente}</td>
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
                     <td className="p-3">{(job.inspectorNombres || [job.tecnicoNombre]).join(', ')}</td>
                     <td className="p-3">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full 
@@ -294,11 +263,7 @@ export default function JobsPage() {
                   </tr>
                 ))}
                  {jobs.length === 0 && (
-<<<<<<< HEAD
                     <tr><td colSpan={6} className="p-4 text-center text-slate-500">No hay trabajos creados todavía.</td></tr>
-=======
-                    <tr><td colSpan={5} className="p-4 text-center text-slate-500">No hay trabajos creados todavía.</td></tr>
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
                 )}
               </tbody>
             </table>

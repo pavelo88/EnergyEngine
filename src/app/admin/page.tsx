@@ -76,19 +76,12 @@ export default function AdminDashboardPage() {
   }, [db]);
 
   return (
-<<<<<<< HEAD
     <div className="space-y-8">
       <div className="flex justify-between items-center mb-8">
           <div>
               <h1 className="text-3xl font-bold text-slate-800">Dashboard</h1>
               <p className="text-slate-500 mt-1">Un resumen de la actividad reciente.</p>
           </div>
-=======
-    <div className="space-y-8 text-slate-900">
-      <div>
-          <h1 className="text-3xl font-bold text-slate-800">Dashboard</h1>
-          <p className="text-slate-500 mt-1">Un resumen de la actividad reciente.</p>
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

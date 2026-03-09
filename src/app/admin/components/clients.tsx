@@ -86,7 +86,6 @@ export default function ClientsPage() {
   };
 
   return (
-<<<<<<< HEAD
     <div className="space-y-8">
         <div className="flex justify-between items-center mb-8">
             <div>
@@ -95,15 +94,7 @@ export default function ClientsPage() {
             </div>
             <Button onClick={openModalForAdd}>
                 <PlusCircle className="mr-2" size={20}/>
-                <span>Añadir Cliente</span>
-=======
-    <div className="space-y-8 text-slate-900">
-        <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-slate-800">Gestión de Clientes</h1>
-            <Button onClick={openModalForAdd}>
-                <PlusCircle size={20}/>
                 Añadir Cliente
->>>>>>> e0014d8f0ee0f6838d7f87815a7749f3ae0431de
             </Button>
         </div>
 
