@@ -6,7 +6,6 @@
   body {
     @apply text-foreground;
     font-feature-settings: 'cv11', 'ss01';
-    @apply bg-background;
   }
 
   :root {
