@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 
 interface Task {
   id: string;
-  clienteNombre: string;
+  clienteNombre?: string;
+  cliente?: string;
   instalacion: string;
   estado: 'Pendiente' | 'En Progreso' | 'Completado';
   fechaCreacion?: any;
@@ -117,7 +118,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
                 </div>
                 
                 <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">
-                  {task.clienteNombre || 'Cliente no asignado'}
+                  {task.clienteNombre || task.cliente || 'Cliente no asignado'}
                 </h3>
                 
                 <div className="flex items-center gap-2 text-slate-400">
