@@ -64,7 +64,7 @@ const InspectionPageContent = () => {
     }
   }, []);
 
-  // Función de sincronización estabilizada
+  // Sincronización robusta para modo supervivencia
   const syncOfflineData = useCallback(async () => {
     if (!isOnline || isSyncing || !user || !firestore) return;
     
@@ -102,12 +102,12 @@ const InspectionPageContent = () => {
             
             await dbLocal.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
           } catch (itemError) {
-            console.error('Failed to sync record:', record.id, itemError);
+            console.error('Sincronización de registro fallida:', record.id, itemError);
           }
         }
       }
     } catch (error) {
-      console.error('Sincronización general fallida:', error);
+      console.error('Error de sincronización:', error);
     } finally {
       setIsSyncing(false);
     }
@@ -174,17 +174,12 @@ const InspectionPageContent = () => {
                       setAiData(res);
                       toast({ title: "Voz procesada" });
                   } catch (e) {
-                      console.error("AI Fallback active:", e);
-                      // Fallback robusto si la clave de API falla
+                      console.error("Fallo IA:", e);
                       setAiData({
                           observations_summary: dictationBufferRef.current,
                           identidad: {}, all_ok: false, checklist_updates: {}, mediciones_generales: {}, pruebas_carga: {}
                       } as any);
-                      toast({ 
-                        variant: "destructive", 
-                        title: "Modo Manual", 
-                        description: "IA fuera de servicio por clave de API. Usando dictado directo." 
-                      });
+                      toast({ variant: "destructive", title: "IA Fuera de Servicio", description: "Usando dictado plano." });
                   } finally {
                       setAiLoading(false);
                   }
@@ -212,7 +207,7 @@ const InspectionPageContent = () => {
     let props: any = {};
 
     if (activeTab === TABS.NEW_INSPECTION) {
-        if (!activeInspectionForm) return <div className="w-full h-full p-4"><InspectionHub onSelectInspectionType={handleSelectInspectionType} /></div>;
+        if (!activeInspectionForm) return <div className="w-full h-full"><InspectionHub onSelectInspectionType={handleSelectInspectionType} /></div>;
         
         switch (activeInspectionForm) {
             case 'hoja-trabajo': Component = HojaTrabajoFormLazy; break;
@@ -234,7 +229,7 @@ const InspectionPageContent = () => {
 
     return (
       <Suspense fallback={<div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div>}>
-        <div className="w-full h-full px-4 py-6">
+        <div className="w-full h-full pb-32">
           <Component {...props} />
         </div>
       </Suspense>
@@ -242,7 +237,7 @@ const InspectionPageContent = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 overflow-x-hidden">
+    <div className="flex flex-col min-h-screen bg-slate-50 overflow-x-hidden pt-16">
       <Header 
         activeTab={activeTab}
         isSubNavActive={!!activeInspectionForm}
@@ -251,7 +246,7 @@ const InspectionPageContent = () => {
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
       />
-      <main className="flex-grow w-full relative">
+      <main className="flex-grow w-full relative px-4 py-6">
          {renderContent()}
       </main>
       

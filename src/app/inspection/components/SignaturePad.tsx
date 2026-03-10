@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Pen, Trash2, Check, AlertCircle } from 'lucide-react';
+import { Pen, Trash2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -19,7 +19,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [hasContent, setHasContent] = useState(!!signature);
 
-  // Inicialización ultra-limpia del canvas
+  // Inicialización estable del lienzo con suavizado
   useEffect(() => {
     if (!isFullScreen) return;
 
@@ -46,6 +46,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
 
       contextRef.current = ctx;
 
+      // Cargar firma existente si hay una
       if (signature) {
         const img = new Image();
         img.src = signature;
@@ -55,12 +56,10 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       }
     };
 
-    // Delay para asegurar que el DOM del Dialog esté listo
-    const timer = setTimeout(initCanvas, 200);
+    const timer = setTimeout(initCanvas, 150);
     return () => clearTimeout(timer);
   }, [isFullScreen, signature]);
 
-  // Uso de Pointer Events para máxima compatibilidad y fluidez
   const getPos = (e: React.PointerEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
