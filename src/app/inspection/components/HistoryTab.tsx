@@ -43,7 +43,8 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
         const firestoreTaskMap = new Map<string, Task>();
         // 1. Fetch from Firestore if online to get the most up-to-date list
         if (isOnline) {
-          const q1 = query(collection(db, "trabajos"), where("inspectorIds", "array-contains", user.uid));
+          // CORRECCIÓN: Se usa user.email para que coincida con cómo se guardan las asignaciones.
+          const q1 = query(collection(db, "trabajos"), where("inspectorIds", "array-contains", user.email));
           const q2 = query(collection(db, "trabajos"), where("tecnicoId", "==", user.uid));
           const [assignedSnap, createdSnap] = await Promise.all([getDocs(q1), getDocs(q2)]);
           
