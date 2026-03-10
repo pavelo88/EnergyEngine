@@ -5,23 +5,23 @@ import { FileUp, Info, Loader2, CheckCircle, AlertTriangle } from 'lucide-react'
 import * as XLSX from 'xlsx';
 import { writeBatch, doc, collection, serverTimestamp } from "firebase/firestore";
 import { useFirestore } from '@/firebase';
+import { useAdminHeader } from './AdminHeaderContext';
 
-// Definimos el tipo para el estado del proceso
 type ProcessState = 'idle' | 'loading' | 'success' | 'error';
 
 export default function ImportPage() {
   const [processState, setProcessState] = useState<ProcessState>('idle');
-  const [fileName, setFileName] = useState('');
   const [message, setMessage] = useState('');
   const db = useFirestore();
+
+  useAdminHeader('Importar Datos Excel');
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !db) return;
 
-    setFileName(file.name);
     setProcessState('loading');
-    setMessage('Procesando el archivo... Esto puede tardar unos segundos.');
+    setMessage('Procesando archivo...');
 
     try {
       const reader = new FileReader();
@@ -29,125 +29,70 @@ export default function ImportPage() {
         try {
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const json = XLSX.utils.sheet_to_json(worksheet);
+          const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
-          if (json.length === 0) {
-            throw new Error("El archivo Excel está vacío o no tiene el formato correcto.");
-          }
+          if (json.length === 0) throw new Error("Archivo vacío.");
 
-          // Iniciar la escritura por lotes en Firebase
           const batch = writeBatch(db);
           const jobsCollection = collection(db, 'trabajos');
 
           json.forEach((row: any) => {
-            // Lógica para mapear las columnas del Excel a los campos del Job
             const newJob = {
               descripcion: row['Descripcion'] || 'Sin descripción',
               clienteNombre: row['Cliente'] || 'Cliente no especificado',
-              // Si los inspectores vienen en una sola celda, separados por comas
               inspectorNombres: row['Inspectores'] ? row['Inspectores'].split(',').map((name: string) => name.trim()) : [],
               estado: row['Estado'] || 'Pendiente',
-              // Si el excel no tiene IDs, los dejamos vacíos, Firebase los manejará
               clienteId: '', 
               inspectorIds: [],
-              // Usar la fecha del Excel si existe, sino, la fecha actual
               fechaCreacion: row['Fecha'] ? new Date(row['Fecha']) : serverTimestamp(),
             };
-
-            const jobRef = doc(jobsCollection); // Crea una referencia con un ID único
-            batch.set(jobRef, newJob);
+            batch.set(doc(jobsCollection), newJob);
           });
 
           await batch.commit();
           setProcessState('success');
-          setMessage(`¡Éxito! Se han importado ${json.length} trabajos desde el archivo ${file.name}.`);
-
+          setMessage(`Importación completada: ${json.length} registros.`);
         } catch (error: any) {
-          console.error(error);
           setProcessState('error');
-          setMessage(error.message || "Ocurrió un error desconocido al procesar el archivo.");
+          setMessage(error.message);
         }
       };
-
-      reader.onerror = () => {
-        setProcessState('error');
-        setMessage("Error al leer el archivo.");
-      };
-
       reader.readAsArrayBuffer(file);
-
     } catch (error: any) {
-      console.error(error);
       setProcessState('error');
-      setMessage(error.message || "Ocurrió un error inesperado.");
+      setMessage(error.message);
     }
   };
 
-  const getStatusInfo = () => {
-    switch (processState) {
-      case 'loading':
-        return { icon: Loader2, color: 'text-blue-500', spin: true, title: 'Procesando...' };
-      case 'success':
-        return { icon: CheckCircle, color: 'text-green-500', spin: false, title: 'Completado' };
-      case 'error':
-        return { icon: AlertTriangle, color: 'text-red-500', spin: false, title: 'Error' };
-      default:
-        return null;
-    }
-  }
-
-  const statusInfo = getStatusInfo();
-
   return (
-    <div className="space-y-8 text-slate-900">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-800">Importar Datos desde Excel</h1>
-        <p className="text-slate-500 mt-1">
-          Sube un archivo Excel (.xlsx, .xls, .csv) para cargar trabajos históricos a la base de datos.
-        </p>
-      </div>
-
-      <div className="bg-white p-8 rounded-2xl shadow-sm">
+    <div className="animate-in fade-in duration-500 space-y-8">
+      <div className="bg-white p-12 rounded-[2.5rem] border border-slate-100 shadow-sm text-center">
         {processState === 'idle' ? (
-          <div className="border-2 border-dashed border-slate-300 hover:border-primary transition-colors rounded-lg p-8">
-            <div className="text-center">
-              <FileUp className="mx-auto h-12 w-12 text-slate-400" />
-              <h3 className="mt-2 text-lg font-medium text-slate-800">Selecciona un archivo para subir</h3>
-              <div className="mt-6">
-                <label htmlFor="file-upload" className="cursor-pointer bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-4 rounded-lg transition-colors">
-                  <span>Cargar Archivo</span>
-                  <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept=".xlsx, .xls, .csv" />
-                </label>
-              </div>
-            </div>
+          <div className="border-2 border-dashed border-slate-200 hover:border-primary transition-all rounded-[2rem] p-12 group cursor-pointer relative">
+            <FileUp className="mx-auto h-16 w-16 text-slate-300 group-hover:text-primary transition-colors" />
+            <h3 className="mt-4 text-lg font-black text-slate-800 uppercase tracking-tighter">Subir archivo de datos</h3>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2">Formatos aceptados: .XLSX, .XLS, .CSV</p>
+            <input id="file-upload" type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileChange} accept=".xlsx, .xls, .csv" />
           </div>
         ) : (
-          <div className="text-center">
-            {statusInfo && <statusInfo.icon className={`mx-auto h-12 w-12 ${statusInfo.color} ${statusInfo.spin ? 'animate-spin' : ''}`} />}
-            <h3 className="mt-4 text-xl font-bold text-slate-800">{statusInfo?.title}</h3>
-            <p className="mt-2 text-slate-600">{message}</p>
+          <div className="py-10 animate-in zoom-in duration-300">
+            {processState === 'loading' ? <Loader2 className="mx-auto h-16 w-16 animate-spin text-primary" /> : processState === 'success' ? <CheckCircle className="mx-auto h-16 w-16 text-emerald-500" /> : <AlertTriangle className="mx-auto h-16 w-16 text-red-500" />}
+            <h3 className="mt-6 text-2xl font-black text-slate-800 uppercase tracking-tighter">{processState === 'loading' ? 'Procesando...' : processState === 'success' ? 'Éxito' : 'Error'}</h3>
+            <p className="mt-2 text-slate-500 font-bold uppercase text-xs tracking-widest">{message}</p>
             {processState !== 'loading' && (
-                 <button onClick={() => { setProcessState('idle'); setFileName(''); }} className="mt-6 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-4 rounded-lg transition-colors">
-                    Cargar otro archivo
-                </button>
+                 <button onClick={() => setProcessState('idle')} className="mt-8 bg-slate-900 text-white font-black px-8 py-3 rounded-xl uppercase text-xs tracking-widest shadow-xl shadow-slate-200 active:scale-95 transition-all">Nueva Carga</button>
             )}
           </div>
         )}
       </div>
 
-      <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <Info className="h-5 w-5 text-blue-700" />
-          </div>
-          <div className="ml-3">
-            <h4 className="font-bold text-blue-800">Estructura del Archivo Excel</h4>
-            <p className="text-sm text-blue-700 mt-1">
-              Para que la importación funcione, tu archivo debe tener una hoja con las siguientes columnas: <strong>Cliente, Descripcion, Estado, Fecha, Inspectores</strong>. Los nombres de las columnas deben coincidir exactamente.
-            </p>
-          </div>
+      <div className="bg-primary/5 border border-primary/10 p-6 rounded-2xl flex gap-4 items-start">
+        <Info className="h-6 w-6 text-primary flex-shrink-0" />
+        <div>
+          <h4 className="font-black text-primary uppercase text-xs tracking-widest mb-1">Estructura requerida</h4>
+          <p className="text-sm text-slate-600 font-medium leading-relaxed">
+            Para una importación exitosa, asegúrese de que el Excel contenga las siguientes columnas exactas: <span className="font-bold text-slate-800">Cliente, Descripcion, Estado, Fecha, Inspectores</span>.
+          </p>
         </div>
       </div>
     </div>

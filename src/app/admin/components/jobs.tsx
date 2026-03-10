@@ -11,8 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
+import { useAdminHeader } from './AdminHeaderContext';
 
-// --- Tipos de Datos ---
 type Inspector = { id: string; nombre: string; };
 type Cliente = { id: string; nombre: string; };
 type Job = {
@@ -20,14 +20,14 @@ type Job = {
   descripcion: string;
   clienteId: string;
   clienteNombre?: string;
-  cliente?: string; // from reports
+  cliente?: string; 
   instalacion?: string;
   location?: { lat: number, lon: number };
   modelo?: string;
   n_motor?: string;
   inspectorIds: string[];
   inspectorNombres?: string[];
-  tecnicoNombre?: string; // from reports
+  tecnicoNombre?: string; 
   estado: 'Pendiente' | 'En Progreso' | 'Completado';
   fecha_creacion?: any;
   formType?: string;
@@ -47,7 +47,38 @@ export default function JobsPage() {
   const [selectedStatus, setSelectedStatus] = useState<Job['estado']>('Pendiente');
   const db = useFirestore();
 
-  // --- Carga de Datos (Jobs, Inspectores, Clientes) ---
+  const openModalForAdd = () => {
+    setEditingJob(null);
+    setIsModalOpen(true);
+  };
+
+  const handleExport = () => {
+    const dataToExport = jobs.map(job => ({
+      ID: job.id,
+      Descripción: job.descripcion,
+      Cliente: job.clienteNombre || job.cliente,
+      Estado: job.estado,
+      Fecha: job.fecha_creacion?.toDate()?.toLocaleDateString() || 'N/A',
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Trabajos");
+    XLSX.writeFile(workbook, `Reporte_Trabajos_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  };
+
+  useAdminHeader('Gestión de Trabajos', (
+    <div className="flex gap-2">
+        <Button onClick={handleExport} variant="outline" className="rounded-xl font-bold uppercase text-xs tracking-widest hidden md:flex border-slate-200">
+            <Download className="mr-2" size={16} />
+            Exportar Excel
+        </Button>
+        <Button onClick={openModalForAdd} className="rounded-xl font-black uppercase text-xs tracking-widest bg-primary">
+            <PlusCircle className="mr-2" size={16} />
+            Nuevo Trabajo
+        </Button>
+    </div>
+  ));
+
   useEffect(() => {
     if (!db) return;
     const qInspectors = query(collection(db, 'usuarios'));
@@ -63,18 +94,13 @@ export default function JobsPage() {
     });
     
     const qJobs = query(collection(db, 'trabajos'), orderBy('fecha_creacion', 'desc'));
-
     const unsubJobs = onSnapshot(qJobs, snapshot => {
       const jobList = snapshot.docs.map(doc => ({
         id: doc.id,
         ...(doc.data() as Omit<Job, 'id'>)
       }));
-      
       setJobs(jobList);
       setLoading(false);
-    }, (error) => {
-        console.error("Error al cargar trabajos: ", error);
-        setLoading(false);
     });
 
     return () => {
@@ -96,74 +122,52 @@ export default function JobsPage() {
     }
   }, [editingJob]);
 
-
-  // --- Manejo del Formulario (Añadir/Editar) ---
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormLoading(true);
     const formData = new FormData(e.currentTarget);
-    
-    const clienteId = selectedClientId;
-    const selectedClient = clients.find(c => c.id === clienteId);
-    
+    const selectedClient = clients.find(c => c.id === selectedClientId);
     const selectedInspectors = inspectors.filter(i => selectedInspectorIds.includes(i.id));
 
     const jobData = {
       descripcion: formData.get('descripcion') as string,
-      clienteId: clienteId,
+      clienteId: selectedClientId,
       clienteNombre: selectedClient?.nombre || 'N/A',
       inspectorIds: selectedInspectorIds,
       inspectorNombres: selectedInspectors.map(i => i.nombre),
       estado: selectedStatus,
-      formType: 'job', // Marcamos este documento como un trabajo manual
+      formType: 'job',
     };
 
     try {
       if (editingJob) {
-        const jobRef = doc(db, 'trabajos', editingJob.id);
-        await updateDoc(jobRef, jobData);
-        alert('Trabajo actualizado correctamente.');
+        await updateDoc(doc(db, 'trabajos', editingJob.id), jobData);
       } else {
-        await addDoc(collection(db, "trabajos"), {
-          ...jobData,
-          fecha_creacion: serverTimestamp(),
-        });
-        alert('Nuevo trabajo creado.');
+        await addDoc(collection(db, "trabajos"), { ...jobData, fecha_creacion: serverTimestamp() });
       }
       closeModal();
     } catch (error) {
       console.error("Error al guardar el trabajo: ", error);
-      alert("Error al guardar el trabajo. Revisa la consola.");
     }
     setFormLoading(false);
   };
   
   const handleInspectorSelection = (inspectorId: string) => {
-    setSelectedInspectorIds(prev => 
-      prev.includes(inspectorId)
-        ? prev.filter(id => id !== inspectorId)
-        : [...prev, inspectorId]
-    );
+    setSelectedInspectorIds(prev => prev.includes(inspectorId) ? prev.filter(id => id !== inspectorId) : [...prev, inspectorId]);
   };
 
-
-  // --- Acciones de la Tabla ---
   const handleDeleteJob = async (jobId: string) => {
     if (window.confirm("¿Seguro que quieres eliminar este trabajo?")) {
       try {
         await deleteDoc(doc(db, 'trabajos', jobId));
-        alert("Trabajo eliminado.");
       } catch (error) {
         console.error("Error al eliminar el trabajo: ", error);
-        alert("Error al eliminar. Revisa la consola.");
       }
     }
   };
   
   const getJobTitle = (job: Job) => {
-    if (job.formType === 'job') {
-        return job.descripcion;
-    }
+    if (job.formType === 'job') return job.descripcion;
     switch(job.formType) {
         case 'hoja-trabajo': return 'Hoja de Trabajo';
         case 'informe-revision': return 'Informe de Revisión';
@@ -173,142 +177,96 @@ export default function JobsPage() {
     }
   };
 
-  const handleExport = () => {
-    const dataToExport = jobs.map(job => ({
-      ID: job.id,
-      Descripción: getJobTitle(job),
-      Cliente: job.clienteNombre || job.cliente,
-      Instalación: job.instalacion || 'N/A',
-      Inspectores: job.inspectorNombres?.join(', ') || job.tecnicoNombre || 'No Asignado',
-      Estado: job.estado,
-      Fecha: job.fecha_creacion?.toDate()?.toLocaleDateString() || 'N/A',
-      Modelo: job.modelo || 'N/A',
-      "Nº Motor/Serie": job.n_motor || 'N/A',
-      Ubicación: job.location ? `${job.location.lat.toFixed(5)}, ${job.location.lon.toFixed(5)}` : 'N/A'
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Trabajos");
-    XLSX.writeFile(workbook, `Reporte_Trabajos_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-  };
-
-  const openModalForEdit = (job: Job) => {
-    setEditingJob(job);
-    setIsModalOpen(true);
-  };
-
-  const openModalForAdd = () => {
-    setEditingJob(null);
-    setIsModalOpen(true);
-  };
-
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingJob(null);
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <div>
-            <h1 className="text-3xl font-bold text-slate-800">Gestión de Trabajos</h1>
-            <p className="mt-1 text-slate-600">Crea, asigna y gestiona los trabajos de los inspectores.</p>
-        </div>
-        <div className="flex items-center gap-4">
-            <Button onClick={handleExport} variant="outline">
-                <Download className="mr-2" size={16} />
-                Exportar a Excel
-            </Button>
-            <Button onClick={openModalForAdd}>
-            <PlusCircle className="mr-2" size={20} />
-            <span>Crear Nuevo Trabajo</span>
-            </Button>
-        </div>
-      </div>
-
-      {/* --- Tabla de Trabajos --*/}
-      <div className="bg-white p-6 rounded-lg shadow-sm">
-        <div className="overflow-x-auto">
-          {loading ? <p>Cargando trabajos...</p> : (
+    <div className="animate-in fade-in duration-500">
+      <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm overflow-x-auto">
+          {loading ? <p className="text-center font-black uppercase text-slate-200">Cargando Trabajos...</p> : (
             <table className="w-full text-left">
-              <thead><tr className="border-b"><th className="p-3">Descripción</th><th className="p-3">Cliente / Instalación</th><th className="p-3">Equipo</th><th className="p-3">Inspectores</th><th className="p-3">Estado</th><th className="p-3">Acciones</th></tr></thead>
+              <thead>
+                <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                  <th className="pb-4">Descripción / Tipo</th>
+                  <th className="pb-4">Cliente / Instalación</th>
+                  <th className="pb-4">Especificaciones</th>
+                  <th className="pb-4">Técnicos</th>
+                  <th className="pb-4">Estado</th>
+                  <th className="pb-4 text-right">Gestión</th>
+                </tr>
+              </thead>
               <tbody>
                 {jobs.map(job => (
-                  <tr key={job.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-medium">{getJobTitle(job)}</td>
-                    <td className="p-3">{job.clienteNombre || job.cliente}<br/><span className="text-xs text-slate-500">{job.instalacion || ''}</span></td>
-                    <td className="p-3 text-xs">
-                        {job.modelo && <div><b>Modelo:</b> {job.modelo}</div>}
-                        {job.n_motor && <div><b>S/N:</b> {job.n_motor}</div>}
-                        {job.location && <div className="flex items-center gap-1 mt-1"><MapPin size={12} className="text-slate-400"/> {job.location.lat.toFixed(4)}, {job.location.lon.toFixed(4)}</div>}
+                  <tr key={job.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                    <td className="py-4 font-black text-slate-700">{getJobTitle(job)}</td>
+                    <td className="py-4">
+                      <div className="font-bold text-slate-600 text-sm">{job.clienteNombre || job.cliente}</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase">{job.instalacion || ''}</div>
                     </td>
-                    <td className="p-3">{job.inspectorNombres?.join(', ') || job.tecnicoNombre || 'No Asignado'}</td>
-                    <td className="p-3">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full 
-                          ${job.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' : ''}
-                          ${job.estado === 'En Progreso' ? 'bg-indigo-100 text-indigo-800' : ''}
-                          ${job.estado === 'Completado' ? 'bg-green-100 text-green-800' : ''}`}>
+                    <td className="py-4 text-[10px] font-black text-slate-400 uppercase">
+                        {job.modelo && <div>MOD: {job.modelo}</div>}
+                        {job.n_motor && <div>S/N: {job.n_motor}</div>}
+                    </td>
+                    <td className="py-4 text-xs font-bold text-slate-500">{job.inspectorNombres?.join(', ') || job.tecnicoNombre || 'Pendiente'}</td>
+                    <td className="py-4">
+                        <span className={`px-3 py-1 text-[10px] font-black rounded-full uppercase tracking-tighter
+                          ${job.estado === 'Pendiente' ? 'bg-amber-50 text-amber-600' : ''}
+                          ${job.estado === 'En Progreso' ? 'bg-indigo-50 text-indigo-600' : ''}
+                          ${job.estado === 'Completado' ? 'bg-emerald-50 text-emerald-600' : ''}`}>
                           {job.estado}
                         </span>
                     </td>
-                    <td className="p-3 flex items-center gap-4">
-                        <button onClick={() => openModalForEdit(job)} className="text-slate-500 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed" disabled={job.formType !== 'job'}><Pencil size={18}/></button>
-                        <button onClick={() => handleDeleteJob(job.id)} className="text-slate-500 hover:text-red-600"><Trash2 size={18}/></button>
+                    <td className="py-4 text-right">
+                        <div className="flex justify-end gap-1">
+                          <button onClick={() => setEditingJob(job) || setIsModalOpen(true)} className="p-2 text-slate-300 hover:text-primary transition-colors disabled:opacity-30" disabled={job.formType !== 'job'}><Pencil size={18}/></button>
+                          <button onClick={() => handleDeleteJob(job.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
+                        </div>
                     </td>
                   </tr>
                 ))}
                  {jobs.length === 0 && (
-                    <tr><td colSpan={6} className="p-4 text-center text-slate-500">No hay trabajos creados todavía.</td></tr>
+                    <tr><td colSpan={6} className="py-10 text-center text-slate-400 font-bold uppercase text-xs">No se registran trabajos en el sistema.</td></tr>
                 )}
               </tbody>
             </table>
           )}
-        </div>
       </div>
 
-      {/* --- Modal de Añadir/Editar Trabajo --*/}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg">
-            <h2 className="text-2xl font-bold text-slate-800 mb-6">{editingJob ? 'Editar Trabajo' : 'Crear Nuevo Trabajo'}</h2>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-lg animate-in zoom-in duration-200">
+            <h2 className="text-xl font-black text-slate-800 mb-6 uppercase tracking-tighter">{editingJob ? 'Editar Orden de Trabajo' : 'Nueva Orden de Trabajo'}</h2>
             <form onSubmit={handleFormSubmit} className="grid grid-cols-1 gap-6">
                 <div className="space-y-2">
-                    <Label htmlFor="descripcion">Descripción del trabajo</Label>
-                    <Textarea required id="descripcion" name="descripcion" placeholder="Describe el trabajo..." defaultValue={editingJob?.descripcion || ''} />
+                    <Label htmlFor="descripcion" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descripción de Tarea</Label>
+                    <Textarea required id="descripcion" name="descripcion" placeholder="Describe brevemente el trabajo a realizar..." defaultValue={editingJob?.descripcion || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold min-h-[100px]" />
                 </div>
                  <div className="space-y-2">
-                    <Label>Seleccionar cliente</Label>
+                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Vincular a Cliente</Label>
                     <Select required value={selectedClientId} onValueChange={setSelectedClientId}>
-                        <SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger>
-                        <SelectContent>
-                            {clients.map(client => <SelectItem key={client.id} value={client.id}>{client.nombre}</SelectItem>)}
-                        </SelectContent>
+                        <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50 font-bold h-12"><SelectValue placeholder="Seleccionar de la base..." /></SelectTrigger>
+                        <SelectContent className="rounded-xl shadow-xl">{clients.map(client => <SelectItem key={client.id} value={client.id}>{client.nombre}</SelectItem>)}</SelectContent>
                     </Select>
                 </div>
 
-              <div>
-                <Label className="block mb-2">Asignar Inspectores</Label>
-                <div className="max-h-40 overflow-y-auto space-y-3 p-4 border rounded-md bg-slate-50">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asignación de Técnicos</Label>
+                <div className="max-h-40 overflow-y-auto space-y-3 p-4 border border-slate-100 rounded-xl bg-slate-50">
                   {inspectors.map(inspector => (
-                    <div key={inspector.id} className="flex items-center">
-                      <Checkbox
-                        id={`inspector-${inspector.id}`}
-                        checked={selectedInspectorIds.includes(inspector.id)}
-                        onCheckedChange={() => handleInspectorSelection(inspector.id)}
-                      />
-                      <Label htmlFor={`inspector-${inspector.id}`} className="ml-3 text-sm font-medium text-slate-700">
-                        {inspector.nombre}
-                      </Label>
+                    <div key={inspector.id} className="flex items-center gap-3">
+                      <Checkbox id={`inspector-${inspector.id}`} checked={selectedInspectorIds.includes(inspector.id)} onCheckedChange={() => handleInspectorSelection(inspector.id)} className="rounded-md data-[state=checked]:bg-primary" />
+                      <Label htmlFor={`inspector-${inspector.id}`} className="text-xs font-black text-slate-600 uppercase tracking-tighter cursor-pointer">{inspector.nombre}</Label>
                     </div>
                   ))}
                 </div>
               </div>
                 <div className="space-y-2">
-                    <Label>Estado</Label>
-                     <Select required value={selectedStatus} onValueChange={(v: Job['estado']) => setSelectedStatus(v)}>
-                        <SelectTrigger><SelectValue placeholder="Seleccionar estado..." /></SelectTrigger>
-                        <SelectContent>
+                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado Operativo</Label>
+                     <Select required value={selectedStatus} onValueChange={(v: any) => setSelectedStatus(v)}>
+                        <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50 font-bold h-12"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-xl shadow-xl">
                             <SelectItem value="Pendiente">Pendiente</SelectItem>
                             <SelectItem value="En Progreso">En Progreso</SelectItem>
                             <SelectItem value="Completado">Completado</SelectItem>
@@ -316,11 +274,10 @@ export default function JobsPage() {
                     </Select>
                 </div>
 
-              <div className="flex justify-end gap-4 mt-4">
-                <Button type="button" variant="ghost" onClick={closeModal}>Cancelar</Button>
-                <Button type="submit" disabled={formLoading}>
-                  {formLoading && <Loader2 className="animate-spin" size={18}/>}
-                  {formLoading ? 'Guardando...' : 'Guardar Trabajo'}
+              <div className="flex justify-end gap-3 mt-4">
+                <button type="button" onClick={closeModal} className="px-6 py-2 text-xs font-black text-slate-400 uppercase tracking-widest">Cancelar</button>
+                <Button type="submit" disabled={formLoading} className="rounded-xl font-black uppercase text-xs tracking-widest bg-primary px-8">
+                  {formLoading ? 'Procesando...' : 'Confirmar Orden'}
                 </Button>
               </div>
             </form>

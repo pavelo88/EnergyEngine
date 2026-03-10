@@ -1,31 +1,35 @@
 'use client';
 
-import { Menu, Bell, UserCircle } from 'lucide-react';
+import { Menu } from 'lucide-react';
+import { useAdminHeaderRaw } from './AdminHeaderContext';
 
 interface HeaderProps {
   onMenuClick: () => void;
-  title: string;
 }
 
-export default function Header({ onMenuClick, title }: HeaderProps) {
+export default function Header({ onMenuClick }: HeaderProps) {
+  const { title, action } = useAdminHeaderRaw();
+
   return (
-    <header className="flex h-16 items-center justify-between bg-white shadow-sm px-4 md:px-6 sticky top-0 z-10">
+    <header className="flex h-20 items-center justify-between bg-white border-b border-slate-100 px-4 md:px-8 sticky top-0 z-20">
       <div className="flex items-center gap-4">
         {/* Botón de Menú para móvil */}
-        <button onClick={onMenuClick} className="md:hidden p-2 rounded-full hover:bg-gray-100">
-          <Menu className="h-6 w-6 text-gray-700" />
+        <button 
+          onClick={onMenuClick} 
+          className="md:hidden p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100 transition-colors"
+        >
+          <Menu className="h-6 w-6" />
         </button>
-        <h1 className="text-xl font-semibold text-gray-800 hidden md:block">{title}</h1>
+        <h1 className="text-2xl font-black text-slate-800 tracking-tight uppercase">{title}</h1>
       </div>
       
-      {/* Iconos de la derecha (ejemplo) */}
+      {/* Botón de acción dinámico (Inyectado por cada sección) */}
       <div className="flex items-center gap-4">
-        <button className="p-2 rounded-full hover:bg-gray-100">
-          <Bell className="h-5 w-5 text-gray-600" />
-        </button>
-        <button className="p-2 rounded-full hover:bg-gray-100">
-          <UserCircle className="h-6 w-6 text-gray-600" />
-        </button>
+        {action && (
+          <div className="animate-in fade-in zoom-in duration-300">
+            {action}
+          </div>
+        )}
       </div>
     </header>
   );

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
-import { Filter, Loader2, DollarSign, User, Briefcase, Calendar, Download } from 'lucide-react';
+import { Loader2, Calendar, Download } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { addDays, format } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -12,43 +12,54 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { useAdminHeader } from './AdminHeaderContext';
 
-// --- Tipos de Datos ---
 type Gasto = { id: string; fecha: any; inspectorId: string; inspectorNombre: string; clienteNombre: string; descripcion: string; categoria: string; monto: number; estado: string; forma_pago: string, comprobanteUrl?: string };
 type Inspector = { id: string; nombre: string; };
-type Cliente = { id: string; nombre: string; };
 
 export default function ExpensesPage() {
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [inspectores, setInspectores] = useState<Inspector[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const db = useFirestore();
 
-  // --- Estados de los Filtros ---
   const [filtroInspector, setFiltroInspector] = useState('all');
   const [filtroCliente, setFiltroCliente] = useState('all');
   const [filtroFecha, setFiltroFecha] = useState<DateRange | undefined>({ from: addDays(new Date(), -30), to: new Date() });
 
-  // --- Carga de Datos Inicial (Gastos, Inspectores, Clientes) ---
+  const handleExport = () => {
+    const dataToExport = gastosFiltrados.map(g => ({
+        Fecha: g.fecha.toDate().toLocaleDateString(),
+        Inspector: g.inspectorNombre,
+        Cliente: g.clienteNombre,
+        Concepto: g.descripcion,
+        Monto: g.monto,
+        Estado: g.estado,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Gastos");
+    XLSX.writeFile(workbook, `Reporte_Gastos_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  };
+
+  useAdminHeader('Control de Gastos', (
+    <Button onClick={handleExport} className="rounded-xl font-bold uppercase text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700">
+        <Download className="mr-2" size={16} />
+        Exportar Reporte
+    </Button>
+  ));
+
   useEffect(() => {
     if (!db) return;
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Cargar Inspectores (ahora usa la colección 'usuarios' como en otros componentes)
-        const qInspectores = query(collection(db, 'usuarios'), where("roles", "array-contains", "inspector"));
-        const inspectoresSnap = await getDocs(qInspectores);
+        const qInspectors = query(collection(db, 'usuarios'), where("roles", "array-contains", "inspector"));
+        const inspectoresSnap = await getDocs(qInspectors);
         setInspectores(inspectoresSnap.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre })));
 
-        // Cargar Clientes
-        const clientesSnap = await getDocs(collection(db, 'clientes'));
-        setClientes(clientesSnap.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre })));
-
-        // Cargar Gastos
         const gastosSnap = await getDocs(query(collection(db, 'gastos'), orderBy('fecha', 'desc')));
         setGastos(gastosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Gasto)));
-
       } catch (error) {
         console.error("Error al cargar datos: ", error);
       } finally {
@@ -58,10 +69,9 @@ export default function ExpensesPage() {
     fetchData();
   }, [db]);
 
-  // --- Lógica de Filtrado ---
   const gastosFiltrados = useMemo(() => {
     return gastos.filter(gasto => {
-      if (!gasto.fecha?.toDate) return false; // Proteger contra datos malformados
+      if (!gasto.fecha?.toDate) return false;
       const fechaGasto = gasto.fecha.toDate();
       const enRangoFecha = filtroFecha?.from && filtroFecha?.to ? (fechaGasto >= filtroFecha.from && fechaGasto <= filtroFecha.to) : true;
       const matchInspector = filtroInspector === 'all' || gasto.inspectorId === filtroInspector;
@@ -70,122 +80,93 @@ export default function ExpensesPage() {
     });
   }, [gastos, filtroInspector, filtroCliente, filtroFecha]);
 
-  // --- Lógica de Resumen ---
   const totalGastado = useMemo(() => {
     return gastosFiltrados.reduce((acc, gasto) => acc + (gasto.monto || 0), 0);
   }, [gastosFiltrados]);
 
-    const handleExport = () => {
-    const dataToExport = gastosFiltrados.map(g => ({
-        Fecha: g.fecha.toDate().toLocaleDateString(),
-        Inspector: g.inspectorNombre,
-        Cliente_Lugar: g.clienteNombre,
-        Descripcion: g.descripcion,
-        Categoria: g.categoria,
-        Monto: g.monto,
-        Estado: g.estado,
-        "Forma de Pago": g.forma_pago,
-        Comprobante: g.comprobanteUrl || 'No',
-    }));
-    
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Gastos");
-    XLSX.writeFile(workbook, `Reporte_Gastos_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-  };
-
   return (
-    <div className="bg-slate-50 p-4 sm:p-6 md:p-8 h-full">
-      <div className="max-w-7xl mx-auto">
-        {/* --- Cabecera --- */}
-        <div className="flex justify-between items-center">
+    <div className="animate-in fade-in duration-500 space-y-8">
+        {/* --- Filtros Estéticos --- */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 items-end">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Reporte de Gastos</h1>
-            <p className="mt-1 text-slate-600">Visualiza y filtra los gastos registrados por el equipo.</p>
-          </div>
-           <Button onClick={handleExport} variant="outline">
-            <Download className="mr-2" size={16} />
-            Exportar a Excel
-          </Button>
-        </div>
-
-        {/* --- Filtros --- */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 my-8 bg-white p-4 rounded-xl shadow-sm">
-          {/* Filtro por Inspector */}
-          <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Inspector</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Inspector Técnico</label>
               <Select value={filtroInspector} onValueChange={setFiltroInspector}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar inspector..."/></SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="all">Todos los Inspectores</SelectItem>
+                  <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50 font-bold h-12"><SelectValue/></SelectTrigger>
+                  <SelectContent className="rounded-xl shadow-xl">
+                      <SelectItem value="all">Todos los técnicos</SelectItem>
                       {inspectores.map(i => <SelectItem key={i.id} value={i.id}>{i.nombre}</SelectItem>)}
                   </SelectContent>
               </Select>
           </div>
-          {/* Filtro por Cliente */}
           <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Cliente / Lugar</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Lugar / Destino</label>
               <Select value={filtroCliente} onValueChange={setFiltroCliente}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar cliente..."/></SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="all">Todos los Clientes / Lugares</SelectItem>
+                  <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50 font-bold h-12"><SelectValue/></SelectTrigger>
+                  <SelectContent className="rounded-xl shadow-xl">
+                      <SelectItem value="all">Todos los lugares</SelectItem>
                       {[...new Set(gastos.map(g => g.clienteNombre))].map(c => c && <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
               </Select>
           </div>
-          {/* Filtro por Fecha */}
           <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Rango de Fechas</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Periodo Temporal</label>
               <Popover>
                   <PopoverTrigger asChild>
-                      <Button variant={"outline"} className="w-full justify-start text-left font-normal">
-                          <Calendar className="mr-2 h-4 w-4"/>
-                          {filtroFecha?.from ? `${filtroFecha.from.toLocaleDateString()} - ${filtroFecha.to?.toLocaleDateString()}`: <span>Selecciona un rango</span>}
+                      <Button variant="outline" className="w-full justify-start text-left font-bold rounded-xl h-12 bg-slate-50 border-slate-100">
+                          <Calendar className="mr-2 h-4 w-4 text-primary"/>
+                          <span className="text-xs uppercase truncate">
+                            {filtroFecha?.from ? `${format(filtroFecha.from, 'dd/MM/yy')} - ${filtroFecha.to ? format(filtroFecha.to, 'dd/MM/yy') : ''}`: 'Rango de fechas'}
+                          </span>
                       </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                      <CalendarComponent mode="range" selected={filtroFecha} onSelect={setFiltroFecha} numberOfMonths={2}/>
+                  <PopoverContent className="w-auto p-0 rounded-[2rem] overflow-hidden shadow-2xl border-none">
+                      <CalendarComponent mode="range" selected={filtroFecha} onSelect={setFiltroFecha} numberOfMonths={2} locale={undefined as any}/>
                   </PopoverContent>
               </Popover>
           </div>
-          {/* Resumen Total */}
-          <div className='bg-slate-100 p-4 rounded-lg flex items-center justify-center'>
-              <div>
-                <p className='text-sm text-slate-500 font-medium'>Total Gastado (Filtrado)</p>
-                <p className='text-2xl font-bold text-slate-800'>${totalGastado.toFixed(2)}</p>
-              </div>
+          <div className='bg-primary/5 p-4 rounded-xl border border-primary/10 flex flex-col justify-center h-12'>
+              <p className='text-[9px] text-primary/60 font-black uppercase tracking-widest leading-none mb-1'>Total Filtrado</p>
+              <p className='text-xl font-black text-primary leading-none tracking-tighter'>{totalGastado.toFixed(2)} €</p>
           </div>
         </div>
 
         {/* --- Tabla de Gastos --- */}
-        {loading ? (
-          <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-lg overflow-x-auto">
+        <div className="bg-white rounded-[2rem] border border-slate-100 p-8 shadow-sm overflow-x-auto">
+          {loading ? (
+            <div className="flex justify-center py-10"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>
+          ) : (
             <table className="w-full text-left">
-              <thead className="bg-slate-100"><tr><th className="p-4 text-sm font-semibold text-slate-600">Fecha</th><th className="p-4 text-sm font-semibold text-slate-600">Inspector</th><th className="p-4 text-sm font-semibold text-slate-600">Lugar/Cliente</th><th className="p-4 text-sm font-semibold text-slate-600">Descripción</th><th className="p-4 text-sm font-semibold text-slate-600">Monto</th><th className="p-4 text-sm font-semibold text-slate-600">Estado</th></tr></thead>
+              <thead>
+                <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                  <th className="pb-4">Fecha</th>
+                  <th className="pb-4">Inspector</th>
+                  <th className="pb-4">Destino</th>
+                  <th className="pb-4">Descripción</th>
+                  <th className="pb-4 text-right">Monto</th>
+                  <th className="pb-4 text-right">Estado</th>
+                </tr>
+              </thead>
               <tbody>
                 {gastosFiltrados.map((gasto) => (
-                  <tr key={gasto.id} className="border-b border-slate-100">
-                    <td className="p-4 text-slate-700">{gasto.fecha.toDate().toLocaleDateString()}</td>
-                    <td className="p-4"><div className="font-medium text-slate-900">{gasto.inspectorNombre}</div></td>
-                    <td className="p-4 text-slate-700">{gasto.clienteNombre}</td>
-                    <td className="p-4 text-slate-700">{gasto.descripcion}</td>
-                    <td className="p-4 font-medium text-right text-slate-800">${gasto.monto.toFixed(2)}</td>
-                    <td className="p-4">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full 
-                          ${gasto.estado === 'Pendiente de Aprobación' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                          {gasto.estado}
+                  <tr key={gasto.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                    <td className="py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">{gasto.fecha.toDate().toLocaleDateString()}</td>
+                    <td className="py-4 font-black text-slate-700">{gasto.inspectorNombre}</td>
+                    <td className="py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">{gasto.clienteNombre}</td>
+                    <td className="py-4 text-sm text-slate-600 font-medium">{gasto.descripcion}</td>
+                    <td className="py-4 font-black text-right text-slate-800">{gasto.monto.toFixed(2)} €</td>
+                    <td className="py-4 text-right">
+                        <span className={`px-2 py-1 text-[9px] font-black rounded-full uppercase tracking-tighter
+                          ${gasto.estado === 'Pendiente de Aprobación' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                          {gasto.estado === 'Pendiente de Aprobación' ? 'Pendiente' : 'Aprobado'}
                         </span>
                     </td>
                   </tr>
                 ))}
-                {gastosFiltrados.length === 0 && (<tr><td colSpan={6} className="text-center p-8 text-slate-500">No hay gastos que coincidan con los filtros seleccionados.</td></tr>)}
+                {gastosFiltrados.length === 0 && (<tr><td colSpan={6} className="py-10 text-center text-slate-400 font-bold uppercase text-xs">No se registran gastos con estos criterios.</td></tr>)}
               </tbody>
             </table>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
     </div>
   );
 }
