@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { Loader2, Calendar, Download } from 'lucide-react';
@@ -27,7 +27,18 @@ export default function ExpensesPage() {
   const [filtroCliente, setFiltroCliente] = useState('all');
   const [filtroFecha, setFiltroFecha] = useState<DateRange | undefined>({ from: addDays(new Date(), -30), to: new Date() });
 
-  const handleExport = () => {
+  const gastosFiltrados = useMemo(() => {
+    return gastos.filter(gasto => {
+      if (!gasto.fecha?.toDate) return false;
+      const fechaGasto = gasto.fecha.toDate();
+      const enRangoFecha = filtroFecha?.from && filtroFecha?.to ? (fechaGasto >= filtroFecha.from && fechaGasto <= filtroFecha.to) : true;
+      const matchInspector = filtroInspector === 'all' || gasto.inspectorId === filtroInspector;
+      const matchCliente = filtroCliente === 'all' || gasto.clienteNombre === filtroCliente;
+      return enRangoFecha && matchInspector && matchCliente;
+    });
+  }, [gastos, filtroInspector, filtroCliente, filtroFecha]);
+
+  const handleExport = useCallback(() => {
     const dataToExport = gastosFiltrados.map(g => ({
         Fecha: g.fecha.toDate().toLocaleDateString(),
         Inspector: g.inspectorNombre,
@@ -40,14 +51,17 @@ export default function ExpensesPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Gastos");
     XLSX.writeFile(workbook, `Reporte_Gastos_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-  };
+  }, [gastosFiltrados]);
 
-  useAdminHeader('Control de Gastos', (
-    <Button onClick={handleExport} className="rounded-xl font-bold uppercase text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700">
+  // Memorizamos la acción del encabezado para evitar bucles infinitos
+  const headerAction = useMemo(() => (
+    <Button onClick={handleExport} className="rounded-xl font-bold uppercase text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 shadow-lg active:scale-95 transition-all">
         <Download className="mr-2" size={16} />
         Exportar Reporte
     </Button>
-  ));
+  ), [handleExport]);
+
+  useAdminHeader('Control de Gastos', headerAction);
 
   useEffect(() => {
     if (!db) return;
@@ -69,24 +83,12 @@ export default function ExpensesPage() {
     fetchData();
   }, [db]);
 
-  const gastosFiltrados = useMemo(() => {
-    return gastos.filter(gasto => {
-      if (!gasto.fecha?.toDate) return false;
-      const fechaGasto = gasto.fecha.toDate();
-      const enRangoFecha = filtroFecha?.from && filtroFecha?.to ? (fechaGasto >= filtroFecha.from && fechaGasto <= filtroFecha.to) : true;
-      const matchInspector = filtroInspector === 'all' || gasto.inspectorId === filtroInspector;
-      const matchCliente = filtroCliente === 'all' || gasto.clienteNombre === filtroCliente;
-      return enRangoFecha && matchInspector && matchCliente;
-    });
-  }, [gastos, filtroInspector, filtroCliente, filtroFecha]);
-
   const totalGastado = useMemo(() => {
     return gastosFiltrados.reduce((acc, gasto) => acc + (gasto.monto || 0), 0);
   }, [gastosFiltrados]);
 
   return (
     <div className="animate-in fade-in duration-500 space-y-8">
-        {/* --- Filtros Estéticos --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 items-end">
           <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Inspector Técnico</label>
@@ -119,8 +121,8 @@ export default function ExpensesPage() {
                           </span>
                       </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 rounded-[2rem] overflow-hidden shadow-2xl border-none">
-                      <CalendarComponent mode="range" selected={filtroFecha} onSelect={setFiltroFecha} numberOfMonths={2} locale={undefined as any}/>
+                  <PopoverContent className="w-auto p-0 rounded-[2rem] overflow-hidden shadow-2xl border-none" align="start">
+                      <CalendarComponent mode="range" selected={filtroFecha} onSelect={setFiltroFecha} numberOfMonths={2} />
                   </PopoverContent>
               </Popover>
           </div>
@@ -130,7 +132,6 @@ export default function ExpensesPage() {
           </div>
         </div>
 
-        {/* --- Tabla de Gastos --- */}
         <div className="bg-white rounded-[2rem] border border-slate-100 p-8 shadow-sm overflow-x-auto">
           {loading ? (
             <div className="flex justify-center py-10"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>

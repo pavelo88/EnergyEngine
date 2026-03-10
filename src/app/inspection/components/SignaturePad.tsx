@@ -123,6 +123,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
           "w-full h-40 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex items-center justify-center cursor-pointer hover:border-primary transition-all overflow-hidden relative group",
           signature ? "bg-white border-solid border-primary/20 shadow-inner" : ""
         )}
+        style={{ touchAction: 'none' }}
       >
         {signature ? (
           <img src={signature} alt="Firma guardada" className="max-h-full max-w-full object-contain p-4 transition-transform group-hover:scale-105" />

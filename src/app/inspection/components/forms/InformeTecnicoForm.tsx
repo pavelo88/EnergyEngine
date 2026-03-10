@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useFirestore, useUser } from '@/firebase';
@@ -57,11 +57,11 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
             startY: currentY,
             body: [
                 ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
-                [{ content: 'Cliente:', styles: { fontStyle: 'bold' } }, { content: report.cliente, colSpan: 3 }],
-                [{ content: 'Instalación:', styles: { fontStyle: 'bold' } }, { content: report.instalacion, colSpan: 3 }],
+                [{ content: 'Cliente:', styles: { fontStyle: 'bold' } }, { content: report.cliente || 'N/A', colSpan: 3 }],
+                [{ content: 'Instalación:', styles: { fontStyle: 'bold' } }, { content: report.instalacion || 'N/A', colSpan: 3 }],
                 [{ content: 'UBICACIÓN:', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
-                ['Motor:', report.motor, 'Modelo:', report.modelo],
-                ['Nº de motor:', report.n_motor, 'Grupo:', report.grupo],
+                ['Motor:', report.motor || '-', 'Modelo:', report.modelo || '-'],
+                ['Nº de motor:', report.n_motor || '-', 'Grupo:', report.grupo || '-'],
             ],
             theme: 'grid',
             styles: { fontSize: 9, cellPadding: 2, lineColor: '#ccc', lineWidth: 0.1 },
@@ -252,30 +252,27 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     } finally { setAiLoading(false); }
   };
 
-  const handlePdfAction = () => {
+  const handlePdfAction = useCallback(() => {
     if (!formData.cliente || !formData.instalacion) {
         toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Cliente e Instalación son obligatorios para generar PDF.' });
         return;
     }
     setPdfLoading(true);
+    // Usamos un pequeño delay para asegurar que el estado de carga se renderice
     setTimeout(() => {
         try {
             const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature };
             const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
-            
             const uri = docPdf.output('datauristring');
             setPreviewPdfUrl(uri);
-            
-            if (isSaved) {
-              docPdf.save(`Informe_Tecnico_${savedDocId}.pdf`);
-            }
         } catch (e) {
+            console.error("PDF preview error:", e);
             toast({ variant: 'destructive', title: 'Error PDF', description: 'No se pudo generar el documento.' });
         } finally {
             setPdfLoading(false);
         }
-    }, 500);
-  };
+    }, 300);
+  }, [formData, inspectorSignature, inspectorName, isSaved, savedDocId, toast]);
 
   const handleSave = async () => {
     if (!firestore || !user?.email) return;
@@ -307,7 +304,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         } else {
             toast({ 
               title: 'Guardado Localmente', 
-              description: 'Error de red. Se sincronizará automáticamente al detectar conexión.' 
+              description: 'El servidor rechazó la subida (CORS). Se sincronizará automáticamente después.' 
             });
         }
     };
@@ -325,8 +322,8 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
               await uploadString(signatureRef, inspectorSignature!, 'data_url');
               inspectorSignatureUrl = await getDownloadURL(signatureRef);
             } catch (storageErr) {
-              console.warn("Storage Error, will save local:", storageErr);
-              throw new Error("STORAGE_ERROR");
+              console.warn("Storage Error (likely CORS):", storageErr);
+              throw new Error("STORAGE_CORS_ERROR");
             }
 
             const docData = { 
