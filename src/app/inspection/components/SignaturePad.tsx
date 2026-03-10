@@ -14,10 +14,12 @@ interface SignaturePadProps {
 
 export default function SignaturePad({ title, onSignatureEnd, signature }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [hasContent, setHasContent] = useState(!!signature);
 
+  // Inicialización del canvas con alta resolución y suavizado
   useEffect(() => {
     if (!isFullScreen) return;
 
@@ -25,7 +27,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       const canvas = canvasRef.current;
       if (!canvas) return;
       
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { alpha: false });
       if (!ctx) return;
 
       const rect = canvas.getBoundingClientRect();
@@ -37,8 +39,12 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       ctx.scale(scale, scale);
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#0f172a'; // Slate 900
+      ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 3;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, rect.width, rect.height);
+
+      contextRef.current = ctx;
 
       if (signature) {
         const img = new Image();
@@ -47,7 +53,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
           ctx.drawImage(img, 0, 0, rect.width, rect.height);
         };
       }
-    }, 200);
+    }, 150);
 
     return () => clearTimeout(timer);
   }, [isFullScreen, signature]);
@@ -62,33 +68,22 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   };
 
   const startDrawing = (e: React.PointerEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    canvas.setPointerCapture(e.pointerId);
+    if (!contextRef.current) return;
     const pos = getPos(e);
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
+    contextRef.current.beginPath();
+    contextRef.current.moveTo(pos.x, pos.y);
     setIsDrawing(true);
-  };
-
-  const draw = (e: React.PointerEvent) => {
-    if (!isDrawing || !canvasRef.current) return;
-    const ctx = canvasRef.current.getContext('2d');
-    if (!ctx) return;
-
-    const pos = getPos(e);
-    ctx.lineTo(pos.x, pos.y);
-    ctx.stroke();
     setHasContent(true);
   };
 
-  const stopDrawing = (e: React.PointerEvent) => {
-    if (isDrawing && canvasRef.current) {
-        canvasRef.current.releasePointerCapture(e.pointerId);
-    }
+  const draw = (e: React.PointerEvent) => {
+    if (!isDrawing || !contextRef.current) return;
+    const pos = getPos(e);
+    contextRef.current.lineTo(pos.x, pos.y);
+    contextRef.current.stroke();
+  };
+
+  const stopDrawing = () => {
     setIsDrawing(false);
   };
 
@@ -101,15 +96,12 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   };
 
   const handleClear = () => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        const rect = canvas.getBoundingClientRect();
-        ctx.clearRect(0, 0, rect.width, rect.height);
-        setHasContent(false);
-        onSignatureEnd(null);
-      }
+    if (contextRef.current && canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      contextRef.current.fillStyle = '#ffffff';
+      contextRef.current.fillRect(0, 0, rect.width, rect.height);
+      setHasContent(false);
+      onSignatureEnd(null);
     }
   };
 
@@ -120,26 +112,26 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       <div 
         onClick={() => setIsFullScreen(true)}
         className={cn(
-          "w-full h-40 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex items-center justify-center cursor-pointer hover:border-primary transition-all overflow-hidden",
+          "w-full h-40 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex items-center justify-center cursor-pointer hover:border-primary transition-all overflow-hidden relative",
           signature ? "bg-white border-solid border-primary/20 shadow-inner" : ""
         )}
       >
         {signature ? (
           <img src={signature} alt="Firma" className="max-h-full max-w-full object-contain p-4" />
         ) : (
-          <div className="text-center text-slate-400 group">
-            <Pen size={24} className="mx-auto mb-2 opacity-20 group-hover:opacity-100 transition-opacity" />
-            <span className="text-[10px] font-black uppercase tracking-tighter">Click o Tocar para firmar</span>
+          <div className="text-center text-slate-400">
+            <Pen size={24} className="mx-auto mb-2 opacity-20" />
+            <span className="text-[10px] font-black uppercase tracking-tighter">Click para firmar</span>
           </div>
         )}
       </div>
 
       <Dialog open={isFullScreen} onOpenChange={setIsFullScreen}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-4 md:p-6 bg-slate-900 border-none shadow-2xl overflow-hidden rounded-[2rem]">
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-4 md:p-6 bg-slate-900 border-none shadow-2xl overflow-hidden rounded-[2.5rem]">
           <DialogHeader className="text-white mb-2">
             <DialogTitle className="font-black uppercase tracking-tighter text-lg">{title}</DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
-              Dibuje su firma de forma clara. Use su dedo o un lápiz táctil. La firma será guardada como evidencia legal.
+              Use su dedo o lápiz óptico. El trazo es ahora más suave y profesional.
             </DialogDescription>
           </DialogHeader>
 
@@ -149,12 +141,12 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
               onPointerDown={startDrawing}
               onPointerMove={draw}
               onPointerUp={stopDrawing}
-              onPointerCancel={stopDrawing}
+              onPointerLeave={stopDrawing}
               className="w-full h-full cursor-crosshair touch-none"
               style={{ touchAction: 'none' }}
             />
             {!hasContent && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-100 font-black text-3xl md:text-5xl uppercase tracking-[0.2em] select-none">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-100 font-black text-3xl md:text-5xl uppercase tracking-[0.2em]">
                 Firme aquí
               </div>
             )}

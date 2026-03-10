@@ -52,7 +52,6 @@ const InspectionPageContent = () => {
   const recognitionRef = useRef<any>(null);
   const dictationBufferRef = useRef<string>('');
 
-  // Efecto de inicialización montado
   useEffect(() => {
     setHasMounted(true);
     if (typeof window !== "undefined") {
@@ -65,19 +64,17 @@ const InspectionPageContent = () => {
     }
   }, []);
 
-  // Sincronización automática desacoplada
+  // Sincronización robusta sin errores de hooks
   useEffect(() => {
     if (isOnline && !isSyncing && user && firestore && hasMounted) {
       const syncOfflineData = async () => {
         const storage = getStorage();
         setIsSyncing(true);
 
-        const pendingHojas = await dbLocal.hojas_trabajo.filter(record => !record.synced).toArray();
-        if (pendingHojas.length > 0) {
-          toast({ title: "Sincronizando...", description: `${pendingHojas.length} registros pendientes.` });
-
-          for (const record of pendingHojas) {
-            try {
+        try {
+          const pendingHojas = await dbLocal.hojas_trabajo.filter(record => !record.synced).toArray();
+          if (pendingHojas.length > 0) {
+            for (const record of pendingHojas) {
               const { images, inspectorSignature, clientSignature, originalJobId, ...formDataForFirebase } = record.data;
               const docId = `SYNC-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
@@ -103,17 +100,17 @@ const InspectionPageContent = () => {
               }
               
               await dbLocal.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
-            } catch (error) {
-              console.error('Failed to sync:', error);
             }
           }
-          toast({ title: "Sincronización Completa" });
+        } catch (error) {
+          console.error('Failed to sync:', error);
+        } finally {
+          setIsSyncing(false);
         }
-        setIsSyncing(false);
       };
       syncOfflineData();
     }
-  }, [isOnline, user, firestore, hasMounted]); // Reducidas dependencias para evitar bucles
+  }, [isOnline, user, firestore, hasMounted, isSyncing]);
 
   const handleNavigate = (tab: string) => {
     setActiveTab(tab);
@@ -170,13 +167,12 @@ const InspectionPageContent = () => {
                       setAiData(res);
                       toast({ title: "Voz procesada" });
                   } catch (e) {
-                      console.error(e);
-                      toast({ variant: "destructive", title: "Error IA", description: "IA no disponible, usando dictado directo." });
-                      // Fallback: usar el texto directo si la IA falla (ej: API Key leaked)
+                      console.error("AI Fallback active:", e);
                       setAiData({
                           observations_summary: dictationBufferRef.current,
                           identidad: {}, all_ok: false, checklist_updates: {}, mediciones_generales: {}, pruebas_carga: {}
                       } as any);
+                      toast({ variant: "destructive", title: "Modo Manual", description: "IA fuera de servicio. Guardando dictado directo." });
                   } finally {
                       setAiLoading(false);
                   }
@@ -204,7 +200,7 @@ const InspectionPageContent = () => {
     let props: any = {};
 
     if (activeTab === TABS.NEW_INSPECTION) {
-        if (!activeInspectionForm) return <div className="w-full max-w-7xl mx-auto p-4 md:p-8"><InspectionHub onSelectInspectionType={handleSelectInspectionType} /></div>;
+        if (!activeInspectionForm) return <div className="w-full h-full p-4"><InspectionHub onSelectInspectionType={handleSelectInspectionType} /></div>;
         
         switch (activeInspectionForm) {
             case 'hoja-trabajo': Component = HojaTrabajoFormLazy; break;
@@ -226,7 +222,7 @@ const InspectionPageContent = () => {
 
     return (
       <Suspense fallback={<div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div>}>
-        <div className="w-full max-w-7xl mx-auto p-2 md:p-8">
+        <div className="w-full h-full px-4 py-6">
           <Component {...props} />
         </div>
       </Suspense>

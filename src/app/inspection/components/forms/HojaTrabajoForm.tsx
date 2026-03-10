@@ -404,15 +404,24 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         toast({ variant: 'destructive', title: 'Faltan datos', description: 'Cliente e Instalación obligatorios.' });
         return;
     }
-    const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: clientSignature };
-    const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
     
-    if (isSaved) {
-        docPdf.save(`Hoja_Trabajo_${savedDocId}.pdf`);
-    } else {
-        const uri = docPdf.output('datauristring');
-        setPreviewPdfUrl(uri);
-    }
+    // Simulación de delay para que el render sea fluido
+    setTimeout(() => {
+      try {
+        const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: clientSignature };
+        const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
+        
+        if (isSaved) {
+            docPdf.save(`Hoja_Trabajo_${savedDocId}.pdf`);
+        } else {
+            const uri = docPdf.output('datauristring');
+            setPreviewPdfUrl(uri);
+        }
+      } catch (e) {
+        console.error("PDF generation failed:", e);
+        toast({ variant: "destructive", title: "Error PDF", description: "No se pudo generar la vista previa." });
+      }
+    }, 100);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -459,7 +468,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         if (synced) {
             toast({ title: '¡Sincronizado!', description: `Informe guardado con ID: ${firebaseId}` });
         } else {
-            toast({ title: 'Guardado Localmente', description: 'Error de red/CORS. El informe se sincronizará luego.' });
+            toast({ title: 'Guardado Localmente', description: 'Fallo de conexión. Se sincronizará automáticamente después.' });
         }
     };
 
@@ -511,7 +520,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full bg-slate-50 min-h-screen">
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
-        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2rem] overflow-hidden">
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden">
           <DialogHeader className="p-4 border-b bg-white">
             <DialogTitle className="font-black uppercase tracking-tighter">Borrador de Informe</DialogTitle>
             <DialogDescription className="sr-only">Previsualización del PDF generado.</DialogDescription>
@@ -522,7 +531,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         </DialogContent>
       </Dialog>
       
-      <main className="space-y-8 pb-40 p-2 md:p-6">
+      <main className="space-y-8 pb-40">
         <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Hoja de Trabajo</h2>
       
         <section className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
@@ -558,7 +567,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                   className={`w-full p-4 border-2 rounded-2xl font-black transition-all flex items-center justify-center gap-3 ${formData.location ? 'border-green-500 text-green-600 bg-green-50' : 'border-slate-100 hover:border-primary text-slate-400'}`}
                 >
                     {locationStatus === 'loading' ? <Loader2 className="animate-spin" /> : formData.location ? <CheckCircle2 size={20} /> : <MapPin size={20}/>}
-                    {formData.location ? `UBICACIÓN CAPTURADA: ${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'CAPTURAR UBICACIÓN GPS (OBLIGATORIO)'}
+                    {formData.location ? `UBICACIÓN CAPTURADA` : 'CAPTURAR UBICACIÓN GPS (OBLIGATORIO)'}
                 </button>
               </div>
            </div>
