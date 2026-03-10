@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useRef } from 'react';
 
 interface AdminHeaderContextType {
   title: string;
@@ -15,8 +15,17 @@ export function AdminHeaderProvider({ children }: { children: ReactNode }) {
   const [title, setTitle] = useState('Administración');
   const [action, setAction] = useState<ReactNode | null>(null);
 
+  // Memoizamos el valor del contexto para que las funciones setTitle/setAction sean estables
+  // y no disparen re-renders innecesarios en los componentes que consumen el contexto.
+  const value = useMemo(() => ({
+    title,
+    setTitle,
+    action,
+    setAction
+  }), [title, action]);
+
   return (
-    <AdminHeaderContext.Provider value={{ title, setTitle, action, setAction }}>
+    <AdminHeaderContext.Provider value={value}>
       {children}
     </AdminHeaderContext.Provider>
   );
@@ -26,19 +35,22 @@ export function useAdminHeader(newTitle: string, newAction: ReactNode | null = n
   const context = useContext(AdminHeaderContext);
   if (!context) throw new Error('useAdminHeader must be used within AdminHeaderProvider');
 
-  // Usamos un efecto para sincronizar el encabezado con la sección activa
-  useEffect(() => {
-    // Solo actualizamos si el título es diferente para evitar ciclos
-    if (newTitle !== context.title) {
-      context.setTitle(newTitle);
-    }
+  const { setTitle, setAction, title, action } = context;
 
-    // Solo actualizamos la acción si la referencia ha cambiado
-    // Es CRITICO que el componente que llama use useMemo para el action
-    if (newAction !== context.action) {
-      context.setAction(newAction);
+  // Usamos efectos separados para Título y Acción para mayor control
+  useEffect(() => {
+    if (newTitle !== title) {
+      setTitle(newTitle);
     }
-  }, [newTitle, newAction, context]);
+  }, [newTitle, title, setTitle]);
+
+  useEffect(() => {
+    // Solo actualizamos si la referencia de la acción es distinta
+    // Es CRITICO que el componente que llama use useMemo para el action
+    if (newAction !== action) {
+      setAction(newAction);
+    }
+  }, [newAction, action, setAction]);
 
   return context;
 }

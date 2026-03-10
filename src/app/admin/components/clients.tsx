@@ -73,7 +73,7 @@ export default function ClientsPage() {
     }
   };
 
-  const handleDeleteClient = async (client: Client) => {
+  const handleDeleteClient = useCallback(async (client: Client) => {
     if (window.confirm(`¿Seguro que quieres eliminar a ${client.nombre}?`)) {
       try {
         await deleteDoc(doc(db, 'clientes', client.id));
@@ -81,17 +81,17 @@ export default function ClientsPage() {
         console.error("Error al eliminar cliente: ", error);
       }
     }
-  }
+  }, [db]);
 
-  const openModalForEdit = (client: Client) => {
+  const openModalForEdit = useCallback((client: Client) => {
     setEditingClient(client);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setIsModalOpen(false);
     setEditingClient(null);
-  };
+  }, []);
 
   return (
     <div className="animate-in fade-in duration-500">

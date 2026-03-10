@@ -23,6 +23,7 @@ const ParticleBackground = () => {
     const linkColor = currentTheme === 'dark' ? '#ffffff' : '#555555';
 
     return {
+      fullScreen: { enable: true, zIndex: -1 },
       background: {
         color: {
           value: 'transparent',
@@ -93,14 +94,12 @@ const ParticleBackground = () => {
   }, [theme, systemTheme]);
 
   return (
-    <div className="absolute inset-0 -z-10">
-      <Particles
-        id="tsparticles"
-        init={particlesInit}
-        loaded={particlesLoaded}
-        options={particleOptions}
-      />
-    </div>
+    <Particles
+      id="tsparticles"
+      init={particlesInit}
+      loaded={particlesLoaded}
+      options={particleOptions}
+    />
   );
 };
 
