@@ -213,8 +213,10 @@ export default function RegistroJornadaForm() {
 
     if (isOnline) {
         try {
-            const jornadaId = `J-${Date.now().toString().slice(-6)}-${user.uid.slice(0,4)}`;
-            const firmaUrl = await getDownloadURL(await uploadString(ref(storage, `firmas_jornadas/${jornadaId}.png`), signature!, 'data_url'));
+          const jornadaId = `J-${Date.now().toString().slice(-6)}-${user.uid.slice(0,4)}`;
+          const signatureRef = ref(storage, `firmas_jornadas/${jornadaId}.png`);
+          await uploadString(signatureRef, signature!, 'data_url');
+          const firmaUrl = await getDownloadURL(signatureRef);
 
             const gastosBatch = writeBatch(dbFirestore);
             const gastosCollectionRef = collection(dbFirestore, "gastos");
