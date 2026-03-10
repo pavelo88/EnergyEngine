@@ -12,7 +12,6 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 
 import MainMenuDesktop from './components/MainMenuDesktop';
-import MainMenuTablet from './components/MainMenuTablet';
 import MainMenuMobile from './components/MainMenuMobile';
 import InspectionHub from './components/InspectionHub';
 
@@ -68,7 +67,7 @@ const InspectionPageContent = () => {
         if (totalPending > 0) {
           toast({
             title: "Sincronizando...",
-            description: `${totalPending} tareas pendientes.`,
+            description: `${totalPending} tareas pendientes de subir.`,
           });
 
           for (const record of pendingHojas) {
@@ -158,7 +157,7 @@ const InspectionPageContent = () => {
              } catch(e) { console.error(e); }
            }
 
-          toast({ title: "¡Sincronizado!", description: "Todos los datos están en la nube." });
+          toast({ title: "¡Sincronización Completa!", description: "Todos tus datos offline han sido subidos a la nube." });
         }
         setIsSyncing(false);
       }
@@ -199,10 +198,10 @@ const InspectionPageContent = () => {
                 try {
                     const res = await processDictation({ dictation: finalText });
                     setAiData(res);
-                    toast({ title: "Dictado Procesado" });
+                    toast({ title: "Dictado procesado con éxito" });
                 } catch (e) {
                     console.error(e);
-                    toast({ variant: "destructive", title: "Error IA", description: "No se pudo procesar el dictado." });
+                    toast({ variant: "destructive", title: "Error en IA", description: "No se pudo procesar el dictado por voz." });
                 } finally {
                     setAiLoading(false);
                     dictationBufferRef.current = '';
@@ -249,16 +248,16 @@ const InspectionPageContent = () => {
 
   const toggleDictation = () => {
       if (!isOnline) {
-          toast({ variant: "destructive", title: "Sin Conexión", description: "IA requiere internet." });
+          toast({ variant: "destructive", title: "Sin Conexión", description: "El procesamiento de voz requiere internet." });
           return;
       }
       if (!recognitionRef.current) {
-          toast({ variant: "destructive", title: "Error", description: "Navegador no compatible con voz." });
+          toast({ variant: "destructive", title: "Error", description: "Tu navegador no es compatible con el dictado por voz." });
           return;
       }
       if (isDictating) {
           recognitionRef.current.stop();
-          toast({ title: "Procesando..." });
+          toast({ title: "Procesando dictado..." });
       } else {
           dictationBufferRef.current = '';
           setAiData(null);
@@ -296,7 +295,7 @@ const InspectionPageContent = () => {
     }
 
     if (activeTab === TABS.NEW_INSPECTION) {
-        if (!activeInspectionForm) return <div className="w-full p-4 md:p-8"><InspectionHub onSelectInspectionType={handleSelectInspectionType} /></div>;
+        if (!activeInspectionForm) return <div className="w-full max-w-7xl mx-auto p-4 md:p-8"><InspectionHub onSelectInspectionType={handleSelectInspectionType} /></div>;
         let FormComponent;
         switch (activeInspectionForm) {
             case 'hoja-trabajo': FormComponent = HojaTrabajoFormLazy; break;
@@ -306,7 +305,13 @@ const InspectionPageContent = () => {
             case 'revision-basica': FormComponent = RevisionBasicaFormLazy; break;
             default: FormComponent = InformeTecnicoFormLazy;
         }
-        return <Suspense fallback={<div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div>}><div className="w-full p-4 md:p-8"><FormComponent initialData={selectedTask} aiData={aiData} /></div></Suspense>;
+        return (
+          <Suspense fallback={<div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div>}>
+            <div className="w-full max-w-7xl mx-auto p-4 md:p-8">
+              <FormComponent initialData={selectedTask} aiData={aiData} />
+            </div>
+          </Suspense>
+        );
     }
 
     let TabComp: any;
@@ -317,7 +322,13 @@ const InspectionPageContent = () => {
         case TABS.PROFILE: TabComp = ProfileTabLazy; break;
         default: return <p>Pestaña no encontrada</p>;
     }
-    return <Suspense fallback={<div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div>}><div className="w-full p-4 md:p-8"><TabComp {...props} /></div></Suspense>;
+    return (
+      <Suspense fallback={<div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div>}>
+        <div className="w-full max-w-7xl mx-auto p-4 md:p-8">
+          <TabComp {...props} />
+        </div>
+      </Suspense>
+    );
   };
 
   return (
@@ -330,7 +341,7 @@ const InspectionPageContent = () => {
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
       />
-      <main className="flex-grow w-full">
+      <main className="flex-grow w-full pt-0">
          {renderContent()}
       </main>
       {renderFloatingDictationButton()}

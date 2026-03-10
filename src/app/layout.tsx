@@ -27,6 +27,8 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
         <meta name="theme-color" content="#10b981" />
         <link rel="apple-touch-icon" href="/icon.svg" />
+        {/* Ajuste para evitar errores de CORS en el manifiesto durante desarrollo */}
+        <link rel="manifest" href="/manifest.json" crossOrigin="use-credentials" />
       </head>
       <body className={cn('min-h-screen font-body antialiased')}>
         <ThemeProvider

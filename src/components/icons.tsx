@@ -12,11 +12,11 @@ export const Logo = () => {
     setMounted(true);
   }, []);
 
-  // Renderizado neutro para evitar errores de hidratación
+  // Renderizado neutro para evitar errores de hidratación (Hydration Mismatch)
   if (!mounted) {
     return (
       <div className="flex items-center gap-3 h-[48px]">
-        <div className="w-12 h-12 bg-slate-200 rounded-md animate-pulse" />
+        <div className="w-12 h-12 bg-slate-200/20 rounded-md animate-pulse" />
         <div className="flex flex-col leading-none">
           <span className="font-headline text-xl font-black tracking-tighter text-slate-300 italic">energy engine</span>
           <span className="text-[9px] font-black text-slate-300 tracking-[0.2em] uppercase">GRUPOS ELECTRÓGENOS</span>
@@ -26,7 +26,7 @@ export const Logo = () => {
   }
 
   const isDark = resolvedTheme === 'dark';
-  // Usamos <img> estándar para evitar el error 400 de Next.js Image Optimizer en este entorno
+  // Cambiamos a <img> estándar con un sistema de fallback robusto
   const logoSrc = isDark ? '/logo2.png' : '/logo.png';
 
   return (
@@ -39,7 +39,7 @@ export const Logo = () => {
           height={48} 
           className="object-contain transition-opacity duration-300"
           onError={(e) => {
-            // Fallback a base64 si la imagen física no carga
+            // Si la imagen física no existe, usamos el base64 de seguridad
             (e.target as HTMLImageElement).src = logoBase64;
           }}
         />

@@ -22,7 +22,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   useEffect(() => {
     if (!isFullScreen) return;
 
-    // Pequeño delay para asegurar que el DOM del Dialog esté listo
+    // Pequeño delay para asegurar que el DOM del Dialog esté listo y el canvas tenga dimensiones
     const timer = setTimeout(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -42,6 +42,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 3;
 
+      // Si ya hay una firma, la redibujamos
       if (signature) {
         const img = new Image();
         img.src = signature;
@@ -49,7 +50,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
           ctx.drawImage(img, 0, 0, rect.width, rect.height);
         };
       }
-    }, 100);
+    }, 150);
 
     return () => clearTimeout(timer);
   }, [isFullScreen, signature]);
@@ -122,11 +123,11 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
         onClick={() => setIsFullScreen(true)}
         className={cn(
           "w-full h-40 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center cursor-pointer hover:border-primary transition-all overflow-hidden",
-          signature ? "bg-white border-solid border-primary/30" : ""
+          signature ? "bg-white border-solid border-primary/30 shadow-sm" : ""
         )}
       >
         {signature ? (
-          <img src={signature} alt="Firma" className="max-h-full max-w-full object-contain p-4" />
+          <img src={signature} alt="Firma capturada" className="max-h-full max-w-full object-contain p-4" />
         ) : (
           <div className="text-center text-slate-400">
             <Pen size={24} className="mx-auto mb-2 opacity-20" />
@@ -136,15 +137,15 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       </div>
 
       <Dialog open={isFullScreen} onOpenChange={setIsFullScreen}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-4 md:p-6 bg-slate-900 border-none">
+        <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-4 md:p-6 bg-slate-900 border-none shadow-2xl">
           <DialogHeader className="text-white mb-2">
             <DialogTitle className="font-black uppercase tracking-tighter text-lg">{title}</DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
-              Dibuje su firma de forma clara. Use su dedo o un lápiz táctil.
+              Dibuje su firma de forma clara sobre el lienzo blanco. Use su dedo o un lápiz táctil.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 bg-white rounded-3xl relative overflow-hidden touch-none">
+          <div className="flex-1 bg-white rounded-3xl relative overflow-hidden touch-none border-4 border-slate-800">
             <canvas
               ref={canvasRef}
               onMouseDown={startDrawing}
@@ -157,7 +158,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
               className="w-full h-full cursor-crosshair"
             />
             {!hasContent && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-200 font-black text-xl uppercase tracking-[0.2em] opacity-50">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-200 font-black text-xl md:text-3xl uppercase tracking-[0.2em] opacity-50">
                 Firme aquí
               </div>
             )}
@@ -175,7 +176,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
               className="flex-1 h-14 rounded-2xl bg-primary text-white hover:bg-primary/90 font-black text-lg"
               onClick={handleSave}
             >
-              <Check size={24} className="mr-2" /> ACEPTAR
+              <Check size={24} className="mr-2" /> ACEPTAR FIRMA
             </Button>
           </div>
         </DialogContent>
