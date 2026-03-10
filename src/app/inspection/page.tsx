@@ -16,6 +16,7 @@ import InspectionHub from './components/InspectionHub';
 import TABS from './constants';
 import { useScreenSize } from '@/hooks/use-screen-size';
 import { processDictation, ProcessDictationOutput } from '@/ai/flows/process-dictation-flow';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 
 import { 
   TasksTabLazy, 
@@ -35,7 +36,7 @@ const InspectionPageContent = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>(TABS.MENU);
   const [activeInspectionForm, setActiveInspectionForm] = useState<FormType | null>(null);
-  const [isOnline, setIsOnline] = useState(true);
+  const isOnline = useOnlineStatus();
   const screenSize = useScreenSize();
   const [hasMounted, setHasMounted] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
@@ -60,11 +61,6 @@ const InspectionPageContent = () => {
     };
 
     if (typeof window !== "undefined") {
-      setIsOnline(navigator.onLine);
-      const handleOnline = () => setIsOnline(true);
-      const handleOffline = () => setIsOnline(false);
-      window.addEventListener('online', handleOnline);
-      window.addEventListener('offline', handleOffline);
       window.addEventListener('beforeinstallprompt', handleInstallPrompt);
 
       // --- Service Worker Registration ---
@@ -148,8 +144,6 @@ const InspectionPageContent = () => {
       // --- End of Speech Recognition Init ---
 
       return () => {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
         window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
         if (recognitionRef.current) {
             recognitionRef.current.abort();
