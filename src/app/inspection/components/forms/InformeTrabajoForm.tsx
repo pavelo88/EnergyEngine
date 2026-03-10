@@ -9,10 +9,10 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
-import { logoBase64 } from '@/lib/logo-base64';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db } from '@/lib/db-local';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
@@ -140,54 +140,11 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text(`Firmado: ${inspectorName}`, leftMargin, currentY + 32);
     doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, leftMargin, currentY + 39);
 
-// 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
-const drawHeader = () => {
-  const logoX = leftMargin;
-  const logoY = 3;
-  const logoWidth = 20;
-  const logoHeight = 20;
-  
-  doc.setFillColor(39, 180, 96);
-  doc.rect(0, 0, pageWidth, 26, 'F'); 
-
-  doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
-
-  const textX = logoX + logoWidth + 6;
-  const textYStart = logoY + 9;
-
-  doc.setFont('helvetica', 'bold');
-  
-  doc.setFontSize(18);
-  doc.setTextColor(255, 255, 255);
-  doc.text("energy engine", textX, textYStart);
-  
-  doc.setFontSize(10);
-  doc.setTextColor(220, 220, 220);
-  doc.text("GRUPOS ELECTRÓGENOS", textX, textYStart + 6);
-  
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(220, 220, 220);
-
-  const rightTextX = pageWidth - rightMargin;
-  
-  doc.text("https://www.energyengine.es", rightTextX, logoY + 8, { align: 'right' });
-  doc.text("Tel: 92 515 43 53", rightTextX, logoY + 13, { align: 'right' });
-  doc.text("serviciotecnico@energyengine.es", rightTextX, logoY + 16, { align: 'right' });
-};
-    const drawFooter = (pageNumber: number, totalPages: number) => {
-        doc.setFontSize(8);
-        doc.setTextColor(100);
-        doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-        doc.setFillColor(darkColor);
-        doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
-    };
-
     const pageCount = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        drawHeader();
-        drawFooter(i, pageCount);
+        drawPdfHeader(doc);
+        drawPdfFooter(doc, i, pageCount);
     }
 
     return doc;
@@ -201,6 +158,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   const [inspectorName, setInspectorName] = useState('');
   
   const [formData, setFormData] = useState({
+    formType: 'informe-tecnico',
     cliente: '',
     motor: '',
     modelo: '',
@@ -328,12 +286,10 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       return;
     }
     if (isSaved) return;
-
     setSaving(true);
-    const formType = 'informe-tecnico';
-
+    
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
-        const localData = { ...formData };
+        const localData = { ...formData, formType: 'informe-tecnico' };
         if (!synced) {
             (localData as any).inspectorSignature = inspectorSignature;
         }
@@ -354,6 +310,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
     if (isOnline) {
         try {
+            const formType = 'informe-tecnico';
             const trabajosRef = collection(db, 'trabajos');
             const qTrabajos = query(trabajosRef, where('formType', '==', formType));
             const trabajosSnapshot = await getDocs(qTrabajos);
@@ -370,11 +327,10 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
                 tecnicoId: user.uid, 
                 tecnicoNombre: inspectorName,
                 fecha_creacion: Timestamp.now(), 
-                formType: formType,
+                formType,
                 id: docId,
                 estado: 'Completado',
             };
-
             await setDoc(doc(db, 'trabajos', docId), docData);
             await saveDataToLocal(true, docId);
             setSavedDocId(docId);

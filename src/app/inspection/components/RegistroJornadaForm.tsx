@@ -183,7 +183,7 @@ export default function RegistroJornadaForm() {
         for (const gasto of gastosData) {
             await db.gastos.add({
                 firebaseId: '', // Gastos se sincronizarán por separado
-                synced,
+                synced: false, // Gastos siempre se marcan como no sincronizados para que el motor los procese
                 data: gasto,
                 createdAt: new Date(),
             });
@@ -198,8 +198,8 @@ export default function RegistroJornadaForm() {
 
     if (isOnline) {
         try {
-            const jornadaId = `J-${Date.now().toString().slice(-6)}`;
-            const firmaUrl = await getDownloadURL(await uploadString(ref(storage, `firmas_jornadas/${jornadaId}.png`), signature, 'data_url'));
+            const jornadaId = `J-${Date.now().toString().slice(-6)}-${user.uid.slice(0,4)}`;
+            const firmaUrl = await getDownloadURL(await uploadString(ref(storage, `firmas_jornadas/${jornadaId}.png`), signature!, 'data_url'));
 
             const gastosBatch = writeBatch(dbFirestore);
             const gastosCollectionRef = collection(dbFirestore, "gastos");

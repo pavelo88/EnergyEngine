@@ -9,8 +9,10 @@ import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
 import { INITIAL_FORM_DATA } from '../../lib/form-constants';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { logoBase64 } from '@/lib/logo-base64';
+import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
+import { useOnlineStatus } from '@/hooks/use-online-status';
+import { db } from '@/lib/db-local';
+import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 
 // 1. Checklist específico y reducido para "Revisión Básica" (Sin filtros ni correas)
 const BASIC_REVISION_CHECKLIST = {
@@ -254,56 +256,11 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text("Conforme cliente:", 125, currentY + 30);
     doc.text(report.recibidoPor || '', 125, currentY + 35);
     
-  // 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
-const drawHeader = () => {
-  const logoX = leftMargin;
-  const logoY = 3;
-  const logoWidth = 20;
-  const logoHeight = 20;
-  
-  doc.setFillColor(39, 180, 96);
-  doc.rect(0, 0, pageWidth, 26, 'F'); 
-
-  doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
-
-  const textX = logoX + logoWidth + 6;
-  const textYStart = logoY + 9;
-
-  doc.setFont('helvetica', 'bold');
-  
-  doc.setFontSize(18);
-  doc.setTextColor(255, 255, 255);
-  doc.text("energy engine", textX, textYStart);
-  
-  doc.setFontSize(10);
-  doc.setTextColor(220, 220, 220);
-  doc.text("GRUPOS ELECTRÓGENOS", textX, textYStart + 6);
-  
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(220, 220, 220);
-
-  const rightTextX = pageWidth - rightMargin;
-  
-  doc.text("https://www.energyengine.es", rightTextX, logoY + 8, { align: 'right' });
-  doc.text("Tel: 92 515 43 53", rightTextX, logoY + 13, { align: 'right' });
-  doc.text("serviciotecnico@energyengine.es", rightTextX, logoY + 16, { align: 'right' });
-};
-
-    const drawFooter = (pageNumber: number, totalPages: number) => {
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(100);
-        doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-        doc.setFillColor(darkColor);
-        doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
-    };
-
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
-        drawHeader();
-        drawFooter(i, totalPages);
+        drawPdfHeader(doc);
+        drawPdfFooter(doc, i, totalPages);
     }
 
     return doc;
@@ -312,12 +269,14 @@ const drawHeader = () => {
 export default function RevisionBasicaForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
   const db = useFirestore();
+  const isOnline = useOnlineStatus();
   const [inspectorName, setInspectorName] = useState('');
   const [images, setImages] = useState<File[]>([]);
   
   // Extendemos INITIAL_FORM_DATA para incluir los recambios
   const [formData, setFormData] = useState<any>({
     ...INITIAL_FORM_DATA,
+    formType: 'revision-basica',
     recambios: {
         fa: '', fc: '', far: '', fag: '', lac: '', lant: '', bat: '', rest: ''
     }
@@ -485,66 +444,81 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
     if (!db || !user) return alert("Error de autenticación.");
     if (isSaved) return;
 
-    // VALIDATION
     if (!formData.cliente || !formData.instalacion || !formData.location || !inspectorSignature || !clientSignature) {
       alert("Es obligatorio rellenar Cliente, Instalación, Localización y ambas Firmas para guardar.");
       return;
     }
 
     setSaving(true);
-    const formType = 'revision-basica';
-    try {
-        // AUTO-CREATE CLIENT
-        const clientesRef = collection(db, "clientes");
-        const qCliente = query(clientesRef, where("nombre", "==", formData.cliente.trim()));
-        const clienteSnapshot = await getDocs(qCliente);
-        if (clienteSnapshot.empty && formData.cliente.trim().length > 0) {
-            await addDoc(clientesRef, {
-                nombre: formData.cliente.trim(),
-                direccion: formData.direccion || '',
-                email: '',
-                telefono: ''
-            });
+    
+    const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
+        const localData = { ...formData, formType: 'revision-basica' };
+        if (!synced) {
+            (localData as any).images = images;
+            (localData as any).inspectorSignature = inspectorSignature;
+            (localData as any).clientSignature = clientSignature;
         }
-      
-      // GENERATE SEQUENTIAL ID
-      const trabajosRef = collection(db, 'trabajos');
-      const qTrabajos = query(trabajosRef, where('formType', '==', formType));
-      const trabajosSnapshot = await getDocs(qTrabajos);
-      const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
-      const year = new Date().getFullYear();
-      const docId = `BAS-${year}-${sequentialNumber}`;
 
-        const storage = getStorage();
-        const imageUrls = await Promise.all(
-            images.map(async (image) => {
-            const imageRef = ref(storage, `informes/${docId}/${image.name}`);
-            await uploadBytes(imageRef, image);
-            return await getDownloadURL(imageRef);
-            })
-        );
+        await db.hojas_trabajo.add({
+            firebaseId: firebaseId || '',
+            synced,
+            data: localData,
+            createdAt: new Date(),
+        });
+        if (!synced) {
+            alert('Modo offline: El informe se ha guardado en tu dispositivo y se sincronizará cuando vuelvas a tener conexión.');
+        } else {
+            alert(`Revisión Básica guardada con éxito. ID: ${firebaseId}`);
+        }
+    };
 
-      const docData = { 
-          ...formData,
-          imageUrls,
-          inspectorSignatureUrl: inspectorSignature, 
-          clientSignatureUrl: clientSignature, 
-          tecnicoId: user.uid, 
-          tecnicoNombre: inspectorName, 
-          fecha_guardado: Timestamp.now(), 
-          formType: formType,
-          id: docId,
-          estado: 'Completado',
-      };
-      await setDoc(doc(db, 'trabajos', docId), docData);
-      setSavedDocId(docId);
-      setIsSaved(true);
-      alert(`Revisión Básica guardada con éxito. ID: ${docId}`);
-    } catch (e: any) { 
-      console.error("Error saving document:", e); 
-      alert("Error al guardar."); 
+    if (isOnline) {
+      try {
+          const formType = 'revision-basica';
+          const trabajosRef = collection(db, 'trabajos');
+          const qTrabajos = query(trabajosRef, where('formType', '==', formType));
+          const trabajosSnapshot = await getDocs(qTrabajos);
+          const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
+          const year = new Date().getFullYear();
+          const docId = `BAS-${year}-${sequentialNumber}`;
+
+          const storage = getStorage();
+          const imageUrls = await Promise.all(
+              images.map(async (image) => {
+              const imageRef = ref(storage, `informes/${docId}/${image.name}`);
+              await uploadBytes(imageRef, image);
+              return await getDownloadURL(imageRef);
+              })
+          );
+          
+          const inspectorSignatureUrl = inspectorSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/inspector.png`), inspectorSignature, 'data_url')) : null;
+          const clientSignatureUrl = clientSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/cliente.png`), clientSignature, 'data_url')) : null;
+
+          const docData = { 
+              ...formData,
+              imageUrls,
+              inspectorSignatureUrl, 
+              clientSignatureUrl, 
+              tecnicoId: user.uid, 
+              tecnicoNombre: inspectorName, 
+              fecha_creacion: Timestamp.now(), 
+              formType,
+              id: docId,
+              estado: 'Completado',
+          };
+          await setDoc(doc(db, 'trabajos', docId), docData);
+          await saveDataToLocal(true, docId);
+          setSavedDocId(docId);
+          setIsSaved(true);
+
+      } catch (e: any) { 
+        console.error("Error saving document:", e); 
+        await saveDataToLocal(false);
+      }
+    } else {
+      await saveDataToLocal(false);
     }
-    finally { setSaving(false); }
+    setSaving(false);
   };
   
   return (

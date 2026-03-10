@@ -32,7 +32,7 @@ import {
 } from './lazy-tabs';
 
 
-type FormType = 'hoja-trabajo' | 'informe-tecnico' | 'informe-revision' | 'informe-simplificado';
+type FormType = 'hoja-trabajo' | 'informe-tecnico' | 'informe-revision' | 'informe-simplificado' | 'revision-basica';
 
 const InspectionPageContent = () => {
   const { user, firestore, isUserLoading } = useFirebase();
@@ -77,8 +77,9 @@ const InspectionPageContent = () => {
           // --- Sync All Reports (from hojas_trabajo table) ---
           for (const record of pendingHojas) {
             try {
-              const { data, images, inspectorSignature, clientSignature } = record.data;
-              const formType = data.formType;
+              const dataToSync = record.data;
+              const { images, inspectorSignature, clientSignature, ...formDataForFirebase } = dataToSync;
+              const formType = formDataForFirebase.formType;
 
               const trabajosRef = collection(firestore, 'trabajos');
               const qTrabajos = query(trabajosRef, where('formType', '==', formType));
@@ -91,6 +92,7 @@ const InspectionPageContent = () => {
               else if (formType === 'informe-revision') idPrefix = 'IR';
               else if (formType === 'informe-tecnico') idPrefix = 'IT';
               else if (formType === 'informe-simplificado') idPrefix = 'IS';
+              else if (formType === 'revision-basica') idPrefix = 'BAS';
               
               const docId = `${idPrefix}-${year}-${sequentialNumber}`;
 
@@ -103,7 +105,7 @@ const InspectionPageContent = () => {
               const inspectorSignatureUrl = inspectorSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/inspector.png`), inspectorSignature, 'data_url')) : null;
               const clientSignatureUrl = clientSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/cliente.png`), clientSignature, 'data_url')) : null;
               
-              const docData = { ...data, imageUrls, inspectorSignatureUrl, clientSignatureUrl, id: docId, fecha_creacion: Timestamp.now() };
+              const docData = { ...formDataForFirebase, imageUrls, inspectorSignatureUrl, clientSignatureUrl, id: docId, fecha_creacion: Timestamp.now() };
               
               await setDoc(doc(firestore, 'trabajos', docId), docData);
               await db.hojas_trabajo.update(record.id!, { synced: 1, firebaseId: docId });
@@ -116,12 +118,12 @@ const InspectionPageContent = () => {
           // --- Sync Jornadas ---
           for (const record of pendingJornadas) {
              try {
-                const { data, signature } = record.data;
+                const { signature, ...jornadaData } = record.data;
                 const jornadaId = `J-${Date.now().toString().slice(-6)}-${user.uid.slice(0,4)}`;
-                const firmaUrl = await getDownloadURL(await uploadString(ref(storage, `firmas_jornadas/${jornadaId}.png`), signature, 'data_url'));
+                const firmaUrl = signature ? await getDownloadURL(await uploadString(ref(storage, `firmas_jornadas/${jornadaId}.png`), signature, 'data_url')) : null;
                 
                 const jornadaDocRef = doc(collection(firestore, "jornadas"), jornadaId);
-                await setDoc(jornadaDocRef, { ...data, firmaUrl, id: jornadaDocRef.id, fecha_creacion: serverTimestamp() });
+                await setDoc(jornadaDocRef, { ...jornadaData, firmaUrl, id: jornadaDocRef.id, fecha_creacion: serverTimestamp() });
                 await db.registros_jornada.update(record.id!, { synced: 1, firebaseId: jornadaId });
 
              } catch(error) {
@@ -132,20 +134,17 @@ const InspectionPageContent = () => {
           // --- Sync Gastos ---
            for (const record of pendingGastos) {
              try {
-                const { data } = record.data;
+                const { comprobanteFile, ...gastoData } = record.data;
                 const gastoRef = doc(collection(firestore, "gastos"));
                 let comprobanteUrl = '';
 
-                if (data.comprobanteFile) {
-                    const fileRef = ref(storage, `comprobantes_gastos/${gastoRef.id}/${data.comprobanteFile.name}`);
-                    await uploadBytes(fileRef, data.comprobanteFile);
+                if (comprobanteFile) {
+                    const fileRef = ref(storage, `comprobantes_gastos/${gastoRef.id}/${comprobanteFile.name}`);
+                    await uploadBytes(fileRef, comprobanteFile);
                     comprobanteUrl = await getDownloadURL(fileRef);
                 }
-
-                const cleanData = { ...data };
-                delete cleanData.comprobanteFile;
                 
-                await setDoc(gastoRef, { ...cleanData, comprobanteUrl, fecha_creacion: serverTimestamp() });
+                await setDoc(gastoRef, { ...gastoData, comprobanteUrl, fecha_creacion: serverTimestamp() });
                 await db.gastos.update(record.id!, { synced: 1, firebaseId: gastoRef.id });
 
              } catch(error) {
@@ -154,10 +153,12 @@ const InspectionPageContent = () => {
            }
 
 
-          toast({
-            title: "¡Sincronización completa!",
-            description: `${totalPending} registros se han guardado en la nube.`,
-          });
+          if(totalPending > 0) {
+            toast({
+              title: "¡Sincronización completa!",
+              description: `${totalPending} registros se han guardado en la nube.`,
+            });
+          }
         }
         setIsSyncing(false);
       }
@@ -319,7 +320,7 @@ const InspectionPageContent = () => {
   };
 
   const renderFloatingDictationButton = () => {
-      const supportedForms: FormType[] = ['hoja-trabajo', 'informe-tecnico', 'informe-revision', 'informe-simplificado'];
+      const supportedForms: FormType[] = ['hoja-trabajo', 'informe-tecnico', 'informe-revision', 'informe-simplificado', 'revision-basica'];
       if (!activeInspectionForm || !supportedForms.includes(activeInspectionForm)) {
           return null;
       }

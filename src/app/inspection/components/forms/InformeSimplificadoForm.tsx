@@ -10,9 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import SignaturePad from '../SignaturePad';
 import { INITIAL_FORM_DATA } from '../../lib/form-constants';
 import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
-import { logoBase64 } from '@/lib/logo-base64';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db } from '@/lib/db-local';
+import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 
 const SIMPLIFIED_CHECKLIST_ITEMS = [
     "Filtro de Aceite",
@@ -207,56 +207,11 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text("Conforme cliente:", 125, currentY + 30);
     doc.text(report.recibidoPor || '', 125, currentY + 35);
 
-// 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
-const drawHeader = () => {
-  const logoX = leftMargin;
-  const logoY = 3; // ¡Mucho más arriba! (antes 10)
-  const logoWidth = 20; // Tamaño del logo ligeramente reducido para mayor elegancia
-  const logoHeight = 20;
-  
-  doc.setFillColor(39, 180, 96); // Un verde esmeralda para el fondo
-  doc.rect(0, 0, pageWidth, 26, 'F'); 
-
-  doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
-
-  const textX = logoX + logoWidth + 6; // Margen de 4mm tras el logo
-  const textYStart = logoY + 9; // Ajuste vertical para alinearse con el logo
-
-  doc.setFont('helvetica', 'bold');
-  
-  doc.setFontSize(18); // Ligeramente más grande para que sea el título principal
-  doc.setTextColor(255, 255, 255); // Blanco puro
-  doc.text("energy engine", textX, textYStart);
-  
-  doc.setFontSize(10);
-  doc.setTextColor(220, 220, 220); // Gris muy claro
-  doc.text("GRUPOS ELECTRÓGENOS", textX, textYStart + 6);
-  
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(220, 220, 220); // Gris muy claro para los links
-
-  const rightTextX = pageWidth - rightMargin;
-  
-  doc.text("https://www.energyengine.es", rightTextX, logoY + 8, { align: 'right' });
-  doc.text("Tel: 92 515 43 53", rightTextX, logoY + 13, { align: 'right' });
-  doc.text("serviciotecnico@energyengine.es", rightTextX, logoY + 16, { align: 'right' });
-};
-
-    const drawFooter = (pageNumber: number, totalPages: number) => {
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(100);
-        doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-        doc.setFillColor(darkColor);
-        doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
-    };
-
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
-        drawHeader();
-        drawFooter(i, totalPages);
+        drawPdfHeader(doc);
+        drawPdfFooter(doc, i, totalPages);
     }
     
     return doc;
@@ -272,6 +227,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
   
   const [formData, setFormData] = useState<any>({
     ...INITIAL_FORM_DATA,
+    formType: 'informe-simplificado',
     recambios_checklist: {},
   });
     
@@ -421,10 +377,9 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
       return;
     }
     setSaving(true);
-    const formType = 'informe-simplificado';
-
+    
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
-        const localData = { ...formData };
+        const localData = { ...formData, formType: 'informe-simplificado' };
         if (!synced) {
             (localData as any).images = images;
             (localData as any).inspectorSignature = inspectorSignature;
@@ -445,6 +400,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
 
     if (isOnline) {
         try {
+            const formType = 'informe-simplificado';
             const trabajosRef = collection(db, 'trabajos');
             const qTrabajos = query(trabajosRef, where('formType', '==', formType));
             const trabajosSnapshot = await getDocs(qTrabajos);
