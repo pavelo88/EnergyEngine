@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 
 // --- Tipos de Datos ---
-type Gasto = { id: string; fecha: any; inspectorNombre: string; clienteNombre: string; descripcion: string; categoria: string; monto: number; estado: string; forma_pago: string, comprobanteUrl?: string };
+type Gasto = { id: string; fecha: any; inspectorId: string; inspectorNombre: string; clienteNombre: string; descripcion: string; categoria: string; monto: number; estado: string; forma_pago: string, comprobanteUrl?: string };
 type Inspector = { id: string; nombre: string; };
 type Cliente = { id: string; nombre: string; };
 
@@ -64,7 +64,7 @@ export default function ExpensesPage() {
       if (!gasto.fecha?.toDate) return false; // Proteger contra datos malformados
       const fechaGasto = gasto.fecha.toDate();
       const enRangoFecha = filtroFecha?.from && filtroFecha?.to ? (fechaGasto >= filtroFecha.from && fechaGasto <= filtroFecha.to) : true;
-      const matchInspector = filtroInspector === 'all' || gasto.inspectorNombre === filtroInspector;
+      const matchInspector = filtroInspector === 'all' || gasto.inspectorId === filtroInspector;
       const matchCliente = filtroCliente === 'all' || gasto.clienteNombre === filtroCliente;
       return enRangoFecha && matchInspector && matchCliente;
     });
@@ -118,7 +118,7 @@ export default function ExpensesPage() {
                   <SelectTrigger><SelectValue placeholder="Seleccionar inspector..."/></SelectTrigger>
                   <SelectContent>
                       <SelectItem value="all">Todos los Inspectores</SelectItem>
-                      {inspectores.map(i => <SelectItem key={i.id} value={i.nombre}>{i.nombre}</SelectItem>)}
+                      {inspectores.map(i => <SelectItem key={i.id} value={i.id}>{i.nombre}</SelectItem>)}
                   </SelectContent>
               </Select>
           </div>

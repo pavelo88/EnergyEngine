@@ -35,7 +35,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
   const isOnline = useOnlineStatus();
 
   useEffect(() => {
-    if (!user || !db) return;
+    if (!user || !db || !user.email) return;
 
     const fetchTasks = async () => {
       setLoading(true);
@@ -43,10 +43,12 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
         const firestoreTaskMap = new Map<string, Task>();
         // 1. Fetch from Firestore if online to get the most up-to-date list
         if (isOnline) {
-          // CORRECCIÓN: Se usa user.email para que coincida con cómo se guardan las asignaciones.
-          const q1 = query(collection(db, "trabajos"), where("inspectorIds", "array-contains", user.email));
-          const q2 = query(collection(db, "trabajos"), where("tecnicoId", "==", user.uid));
-          const [assignedSnap, createdSnap] = await Promise.all([getDocs(q1), getDocs(q2)]);
+          // Query for jobs assigned via inspectorIds array (by email)
+          const qAssigned = query(collection(db, "trabajos"), where("inspectorIds", "array-contains", user.email));
+          // Query for reports created directly by the technician (by email)
+          const qCreated = query(collection(db, "trabajos"), where("tecnicoId", "==", user.email));
+          
+          const [assignedSnap, createdSnap] = await Promise.all([getDocs(qAssigned), getDocs(qCreated)]);
           
           assignedSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true } as Task));
           createdSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true } as Task));

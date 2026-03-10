@@ -205,11 +205,11 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       setFormData((prev: any) => ({
         ...prev,
         cliente: initialData.cliente || prev.cliente,
-        motor: initialData.motor || prev.motor,
-        modelo: initialData.modelo || prev.modelo,
-        n_motor: initialData.n_motor || prev.n_motor,
+        motor: initialData.motor || initialData.equipo?.marca || prev.motor,
+        modelo: initialData.modelo || initialData.equipo?.modelo || prev.modelo,
+        n_motor: initialData.n_motor || initialData.equipo?.sn || prev.n_motor,
         grupo: initialData.grupo || prev.grupo,
-        instalacion: initialData.instalacion || prev.instalacion,
+        instalacion: initialData.instalacion || initialData.cliente?.nombre || prev.instalacion,
         reportContent: combinedContent,
       }));
     }
@@ -283,7 +283,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   };
 
   const handleSave = async () => {
-    if (!user || !db) {
+    if (!user || !db || !user.email) {
         toast({ variant: 'destructive', title: 'Error de autenticación', description: 'Por favor, recarga la página.' });
         return;
     }
@@ -350,7 +350,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             const docData = { 
                 ...formData, 
                 inspectorSignatureUrl, 
-                tecnicoId: user.uid, 
+                tecnicoId: user.email, 
                 tecnicoNombre: inspectorName,
                 fecha_creacion: Timestamp.now(), 
                 formType,

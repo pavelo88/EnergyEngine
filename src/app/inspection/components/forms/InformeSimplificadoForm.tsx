@@ -371,7 +371,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
   };
 
   const handleSave = async () => {
-    if (!user || !db) {
+    if (!user || !db || !user.email) {
         toast({ variant: 'destructive', title: 'Error de autenticación', description: 'Por favor, recarga la página.' });
         return;
     }
@@ -445,7 +445,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
 
             const docData = {
                 ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl,
-                tecnicoId: user.uid, tecnicoNombre: inspectorName,
+                tecnicoId: user.email, tecnicoNombre: inspectorName,
                 fecha_creacion: Timestamp.now(), formType, id: docId, estado: 'Completado',
             };
 

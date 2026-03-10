@@ -154,7 +154,7 @@ export default function RegistroJornadaForm() {
   const totalGastos = useMemo(() => gastos.reduce((acc, curr) => acc + curr.monto, 0), [gastos]);
 
   const handleSaveParte = async () => {
-    if (!user || !dbFirestore || !storage) {
+    if (!user || !dbFirestore || !storage || !user.email) {
         toast({ variant: 'destructive', title: 'Error de autenticación', description: 'Servicios no disponibles. Por favor, recarga.' });
         return;
     }
@@ -176,13 +176,13 @@ export default function RegistroJornadaForm() {
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
         const jornadaData = {
             reportDate, horas, observacionesDiarias, ubicacionPrincipal, lugarTrabajo,
-            inspectorId: user.uid, inspectorNombre: user.displayName || user.email,
+            inspectorId: user.email, inspectorNombre: user.displayName || user.email,
         };
 
         const gastosData = gastos.map(g => ({
             ...g,
             fecha: reportDate,
-            inspectorId: user.uid,
+            inspectorId: user.email,
             inspectorNombre: user.displayName || user.email,
             clienteNombre: lugarTrabajo || 'Varios/Oficina',
             estado: 'Pendiente de Aprobación',
@@ -227,7 +227,7 @@ export default function RegistroJornadaForm() {
                     comprobanteUrl = await getDownloadURL(fileRef);
                 }
                 gastosBatch.set(gastoRef, {
-                    fecha: reportDate, inspectorId: user.uid, inspectorNombre: user.displayName || user.email,
+                    fecha: reportDate, inspectorId: user.email, inspectorNombre: user.displayName || user.email,
                     clienteNombre: lugarTrabajo || 'Varios/Oficina', descripcion: gasto.descripcion, categoria: gasto.rubro,
                     monto: gasto.monto, estado: 'Pendiente de Aprobación', forma_pago: gasto.forma_pago,
                     comprobanteUrl
@@ -237,7 +237,7 @@ export default function RegistroJornadaForm() {
             
             const jornadaDocRef = doc(collection(dbFirestore, "jornadas"), jornadaId);
             await setDoc(jornadaDocRef, {
-                id: jornadaDocRef.id, inspectorId: user.uid, inspectorNombre: user.displayName || user.email,
+                id: jornadaDocRef.id, inspectorId: user.email, inspectorNombre: user.displayName || user.email,
                 fecha: reportDate, ubicacionPrincipal, lugarTrabajo, horas,
                 observaciones: observacionesDiarias, firmaUrl, fecha_creacion: serverTimestamp(),
             });

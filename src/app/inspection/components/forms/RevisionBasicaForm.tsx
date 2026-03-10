@@ -443,7 +443,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
   };
 
   const handleSave = async () => {
-    if (!db || !user) {
+    if (!db || !user || !user.email) {
         toast({ variant: 'destructive', title: 'Error de autenticación', description: 'Por favor, recarga la página.' });
         return;
     }
@@ -524,7 +524,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
               imageUrls,
               inspectorSignatureUrl, 
               clientSignatureUrl, 
-              tecnicoId: user.uid, 
+              tecnicoId: user.email, 
               tecnicoNombre: inspectorName, 
               fecha_creacion: Timestamp.now(), 
               formType,
