@@ -389,7 +389,11 @@ const InspectionPageContent = () => {
 
     if (activeTab === TABS.NEW_INSPECTION) {
         if (!activeInspectionForm) {
-            return <InspectionHub onSelectInspectionType={handleSelectInspectionType} />;
+            return (
+              <div className="w-full max-w-7xl mx-auto p-4 md:p-8">
+                <InspectionHub onSelectInspectionType={handleSelectInspectionType} />
+              </div>
+            );
         }
         
         let FormComponent;
@@ -404,7 +408,9 @@ const InspectionPageContent = () => {
 
         return (
             <Suspense fallback={<div className="flex-grow flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>}>
-                <FormComponent initialData={selectedTask} aiData={aiData} />
+                <div className="w-full max-w-7xl mx-auto p-4 md:p-8">
+                  <FormComponent initialData={selectedTask} aiData={aiData} />
+                </div>
             </Suspense>
         );
     }
@@ -421,7 +427,9 @@ const InspectionPageContent = () => {
 
     return (
       <Suspense fallback={<div className="flex-grow flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>}>
-        <TabComponent {...props} />
+        <div className="w-full max-w-7xl mx-auto p-4 md:p-8">
+          <TabComponent {...props} />
+        </div>
       </Suspense>
     );
   };
@@ -436,8 +444,8 @@ const InspectionPageContent = () => {
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
       />
-      <main className="flex-grow w-full">
-        <div className="w-full max-w-none">
+      <main className="flex-grow w-full pt-0">
+        <div className="w-full">
          {renderContent()}
         </div>
       </main>

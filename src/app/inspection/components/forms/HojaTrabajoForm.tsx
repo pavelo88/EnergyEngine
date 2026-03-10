@@ -520,7 +520,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
       <main className="space-y-8 pb-40">
         <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase">Hoja de Trabajo</h2>
       
-        <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
+        <section className="bg-white p-6 md:p-10 rounded-3xl shadow-sm space-y-6 border border-slate-100">
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="lg:col-span-2 space-y-3">
                 <StableInput label="Cliente" icon={Users} value={formData.cliente} onChange={(v: any) => handleInputChange('cliente', v)}/>
@@ -547,14 +547,14 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                  </div>
               </div>
               <div className="lg:col-span-4">
-                <button onClick={handleCaptureLocation} className={`w-full p-3 border-2 rounded-lg font-bold transition-all ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 hover:border-primary'}`}>
+                <button onClick={handleCaptureLocation} className={`w-full p-3 border-2 rounded-xl font-bold transition-all ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 hover:border-primary'}`}>
                     {locationStatus === 'loading' ? <Loader2 className="animate-spin mx-auto"/> : formData.location ? 'Ubicación Capturada' : 'Capturar Ubicación'}
                 </button>
               </div>
            </div>
         </section>
         
-        <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
+        <section className="bg-white p-6 md:p-10 rounded-3xl shadow-sm space-y-6 border border-slate-100">
             <h2 className="text-xl font-black flex items-center gap-3"><Settings className="text-primary"/> Parámetros Técnicos</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <StableInput icon={Clock} label="Horas" value={formData.parametrosTecnicos.horas} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'horas', v)} />
@@ -569,7 +569,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
             </div>
         </section>
 
-        <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
+        <section className="bg-white p-6 md:p-10 rounded-3xl shadow-sm space-y-6 border border-slate-100">
           <h2 className="text-xl font-black flex items-center gap-3"><Zap className="text-primary"/> Potencia con carga</h2>
           <div className="grid grid-cols-1 md:grid-cols-12 gap-x-8 gap-y-4 items-end">
               <div className="md:col-span-3">
@@ -598,19 +598,19 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
           </div>
         </section>
 
-        <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
+        <section className="bg-white p-6 md:p-10 rounded-3xl shadow-sm space-y-6 border border-slate-100">
           <div className="flex justify-between items-center">
               <h2 className="text-xl font-black">Trabajos Realizados</h2>
               <button onClick={improveReport} disabled={aiLoading} className="flex items-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg">
                   {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />} Pulir con IA
               </button>
           </div>
-          <textarea className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-lg p-6 resize-none" value={formData.trabajos_realizados} onChange={(e: any) => handleInputChange('trabajos_realizados', e.target.value)}/>
+          <textarea className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 resize-none" value={formData.trabajos_realizados} onChange={(e: any) => handleInputChange('trabajos_realizados', e.target.value)}/>
        </section>
        
-      <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
+      <section className="bg-white p-6 md:p-10 rounded-3xl shadow-sm space-y-6 border border-slate-100">
           <h2 className="text-xl font-black flex items-center gap-3"><Camera className="text-primary"/> Evidencia Fotográfica</h2>
-          <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center">
+          <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center">
               <Camera size={32} className="text-slate-400 mb-2"/>
               <span className="font-bold">Adjuntar Imágenes</span>
           </label>
@@ -624,7 +624,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
           </div>
       </section>
 
-      <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
+      <section className="bg-white p-6 md:p-10 rounded-3xl shadow-sm space-y-6 border border-slate-100">
           <h2 className="text-xl font-black">Firmas</h2>
           <div className="grid md:grid-cols-2 gap-8 items-start">
               <div>
@@ -639,11 +639,11 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
       </section>
 
       <div className="flex flex-col md:flex-row gap-4">
-          <button onClick={handlePdfAction} className="w-full p-6 bg-white border-2 rounded-lg font-bold flex items-center justify-center gap-4">
+          <button onClick={handlePdfAction} className="w-full p-6 bg-white border-2 rounded-2xl font-bold flex items-center justify-center gap-4">
               {isSaved ? <Printer size={20} /> : <FileSearch size={20} />}
               {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
           </button>
-          <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-lg font-black flex items-center justify-center gap-4">
+          <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-4">
             {saving ? <Loader2 className="animate-spin" /> : isSaved ? <CheckCircle2 /> : <Save />}
             {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR'}
           </button>

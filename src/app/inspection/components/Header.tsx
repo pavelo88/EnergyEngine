@@ -17,7 +17,7 @@ export default function Header({ activeTab, isOnline, onBack, isSubNavActive, on
   const showBackButton = activeTab !== TABS.MENU || isSubNavActive;
 
   return (
-    <header className="w-full px-6 py-4 bg-slate-800 backdrop-blur-lg border-b border-white/10 flex justify-between items-center sticky top-0 z-50 shadow-lg">
+    <header className="w-full px-6 py-4 bg-slate-800 backdrop-blur-lg border-b border-white/10 flex justify-between items-center sticky top-0 z-50 shadow-lg h-16">
       <div className="flex items-center gap-4">
         {showBackButton && (
           <button 
