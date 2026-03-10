@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore"; 
 import { useFirestore } from '@/firebase';
 import { PlusCircle, Trash2, Pencil, Mail, Phone, MapPin, Loader2 } from 'lucide-react';
@@ -25,18 +25,17 @@ export default function ClientsPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const db = useFirestore();
 
-  const openModalForAdd = () => {
+  const openModalForAdd = useCallback(() => {
     setEditingClient(null);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  // Memoizamos la acción para evitar bucles infinitos en el Header
   const headerAction = useMemo(() => (
     <Button onClick={openModalForAdd} className="rounded-xl font-bold uppercase text-xs tracking-widest">
         <PlusCircle className="mr-2" size={16}/>
         Añadir Cliente
     </Button>
-  ), []);
+  ), [openModalForAdd]);
 
   useAdminHeader('Gestión de Clientes', headerAction);
 
@@ -103,7 +102,6 @@ export default function ClientsPage() {
             </div>
           ) : (
             <>
-              {/* VISTA DE TARJETAS PARA MÓVIL Y TABLET */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:hidden">
                 {clients.map(client => (
                   <Card key={client.id} className="rounded-3xl p-6 space-y-4 flex flex-col border-slate-100 shadow-none bg-slate-50">
@@ -123,7 +121,6 @@ export default function ClientsPage() {
                 ))}
               </div>
 
-              {/* VISTA DE TABLA PARA ESCRITORIO */}
               <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>

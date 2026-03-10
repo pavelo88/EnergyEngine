@@ -38,7 +38,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       
       ctx.scale(scale, scale);
       
-      // Configuración para trazo suave y redondeado (ESTILO PRO)
+      // Configuración para trazo suave y redondeado
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.strokeStyle = '#0f172a'; // Slate-900

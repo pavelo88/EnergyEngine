@@ -26,21 +26,22 @@ export function useAdminHeader(newTitle: string, newAction: ReactNode | null = n
   const context = useContext(AdminHeaderContext);
   if (!context) throw new Error('useAdminHeader must be used within AdminHeaderProvider');
 
-  // Usamos refs para evitar actualizaciones innecesarias que causen bucles
-  const lastTitle = useRef('');
-  const lastAction = useRef<ReactNode | null>(null);
+  // Usamos refs para rastrear el estado real enviado al contexto
+  const lastTitleSet = useRef<string>('');
+  const lastActionSet = useRef<ReactNode | null>(null);
 
   useEffect(() => {
-    if (lastTitle.current !== newTitle) {
+    // Solo actualizamos si el título es diferente
+    if (newTitle !== lastTitleSet.current) {
       context.setTitle(newTitle);
-      lastTitle.current = newTitle;
+      lastTitleSet.current = newTitle;
     }
-    
-    // Solo actualizamos la acción si es estrictamente diferente
-    // Nota: El componente que llama debe usar useMemo para el action
-    if (lastAction.current !== newAction) {
+
+    // Solo actualizamos la acción si la referencia ha cambiado
+    // Es CRITICO que el llamador use useMemo para el newAction
+    if (newAction !== lastActionSet.current) {
       context.setAction(newAction);
-      lastAction.current = newAction;
+      lastActionSet.current = newAction;
     }
   }, [newTitle, newAction, context]);
 

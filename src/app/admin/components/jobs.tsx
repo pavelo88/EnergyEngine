@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { useFirestore } from '@/firebase';
 import { PlusCircle, Loader2, Pencil, Trash2, Download, MapPin } from 'lucide-react';
@@ -47,12 +47,12 @@ export default function JobsPage() {
   const [selectedStatus, setSelectedStatus] = useState<Job['estado']>('Pendiente');
   const db = useFirestore();
 
-  const openModalForAdd = () => {
+  const openModalForAdd = useCallback(() => {
     setEditingJob(null);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     const dataToExport = jobs.map(job => ({
       ID: job.id,
       Descripción: job.descripcion,
@@ -64,9 +64,9 @@ export default function JobsPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Trabajos");
     XLSX.writeFile(workbook, `Reporte_Trabajos_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-  };
+  }, [jobs]);
 
-  useAdminHeader('Gestión de Trabajos', (
+  const headerAction = useMemo(() => (
     <div className="flex gap-2">
         <Button onClick={handleExport} variant="outline" className="rounded-xl font-bold uppercase text-xs tracking-widest hidden md:flex border-slate-200">
             <Download className="mr-2" size={16} />
@@ -77,7 +77,9 @@ export default function JobsPage() {
             Nuevo Trabajo
         </Button>
     </div>
-  ));
+  ), [handleExport, openModalForAdd]);
+
+  useAdminHeader('Gestión de Trabajos', headerAction);
 
   useEffect(() => {
     if (!db) return;

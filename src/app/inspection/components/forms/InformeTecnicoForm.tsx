@@ -357,7 +357,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   };
 
   return (
-    <main className="max-w-4xl mx-auto space-y-8 animate-in fade-in">
+    <main className="max-w-4xl mx-auto space-y-8 animate-in fade-in pb-40">
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
         <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden">
           <DialogHeader className="p-4 border-b bg-white">

@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useAdminHeader } from './AdminHeaderContext';
@@ -41,7 +40,7 @@ export default function WebRequests() {
   const [editingRequest, setEditingRequest] = useState<ContactRequest | null>(null);
   const db = useFirestore();
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     const dataToExport = requests.map(r => ({
       Fecha: r.createdAt?.toDate().toLocaleString('es-ES') || 'N/A',
       Nombre: r.name,
@@ -54,14 +53,16 @@ export default function WebRequests() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Solicitudes Web");
     XLSX.writeFile(workbook, `EnergyEngine_Solicitudes_${format(new Date(), 'yyyyMMdd')}.xlsx`);
-  };
+  }, [requests]);
 
-  useAdminHeader('Solicitudes de Contacto', (
+  const headerAction = useMemo(() => (
     <Button onClick={handleExport} variant="outline" className="rounded-xl font-bold uppercase text-xs tracking-widest border-slate-200 hover:bg-slate-50">
         <Download className="mr-2" size={16} />
         Exportar Historial
     </Button>
-  ));
+  ), [handleExport]);
+
+  useAdminHeader('Solicitudes de Contacto', headerAction);
 
   useEffect(() => {
     if (!db) return;
@@ -110,7 +111,6 @@ export default function WebRequests() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      {/* Filtro Inteligente */}
       <div className="relative group">
         <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={20} />
         <Input 
@@ -198,7 +198,6 @@ export default function WebRequests() {
         )}
       </div>
 
-      {/* Panel de Gestión (Modal) */}
       {editingRequest && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex justify-center items-center z-50 p-4">
           <div className="bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-2xl animate-in zoom-in duration-300 max-h-[90vh] overflow-y-auto border border-white/20">
