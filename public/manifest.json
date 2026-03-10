@@ -1,10 +1,10 @@
 {
   "name": "Energy Engine",
-  "short_name": "Energy Engine",
-  "description": "Plataforma de gestión de mantenimiento para grupos electrógenos.",
+  "short_name": "EnergyEngine",
+  "description": "Plataforma de gestión de inspecciones y mantenimientos para grupos electrógenos.",
   "start_url": "/inspection",
   "display": "standalone",
-  "background_color": "#f8fafc",
+  "background_color": "#ffffff",
   "theme_color": "#10b981",
   "icons": [
     {
@@ -16,11 +16,6 @@
       "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png"
-    },
-    {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
     }
   ]
 }

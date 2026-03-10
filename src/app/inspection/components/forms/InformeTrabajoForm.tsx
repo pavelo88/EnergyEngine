@@ -9,7 +9,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
-import logoLight from '@/app/logo.png';
+import { logoBase64 } from '@/lib/logo-base64';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db } from '@/lib/db-local';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
@@ -150,7 +150,7 @@ const drawHeader = () => {
   doc.setFillColor(39, 180, 96);
   doc.rect(0, 0, pageWidth, 26, 'F'); 
 
-  doc.addImage(logoLight.src, 'PNG', logoX, logoY, logoWidth, logoHeight);
+  doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
   const textX = logoX + logoWidth + 6;
   const textYStart = logoY + 9;
