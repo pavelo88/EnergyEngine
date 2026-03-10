@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Pen, Trash2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -14,7 +14,6 @@ interface SignaturePadProps {
 
 export default function SignaturePad({ title, onSignatureEnd, signature }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [hasContent, setHasContent] = useState(!!signature);
@@ -41,9 +40,8 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     ctx.lineJoin = 'round';
     ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = 3;
-    contextRef.current = ctx;
 
-    // Restaurar firma si existe
+    // Restaurar firma previa si existe
     if (signature) {
       const img = new Image();
       img.src = signature;
@@ -53,31 +51,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     }
   }, [isFullScreen, signature]);
 
-  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    const { x, y } = getCoordinates(e);
-    contextRef.current?.beginPath();
-    contextRef.current?.moveTo(x, y);
-    setIsDrawing(true);
-  };
-
-  const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing) return;
-    e.preventDefault();
-    const { x, y } = getCoordinates(e);
-    contextRef.current?.lineTo(x, y);
-    contextRef.current?.stroke();
-    setHasContent(true);
-  };
-
-  const stopDrawing = () => {
-    if (isDrawing) {
-      contextRef.current?.closePath();
-      setIsDrawing(false);
-    }
-  };
-
-  const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
+  const getCoordinates = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -86,6 +60,37 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       x: clientX - rect.left,
       y: clientY - rect.top
     };
+  }, []);
+
+  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const { x, y } = getCoordinates(e);
+    const ctx = canvasRef.current?.getContext('2d');
+    if (ctx) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      setIsDrawing(true);
+    }
+  };
+
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawing || !canvasRef.current) return;
+    e.preventDefault();
+    const { x, y } = getCoordinates(e);
+    const ctx = canvasRef.current.getContext('2d');
+    if (ctx) {
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      setHasContent(true);
+    }
+  };
+
+  const stopDrawing = () => {
+    if (isDrawing) {
+      const ctx = canvasRef.current?.getContext('2d');
+      ctx?.closePath();
+      setIsDrawing(false);
+    }
   };
 
   const handleSave = () => {
@@ -97,10 +102,14 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   };
 
   const handleClear = () => {
-    if (canvasRef.current && contextRef.current) {
-      contextRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      setHasContent(false);
-      onSignatureEnd(null);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
+        setHasContent(false);
+        onSignatureEnd(null);
+      }
     }
   };
 
@@ -130,7 +139,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
           <DialogHeader className="text-white mb-2">
             <DialogTitle className="font-black uppercase tracking-tighter text-lg">{title}</DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
-              Dibuje su firma en el recuadro blanco.
+              Dibuje su firma en el recuadro blanco de forma clara.
             </DialogDescription>
           </DialogHeader>
 

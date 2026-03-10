@@ -14,8 +14,8 @@ export const Logo = () => {
     setMounted(true);
   }, []);
 
-  // Renderizado de "Shell" para evitar errores de hidratación
-  // Este contenido es idéntico en servidor y primer renderizado de cliente
+  // El primer renderizado (Server y Client) debe ser idéntico
+  // Renderizamos un esqueleto neutro hasta que el cliente esté montado
   if (!mounted) {
     return (
       <div className="flex items-center gap-3 h-[48px]">
@@ -28,7 +28,7 @@ export const Logo = () => {
     );
   }
 
-  // Una vez montado, decidimos el logo según el tema
+  // Una vez montado en el cliente, decidimos el logo según el tema resuelto
   const isDark = resolvedTheme === 'dark';
   const logoSrc = isDark ? '/logo2.png' : '/logo.png';
 
