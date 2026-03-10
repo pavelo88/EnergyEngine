@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
 
 interface AdminHeaderContextType {
   title: string;
@@ -26,15 +26,23 @@ export function useAdminHeader(newTitle: string, newAction: ReactNode | null = n
   const context = useContext(AdminHeaderContext);
   if (!context) throw new Error('useAdminHeader must be used within AdminHeaderProvider');
 
+  // Usamos refs para evitar actualizaciones innecesarias que causen bucles
+  const lastTitle = useRef('');
+  const lastAction = useRef<ReactNode | null>(null);
+
   useEffect(() => {
-    context.setTitle(newTitle);
-    context.setAction(newAction);
+    if (lastTitle.current !== newTitle) {
+      context.setTitle(newTitle);
+      lastTitle.current = newTitle;
+    }
     
-    // Al desmontar el componente, limpiamos la acción
-    return () => {
-      context.setAction(null);
-    };
-  }, [newTitle, newAction, context.setTitle, context.setAction]);
+    // Solo actualizamos la acción si es estrictamente diferente
+    // Nota: El componente que llama debe usar useMemo para el action
+    if (lastAction.current !== newAction) {
+      context.setAction(newAction);
+      lastAction.current = newAction;
+    }
+  }, [newTitle, newAction, context]);
 
   return context;
 }

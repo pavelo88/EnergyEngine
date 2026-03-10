@@ -19,7 +19,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [hasContent, setHasContent] = useState(!!signature);
 
-  // Inicialización del lienzo con suavizado extremo
+  // Inicialización del lienzo con suavizado extremo y fijación de fondo
   useEffect(() => {
     if (!isFullScreen) return;
 
@@ -38,7 +38,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       
       ctx.scale(scale, scale);
       
-      // Configuración para trazo suave y redondeado
+      // Configuración para trazo suave y redondeado (ESTILO PRO)
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.strokeStyle = '#0f172a'; // Slate-900
@@ -58,6 +58,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       }
     };
 
+    // Pequeño delay para asegurar que el DOM del Dialog esté listo
     const timer = setTimeout(initCanvas, 100);
     return () => clearTimeout(timer);
   }, [isFullScreen, signature]);

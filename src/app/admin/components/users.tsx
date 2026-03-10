@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useForm } from 'react-hook-form';
@@ -38,12 +38,14 @@ export default function UsersPage() {
     setIsModalOpen(true);
   };
 
-  useAdminHeader('Gestión de Usuarios', (
+  const headerAction = useMemo(() => (
     <Button onClick={openModalForCreate} className="rounded-xl font-bold uppercase text-xs tracking-widest">
       <UserPlus className="h-4 w-4 mr-2"/>
       <span>Añadir Usuario</span>
     </Button>
-  ));
+  ), []);
+
+  useAdminHeader('Gestión de Usuarios', headerAction);
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<UserFormInputs>({
     resolver: zodResolver(userSchema),

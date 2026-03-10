@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore"; 
 import { useFirestore } from '@/firebase';
-import { PlusCircle, Trash2, Pencil, Mail, Phone, MapPin } from 'lucide-react';
+import { PlusCircle, Trash2, Pencil, Mail, Phone, MapPin, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,13 +30,15 @@ export default function ClientsPage() {
     setIsModalOpen(true);
   };
 
-  // Movemos el botón al Header dinámico
-  useAdminHeader('Gestión de Clientes', (
+  // Memoizamos la acción para evitar bucles infinitos en el Header
+  const headerAction = useMemo(() => (
     <Button onClick={openModalForAdd} className="rounded-xl font-bold uppercase text-xs tracking-widest">
         <PlusCircle className="mr-2" size={16}/>
         Añadir Cliente
     </Button>
-  ));
+  ), []);
+
+  useAdminHeader('Gestión de Clientes', headerAction);
 
   useEffect(() => {
     if (!db) return;
@@ -134,7 +136,7 @@ export default function ClientsPage() {
                   </thead>
                   <tbody>
                       {clients.map(client => (
-                      <tr key={client.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors group">
+                      <tr key={client.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
                           <td className="py-4 font-black text-slate-700">{client.nombre}</td>
                           <td className="py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">{client.direccion || 'No registrada'}</td>
                           <td className="py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
