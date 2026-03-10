@@ -1,16 +1,15 @@
+
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/firebase';
 import { signOut, User } from 'firebase/auth';
-import { GanttChartSquare, Users, Wrench, DollarSign, LayoutDashboard, Building, Upload, LogOut, X } from 'lucide-react';
+import { GanttChartSquare, Users, Wrench, DollarSign, LayoutDashboard, Building, Upload, LogOut, X, Mail } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
 
-// Tipos para las props del componente
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,6 +23,7 @@ const navLinks = [
   { href: '/admin/jobs', label: 'Trabajos', icon: Wrench },
   { href: '/admin/expenses', label: 'Gastos', icon: DollarSign },
   { href: '/admin/reports', label: 'Informes', icon: GanttChartSquare },
+  { href: '/admin/web-requests', label: 'Solicitudes Web', icon: Mail },
   { href: '/admin/import', label: 'Importar', icon: Upload },
 ];
 
@@ -48,7 +48,6 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
 
   return (
     <>
-      {/* Overlay for mobile, to close sidebar on click outside */}
       <div 
         className={cn(
           'fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden',
@@ -63,7 +62,6 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        {/* Header con Logo y botón de cerrar para móvil */}
         <div className="flex h-20 items-center justify-between px-6 border-b border-gray-800">
           <Link href="/admin" className="flex items-center gap-3">
             <Logo />
@@ -73,7 +71,6 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
           </button>
         </div>
 
-        {/* Navegación Principal */}
         <nav className="flex-1 space-y-2 px-4 py-6 overflow-y-auto">
           {navLinks.map((link) => {
             const isActive = pathname === link.href || (pathname.startsWith(link.href) && link.href !== '/admin');
@@ -81,7 +78,7 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={onClose} // Cierra el menú en móvil al hacer clic en un enlace
+                onClick={onClose}
                 className={cn(
                   'flex items-center gap-4 rounded-lg px-4 py-2.5 text-base font-medium text-gray-300 transition-all duration-200 hover:bg-gray-700 hover:text-white',
                   isActive && 'bg-primary text-white shadow-md'
@@ -94,7 +91,6 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
           })}
         </nav>
 
-        {/* Footer del Sidebar con info de usuario y botón de logout */}
         <div className="border-t border-gray-800 p-4">
            {user && (
             <div className="flex items-center gap-3 mb-4 px-2">

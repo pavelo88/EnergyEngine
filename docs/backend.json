@@ -1,5 +1,22 @@
+
 {
   "entities": {
+    "ContactRequest": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ContactRequest",
+      "type": "object",
+      "description": "Captura de solicitudes de contacto desde la landing page pública.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "Nombre del cliente" },
+        "email": { "type": "string", "description": "Email de contacto" },
+        "technicalRequest": { "type": "string", "description": "Detalle del requerimiento técnico" },
+        "status": { "type": "string", "enum": ["Pendiente", "En Gestión", "Atendido"], "default": "Pendiente" },
+        "observations": { "type": "string", "description": "Notas internas del administrador" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "technicalRequest", "status", "createdAt"]
+    },
     "WebContent": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "WebContent",
@@ -276,148 +293,13 @@
   "firestore": {
     "structure": [
       {
-        "path": "/web_content/{configId}",
+        "path": "/contactos/{contactoId}",
         "definition": {
-          "entityName": "WebContent",
-          "schema": {
-            "$ref": "#/backend/entities/WebContent"
-          },
-          "description": "Public content for the landing page of AssetTrack AI. The document ID is expected to be 'config_principal'. Includes denormalized public statistics from `GlobalStats` for independent public read access, aligning with the `stats_publicas` requirement. The schema properties `hero`, `services`, and `publicStats` should be treated as structured objects/arrays despite potentially being typed as `string` in the provided entity schema."
-        }
-      },
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "User profiles, indexed by their Firebase Authentication UID. Contains personal details, signature URL, and first login status. User roles ('admin', 'gerente', 'inspector') are managed in separate `/roles` collections for Database-Backed Access Control (DBAC) as per design principles, not directly in this document for authorization checks.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The Firebase Authentication UID of the user."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles/admin/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Dedicated collection for identifying users with the 'admin' role. The document ID corresponds to the user's UID. This facilitates Authorization Independence (DBAC) by allowing simple `exists()` checks in security rules to determine admin privileges without relying on custom claims or document `get()` operations.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The Firebase Authentication UID of the user with the 'admin' role."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles/gerente/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Dedicated collection for identifying users with the 'gerente' role. The document ID corresponds to the user's UID. This facilitates Authorization Independence (DBAC) by allowing simple `exists()` checks in security rules to determine gerente privileges without relying on custom claims or document `get()` operations.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The Firebase Authentication UID of the user with the 'gerente' role."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles/inspector/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Dedicated collection for identifying users with the 'inspector' role. The document ID corresponds to the user's UID. This facilitates Authorization Independence (DBAC) by allowing simple `exists()` checks in security rules to determine inspector privileges without relying on custom claims or document `get()` operations.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The Firebase Authentication UID of the user with the 'inspector' role."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/assets/{assetId}",
-        "definition": {
-          "entityName": "Asset",
-          "schema": {
-            "$ref": "#/backend/entities/Asset"
-          },
-          "description": "Master list of industrial assets. All authenticated users with appropriate roles (Admin, Gerente, Inspector) can read these documents to view asset details, supporting efficient global `list` operations. Only users with the 'admin' role can create, update, or delete assets. Includes fields like `airportId` and `sectorId` for potential filtering and access control based on location.",
-          "params": [
-            {
-              "name": "assetId",
-              "description": "Unique identifier for the asset (e.g., 'id_bien' like M-3209)."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/reports/{reportId}",
-        "definition": {
-          "entityName": "ReportLog",
-          "schema": {
-            "$ref": "#/backend/entities/ReportLog"
-          },
-          "description": "Detailed inspection reports. Each document contains a `technicianId` field, which is used for ownership-based authorization, allowing inspectors to create and read their own reports. Admin and Gerente roles have global `list` and `read` access. Only Admin can `update` reports, and `delete` is strictly forbidden to maintain auditability. This structure supports QAPs by allowing global queries for management while enforcing individual `read` ownership.",
-          "params": [
-            {
-              "name": "reportId",
-              "description": "Unique identifier for the inspection report (e.g., 'id_informe')."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/reports/{reportId}/multimedia/{multimediaId}",
-        "definition": {
-          "entityName": "Multimedia",
-          "schema": {
-            "$ref": "#/backend/entities/Multimedia"
-          },
-          "description": "Multimedia files (e.g., photos) associated with a specific inspection report. Each document includes denormalized `reportId` and `reportOwnerId` (the `technicianId` from the parent report) to achieve Authorization Independence, enabling direct ownership checks in rules without a `get()` operation on the parent report. This ensures atomic creation and secure access for inspectors to their own report's multimedia.",
-          "params": [
-            {
-              "name": "reportId",
-              "description": "The unique identifier of the parent inspection report."
-            },
-            {
-              "name": "multimediaId",
-              "description": "Unique identifier for the multimedia file."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/global_stats/{configId}",
-        "definition": {
-          "entityName": "GlobalStats",
-          "schema": {
-            "$ref": "#/backend/entities/GlobalStats"
-          },
-          "description": "Aggregated system-wide statistics for management dashboards. The document ID is expected to be 'global_config'. This collection is primarily managed by Cloud Functions that update counters based on new `ReportLog` entries. Read access is granted to Admin and Gerente roles. Public statistics are denormalized into `web_content` for public display.",
-          "params": [
-            {
-              "name": "configId",
-              "description": "The unique identifier for the global statistics configuration document (e.g., 'global_config')."
-            }
-          ]
+          "entityName": "ContactRequest",
+          "schema": { "$ref": "#/backend/entities/ContactRequest" },
+          "description": "Solicitudes capturadas desde la landing page."
         }
       }
-    ],
-    "reasoning": "The Firestore structure for AssetTrack AI prioritizes Authorization Independence and DBAC (Database-Backed Access Control) to ensure secure, scalable, and debuggable security rules. The core strategy involves denormalization of authorization context and structural segregation.\n\n**Authorization Independence via Denormalization:**\n1.  **Roles:** Instead of relying on Firebase Custom Claims (which would tie authorization logic to `request.auth.token.role` and contradict the 'DBAC (No Custom Claims)' principle), user roles (`admin`, `gerente`, `inspector`) are explicitly denormalized into dedicated top-level collections (e.g., `/roles/admin/{userId}`). Authorization rules can then perform a simple `exists()` check on these collections (e.g., `exists(/databases/$(database)/documents/roles/admin/$(request.auth.uid))`) without complex `get()` calls, enabling atomic operations and clear intent.\n2.  **Multimedia Ownership:** For `Multimedia` documents, which are subcollections of `ReportLog`, the `reportOwnerId` (the `technicianId` of the parent report) and `reportId` are denormalized into each `Multimedia` document. This allows security rules to verify ownership and association directly on the `Multimedia` document (e.g., `resource.data.reportOwnerId == request.auth.uid`) without needing to perform a `get()` operation on the parent `ReportLog` document. This is critical for atomic writes and simplified rules for subcollections.\n3.  **Public Content:** The `WebContent` collection, specifically the `config_principal` document, directly stores `publicStats`. This prevents the public-facing landing page from needing to query internal `GlobalStats` for public information, ensuring independent read access.\n\n**QAPs (Queries as Authorization Primitives) and Structural Segregation:**\n1.  **Global Data (e.g., Assets):** The `/assets/{assetId}` collection is designed with a homogeneous security posture, allowing all authenticated users (Admin, Gerente, Inspector via their respective roles) to `read` all assets, while `Admin` has `write` access. This supports efficient `list` operations for dashboards and asset selection without needing complex `get()`s or client-side filtering for basic visibility.\n2.  **ReportLog Access:** The `/reports/{reportId}` collection serves as the central repository for all inspection reports. `Admin` and `Gerente` roles have global `list` and `read` access to all reports, enabling their dashboard views. For `Inspectors`, the `technicianId` field within each `ReportLog` document allows security rules to enforce ownership for individual `read` and `create` operations (`resource.data.technicianId == request.auth.uid`). While a `list` operation by an inspector might technically return all report IDs (depending on the rule), the `read` rule ensures they can only fetch the full content of their own reports. Client-side filtering is expected for inspectors to display only their own reports, as enforcing `list` filters in rules is not directly supported by Firestore and violates the principle of rules not being filters. The structure allows for secure `read` of individual documents based on ownership.\n3.  **Private User Data:** The `/users/{userId}` path ensures private data is path-based and accessible only by the owning user (`request.auth.uid == userId`) or an `admin`.\n\n**Consistency and Predictability:** Semantic naming conventions are used (e.g., `assets`, `reports`, `multimedia`), and wildcards are descriptive (`{assetId}`, `{reportId}`). Explicit fields like `technicianId` and `reportOwnerId` clearly indicate ownership and simplify rule writing."
+    ]
   }
 }

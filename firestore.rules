@@ -1,3 +1,4 @@
+
 rules_version = '2'; 
 
 service cloud.firestore {
@@ -11,7 +12,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Role-check functions using exists() for DBAC
     function isAdmin() {
       return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
              'admin' in get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.roles;
@@ -22,10 +22,6 @@ service cloud.firestore {
              'inspector' in get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.roles;
     }
 
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-    
     // ------------------------------------------------------------------------
     // Application Collections
     // ------------------------------------------------------------------------
@@ -35,9 +31,6 @@ service cloud.firestore {
     }
 
     match /usuarios/{usuarioId} {
-      // Allow unauthenticated reads ONLY for the login page to check for DNI/email combinations.
-      // This is required for the first-time login flow.
-      // Write operations (creating, updating, deleting) are still protected and require authentication.
       allow read: if true;
       allow write: if isSignedIn();
     }
@@ -50,5 +43,11 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    match /contactos/{contactoId} {
+      // Permitir creación pública desde el formulario web
+      allow create: if true;
+      // Lectura y gestión solo para administradores
+      allow read, write: if isSignedIn() && isAdmin();
+    }
   }
 }

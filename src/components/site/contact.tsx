@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -12,6 +13,8 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from '@/component
 import { useToast } from '@/hooks/use-toast';
 import { contactInfo, socialLinks } from '@/lib/data';
 import Link from 'next/link';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'El nombre debe tener al menos 2 caracteres.' }),
@@ -22,6 +25,7 @@ const formSchema = z.object({
 export default function Contact() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const db = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -30,15 +34,31 @@ export default function Contact() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    console.log(values);
-    setIsSubmitting(false);
-    toast({
-      title: 'Solicitud Enviada',
-      description: 'Gracias por contactarnos. Nos pondremos en contacto pronto.',
-    });
-    form.reset();
+    try {
+      if (db) {
+        await addDoc(collection(db, 'contactos'), {
+          ...values,
+          status: 'Pendiente',
+          observations: '',
+          createdAt: serverTimestamp(),
+        });
+        
+        toast({
+          title: 'Solicitud Enviada',
+          description: 'Gracias por contactarnos. Tu requerimiento ha sido registrado en nuestro sistema.',
+        });
+        form.reset();
+      }
+    } catch (error) {
+      console.error("Error saving contact:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error al enviar',
+        description: 'No pudimos procesar tu solicitud en este momento. Por favor, inténtalo más tarde.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
