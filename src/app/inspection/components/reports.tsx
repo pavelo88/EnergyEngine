@@ -19,7 +19,7 @@ interface Report {
   id: string;
   cliente: string;
   clienteNombre?: string;
-  fecha_guardado: any; 
+  fecha_creacion: any; 
   formType: 'hoja-trabajo' | 'informe-revision' | 'informe-tecnico' | 'informe-simplificado' | 'job' | undefined;
   [key: string]: any; // Para el resto de los datos
 }
@@ -35,7 +35,7 @@ export default function ReportsPage() {
     const fetchAllReports = async () => {
       try {
         setLoading(true);
-        const q = query(collection(db, 'trabajos'), orderBy('fecha_guardado', 'desc'));
+        const q = query(collection(db, 'trabajos'), orderBy('fecha_creacion', 'desc'));
         const querySnapshot = await getDocs(q);
         
         const allDocs = querySnapshot.docs.map(doc => ({
@@ -135,7 +135,7 @@ export default function ReportsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{report.id}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-bold">{getReportTitle(report.formType)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{report.cliente || report.clienteNombre}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{report.fecha_guardado?.toDate().toLocaleDateString() || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{report.fecha_creacion?.toDate().toLocaleDateString() || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button onClick={() => handleReprintPDF(report)} className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">
                       <Printer size={16}/>
@@ -151,3 +151,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    

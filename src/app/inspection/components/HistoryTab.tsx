@@ -8,6 +8,7 @@ import { useFirestore, useUser } from '@/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface Task {
   id: string;
@@ -23,6 +24,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'pending' | 'completed'>('pending');
+  const [searchTerm, setSearchTerm] = useState('');
   const { user } = useUser();
   const db = useFirestore();
 
@@ -32,13 +34,11 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
     const fetchTasks = async () => {
       setLoading(true);
       try {
-        // Query 1: Jobs assigned to the inspector via admin panel
         const q1 = query(
           collection(db, "trabajos"),
           where("inspectorIds", "array-contains", user.uid)
         );
 
-        // Query 2: Reports created directly by the inspector
         const q2 = query(
           collection(db, "trabajos"),
           where("tecnicoId", "==", user.uid)
@@ -52,15 +52,13 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
         const assignedTasks = assignedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Task[];
         const createdTasks = createdSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Task[];
 
-        // Merge and deduplicate results, just in case a job appears in both
         const allTasks = [...assignedTasks, ...createdTasks];
         const uniqueTasks = Array.from(new Map(allTasks.map(task => [task.id, task])).values());
         
-        // Sort by the most relevant date available
         uniqueTasks.sort((a, b) => {
           const dateA = a.fecha_creacion?.toDate() || 0;
           const dateB = b.fecha_creacion?.toDate() || 0;
-          return dateB - dateA; // Descending order
+          return dateB - dateA;
         });
 
         setTasks(uniqueTasks);
@@ -76,21 +74,47 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
   }, [user, db]);
 
   const filteredTasks = useMemo(() => {
+    let filtered = tasks;
+
     if (filter === 'pending') {
-      return tasks.filter(t => t.estado === 'Pendiente' || t.estado === 'En Progreso');
+      filtered = filtered.filter(t => t.estado === 'Pendiente' || t.estado === 'En Progreso');
+    } else {
+      filtered = filtered.filter(t => t.estado === 'Completado');
     }
-    return tasks.filter(t => t.estado === 'Completado');
-  }, [tasks, filter]);
+
+    if (searchTerm) {
+        const lowercasedTerm = searchTerm.toLowerCase();
+        filtered = filtered.filter(t => 
+            (t.clienteNombre && t.clienteNombre.toLowerCase().includes(lowercasedTerm)) ||
+            (t.cliente && t.cliente.toLowerCase().includes(lowercasedTerm)) ||
+            (t.instalacion && t.instalacion.toLowerCase().includes(lowercasedTerm)) ||
+            t.id.toLowerCase().includes(lowercasedTerm)
+        );
+    }
+
+    return filtered;
+  }, [tasks, filter, searchTerm]);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500 w-full max-w-4xl mx-auto">
       
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <h2 className="text-3xl font-black text-slate-800">Mis Trabajos</h2>
-        <div className="flex items-center gap-2 bg-slate-200 p-1 rounded-full">
-            <Button onClick={() => setFilter('pending')} variant={filter === 'pending' ? 'default' : 'ghost'} className="rounded-full px-4 py-1 h-auto text-sm font-bold">Pendientes</Button>
-            <Button onClick={() => setFilter('completed')} variant={filter === 'completed' ? 'default' : 'ghost'} className="rounded-full px-4 py-1 h-auto text-sm font-bold">Completados</Button>
+        <div className="w-full md:w-auto flex items-center gap-2 bg-slate-200 p-1 rounded-full">
+            <Button onClick={() => setFilter('pending')} variant={filter === 'pending' ? 'default' : 'ghost'} className="rounded-full px-4 py-1 h-auto text-sm font-bold flex-1">Pendientes</Button>
+            <Button onClick={() => setFilter('completed')} variant={filter === 'completed' ? 'default' : 'ghost'} className="rounded-full px-4 py-1 h-auto text-sm font-bold flex-1">Completados</Button>
         </div>
+      </div>
+      
+      <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+          <Input 
+            type="text"
+            placeholder="Buscar por cliente, instalación o ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full p-6 pl-12 rounded-2xl bg-white shadow-sm border-slate-100 text-lg font-bold"
+          />
       </div>
 
       <div className="space-y-4">
@@ -136,14 +160,14 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
         ) : (
           <div className="bg-white p-12 rounded-[3rem] border-2 border-dashed border-slate-100 text-center space-y-4">
             <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto text-slate-300">
-              <ClipboardList size={32} />
+              <Search size={32} />
             </div>
             <div>
               <p className="text-slate-900 font-black uppercase text-sm">
-                No hay trabajos {filter === 'pending' ? 'pendientes' : 'completados'}
+                No se encontraron trabajos
               </p>
               <p className="text-slate-400 text-xs font-bold leading-relaxed px-4 mt-1">
-                {filter === 'pending' ? '¡Buen trabajo! Estás al día.' : 'Aquí aparecerán tus informes una vez finalizados.'}
+                {searchTerm ? 'Prueba con otro término de búsqueda.' : `No tienes trabajos ${filter === 'pending' ? 'pendientes' : 'completados'}.`}
               </p>
             </div>
           </div>
@@ -152,3 +176,5 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
     </div>
   );
 }
+
+    
