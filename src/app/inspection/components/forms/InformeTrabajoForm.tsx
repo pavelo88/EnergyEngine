@@ -10,7 +10,7 @@ import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
 import { useOnlineStatus } from '@/hooks/use-online-status';
-import { db } from '@/lib/db-local';
+import { db as dbLocal } from '@/lib/db-local'; // CORRECCIÓN: Alias dbLocal para evitar colisión con useFirestore
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
@@ -152,9 +152,9 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 };
 
 
-export default function InformeTecnicoForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
+export default function InformeTrabajoForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
-  const db = useFirestore();
+  const firestore = useFirestore(); // Renombrado para consistencia
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
@@ -172,12 +172,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     reportContent: '',
   });
   
-  const [inspectorSignature, setInspectorSignature] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('energy_engine_signature');
-    }
-    return null;
-  });
+  const [inspectorSignature, setInspectorSignature] = useState<string | null>(null);
 
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -187,8 +182,8 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   useEffect(() => {
-    if (user && user.email && db) {
-        getDoc(doc(db, 'usuarios', user.email)).then(snap => {
+    if (user && user.email && firestore) {
+        getDoc(doc(firestore, 'usuarios', user.email)).then(snap => {
             if (snap.exists()) {
               setInspectorName(snap.data().nombre);
             } else {
@@ -196,7 +191,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             }
         });
     }
-  }, [user, db]);
+  }, [user, firestore]);
 
   useEffect(() => {
     if (initialData) {
@@ -279,16 +274,16 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     ...formData,
     inspectorSignatureUrl: inspectorSignature,
     };
-    const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
+    const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
     if (isSaved) {
-    doc.save(`Informe_Tecnico_${savedDocId}.pdf`);
+    docPdf.save(`Informe_Tecnico_${savedDocId}.pdf`);
     } else {
-    setPreviewPdfUrl(doc.output('datauristring'));
+    setPreviewPdfUrl(docPdf.output('datauristring'));
     }
   };
 
   const handleSave = async () => {
-    if (!user || !db || !user.email) {
+    if (!user || !firestore || !user.email) {
         toast({ variant: 'destructive', title: 'Error de autenticación', description: 'Por favor, recarga la página.' });
         return;
     }
@@ -300,17 +295,12 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     setSaving(true);
     
     const updateOriginalJobStatus = async (jobId: string) => {
-      if (isOnline && db) {
+      if (isOnline && firestore) {
           try {
-              const jobRef = doc(db, 'trabajos', jobId);
+              const jobRef = doc(firestore, 'trabajos', jobId);
               await updateDoc(jobRef, { estado: 'Completado' });
           } catch (updateError) {
               console.error(`Failed to update job ${jobId} status:`, updateError);
-              toast({
-                  variant: "destructive",
-                  title: "Error de Actualización",
-                  description: `No se pudo marcar el trabajo ${jobId} como completado.`,
-              });
           }
       }
     };
@@ -325,7 +315,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             (localData as any).inspectorSignature = inspectorSignature;
         }
 
-        await db.hojas_trabajo.add({
+        await dbLocal.hojas_trabajo.add({
             firebaseId: firebaseId || '',
             synced,
             data: localData,
@@ -342,7 +332,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     if (isOnline) {
         try {
             const formType = 'informe-tecnico';
-            const trabajosRef = collection(db, 'trabajos');
+            const trabajosRef = collection(firestore, 'trabajos');
             const qTrabajos = query(trabajosRef, where('formType', '==', formType));
             const trabajosSnapshot = await getDocs(qTrabajos);
             const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
@@ -350,7 +340,14 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             const docId = `IT-${year}-${sequentialNumber}`;
 
             const storage = getStorage();
-            const inspectorSignatureUrl = inspectorSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/inspector.png`), inspectorSignature, 'data_url')) : null;
+            
+            // CORRECCIÓN: Manejo de promesas de Storage separadas para evitar error de tipado
+            let inspectorSignatureUrl = null;
+            if (inspectorSignature) {
+                const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
+                await uploadString(signatureRef, inspectorSignature, 'data_url');
+                inspectorSignatureUrl = await getDownloadURL(signatureRef);
+            }
 
             const docData = { 
                 ...formData, 
@@ -362,7 +359,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
                 id: docId,
                 estado: 'Completado',
             };
-            await setDoc(doc(db, 'trabajos', docId), docData);
+            await setDoc(doc(firestore, 'trabajos', docId), docData);
 
             if (initialData?.id) {
               await updateOriginalJobStatus(initialData.id);

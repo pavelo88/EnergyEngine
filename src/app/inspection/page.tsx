@@ -62,10 +62,10 @@ const InspectionPageContent = () => {
         const storage = getStorage();
         setIsSyncing(true);
 
-        // CORRECCIÓN 1: Filtramos por booleano o número para evitar fallos de tipado estricto en Dexie
-        const pendingHojas = await db.hojas_trabajo.filter(record => record.synced === false || record.synced === 0).toArray();
-        const pendingJornadas = await db.registros_jornada.filter(record => record.synced === false || record.synced === 0).toArray();
-        const pendingGastos = await db.gastos.filter(record => record.synced === false || record.synced === 0).toArray();
+        // MEJORA: Simplificamos a !record.synced para evitar el error TS2367 (boolean vs number)
+        const pendingHojas = await db.hojas_trabajo.filter(record => !record.synced).toArray();
+        const pendingJornadas = await db.registros_jornada.filter(record => !record.synced).toArray();
+        const pendingGastos = await db.gastos.filter(record => !record.synced).toArray();
         
         const totalPending = pendingHojas.length + pendingJornadas.length + pendingGastos.length;
 
@@ -105,8 +105,20 @@ const InspectionPageContent = () => {
                   return await getDownloadURL(imageRef);
               }));
 
-              const inspectorSignatureUrl = inspectorSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/inspector.png`), inspectorSignature, 'data_url')) : null;
-              const clientSignatureUrl = clientSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/cliente.png`), clientSignature, 'data_url')) : null;
+              // MEJORA: Separamos subida y URL en dos pasos para evitar error TS2345 de StorageReference
+              let inspectorSignatureUrl = null;
+              if (inspectorSignature) {
+                  const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
+                  await uploadString(inspRef, inspectorSignature, 'data_url');
+                  inspectorSignatureUrl = await getDownloadURL(inspRef);
+              }
+
+              let clientSignatureUrl = null;
+              if (clientSignature) {
+                  const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
+                  await uploadString(cliRef, clientSignature, 'data_url');
+                  clientSignatureUrl = await getDownloadURL(cliRef);
+              }
               
               const docData = { ...formDataForFirebase, imageUrls, inspectorSignatureUrl, clientSignatureUrl, id: docId, fecha_creacion: Timestamp.now() };
               
@@ -134,7 +146,14 @@ const InspectionPageContent = () => {
              try {
                 const { signature, ...jornadaData } = record.data;
                 const jornadaId = `J-${Date.now().toString().slice(-6)}-${user.uid.slice(0,4)}`;
-                const firmaUrl = signature ? await getDownloadURL(await uploadString(ref(storage, `firmas_jornadas/${jornadaId}.png`), signature, 'data_url')) : null;
+                
+                // MEJORA: Separamos subida y URL en dos pasos para evitar error TS2345
+                let firmaUrl = null;
+                if (signature) {
+                    const sigRef = ref(storage, `firmas_jornadas/${jornadaId}.png`);
+                    await uploadString(sigRef, signature, 'data_url');
+                    firmaUrl = await getDownloadURL(sigRef);
+                }
                 
                 const jornadaDocRef = doc(collection(firestore, "jornadas"), jornadaId);
                 await setDoc(jornadaDocRef, { ...jornadaData, firmaUrl, id: jornadaDocRef.id, fecha_creacion: serverTimestamp() });
