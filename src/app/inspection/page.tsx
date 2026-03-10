@@ -245,10 +245,19 @@ const InspectionPageContent = () => {
                 try {
                     const res = await processDictation({ dictation: finalText });
                     setAiData(res);
-                    toast({
-                      title: "IA ha procesado el dictado",
-                      description: "Los campos del formulario han sido actualizados.",
-                    });
+                    
+                    if (res.error) {
+                      toast({
+                        variant: "destructive",
+                        title: "Aviso de IA",
+                        description: "El servicio de IA no está disponible ahora, pero el texto ha sido registrado.",
+                      });
+                    } else {
+                      toast({
+                        title: "IA ha procesado el dictado",
+                        description: "Los campos del formulario han sido actualizados.",
+                      });
+                    }
                 } catch (e) {
                     console.error("AI dictation processing failed:", e);
                     toast({
@@ -290,7 +299,7 @@ const InspectionPageContent = () => {
   
   const handleStartInspectionFromTask = (task: any) => {
     setSelectedTask(task);
-    setActiveInspectionForm(task.formType || 'informe-revision'); 
+    setActiveInspectionForm(task.formType || 'informe-tecnico'); 
     setActiveTab(TABS.NEW_INSPECTION);
   };
 
@@ -374,7 +383,7 @@ const InspectionPageContent = () => {
         case 'desktop':
           return <MainMenuDesktop onNavigate={handleNavigate} userName={userName} />;
         default:
-          return <div className="flex-grow flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>;
+          return <MainMenuMobile onNavigate={handleNavigate} userName={userName} />;
       }
     }
 
@@ -390,7 +399,7 @@ const InspectionPageContent = () => {
             case 'informe-revision': FormComponent = InformeRevisionFormLazy; break;
             case 'informe-simplificado': FormComponent = InformeSimplificadoFormLazy; break;
             case 'revision-basica': FormComponent = RevisionBasicaFormLazy; break;
-            default: return <p>Formulario no encontrado</p>;
+            default: FormComponent = InformeTecnicoFormLazy;
         }
 
         return (
@@ -427,7 +436,7 @@ const InspectionPageContent = () => {
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
       />
-      <main className="flex-grow w-full md:px-0">
+      <main className="flex-grow w-full">
         <div className="w-full max-w-none">
          {renderContent()}
         </div>

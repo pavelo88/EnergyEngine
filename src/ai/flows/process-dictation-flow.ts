@@ -48,6 +48,7 @@ const ProcessDictationOutputSchema = z.object({
     kw: z.string().optional(),
   }),
   observations_summary: z.string(),
+  error: z.string().optional(),
 });
 export type ProcessDictationOutput = z.infer<
   typeof ProcessDictationOutputSchema
@@ -56,7 +57,21 @@ export type ProcessDictationOutput = z.infer<
 export async function processDictation(
   input: ProcessDictationInput
 ): Promise<ProcessDictationOutput> {
-  return processDictationFlow(input);
+  try {
+    return await processDictationFlow(input);
+  } catch (e: any) {
+    console.error("Genkit processDictation error:", e);
+    // Retornar un objeto vacío con el error para manejarlo en el cliente
+    return {
+      identidad: {},
+      all_ok: false,
+      checklist_updates: {},
+      mediciones_generales: {},
+      pruebas_carga: {},
+      observations_summary: input.dictation, // Devolver el texto original al menos
+      error: e.message || "Error desconocido en el servicio de IA"
+    };
+  }
 }
 
 const processDictationPrompt = ai.definePrompt({
