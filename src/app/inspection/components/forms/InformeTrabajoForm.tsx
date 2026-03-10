@@ -408,7 +408,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
         <h2 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Validación</h2>
         <div>
-            <SignaturePad title="Firma del Inspector" onSignatureEnd={setInspectorSignature} />
+            <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
             <p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p>
         </div>
       </section>

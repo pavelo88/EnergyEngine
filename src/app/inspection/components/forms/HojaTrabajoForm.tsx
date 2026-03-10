@@ -639,11 +639,11 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         <h2 className="text-xl font-black text-slate-900">Firmas</h2>
         <div className="grid md:grid-cols-2 gap-8 items-start">
             <div>
-              <SignaturePad title="Firma del Inspector" onSignatureEnd={setInspectorSignature} />
+              <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
               <p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p>
             </div>
             <div>
-              <SignaturePad title="Conforme Cliente" onSignatureEnd={setClientSignature} />
+              <SignaturePad title="Conforme Cliente" signature={clientSignature} onSignatureEnd={setClientSignature} />
                <div className="mt-2">
                 <StableInput label="" icon={User} value={formData.recibidoPor} onChange={(v: any) => handleInputChange('recibidoPor', v)} placeholder="Nombre del receptor"/>
               </div>

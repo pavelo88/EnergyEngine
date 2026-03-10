@@ -649,11 +649,11 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
                 <textarea className="w-full h-24 bg-slate-50 border-2 border-slate-100 rounded-lg p-4 resize-none" placeholder="Añade tus observaciones aquí..." value={formData.observaciones} onChange={e => handleInputChange('observaciones', e.target.value)}/>
                 <div className="grid md:grid-cols-2 gap-8 items-start pt-6">
                     <div>
-                        <SignaturePad title="Firma del Inspector" onSignatureEnd={setInspectorSignature} />
+                        <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
                         <p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p>
                     </div>
                     <div>
-                        <SignaturePad title="Firma del Cliente" onSignatureEnd={setClientSignature} />
+                        <SignaturePad title="Firma del Cliente" signature={clientSignature} onSignatureEnd={setClientSignature} />
                         <div className="mt-2">
                         <StableInput label="" icon={User} value={formData.recibidoPor} onChange={(v: string) => handleInputChange('recibidoPor', v)} placeholder="Nombre del receptor"/>
                         </div>
