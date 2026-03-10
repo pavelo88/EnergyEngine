@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Pen, Trash2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -20,54 +20,58 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
 
   // Inicializar canvas cuando se abre el modo pantalla completa
   useEffect(() => {
-    if (!isFullScreen || !canvasRef.current) return;
+    if (!isFullScreen) return;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    // Pequeño delay para asegurar que el DOM del Dialog esté listo
+    const timer = setTimeout(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-    // Configuración de alta resolución
-    const scale = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    
-    canvas.width = rect.width * scale;
-    canvas.height = rect.height * scale;
-    
-    ctx.scale(scale, scale);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#0f172a';
-    ctx.lineWidth = 3;
+      const rect = canvas.getBoundingClientRect();
+      const scale = window.devicePixelRatio || 1;
+      
+      canvas.width = rect.width * scale;
+      canvas.height = rect.height * scale;
+      
+      ctx.scale(scale, scale);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 3;
 
-    // Restaurar firma previa si existe
-    if (signature) {
-      const img = new Image();
-      img.src = signature;
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, rect.width, rect.height);
-      };
-    }
+      if (signature) {
+        const img = new Image();
+        img.src = signature;
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        };
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [isFullScreen, signature]);
 
-  const getCoordinates = useCallback((e: any) => {
+  const getPos = (e: any) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
     const clientX = e.clientX || (e.touches && e.touches[0].clientX);
     const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-    
     return {
       x: clientX - rect.left,
       y: clientY - rect.top
     };
-  }, []);
+  };
 
   const startDrawing = (e: any) => {
     e.preventDefault();
-    const { x, y } = getCoordinates(e);
+    const pos = getPos(e);
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) {
       ctx.beginPath();
-      ctx.moveTo(x, y);
+      ctx.moveTo(pos.x, pos.y);
       setIsDrawing(true);
     }
   };
@@ -75,20 +79,17 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   const draw = (e: any) => {
     if (!isDrawing || !canvasRef.current) return;
     e.preventDefault();
-    const { x, y } = getCoordinates(e);
+    const pos = getPos(e);
     const ctx = canvasRef.current.getContext('2d');
     if (ctx) {
-      ctx.lineTo(x, y);
+      ctx.lineTo(pos.x, pos.y);
       ctx.stroke();
       setHasContent(true);
     }
   };
 
-  const stopDrawing = (e: any) => {
+  const stopDrawing = () => {
     if (isDrawing) {
-      e.preventDefault();
-      const ctx = canvasRef.current?.getContext('2d');
-      ctx?.closePath();
       setIsDrawing(false);
     }
   };
@@ -139,7 +140,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
           <DialogHeader className="text-white mb-2">
             <DialogTitle className="font-black uppercase tracking-tighter text-lg">{title}</DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
-              Dibuje su firma en el recuadro blanco de forma clara. Use su dedo o un lápiz táctil.
+              Dibuje su firma de forma clara. Use su dedo o un lápiz táctil.
             </DialogDescription>
           </DialogHeader>
 

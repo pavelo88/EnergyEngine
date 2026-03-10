@@ -1,16 +1,18 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
-import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useFirestore, useUser } from '@/firebase';
-import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Mic } from 'lucide-react';
+import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, MapPin, Settings, Type } from 'lucide-react';
 import { splitTechnicalReport } from '@/ai/flows/split-technical-report-flow';
-import { ProcessDictationOutput } from '@/ai/flows/process-dictation-flow';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
-import { logoBase64 } from '@/lib/logo-base64';
+import { useOnlineStatus } from '@/hooks/use-online-status';
+import { db as dbLocal } from '@/lib/db-local';
+import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
+import { useToast } from '@/hooks/use-toast';
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
@@ -35,179 +37,119 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const pageHeight = doc.internal.pageSize.height;
     const pageWidth = doc.internal.pageSize.width;
     
-    // Márgenes
     const leftMargin = 15;
     const rightMargin = 15;
     const bottomMargin = 30;
-    const topMargin = 40; // Margen superior para cuando salta de página
+    const topMargin = 40;
     const contentWidth = pageWidth - leftMargin - rightMargin;
 
     let currentY = topMargin;
 
-    // 1. Título
-    const title = `INFORME TÉCNICO Nº: ${finalID}`;
-    doc.setTextColor(darkColor);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text(title, leftMargin, currentY);
-    currentY += 10;
-    
-    // 2. Tabla de Datos
-    autoTable(doc, {
-        startY: currentY,
-        body: [
-            ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
-            [{ content: 'Cliente:', styles: { fontStyle: 'bold' } }, { content: report.cliente, colSpan: 3 }],
-            [{ content: 'Instalación:', styles: { fontStyle: 'bold' } }, { content: report.instalacion, colSpan: 3 }],
-            [{ content: 'UBICACIÓN (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
-            ['Motor:', report.motor, 'Modelo:', report.modelo],
-            ['Nº de motor:', report.n_motor, 'Grupo:', report.grupo],
-        ],
-        theme: 'grid',
-        styles: { fontSize: 9, cellPadding: 2, lineColor: '#ccc', lineWidth: 0.1 },
-        headStyles: { fillColor: '#fff', textColor: '#000'},
-        columnStyles: { 0: { fontStyle: 'bold' }, 2: { fontStyle: 'bold' } },
-        margin: { left: leftMargin, right: rightMargin },
-    });
-
-    currentY = (doc as any).lastAutoTable.finalY + 10;
-    
-    // 3. Título de Sección
-    doc.setTextColor(darkColor);
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text("Descripción de la incidencia", leftMargin, currentY);
-    currentY += 8;
-
-    // 4. Renderizado del Texto (El truco del justificado)
-    const rawText = report.reportContent || '';
-    const blocks = rawText.split('\n\n'); // Cortamos por saltos de línea dobles
-
-    blocks.forEach((block: string) => {
-        const text = block.replace(/\n/g, ' ').trim(); // Limpiamos saltos de línea simples
+    try {
+        const title = `INFORME TÉCNICO Nº: ${finalID}`;
+        doc.setTextColor(darkColor);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title, leftMargin, currentY);
+        currentY += 10;
         
-        if (!text) return;
+        autoTable(doc, {
+            startY: currentY,
+            body: [
+                ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
+                [{ content: 'Cliente:', styles: { fontStyle: 'bold' } }, { content: report.cliente, colSpan: 3 }],
+                [{ content: 'Instalación:', styles: { fontStyle: 'bold' } }, { content: report.instalacion, colSpan: 3 }],
+                [{ content: 'UBICACIÓN (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
+                ['Motor:', report.motor, 'Modelo:', report.modelo],
+                ['Nº de motor:', report.n_motor, 'Grupo:', report.grupo],
+            ],
+            theme: 'grid',
+            styles: { fontSize: 9, cellPadding: 2, lineColor: '#ccc', lineWidth: 0.1 },
+            headStyles: { fillColor: '#fff', textColor: '#000'},
+            columnStyles: { 0: { fontStyle: 'bold' }, 2: { fontStyle: 'bold' } },
+            margin: { left: leftMargin, right: rightMargin },
+        });
 
-        const isTitle = text.endsWith(':') && text.toUpperCase() === text;
+        currentY = (doc as any).lastAutoTable.finalY + 10;
+        
+        doc.setTextColor(darkColor);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Descripción de la incidencia", leftMargin, currentY);
+        currentY += 8;
 
-        if (isTitle) {
-            if (currentY + 15 > pageHeight - bottomMargin) {
-                doc.addPage();
-                currentY = topMargin;
-            }
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(darkColor);
-            doc.text(text, leftMargin, currentY);
-            currentY += 6;
-        } else {
-            autoTable(doc, {
-                startY: currentY,
-                margin: { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin },
-                body: [[text]],
-                theme: 'plain',
-                styles: {
-                    font: 'helvetica',
-                    fontSize: 9,
-                    cellPadding: 0,
-                    halign: 'justify',
-                    textColor: darkColor
-                },
-                columnStyles: {
-                    0: { cellWidth: contentWidth }
+        const rawText = report.reportContent || '';
+        const blocks = rawText.split('\n\n');
+
+        blocks.forEach((block: string) => {
+            const text = block.replace(/\n/g, ' ').trim();
+            if (!text) return;
+            const isTitle = text.endsWith(':') && text.toUpperCase() === text;
+            if (isTitle) {
+                if (currentY + 15 > pageHeight - bottomMargin) {
+                    doc.addPage();
+                    currentY = topMargin;
                 }
-            });
-            currentY = (doc as any).lastAutoTable.finalY + 4;
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(darkColor);
+                doc.text(text, leftMargin, currentY);
+                currentY += 6;
+            } else {
+                autoTable(doc, {
+                    startY: currentY,
+                    margin: { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin },
+                    body: [[text]],
+                    theme: 'plain',
+                    styles: { font: 'helvetica', fontSize: 9, cellPadding: 0, halign: 'justify', textColor: darkColor },
+                    columnStyles: { 0: { cellWidth: contentWidth } }
+                });
+                currentY = (doc as any).lastAutoTable.finalY + 4;
+            }
+        });
+
+        const signatureBlockHeight = 45;
+        if (currentY + signatureBlockHeight > pageHeight - bottomMargin) {
+          doc.addPage();
+          currentY = topMargin;
         }
-    });
+        
+        currentY += 1;
 
-    // 5. Bloque de Firma
-    const signatureBlockHeight = 45;
-    if (currentY + signatureBlockHeight > pageHeight - bottomMargin) {
-      doc.addPage();
-      currentY = topMargin;
+        if (report.inspectorSignatureUrl) {
+            try {
+                doc.addImage(report.inspectorSignatureUrl, 'PNG', leftMargin, currentY, 60, 25);
+            } catch (e) {
+                console.warn("Could not add signature to PDF", e);
+            }
+        }
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Firmado: ${inspectorName}`, leftMargin, currentY + 32);
+        doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, leftMargin, currentY + 39);
+
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            try {
+                drawPdfHeader(doc);
+            } catch (e) {
+                console.warn("Could not draw header", e);
+            }
+            drawPdfFooter(doc, i, pageCount);
+        }
+    } catch (error) {
+        console.error("PDF Generation failed:", error);
     }
-    
-    currentY += 1;
-
-    if (report.inspectorSignatureUrl) {
-        doc.addImage(report.inspectorSignatureUrl, 'PNG', leftMargin, currentY, 60, 25);
-    }
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Firmado: ${inspectorName}`, leftMargin, currentY + 32);
-    doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, leftMargin, currentY + 39);
-
-    // 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
-    const drawHeader = () => {
-      const logoX = leftMargin;
-      const logoY = 3; // ¡Mucho más arriba! (antes 10)
-      const logoWidth = 20; // Tamaño del logo ligeramente reducido para mayor elegancia
-      const logoHeight = 20;
-      
-      // --- 1. DIBUJAR EL FONDO VERDE PARA TODO EL ENCABEZADO ---
-      // Establece el color de relleno verde. He usado un verde de contraste (RGB).
-      doc.setFillColor(39, 180, 96); // Un verde esmeralda para el fondo
-      // Dibuja un rectángulo lleno (modo 'F') que cubre todo el ancho y una altura de 25mm.
-      doc.rect(0, 0, pageWidth, 26, 'F'); 
-
-      // --- 2. DIBUJAR EL LOGO ---
-      doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
-
-      // --- 3. DIBUJAR EL TEXTO DE LA EMPRESA ---
-      const textX = logoX + logoWidth + 6; // Margen de 4mm tras el logo
-      const textYStart = logoY + 9; // Ajuste vertical para alinearse con el logo
-
-      doc.setFont('helvetica', 'bold');
-      
-      // Línea 1: "energy engine" en BLANCO
-      doc.setFontSize(18); // Ligeramente más grande para que sea el título principal
-      doc.setTextColor(255, 255, 255); // Blanco puro
-      doc.text("energy engine", textX, textYStart);
-      
-      // Línea 2: "GRUPOS ELECTRÓGENOS" en GRIS CLARO
-      doc.setFontSize(10);
-      doc.setTextColor(220, 220, 220); // Gris muy claro
-      doc.text("GRUPOS ELECTRÓGENOS", textX, textYStart + 6);
-      
-      // --- 4. DIBUJAR LA INFORMACIÓN DE CONTACTO A LA DERECHA ---
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(220, 220, 220); // Gris muy claro para los links
-
-      const rightTextX = pageWidth - rightMargin;
-      
-      // Subimos las coordenadas Y de los textos de la derecha para alinearlos con el logo superior.
-      // URL arriba
-      doc.text("https://www.energyengine.es", rightTextX, logoY + 8, { align: 'right' });
-      // Teléfono en medio
-      doc.text("Tel: 92 515 43 53", rightTextX, logoY + 13, { align: 'right' });
-      // Email abajo
-      doc.text("serviciotecnico@energyengine.es", rightTextX, logoY + 16, { align: 'right' });
-    };
-
-    const drawFooter = (pageNumber: number, totalPages: number) => {
-        doc.setFontSize(8);
-        doc.setTextColor(100);
-        doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: 'right' });
-        doc.setFillColor(darkColor);
-        doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
-    };
-
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        drawHeader();
-        drawFooter(i, pageCount);
-    }
-
     return doc;
 };
 
 
-export default function InformeTecnicoForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
+export default function InformeTecnicoForm({ initialData, aiData }: { initialData?: any, aiData?: any }) {
   const { user } = useUser();
-  const db = useFirestore();
+  const firestore = useFirestore();
+  const isOnline = useOnlineStatus();
+  const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
   
   const [formData, setFormData] = useState({
@@ -223,12 +165,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     reportContent: '',
   });
   
-  const [inspectorSignature, setInspectorSignature] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('energy_engine_signature');
-    }
-    return null;
-  });
+  const [inspectorSignature, setInspectorSignature] = useState<string | null>(null);
 
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -238,16 +175,16 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   useEffect(() => {
-    if (user && user.email && db) {
-        getDoc(doc(db, 'usuarios', user.email)).then(snap => {
+    if (user && user.email && firestore) {
+        getDoc(doc(firestore, 'usuarios', user.email)).then(snap => {
             if (snap.exists()) {
               setInspectorName(snap.data().nombre);
             } else {
-              setInspectorName(user.email || '');
+              setInspectorName(user.displayName || user.email || 'Técnico');
             }
         });
     }
-  }, [user, db]);
+  }, [user, firestore]);
 
   useEffect(() => {
     if (initialData) {
@@ -255,18 +192,19 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         initialData.antecedentes,
         initialData.intervencion,
         initialData.resumen,
-        initialData.observaciones
+        initialData.observaciones,
+        initialData.descripcion
       ].filter(Boolean).join('\n\n');
 
       setFormData((prev: any) => ({
         ...prev,
-        cliente: initialData.cliente || prev.cliente,
-        motor: initialData.motor || initialData.equipo?.marca || prev.motor,
-        modelo: initialData.modelo || initialData.equipo?.modelo || prev.modelo,
-        n_motor: initialData.n_motor || initialData.equipo?.sn || prev.n_motor,
+        cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
+        motor: initialData.modelo || prev.motor,
+        modelo: initialData.n_motor || prev.modelo,
+        n_motor: initialData.n_motor || prev.n_motor,
         grupo: initialData.grupo || prev.grupo,
-        instalacion: initialData.instalacion || initialData.cliente?.nombre || prev.instalacion,
-        reportContent: combinedContent,
+        instalacion: initialData.instalacion || prev.instalacion,
+        reportContent: combinedContent || prev.reportContent,
       }));
     }
   }, [initialData]);
@@ -275,12 +213,12 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     if (aiData) {
       setFormData((prev: any) => ({
         ...prev,
-        cliente: aiData.identidad.cliente || prev.cliente,
-        motor: aiData.identidad.marca || prev.motor,
-        modelo: aiData.identidad.modelo || prev.modelo,
-        n_motor: aiData.identidad.sn || prev.n_motor,
-        grupo: aiData.identidad.n_grupo || prev.grupo,
-        instalacion: aiData.identidad.instalacion || aiData.identidad.cliente || prev.instalacion,
+        cliente: aiData.identidad?.cliente || prev.cliente,
+        motor: aiData.identidad?.marca || prev.motor,
+        modelo: aiData.identidad?.modelo || prev.modelo,
+        n_motor: aiData.identidad?.sn || prev.n_motor,
+        grupo: aiData.identidad?.n_grupo || prev.grupo,
+        instalacion: aiData.identidad?.instalacion || prev.instalacion,
         reportContent: aiData.observations_summary || prev.reportContent,
       }));
     }
@@ -293,7 +231,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
   const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
-      alert('La geolocalización no es soportada por tu navegador.');
+      toast({ variant: 'destructive', title: 'Error', description: 'GPS no soportado.' });
       setLocationStatus('error');
       return;
     }
@@ -305,7 +243,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         setLocationStatus('success');
       },
       () => {
-        alert("No se pudo obtener la ubicación. Por favor, asegúrate de que los permisos de localización están activados para esta página en los ajustes de tu navegador e inténtalo de nuevo.");
+        toast({ variant: 'destructive', title: 'GPS Error', description: 'Activa la ubicación en tu navegador.' });
         setLocationStatus('error');
       }
     );
@@ -318,76 +256,134 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       const res = await splitTechnicalReport({ dictation: formData.reportContent });
       const formattedText = `ANTECEDENTES:\n\n${res.antecedentes}\n\nINTERVENCIÓN:\n\n${res.intervencion}\n\nRESUMEN Y SITUACIÓN ACTUAL:\n\n${res.resumen}`;
       setFormData((p: any) => ({ ...p, reportContent: formattedText }));
+      toast({ title: 'IA: Informe estructurado' });
     } catch (e: any) { 
-        console.error("AI enhancement failed:", e); 
+        console.error("AI enhancement failed:", e);
+        toast({ variant: 'destructive', title: 'Error de IA', description: 'La clave de API podría haber expirado. Inténtalo manualmente.' });
     } finally { 
         setAiLoading(false); 
     }
   };
 
   const handlePdfAction = () => {
-    const reportData = {
-    ...formData,
-    inspectorSignatureUrl: inspectorSignature,
-    };
-    const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
-    if (isSaved) {
-    doc.save(`Informe_Tecnico_${savedDocId}.pdf`);
-    } else {
-    setPreviewPdfUrl(doc.output('datauristring'));
+    try {
+        const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature };
+        const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
+        
+        if (isSaved) {
+          docPdf.save(`Informe_Tecnico_${savedDocId}.pdf`);
+        } else {
+          const uri = docPdf.output('datauristring');
+          setPreviewPdfUrl(uri);
+        }
+    } catch (e) {
+        console.error("PDF generation error:", e);
+        toast({ variant: 'destructive', title: 'Error PDF', description: 'No se pudo generar la vista previa.' });
     }
   };
 
   const handleSave = async () => {
-    if (!db || !user || !inspectorSignature) return alert("La firma del inspector es obligatoria.");
-    setSaving(true);
-    const formType = 'informe-tecnico';
-    try {
-      // GENERATE SEQUENTIAL ID
-      const trabajosRef = collection(db, 'trabajos');
-      const qTrabajos = query(trabajosRef, where('formType', '==', formType));
-      const trabajosSnapshot = await getDocs(qTrabajos);
-      const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
-      const year = new Date().getFullYear();
-      const docId = `IT-${year}-${sequentialNumber}`;
+    if (!firestore || !user?.email) return;
+    
+    const missing = [];
+    if (!formData.cliente) missing.push('Cliente');
+    if (!formData.instalacion) missing.push('Instalación');
+    if (!formData.location) missing.push('Ubicación GPS');
+    if (!inspectorSignature) missing.push('Firma Inspector');
 
-      const storage = getStorage();
-      const inspectorSignatureRef = ref(storage, `firmas/${docId}/inspector.png`);
-      const uploadResult = await uploadString(inspectorSignatureRef, inspectorSignature, 'data_url');
-      const inspectorSignatureUrl = await getDownloadURL(uploadResult.ref);
-
-      const docData = { 
-        ...formData, 
-        inspectorSignatureUrl: inspectorSignatureUrl,
-        tecnicoId: user.email || user.uid, 
-        tecnicoNombre: inspectorName,
-        fecha_guardado: Timestamp.now(), 
-        formType: formType,
-        id: docId,
-        estado: 'Completado',
-      };
-      
-      await setDoc(doc(db, 'trabajos', docId), docData);
-      setSavedDocId(docId);
-      setIsSaved(true);
-      alert(`Informe Técnico guardado. ID: ${docId}`);
-    } catch (e: any) { 
-        console.error("Error saving document:", e); 
-    } finally { 
-        setSaving(false); 
+    if (missing.length > 0) {
+        toast({ variant: 'destructive', title: 'Faltan datos', description: `Completa: ${missing.join(', ')}` });
+        return;
     }
+
+    setSaving(true);
+    
+    const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
+        const localData = { ...formData, originalJobId: initialData?.id || null };
+        if (!synced) (localData as any).inspectorSignature = inspectorSignature;
+
+        await dbLocal.hojas_trabajo.add({
+            firebaseId: firebaseId || '',
+            synced,
+            data: localData,
+            createdAt: new Date(),
+        });
+        
+        if (synced) toast({ title: '¡Sincronizado!', description: `ID: ${firebaseId}` });
+        else toast({ title: 'Guardado Local', description: 'Se subirá al recuperar conexión.' });
+    };
+    
+    if (isOnline) {
+        try {
+            const formType = 'informe-tecnico';
+            const year = new Date().getFullYear();
+            const q = query(collection(firestore, 'trabajos'), where('formType', '==', formType));
+            const snapshot = await getDocs(q);
+            const docId = `IT-${year}-${(snapshot.size + 1).toString().padStart(3, '0')}`;
+
+            const storage = getStorage();
+            let inspectorSignatureUrl = null;
+            
+            try {
+                const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
+                await uploadString(signatureRef, inspectorSignature!, 'data_url');
+                inspectorSignatureUrl = await getDownloadURL(signatureRef);
+            } catch (corsErr) {
+                console.error("CORS Error uploading signature:", corsErr);
+                // Si falla por CORS, guardamos localmente
+                throw new Error("CORS_BLOCK");
+            }
+
+            const docData = { 
+                ...formData, 
+                inspectorSignatureUrl,
+                tecnicoId: user.email, 
+                tecnicoNombre: inspectorName,
+                fecha_creacion: Timestamp.now(), 
+                formType,
+                id: docId,
+                estado: 'Completado',
+            };
+            
+            await setDoc(doc(firestore, 'trabajos', docId), docData);
+            if (initialData?.id) await updateDoc(doc(firestore, 'trabajos', initialData.id), { estado: 'Completado' });
+
+            await saveDataToLocal(true, docId);
+            setSavedDocId(docId);
+            setIsSaved(true);
+        } catch (e: any) { 
+            console.error("Error saving:", e);
+            if (e.message === "CORS_BLOCK") {
+                toast({ variant: 'destructive', title: 'Bloqueo de Seguridad (CORS)', description: 'Firebase Storage bloqueó la subida. Guardando localmente...' });
+            }
+            await saveDataToLocal(false);
+        }
+    } else {
+      await saveDataToLocal(false);
+    }
+    setSaving(false);
   };
 
   return (
-    <main className="space-y-8 animate-in fade-in bg-slate-50 min-h-screen">
+    <main className="max-w-4xl mx-auto p-4 md:p-6 space-y-8 animate-in fade-in bg-slate-50 min-h-screen">
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
-          <DialogHeader className="p-4 border-b">
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 bg-slate-800">
+          <DialogHeader className="p-4 border-b bg-white">
             <DialogTitle>Vista Previa del Informe Técnico</DialogTitle>
-            <DialogDescription>Revisa el borrador antes de guardarlo.</DialogDescription>
+            <DialogDescription>Borrador del documento final.</DialogDescription>
           </DialogHeader>
-          <div className="flex-1 bg-slate-200 p-4">
-            {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full shadow-lg" title="PDF Preview" />}
+          <div className="flex-1 bg-slate-700 p-2 md:p-4 overflow-hidden">
+            {previewPdfUrl ? (
+              <iframe 
+                src={previewPdfUrl} 
+                className="w-full h-full rounded-lg shadow-2xl bg-white" 
+                title="PDF Preview" 
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-white">
+                <Loader2 className="animate-spin mr-2"/> Generando previsualización...
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -431,7 +427,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         </div>
         <textarea 
             className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600 shadow-inner resize-y leading-relaxed" 
-            placeholder="Dicte o escriba aquí el informe completo. La IA lo estructurará en Antecedentes, Intervención y Resumen."
+            placeholder="Dicte o escriba aquí el informe completo."
             value={formData.reportContent} 
             onChange={(e: any) => handleInputChange('reportContent', e.target.value)}
         />
