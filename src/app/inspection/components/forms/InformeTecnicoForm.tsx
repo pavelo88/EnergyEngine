@@ -24,7 +24,7 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
         value={value || ''}
         onChange={(e: any) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-lg p-4 ${Icon ? 'pl-12' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm`}
+        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-4 ${Icon ? 'pl-12' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm`}
       />
     </div>
   </div>
@@ -118,7 +118,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         if (report.inspectorSignatureUrl) {
             try {
                 doc.addImage(report.inspectorSignatureUrl, 'PNG', leftMargin, currentY, 60, 25);
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error("Could not add signature to PDF:", e); }
         }
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
@@ -128,11 +128,11 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         const pageCount = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
             doc.setPage(i);
-            try { drawPdfHeader(doc); } catch(e) {}
+            try { drawPdfHeader(doc); } catch(e) { console.error("Header fail:", e); }
             drawPdfFooter(doc, i, pageCount);
         }
     } catch (error) {
-        console.error("PDF Generation failed:", error);
+        console.error("PDF Final Generation failed:", error);
     }
     return doc;
 };
@@ -276,14 +276,19 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         const localData = { ...formData, originalJobId: initialData?.id || null };
         if (!synced) (localData as any).inspectorSignature = inspectorSignature;
         await dbLocal.hojas_trabajo.add({ firebaseId: firebaseId || '', synced, data: localData, createdAt: new Date() });
-        if (synced) toast({ title: '¡Sincronizado!' });
-        else toast({ title: 'Guardado Local' });
+        
+        if (synced) {
+            toast({ title: '¡Sincronizado!', description: `Informe guardado con ID: ${firebaseId}` });
+        } else {
+            toast({ title: 'Guardado Localmente', description: 'Error de CORS/Red. Se sincronizará automáticamente después.' });
+        }
     };
     
     if (isOnline) {
         try {
             const formType = 'informe-tecnico';
-            const docId = `IT-${new Date().getFullYear()}-${Date.now().toString().slice(-3)}`;
+            const trabajosSnap = await getDocs(query(collection(firestore, 'trabajos'), where('formType', '==', formType)));
+            const docId = `IT-${new Date().getFullYear()}-${(trabajosSnap.size + 1).toString().padStart(3, '0')}`;
             const storage = getStorage();
             
             const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
@@ -298,6 +303,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             setSavedDocId(docId);
             setIsSaved(true);
         } catch (e: any) { 
+            console.error("Firebase save failed, saving to local DB:", e);
             await saveDataToLocal(false);
         }
     } else {
@@ -309,12 +315,12 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   return (
     <main className="max-w-4xl mx-auto p-2 md:p-6 space-y-8 animate-in fade-in bg-slate-50 min-h-screen">
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
-        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden">
           <DialogHeader className="p-4 border-b bg-white">
-            <DialogTitle>Vista Previa</DialogTitle>
-            <DialogDescription className="sr-only">Previsualización del informe técnico.</DialogDescription>
+            <DialogTitle className="font-black uppercase tracking-tighter">Borrador Informe Técnico</DialogTitle>
+            <DialogDescription className="sr-only">Previsualización del informe.</DialogDescription>
           </DialogHeader>
-          <div className="flex-1 bg-slate-200 p-0 overflow-hidden">
+          <div className="flex-1 bg-slate-200">
             {previewPdfUrl && (
               <iframe src={previewPdfUrl} className="w-full h-full border-none" title="PDF Preview" />
             )}
@@ -324,7 +330,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
       <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Técnico</h2>
       
-      <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+      <section className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <StableInput label="Cliente" icon={User} value={formData.cliente} onChange={(v: string) => handleInputChange('cliente', v)}/>
             <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: string) => handleInputChange('motor', v)}/>
@@ -338,41 +344,41 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
               <button 
                   onClick={handleCaptureLocation} 
                   disabled={locationStatus === 'loading'} 
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 flex items-center justify-center gap-3 font-bold text-slate-700 shadow-sm hover:border-primary transition-colors disabled:opacity-50"
+                  className={`w-full p-4 border-2 rounded-2xl font-black flex items-center justify-center gap-3 transition-all ${formData.location ? 'border-green-500 text-green-600 bg-green-50' : 'border-slate-100 text-slate-400 hover:border-primary'}`}
               >
-                  {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={18}/> : <MapPin className="text-slate-400" size={18}/>}
-                  <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación'}</span>
+                  {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={18}/> : <MapPin size={18}/>}
+                  <span>{formData.location ? `UBICACIÓN OK: ${formData.location.lat.toFixed(4)}` : 'CAPTURAR UBICACIÓN GPS'}</span>
               </button>
             </div>
           </div>
       </section>
 
-      <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-8 border border-slate-100">
+      <section className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm space-y-8 border border-slate-100">
          <div className="flex justify-between items-center">
             <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">Incidencia</h3>
-            <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg">
-                {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />} IA Estructurar
+            <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-[10px] font-black bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-100">
+                {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />} IA ESTRUCTURAR
             </button>
         </div>
         <textarea 
-            className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600" 
+            className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600 transition-all resize-none shadow-inner" 
             placeholder="Escriba el informe aquí..."
             value={formData.reportContent} 
             onChange={(e: any) => handleInputChange('reportContent', e.target.value)}
         />
       </section>
       
-      <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+      <section className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
         <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
-        <p className="text-center font-bold text-slate-700">{inspectorName}</p>
+        <p className="text-center font-black text-slate-400 text-[10px] uppercase tracking-widest">{inspectorName}</p>
       </section>
       
       <div className="flex flex-col md:flex-row gap-4">
-        <button onClick={handlePdfAction} className="w-full p-6 bg-white text-slate-900 border-2 border-slate-200 rounded-[2.5rem] font-bold text-lg flex items-center justify-center gap-4 active:scale-95 transition-all">
-            {isSaved ? <Printer/> : <FileSearch/>} PDF
+        <button onClick={handlePdfAction} className="w-full p-8 bg-white text-slate-900 border-2 border-slate-200 rounded-[2.5rem] font-black text-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-primary shadow-lg">
+            {isSaved ? <Printer className="text-primary"/> : <FileSearch className="text-primary"/>} PDF
         </button>
-        <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50">
-          {saving ? <Loader2 className="animate-spin text-primary"/> : isSaved ? <CheckCircle2/> : <Save/>} GUARDAR
+        <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 shadow-2xl">
+          {saving ? <Loader2 className="animate-spin text-primary"/> : isSaved ? <CheckCircle2 className="text-primary"/> : <Save className="text-primary"/>} GUARDAR INFORME
         </button>
       </div>
     </main>

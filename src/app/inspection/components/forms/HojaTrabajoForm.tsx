@@ -4,7 +4,6 @@ import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, upda
 import { useFirestore, useUser } from '@/firebase';
 import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Car, Euro, Zap, Thermometer, Battery, Droplets, Wind, Gauge, Camera } from 'lucide-react';
 import { enhanceTechnicalRequest } from '@/ai/flows/enhance-technical-request-flow';
-import { ProcessDictationOutput } from '@/ai/flows/process-dictation-flow';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -25,7 +24,7 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
         value={value || ''}
         onChange={(e: any) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-lg p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
+        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
       />
     </div>
   </div>
@@ -58,159 +57,163 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
   let currentY = topMargin;
 
-  doc.setTextColor(darkColor);
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text("HOJA DE TRABAJOS", leftMargin, currentY);
+  try {
+    doc.setTextColor(darkColor);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text("HOJA DE TRABAJOS", leftMargin, currentY);
 
-  doc.setFontSize(10);
-  doc.text(`Nº: ${finalID}`, pageWidth - rightMargin, currentY, { align: 'right' });
-  currentY += 6;
+    doc.setFontSize(10);
+    doc.text(`Nº: ${finalID}`, pageWidth - rightMargin, currentY, { align: 'right' });
+    currentY += 6;
 
-  autoTable(doc, {
-      startY: currentY,
-      body: [
-          [{content: 'CLIENTE:', styles: {fontStyle: 'bold'}}, report.cliente, {content: 'FECHA:', styles: {fontStyle: 'bold'}}, report.fecha],
-          [{content: 'INSTALACIÓN:', styles: {fontStyle: 'bold'}}, report.instalacion, {content: 'TÉCNICOS:', styles: {fontStyle: 'bold'}}, report.tecnicos],
-          [{content: 'UBICACIÓN (LAT/LON):', styles: {fontStyle: 'bold'}}, {content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3}],
-          [{content: 'MOTOR:', styles: {fontStyle: 'bold'}}, report.motor, {content: 'H. ASISTENCIA:', styles: {fontStyle: 'bold'}}, report.h_asistencia],
-          [{content: 'Nº MOTOR:', styles: {fontStyle: 'bold'}}, report.n_motor, {content: 'TIPO DE SERVICIO:', styles: {fontStyle: 'bold'}}, report.tipo_servicio],
-          [{content: 'GRUPO:', styles: {fontStyle: 'bold'}}, report.grupo, {content: 'KMS.:', styles: {fontStyle: 'bold'}}, report.kms],
-          [{content: 'Nº GRUPO:', styles: {fontStyle: 'bold'}}, report.n_grupo, {content: 'DIETA:', styles: {fontStyle: 'bold'}}, `${report.dieta} € ${report.media_dieta ? `(1/2 Cant: ${report.media_dieta_cantidad})`:''}`],
-          [{content: 'Nº DE PEDIDO:', styles: {fontStyle: 'bold'}}, report.n_pedido, '', ''],
-      ],
-      theme: 'grid',
-      styles: {fontSize: 8, cellPadding: 2},
-      margin: { left: leftMargin, right: rightMargin }
-  });
+    autoTable(doc, {
+        startY: currentY,
+        body: [
+            [{content: 'CLIENTE:', styles: {fontStyle: 'bold'}}, report.cliente, {content: 'FECHA:', styles: {fontStyle: 'bold'}}, report.fecha],
+            [{content: 'INSTALACIÓN:', styles: {fontStyle: 'bold'}}, report.instalacion, {content: 'TÉCNICOS:', styles: {fontStyle: 'bold'}}, report.tecnicos],
+            [{content: 'UBICACIÓN (LAT/LON):', styles: {fontStyle: 'bold'}}, {content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3}],
+            [{content: 'MOTOR:', styles: {fontStyle: 'bold'}}, report.motor, {content: 'H. ASISTENCIA:', styles: {fontStyle: 'bold'}}, report.h_asistencia],
+            [{content: 'Nº MOTOR:', styles: {fontStyle: 'bold'}}, report.n_motor, {content: 'TIPO DE SERVICIO:', styles: {fontStyle: 'bold'}}, report.tipo_servicio],
+            [{content: 'GRUPO:', styles: {fontStyle: 'bold'}}, report.grupo, {content: 'KMS.:', styles: {fontStyle: 'bold'}}, report.kms],
+            [{content: 'Nº GRUPO:', styles: {fontStyle: 'bold'}}, report.n_grupo, {content: 'DIETA:', styles: {fontStyle: 'bold'}}, `${report.dieta} € ${report.media_dieta ? `(1/2 Cant: ${report.media_dieta_cantidad})`:''}`],
+            [{content: 'Nº DE PEDIDO:', styles: {fontStyle: 'bold'}}, report.n_pedido, '', ''],
+        ],
+        theme: 'grid',
+        styles: {fontSize: 8, cellPadding: 2},
+        margin: { left: leftMargin, right: rightMargin }
+    });
 
-  currentY = (doc as any).lastAutoTable.finalY + 8;
+    currentY = (doc as any).lastAutoTable.finalY + 8;
 
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text("TRABAJOS REALIZADOS", leftMargin, currentY);
-  currentY += 4;
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text("TRABAJOS REALIZADOS", leftMargin, currentY);
+    currentY += 4;
 
-  const rawText = report.trabajos_realizados || '';
-  const blocks = rawText.split('\n\n'); 
+    const rawText = report.trabajos_realizados || '';
+    const blocks = rawText.split('\n\n'); 
 
-  blocks.forEach((block: string) => {
-      const text = block.replace(/\n/g, ' ').trim(); 
-      if (!text) return;
+    blocks.forEach((block: string) => {
+        const text = block.replace(/\n/g, ' ').trim(); 
+        if (!text) return;
 
-      const isTitle = text.endsWith(':') && text.toUpperCase() === text;
+        const isTitle = text.endsWith(':') && text.toUpperCase() === text;
 
-      if (isTitle) {
-          if (currentY + 15 > pageHeight - bottomMargin) {
-              doc.addPage();
-              currentY = topMargin;
-          }
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(darkColor);
-          doc.text(text, leftMargin, currentY);
-          currentY += 6;
-      } else {
-          autoTable(doc, {
-              startY: currentY,
-              margin: { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin },
-              body: [[text]],
-              theme: 'plain',
-              styles: { font: 'helvetica', fontSize: 9, cellPadding: 0, halign: 'justify', textColor: darkColor },
-              columnStyles: { 0: { cellWidth: contentWidth } }
-          });
-          currentY = (doc as any).lastAutoTable.finalY + 4;
-      }
-  });
+        if (isTitle) {
+            if (currentY + 15 > pageHeight - bottomMargin) {
+                doc.addPage();
+                currentY = topMargin;
+            }
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(darkColor);
+            doc.text(text, leftMargin, currentY);
+            currentY += 6;
+        } else {
+            autoTable(doc, {
+                startY: currentY,
+                margin: { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin },
+                body: [[text]],
+                theme: 'plain',
+                styles: { font: 'helvetica', fontSize: 9, cellPadding: 0, halign: 'justify', textColor: darkColor },
+                columnStyles: { 0: { cellWidth: contentWidth } }
+            });
+            currentY = (doc as any).lastAutoTable.finalY + 4;
+        }
+    });
 
-  currentY += 6;
+    currentY += 6;
 
-  if (currentY + 40 > pageHeight - bottomMargin) {
-      doc.addPage();
-      currentY = topMargin;
-  }
+    if (currentY + 40 > pageHeight - bottomMargin) {
+        doc.addPage();
+        currentY = topMargin;
+    }
 
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text("PARÁMETROS TÉCNICOS", leftMargin, currentY);
-  currentY += 4;
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text("PARÁMETROS TÉCNICOS", leftMargin, currentY);
+    currentY += 4;
 
-  autoTable(doc, {
-      startY: currentY,
-      body: [
-          [`Horas: ${report.parametrosTecnicos.horas}`, `Presión Aceite: ${report.parametrosTecnicos.presionAceite}`, `Tensión: ${report.parametrosTecnicos.tension}`],
-          [`Tª (°C): ${report.parametrosTecnicos.temperatura}`, `Nivel Combustible (%): ${report.parametrosTecnicos.nivelCombustible}`, `Frecuencia (Hz): ${report.parametrosTecnicos.frecuencia}`],
-          [{content: `Tensión de baterías (V): ${report.parametrosTecnicos.tensionBaterias}`, colSpan: 3}],
-      ],
-      theme: 'grid',
-      styles: {fontSize: 8, cellPadding: 1.5, minCellHeight: 8},
-      bodyStyles: {fontStyle: 'bold'},
-      margin: { left: leftMargin, right: rightMargin }
-  });
+    autoTable(doc, {
+        startY: currentY,
+        body: [
+            [`Horas: ${report.parametrosTecnicos.horas}`, `Presión Aceite: ${report.parametrosTecnicos.presionAceite}`, `Tensión: ${report.parametrosTecnicos.tension}`],
+            [`Tª (°C): ${report.parametrosTecnicos.temperatura}`, `Nivel Combustible (%): ${report.parametrosTecnicos.nivelCombustible}`, `Frecuencia (Hz): ${report.parametrosTecnicos.frecuencia}`],
+            [{content: `Tensión de baterías (V): ${report.parametrosTecnicos.tensionBaterias}`, colSpan: 3}],
+        ],
+        theme: 'grid',
+        styles: {fontSize: 8, cellPadding: 1.5, minCellHeight: 8},
+        bodyStyles: {fontStyle: 'bold'},
+        margin: { left: leftMargin, right: rightMargin }
+    });
 
-  currentY = (doc as any).lastAutoTable.finalY + 8;
+    currentY = (doc as any).lastAutoTable.finalY + 8;
 
-  if (currentY + 45 > pageHeight - bottomMargin) {
-      doc.addPage();
-      currentY = topMargin;
-  }
+    if (currentY + 45 > pageHeight - bottomMargin) {
+        doc.addPage();
+        currentY = topMargin;
+    }
 
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Potencia con carga: ${report.potenciaConCarga.potencia}`, leftMargin, currentY);
-  currentY += 3;
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Potencia con carga: ${report.potenciaConCarga.potencia}`, leftMargin, currentY);
+    currentY += 3;
 
-  autoTable(doc, {
-      startY: currentY,
-      head: [['Tensión', 'Intensidad', 'Potencia (kW)']],
-      body: [
-          [`RS: ${report.potenciaConCarga.tensionRS}`, `R: ${report.potenciaConCarga.intensidadR}`, {rowSpan: 3, content: report.potenciaConCarga.potenciaKW, styles: {valign: 'middle', halign: 'center'}}],
-          [`ST: ${report.potenciaConCarga.tensionST}`, `S: ${report.potenciaConCarga.intensidadS}`],
-          [`RT: ${report.potenciaConCarga.tensionRT}`, `T: ${report.potenciaConCarga.intensidadT}`],
-      ],
-      theme: 'grid',
-      styles: {fontSize: 9, cellPadding: 1.5, minCellHeight: 8},
-      headStyles: { fillColor: darkColor, textColor: '#fff' },
-      bodyStyles: {fontStyle: 'bold'},
-      margin: { left: leftMargin, right: rightMargin }
-  });
+    autoTable(doc, {
+        startY: currentY,
+        head: [['Tensión', 'Intensidad', 'Potencia (kW)']],
+        body: [
+            [`RS: ${report.potenciaConCarga.tensionRS}`, `R: ${report.potenciaConCarga.intensidadR}`, {rowSpan: 3, content: report.potenciaConCarga.potenciaKW, styles: {valign: 'middle', halign: 'center'}}],
+            [`ST: ${report.potenciaConCarga.tensionST}`, `S: ${report.potenciaConCarga.intensidadS}`],
+            [`RT: ${report.potenciaConCarga.tensionRT}`, `T: ${report.potenciaConCarga.intensidadT}`],
+        ],
+        theme: 'grid',
+        styles: {fontSize: 9, cellPadding: 1.5, minCellHeight: 8},
+        headStyles: { fillColor: darkColor, textColor: '#fff' },
+        bodyStyles: {fontStyle: 'bold'},
+        margin: { left: leftMargin, right: rightMargin }
+    });
 
-  currentY = (doc as any).lastAutoTable.finalY + 4;
+    currentY = (doc as any).lastAutoTable.finalY + 4;
 
-  const signatureBlockHeight = 45;
-  if (currentY + signatureBlockHeight > pageHeight - bottomMargin) {
-      doc.addPage();
-      currentY = topMargin;
-  }
+    const signatureBlockHeight = 45;
+    if (currentY + signatureBlockHeight > pageHeight - bottomMargin) {
+        doc.addPage();
+        currentY = topMargin;
+    }
 
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  
-  if (report.inspectorSignatureUrl) {
-      doc.addImage(report.inspectorSignatureUrl, 'PNG', 25, currentY, 60, 25);
-  }
-  doc.line(25, currentY + 25, 85, currentY + 25);
-  doc.text("Firma técnico:", 25, currentY + 30);
-  doc.text(inspectorName || '', 25, currentY + 35);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    
+    if (report.inspectorSignatureUrl) {
+        doc.addImage(report.inspectorSignatureUrl, 'PNG', 25, currentY, 60, 25);
+    }
+    doc.line(25, currentY + 25, 85, currentY + 25);
+    doc.text("Firma técnico:", 25, currentY + 30);
+    doc.text(inspectorName || '', 25, currentY + 35);
 
-  if (report.clientSignatureUrl) {
-      doc.addImage(report.clientSignatureUrl, 'PNG', 125, currentY, 60, 25);
-  }
-  doc.line(125, currentY + 25, 185, currentY + 25);
-  doc.text("Conforme cliente:", 125, currentY + 30);
-  doc.text(report.recibidoPor || '', 125, currentY + 35);
-  
-  const totalPages = (doc as any).internal.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-      doc.setPage(i);
-      drawPdfHeader(doc);
-      drawPdfFooter(doc, i, totalPages);
+    if (report.clientSignatureUrl) {
+        doc.addImage(report.clientSignatureUrl, 'PNG', 125, currentY, 60, 25);
+    }
+    doc.line(125, currentY + 25, 185, currentY + 25);
+    doc.text("Conforme cliente:", 125, currentY + 30);
+    doc.text(report.recibidoPor || '', 125, currentY + 35);
+    
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        drawPdfHeader(doc);
+        drawPdfFooter(doc, i, totalPages);
+    }
+  } catch (err) {
+    console.error("PDF Logic error:", err);
   }
 
   return doc;
 };
 
-export default function HojaTrabajoForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
+export default function HojaTrabajoForm({ initialData, aiData }: { initialData?: any, aiData?: any }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const isOnline = useOnlineStatus();
@@ -290,7 +293,6 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                      setFormData((prev: any) => ({...prev, tecnicos: name }));
                 }
             } catch(e: any) {
-                console.error("Error fetching user name:", e);
                 setInspectorName(user.displayName || user.email || 'Técnico');
                 setFormData((prev: any) => ({...prev, tecnicos: user.displayName || user.email || 'Técnico' }));
             }
@@ -316,31 +318,31 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     if (aiData) {
       setFormData((prev: any) => ({
         ...prev,
-        cliente: aiData.identidad.cliente || prev.cliente,
-        instalacion: aiData.identidad.instalacion || prev.instalacion,
-        motor: aiData.identidad.modelo || prev.motor,
-        n_motor: aiData.identidad.sn || prev.n_motor,
-        grupo: aiData.identidad.n_grupo || prev.grupo,
-        recibidoPor: aiData.identidad.recibe || prev.recibidoPor,
+        cliente: aiData.identidad?.cliente || prev.cliente,
+        instalacion: aiData.identidad?.instalacion || prev.instalacion,
+        motor: aiData.identidad?.modelo || prev.motor,
+        n_motor: aiData.identidad?.sn || prev.n_motor,
+        grupo: aiData.identidad?.n_grupo || prev.grupo,
+        recibidoPor: aiData.identidad?.recibe || prev.recibidoPor,
         trabajos_realizados: aiData.observations_summary || prev.trabajos_realizados,
         parametrosTecnicos: {
-          horas: aiData.mediciones_generales.horas || prev.parametrosTecnicos.horas,
-          presionAceite: aiData.mediciones_generales.presion || prev.parametrosTecnicos.presionAceite,
-          tension: aiData.mediciones_generales.tensionAlt || prev.parametrosTecnicos.tension,
-          temperatura: aiData.mediciones_generales.temp || prev.parametrosTecnicos.temperatura,
-          nivelCombustible: aiData.mediciones_generales.combustible || prev.parametrosTecnicos.nivelCombustible,
-          frecuencia: aiData.mediciones_generales.frecuencia || prev.parametrosTecnicos.frecuencia,
-          tensionBaterias: aiData.mediciones_generales.cargaBat || prev.parametrosTecnicos.tensionBaterias,
+          horas: aiData.mediciones_generales?.horas || prev.parametrosTecnicos.horas,
+          presionAceite: aiData.mediciones_generales?.presion || prev.parametrosTecnicos.presionAceite,
+          tension: aiData.mediciones_generales?.tensionAlt || prev.parametrosTecnicos.tension,
+          temperatura: aiData.mediciones_generales?.temp || prev.parametrosTecnicos.temperatura,
+          nivelCombustible: aiData.mediciones_generales?.combustible || prev.parametrosTecnicos.nivelCombustible,
+          frecuencia: aiData.mediciones_generales?.frecuencia || prev.parametrosTecnicos.frecuencia,
+          tensionBaterias: aiData.mediciones_generales?.cargaBat || prev.parametrosTecnicos.tensionBaterias,
         },
         potenciaConCarga: {
           ...prev.potenciaConCarga,
-          tensionRS: aiData.pruebas_carga.rs || prev.potenciaConCarga.tensionRS,
-          tensionST: aiData.pruebas_carga.st || prev.potenciaConCarga.tensionST,
-          tensionRT: aiData.pruebas_carga.rt || prev.potenciaConCarga.tensionRT,
-          intensidadR: aiData.pruebas_carga.r || prev.potenciaConCarga.intensidadR,
-          intensidadS: aiData.pruebas_carga.s || prev.potenciaConCarga.intensidadS,
-          intensidadT: aiData.pruebas_carga.t || prev.potenciaConCarga.intensidadT,
-          potenciaKW: aiData.pruebas_carga.kw || prev.potenciaConCarga.potenciaKW,
+          tensionRS: aiData.pruebas_carga?.rs || prev.potenciaConCarga.tensionRS,
+          tensionST: aiData.pruebas_carga?.st || prev.potenciaConCarga.tensionST,
+          tensionRT: aiData.pruebas_carga?.rt || prev.potenciaConCarga.tensionRT,
+          intensidadR: aiData.pruebas_carga?.r || prev.potenciaConCarga.intensidadR,
+          intensidadS: aiData.pruebas_carga?.s || prev.potenciaConCarga.intensidadS,
+          intensidadT: aiData.pruebas_carga?.t || prev.potenciaConCarga.intensidadT,
+          potenciaKW: aiData.pruebas_carga?.kw || prev.potenciaConCarga.potenciaKW,
         }
       }));
     }
@@ -362,7 +364,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
 
   const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Gps no soportado.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'GPS no soportado.' });
       setLocationStatus('error');
       return;
     }
@@ -391,8 +393,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
       }));
        toast({ title: '¡Pulido!', description: 'IA ha mejorado el texto.' });
     } catch(e: any) {
-      console.error("AI enhancement failed:", e);
-      toast({ variant: 'destructive', title: 'Error IA' });
+      toast({ variant: 'destructive', title: 'Error IA', description: 'IA no disponible, use texto manual.' });
     } finally {
       setAiLoading(false);
     }
@@ -405,8 +406,13 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     }
     const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: clientSignature };
     const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
-    if (isSaved) docPdf.save(`Hoja_Trabajo_${savedDocId}.pdf`);
-    else setPreviewPdfUrl(docPdf.output('datauristring'));
+    
+    if (isSaved) {
+        docPdf.save(`Hoja_Trabajo_${savedDocId}.pdf`);
+    } else {
+        const uri = docPdf.output('datauristring');
+        setPreviewPdfUrl(uri);
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -414,13 +420,15 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
   };
 
   const handleSave = async () => {
-    if (!user || !firestore || !user.email) return;
+    if (!user || !firestore || !user.email) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Usuario no autenticado.' });
+        return;
+    }
     
-    // Validación de campos obligatorios para guardar
     const missingFields = [];
     if (!formData.cliente) missingFields.push('Cliente');
     if (!formData.instalacion) missingFields.push('Instalación');
-    if (!formData.location) missingFields.push('Localización GPS');
+    if (!formData.location) missingFields.push('Ubicación GPS');
     if (!inspectorSignature) missingFields.push('Firma Inspector');
     if (!clientSignature) missingFields.push('Firma Cliente');
 
@@ -428,7 +436,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
       toast({ 
         variant: 'destructive', 
         title: 'Faltan datos críticos', 
-        description: `Por favor completa: ${missingFields.join(', ')}` 
+        description: `Completa: ${missingFields.join(', ')}` 
       });
       return;
     }
@@ -438,17 +446,28 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
         const localData = { ...formData, originalJobId: initialData?.id || null };
         if (!synced) {
-            (localData as any).images = images;
             (localData as any).inspectorSignature = inspectorSignature;
             (localData as any).clientSignature = clientSignature;
         }
-        await dbLocal.hojas_trabajo.add({ firebaseId: firebaseId || '', synced, data: localData, createdAt: new Date() });
+        await dbLocal.hojas_trabajo.add({ 
+            firebaseId: firebaseId || '', 
+            synced, 
+            data: localData, 
+            createdAt: new Date() 
+        });
+        
+        if (synced) {
+            toast({ title: '¡Sincronizado!', description: `Informe guardado con ID: ${firebaseId}` });
+        } else {
+            toast({ title: 'Guardado Localmente', description: 'Error de red/CORS. El informe se sincronizará luego.' });
+        }
     };
 
     if (isOnline) {
         try {
             const formType = 'hoja-trabajo';
-            const qCount = query(collection(firestore, 'trabajos'), where('formType', '==', formType));
+            const trabajosRef = collection(firestore, 'trabajos');
+            const qCount = query(trabajosRef, where('formType', '==', formType));
             const trabajosSnap = await getDocs(qCount);
             const docId = `HT-${new Date().getFullYear()}-${(trabajosSnap.size + 1).toString().padStart(3, '0')}`;
             const storage = getStorage();
@@ -459,7 +478,6 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                 return getDownloadURL(imgRef);
             }));
 
-            // Subida de firmas
             const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
             await uploadString(inspRef, inspectorSignature!, 'data_url');
             const inspectorSignatureUrl = await getDownloadURL(inspRef);
@@ -480,15 +498,12 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
             await saveDataToLocal(true, docId);
             setSavedDocId(docId);
             setIsSaved(true);
-            toast({ title: '¡Guardado!', description: `ID: ${docId}` });
         } catch (error: any) {
-            console.error("Error saving to Firebase:", error);
+            console.error("Cloud save failed, falling back to local:", error);
             await saveDataToLocal(false);
-            toast({ title: 'Guardado Local', description: 'Error de red, se subirá luego.' });
         }
     } else {
         await saveDataToLocal(false);
-        toast({ title: 'Guardado Offline', description: 'Se sincronizará al volver la conexión.' });
     }
     setSaving(false);
   };
@@ -496,21 +511,21 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full bg-slate-50 min-h-screen">
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
-          <DialogHeader className="p-4 border-b">
-            <DialogTitle>Vista Previa de Documento</DialogTitle>
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2rem] overflow-hidden">
+          <DialogHeader className="p-4 border-b bg-white">
+            <DialogTitle className="font-black uppercase tracking-tighter">Borrador de Informe</DialogTitle>
             <DialogDescription className="sr-only">Previsualización del PDF generado.</DialogDescription>
           </DialogHeader>
-          <div className="flex-1 bg-slate-200 p-4">
-            {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full" title="PDF Preview" />}
+          <div className="flex-1 bg-slate-200">
+            {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full border-none" title="PDF Preview" />}
           </div>
         </DialogContent>
       </Dialog>
       
-      <main className="space-y-8 pb-40">
-        <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase">Hoja de Trabajo</h2>
+      <main className="space-y-8 pb-40 p-2 md:p-6">
+        <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Hoja de Trabajo</h2>
       
-        <section className="bg-white p-6 md:p-10 rounded-3xl shadow-sm space-y-6 border border-slate-100">
+        <section className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="lg:col-span-2 space-y-3">
                 <StableInput label="Cliente" icon={Users} value={formData.cliente} onChange={(v: any) => handleInputChange('cliente', v)}/>
@@ -529,23 +544,28 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                  <StableInput label="KMs." icon={Car} type="number" value={formData.kms} onChange={(v: any) => handleInputChange('kms', v)}/>
                  <StableInput label="Dieta (€)" icon={Euro} type="number" value={formData.dieta} onChange={(v: any) => handleInputChange('dieta', v)}/>
                  <div className="flex items-center gap-2 pt-2">
-                   <label className="flex items-center gap-2 text-sm font-bold">
-                      <input type="checkbox" checked={formData.media_dieta} onChange={(e: any) => handleInputChange('media_dieta', e.target.checked)} className="form-checkbox h-5 w-5 text-primary rounded" />
-                      1/2 Dieta
+                   <label className="flex items-center gap-2 text-sm font-black text-slate-600">
+                      <input type="checkbox" checked={formData.media_dieta} onChange={(e: any) => handleInputChange('media_dieta', e.target.checked)} className="form-checkbox h-5 w-5 text-primary rounded-lg border-2" />
+                      1/2 DIETA
                    </label>
                    {formData.media_dieta && <StableInput label="Cantidad" type="number" value={formData.media_dieta_cantidad} onChange={(v: any) => handleInputChange('media_dieta_cantidad', v)}/>}
                  </div>
               </div>
-              <div className="lg:col-span-4">
-                <button onClick={handleCaptureLocation} className={`w-full p-3 border-2 rounded-xl font-bold transition-all ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 hover:border-primary'}`}>
-                    {locationStatus === 'loading' ? <Loader2 className="animate-spin mx-auto"/> : formData.location ? 'Ubicación OK' : 'Capturar Ubicación (Obligatorio)'}
+              <div className="lg:col-span-4 pt-4">
+                <button 
+                  onClick={handleCaptureLocation} 
+                  disabled={locationStatus === 'loading'}
+                  className={`w-full p-4 border-2 rounded-2xl font-black transition-all flex items-center justify-center gap-3 ${formData.location ? 'border-green-500 text-green-600 bg-green-50' : 'border-slate-100 hover:border-primary text-slate-400'}`}
+                >
+                    {locationStatus === 'loading' ? <Loader2 className="animate-spin" /> : formData.location ? <CheckCircle2 size={20} /> : <MapPin size={20}/>}
+                    {formData.location ? `UBICACIÓN CAPTURADA: ${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'CAPTURAR UBICACIÓN GPS (OBLIGATORIO)'}
                 </button>
               </div>
            </div>
         </section>
         
-        <section className="bg-white p-6 md:p-10 rounded-3xl shadow-sm space-y-6 border border-slate-100">
-            <h2 className="text-xl font-black flex items-center gap-3"><Settings className="text-primary"/> Parámetros Técnicos</h2>
+        <section className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
+            <h2 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter"><Settings className="text-primary"/> Parámetros Técnicos</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <StableInput icon={Clock} label="Horas" value={formData.parametrosTecnicos.horas} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'horas', v)} />
                 <StableInput icon={Gauge} label="Presión Aceite" value={formData.parametrosTecnicos.presionAceite} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'presionAceite', v)} />
@@ -559,85 +579,97 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
             </div>
         </section>
 
-        <section className="bg-white p-6 md:p-10 rounded-3xl shadow-sm space-y-6 border border-slate-100">
-          <h2 className="text-xl font-black flex items-center gap-3"><Zap className="text-primary"/> Potencia con carga</h2>
+        <section className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
+          <h2 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter"><Zap className="text-primary"/> Potencia con carga</h2>
           <div className="grid grid-cols-1 md:grid-cols-12 gap-x-8 gap-y-4 items-end">
               <div className="md:col-span-3">
                 <StableInput label="Potencia con carga" value={formData.potenciaConCarga.potencia} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'potencia', v)} />
               </div>
                <div className="md:col-span-3 space-y-4">
-                  <h4 className="text-sm font-bold text-center">Tensión</h4>
+                  <h4 className="text-xs font-black text-center text-slate-400 uppercase tracking-widest">Tensión</h4>
                   <div className="grid grid-cols-3 gap-2">
-                      <LoadTestInput label="RS:" value={formData.potenciaConCarga.tensionRS} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionRS', v)} />
-                      <LoadTestInput label="ST:" value={formData.potenciaConCarga.tensionST} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionST', v)} />
-                      <LoadTestInput label="RT:" value={formData.potenciaConCarga.tensionRT} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionRT', v)} />
+                      <LoadTestInput label="RS" value={formData.potenciaConCarga.tensionRS} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionRS', v)} />
+                      <LoadTestInput label="ST" value={formData.potenciaConCarga.tensionST} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionST', v)} />
+                      <LoadTestInput label="RT" value={formData.potenciaConCarga.tensionRT} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionRT', v)} />
                   </div>
               </div>
               <div className="md:col-span-3 space-y-4">
-                  <h4 className="text-sm font-bold text-center">Intensidad</h4>
+                  <h4 className="text-xs font-black text-center text-slate-400 uppercase tracking-widest">Intensidad</h4>
                    <div className="grid grid-cols-3 gap-2">
-                      <LoadTestInput label="R:" value={formData.potenciaConCarga.intensidadR} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadR', v)} />
-                      <LoadTestInput label="S:" value={formData.potenciaConCarga.intensidadS} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadS', v)} />
-                      <LoadTestInput label="T:" value={formData.potenciaConCarga.intensidadT} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadT', v)} />
+                      <LoadTestInput label="R" value={formData.potenciaConCarga.intensidadR} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadR', v)} />
+                      <LoadTestInput label="S" value={formData.potenciaConCarga.intensidadS} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadS', v)} />
+                      <LoadTestInput label="T" value={formData.potenciaConCarga.intensidadT} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadT', v)} />
                   </div>
               </div>
               <div className="md:col-span-3 space-y-4">
-                  <h4 className="text-sm font-bold text-center">Potencia (kW)</h4>
+                  <h4 className="text-xs font-black text-center text-slate-400 uppercase tracking-widest">Potencia (kW)</h4>
                    <LoadTestInput label="kW" value={formData.potenciaConCarga.potenciaKW} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'potenciaKW', v)} />
               </div>
           </div>
         </section>
 
-        <section className="bg-white p-6 md:p-10 rounded-3xl shadow-sm space-y-6 border border-slate-100">
+        <section className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
           <div className="flex justify-between items-center">
-              <h2 className="text-xl font-black">Trabajos Realizados</h2>
-              <button onClick={improveReport} disabled={aiLoading} className="flex items-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg">
-                  {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />} Pulir con IA
+              <h2 className="text-xl font-black uppercase tracking-tighter">Trabajos Realizados</h2>
+              <button onClick={improveReport} disabled={aiLoading} className="flex items-center gap-2 text-[10px] font-black bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-colors">
+                  {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />} PULIR CON IA
               </button>
           </div>
-          <textarea className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 resize-none" value={formData.trabajos_realizados} onChange={(e: any) => handleInputChange('trabajos_realizados', e.target.value)} placeholder="Describe aquí las tareas hechas..."/>
+          <textarea 
+            className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 resize-none font-medium text-slate-600 outline-none focus:border-primary transition-all" 
+            value={formData.trabajos_realizados} 
+            onChange={(e: any) => handleInputChange('trabajos_realizados', e.target.value)} 
+            placeholder="Describe aquí las tareas hechas..."
+          />
        </section>
        
-      <section className="bg-white p-6 md:p-10 rounded-3xl shadow-sm space-y-6 border border-slate-100">
-          <h2 className="text-xl font-black flex items-center gap-3"><Camera className="text-primary"/> Evidencia Fotográfica</h2>
-          <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center">
-              <Camera size={32} className="text-slate-400 mb-2"/>
-              <span className="font-bold">Adjuntar Imágenes</span>
+      <section className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
+          <h2 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter"><Camera className="text-primary"/> Evidencia Fotográfica</h2>
+          <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] p-12 flex flex-col items-center justify-center hover:bg-white hover:border-primary transition-all group">
+              <Camera size={40} className="text-slate-300 mb-2 group-hover:text-primary transition-colors"/>
+              <span className="font-black text-slate-400 group-hover:text-slate-600 uppercase tracking-widest text-xs">Adjuntar Imágenes</span>
           </label>
           <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange}/>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {images.map((img, i) => (
-                  <div key={i} className="aspect-square relative">
-                      <img src={URL.createObjectURL(img)} alt="preview" className="w-full h-full object-cover rounded-lg"/>
+                  <div key={i} className="aspect-square relative group overflow-hidden rounded-2xl border-2 border-slate-100">
+                      <img src={URL.createObjectURL(img)} alt="preview" className="w-full h-full object-cover transition-transform group-hover:scale-110"/>
                   </div>
               ))}
           </div>
       </section>
 
-      <section className="bg-white p-6 md:p-10 rounded-3xl shadow-sm space-y-6 border border-slate-100">
-          <h2 className="text-xl font-black">Validación</h2>
+      <section className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-sm space-y-8 border border-slate-100">
+          <h2 className="text-xl font-black uppercase tracking-tighter">Validación y Firmas</h2>
           <div className="grid md:grid-cols-2 gap-8 items-start">
               <div>
                 <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
-                <p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p>
+                <p className="text-center font-black mt-3 text-slate-400 text-[10px] uppercase tracking-widest">{inspectorName}</p>
               </div>
               <div>
                 <SignaturePad title="Conforme Cliente" signature={clientSignature} onSignatureEnd={setClientSignature} />
-                <div className="mt-2">
-                  <StableInput label="" value={formData.recibidoPor} onChange={(v: any) => handleInputChange('recibidoPor', v)} placeholder="Nombre del receptor"/>
+                <div className="mt-4">
+                  <StableInput label="Persona que recibe" icon={User} value={formData.recibidoPor} onChange={(v: any) => handleInputChange('recibidoPor', v)} placeholder="Nombre del receptor"/>
                 </div>
               </div>
           </div>
       </section>
 
       <div className="flex flex-col md:flex-row gap-4">
-          <button onClick={handlePdfAction} className="w-full p-6 bg-white border-2 border-slate-200 rounded-2xl font-bold flex items-center justify-center gap-4 hover:border-primary transition-all">
-              {isSaved ? <Printer size={20} /> : <FileSearch size={20} />}
-              {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
+          <button 
+            onClick={handlePdfAction} 
+            className="w-full p-8 bg-white border-2 border-slate-200 rounded-[2.5rem] font-black flex items-center justify-center gap-4 hover:border-primary transition-all text-slate-700 shadow-lg active:scale-95"
+          >
+              {isSaved ? <Printer size={24} className="text-primary"/> : <FileSearch size={24} className="text-primary"/>}
+              {isSaved ? 'IMPRIMIR HOJA FINAL' : 'VISTA PREVIA PDF'}
           </button>
-          <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-4 disabled:bg-slate-700">
-            {saving ? <Loader2 className="animate-spin" /> : isSaved ? <CheckCircle2 /> : <Save />}
-            {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR HOJA'}
+          <button 
+            onClick={handleSave} 
+            disabled={saving || isSaved} 
+            className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 disabled:bg-slate-700 shadow-2xl active:scale-95 transition-all"
+          >
+            {saving ? <Loader2 className="animate-spin text-primary" /> : isSaved ? <CheckCircle2 className="text-primary" /> : <Save className="text-primary" />}
+            {saving ? 'GUARDANDO DATOS...' : isSaved ? 'HOJA GUARDADA' : 'FINALIZAR Y GUARDAR'}
           </button>
       </div>
       </main>
