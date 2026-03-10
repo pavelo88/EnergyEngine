@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
 import { Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Wind, Gauge, Thermometer, Droplets, Battery, Zap, Wrench, Camera } from 'lucide-react';
 import { ProcessDictationOutput } from '@/ai/flows/process-dictation-flow';
@@ -256,13 +256,13 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
       setFormData((prev: any) => ({
           ...prev,
           cliente: initialData.clienteNombre || prev.cliente,
-          instalacion: initialData.cliente?.instalacion || prev.instalacion,
-          direccion: initialData.cliente?.direccion || prev.direccion,
-          motor: initialData.equipo?.modelo || prev.motor,
-          modelo: initialData.equipo?.marca || prev.modelo,
-          n_motor: initialData.equipo?.sn || prev.n_motor,
-          n_grupo: initialData.equipo?.n_grupo || prev.n_grupo,
-          potencia: initialData.equipo?.potencia_kva || prev.potencia,
+          instalacion: initialData.instalacion || prev.instalacion,
+          direccion: initialData.direccion || prev.direccion,
+          motor: initialData.modelo || prev.motor,
+          modelo: initialData.n_motor || prev.modelo,
+          n_motor: initialData.n_motor || prev.n_motor,
+          n_grupo: initialData.n_grupo || prev.n_grupo,
+          potencia: initialData.potencia || prev.potencia,
           observaciones: initialData.descripcion || prev.observaciones,
       }));
     }
@@ -382,9 +382,29 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
       return;
     }
     setSaving(true);
+
+    const updateOriginalJobStatus = async (jobId: string) => {
+      if (isOnline && db) {
+          try {
+              const jobRef = doc(db, 'trabajos', jobId);
+              await updateDoc(jobRef, { estado: 'Completado' });
+          } catch (updateError) {
+              console.error(`Failed to update job ${jobId} status:`, updateError);
+              toast({
+                  variant: "destructive",
+                  title: "Error de Actualización",
+                  description: `No se pudo marcar el trabajo ${jobId} como completado.`,
+              });
+          }
+      }
+    };
     
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
-        const localData = { ...formData, formType: 'informe-simplificado' };
+        const localData = { 
+          ...formData, 
+          formType: 'informe-simplificado',
+          originalJobId: initialData?.id || null 
+        };
         if (!synced) {
             (localData as any).images = images;
             (localData as any).inspectorSignature = inspectorSignature;
@@ -430,6 +450,11 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
             };
 
             await setDoc(doc(db, 'trabajos', docId), docData);
+
+            if (initialData?.id) {
+              await updateOriginalJobStatus(initialData.id);
+            }
+
             await saveDataToLocal(true, docId);
             setSavedDocId(docId);
             setIsSaved(true);

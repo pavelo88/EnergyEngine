@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
-import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
 import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Mic } from 'lucide-react';
 import { splitTechnicalReport } from '@/ai/flows/split-technical-report-flow';
@@ -205,11 +205,11 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       setFormData((prev: any) => ({
         ...prev,
         cliente: initialData.cliente || prev.cliente,
-        motor: initialData.motor || initialData.equipo?.marca || prev.motor,
-        modelo: initialData.modelo || initialData.equipo?.modelo || prev.modelo,
-        n_motor: initialData.n_motor || initialData.equipo?.sn || prev.n_motor,
+        motor: initialData.motor || prev.motor,
+        modelo: initialData.modelo || prev.modelo,
+        n_motor: initialData.n_motor || prev.n_motor,
         grupo: initialData.grupo || prev.grupo,
-        instalacion: initialData.instalacion || initialData.cliente?.nombre || prev.instalacion,
+        instalacion: initialData.instalacion || prev.instalacion,
         reportContent: combinedContent,
       }));
     }
@@ -262,10 +262,8 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       const res = await splitTechnicalReport({ dictation: formData.reportContent });
       const formattedText = `ANTECEDENTES:\n\n${res.antecedentes}\n\nINTERVENCIÓN:\n\n${res.intervencion}\n\nRESUMEN Y SITUACIÓN ACTUAL:\n\n${res.resumen}`;
       setFormData((p: any) => ({ ...p, reportContent: formattedText }));
-      toast({ title: 'Informe Estructurado', description: 'La IA ha organizado el texto en las secciones correspondientes.' });
     } catch (e: any) { 
-        console.error("AI enhancement failed:", e);
-        toast({ variant: 'destructive', title: 'Error de la IA', description: 'No se pudo estructurar el informe.' });
+        console.error("AI enhancement failed:", e); 
     } finally { 
         setAiLoading(false); 
     }
@@ -296,8 +294,28 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     }
     setSaving(true);
     
+    const updateOriginalJobStatus = async (jobId: string) => {
+      if (isOnline && db) {
+          try {
+              const jobRef = doc(db, 'trabajos', jobId);
+              await updateDoc(jobRef, { estado: 'Completado' });
+          } catch (updateError) {
+              console.error(`Failed to update job ${jobId} status:`, updateError);
+              toast({
+                  variant: "destructive",
+                  title: "Error de Actualización",
+                  description: `No se pudo marcar el trabajo ${jobId} como completado.`,
+              });
+          }
+      }
+    };
+
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
-        const localData = { ...formData, formType: 'informe-tecnico' };
+        const localData = { 
+          ...formData, 
+          formType: 'informe-tecnico',
+          originalJobId: initialData?.id || null
+        };
         if (!synced) {
             (localData as any).inspectorSignature = inspectorSignature;
         }
@@ -315,7 +333,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             toast({ title: '¡Guardado y Sincronizado!', description: `El informe técnico ha sido guardado con el ID: ${firebaseId}` });
         }
     };
-
+    
     if (isOnline) {
         try {
             const formType = 'informe-tecnico';
@@ -331,7 +349,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
             const docData = { 
                 ...formData, 
-                inspectorSignatureUrl,
+                inspectorSignatureUrl, 
                 tecnicoId: user.uid, 
                 tecnicoNombre: inspectorName,
                 fecha_creacion: Timestamp.now(), 
@@ -340,22 +358,26 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
                 estado: 'Completado',
             };
             await setDoc(doc(db, 'trabajos', docId), docData);
+
+            if (initialData?.id) {
+              await updateOriginalJobStatus(initialData.id);
+            }
+
             await saveDataToLocal(true, docId);
             setSavedDocId(docId);
             setIsSaved(true);
-
-        } catch (error) {
-            console.error("Error guardando en Firebase, guardando localmente...", error);
+        } catch (e: any) { 
+            console.error("Error saving document:", e);
             await saveDataToLocal(false);
         }
     } else {
-        await saveDataToLocal(false);
+      await saveDataToLocal(false);
     }
     setSaving(false);
   };
 
   return (
-    <main className="max-w-4xl mx-auto p-4 md:p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 bg-slate-50 min-h-screen">
+    <main className="max-w-4xl mx-auto p-4 md:p-6 space-y-8 animate-in fade-in bg-slate-50 min-h-screen">
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-4 border-b">

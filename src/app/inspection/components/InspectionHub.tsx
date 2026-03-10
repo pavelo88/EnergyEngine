@@ -32,7 +32,7 @@ export default function InspectionHub({ onSelectInspectionType }: { onSelectInsp
 
   const handleLoadInspection = async (type: ReportType) => {
     if (!inspectionId.trim() || !db) {
-      onSelectInspectionType(type, null);
+      onSelectInspectionType(type);
       return;
     }
 
@@ -44,7 +44,7 @@ export default function InspectionHub({ onSelectInspectionType }: { onSelectInsp
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
-        onSelectInspectionType(type, docSnap.data());
+        onSelectInspectionType(type, { id: docSnap.id, ...docSnap.data() });
       } else {
         setError('No se encontró el trabajo ID: ' + inspectionId);
         onSelectInspectionType(type, null);

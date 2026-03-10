@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
 import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Car, Euro, Zap, Thermometer, Battery, Droplets, Wind, Gauge, Mic, Camera } from 'lucide-react';
 import { enhanceTechnicalRequest } from '@/ai/flows/enhance-technical-request-flow';
@@ -310,9 +310,9 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
       setFormData((prev: any) => ({
         ...prev,
         cliente: initialData.clienteNombre || prev.cliente,
-        instalacion: initialData.cliente?.instalacion || prev.instalacion,
-        motor: initialData.equipo?.modelo || prev.motor,
-        n_motor: initialData.equipo?.sn || prev.n_motor,
+        instalacion: initialData.instalacion || prev.instalacion,
+        motor: initialData.modelo || prev.motor,
+        n_motor: initialData.n_motor || prev.n_motor,
         trabajos_realizados: initialData.descripcion || prev.trabajos_realizados,
       }));
     }
@@ -443,8 +443,28 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     }
     setSaving(true);
 
+    const updateOriginalJobStatus = async (jobId: string) => {
+      if (isOnline && db) {
+          try {
+              const jobRef = doc(db, 'trabajos', jobId);
+              await updateDoc(jobRef, { estado: 'Completado' });
+          } catch (updateError) {
+              console.error(`Failed to update job ${jobId} status:`, updateError);
+              toast({
+                  variant: "destructive",
+                  title: "Error de Actualización",
+                  description: `No se pudo marcar el trabajo ${jobId} como completado.`,
+              });
+          }
+      }
+    };
+
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
-        const localData = { ...formData, formType: 'hoja-trabajo' };
+        const localData = { 
+          ...formData, 
+          formType: 'hoja-trabajo',
+          originalJobId: initialData?.id || null
+        };
         
         if (!synced) {
             (localData as any).images = images;
@@ -493,6 +513,11 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
             };
             
             await setDoc(doc(db, 'trabajos', docId), docData);
+
+            if (initialData?.id) {
+              await updateOriginalJobStatus(initialData.id);
+            }
+            
             await saveDataToLocal(true, docId);
             setSavedDocId(docId);
             setIsSaved(true);

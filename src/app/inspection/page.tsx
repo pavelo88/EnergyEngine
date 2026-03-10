@@ -78,7 +78,7 @@ const InspectionPageContent = () => {
           for (const record of pendingHojas) {
             try {
               const dataToSync = record.data;
-              const { images, inspectorSignature, clientSignature, ...formDataForFirebase } = dataToSync;
+              const { images, inspectorSignature, clientSignature, originalJobId, ...formDataForFirebase } = dataToSync;
               const formType = formDataForFirebase.formType;
 
               const trabajosRef = collection(firestore, 'trabajos');
@@ -108,6 +108,16 @@ const InspectionPageContent = () => {
               const docData = { ...formDataForFirebase, imageUrls, inspectorSignatureUrl, clientSignatureUrl, id: docId, fecha_creacion: Timestamp.now() };
               
               await setDoc(doc(firestore, 'trabajos', docId), docData);
+
+              if (originalJobId) {
+                try {
+                    const jobRef = doc(firestore, 'trabajos', originalJobId);
+                    await updateDoc(jobRef, { estado: 'Completado' });
+                } catch (updateError) {
+                    console.error(`Sync engine failed to update job ${originalJobId}:`, updateError);
+                }
+              }
+              
               await db.hojas_trabajo.update(record.id!, { synced: 1, firebaseId: docId });
               syncedCount++;
             } catch (error) {
@@ -272,7 +282,7 @@ const InspectionPageContent = () => {
   
   const handleStartInspectionFromTask = (task: any) => {
     setSelectedTask(task);
-    setActiveInspectionForm('informe-revision'); 
+    setActiveInspectionForm(task.formType || 'informe-revision'); 
     setActiveTab(TABS.NEW_INSPECTION);
   };
 
