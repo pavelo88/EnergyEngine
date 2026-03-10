@@ -12,7 +12,7 @@ export const Logo = () => {
     setMounted(true);
   }, []);
 
-  // Renderizado neutro para evitar errores de hidratación (Hydration Mismatch)
+  // Fase neutra para evitar errores de hidratación
   if (!mounted) {
     return (
       <div className="flex items-center gap-3 h-[48px]">
@@ -26,7 +26,7 @@ export const Logo = () => {
   }
 
   const isDark = resolvedTheme === 'dark';
-  // Cambiamos a <img> estándar con un sistema de fallback robusto
+  // Selector dinámico de logo físico
   const logoSrc = isDark ? '/logo2.png' : '/logo.png';
 
   return (
@@ -39,7 +39,7 @@ export const Logo = () => {
           height={48} 
           className="object-contain transition-opacity duration-300"
           onError={(e) => {
-            // Si la imagen física no existe, usamos el base64 de seguridad
+            // Respaldo de seguridad si el archivo físico no existe
             (e.target as HTMLImageElement).src = logoBase64;
           }}
         />

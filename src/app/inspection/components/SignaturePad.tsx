@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Pen, Trash2, Check } from 'lucide-react';
+import { Pen, Trash2, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -22,8 +22,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   useEffect(() => {
     if (!isFullScreen) return;
 
-    // Pequeño delay para asegurar que el DOM del Dialog esté listo y el canvas tenga dimensiones
-    const timer = setTimeout(() => {
+    const initCanvas = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       
@@ -39,10 +38,10 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       ctx.scale(scale, scale);
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#0f172a';
+      ctx.strokeStyle = '#0f172a'; // Slate 900
       ctx.lineWidth = 3;
 
-      // Si ya hay una firma, la redibujamos
+      // Si ya hay una firma, la redibujamos para persistencia
       if (signature) {
         const img = new Image();
         img.src = signature;
@@ -50,8 +49,10 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
           ctx.drawImage(img, 0, 0, rect.width, rect.height);
         };
       }
-    }, 150);
+    };
 
+    // Delay crítico para asegurar que el DOM del Dialog esté renderizado y tenga dimensiones
+    const timer = setTimeout(initCanvas, 200);
     return () => clearTimeout(timer);
   }, [isFullScreen, signature]);
 
@@ -90,9 +91,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   };
 
   const stopDrawing = () => {
-    if (isDrawing) {
-      setIsDrawing(false);
-    }
+    setIsDrawing(false);
   };
 
   const handleSave = () => {
@@ -131,17 +130,22 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
         ) : (
           <div className="text-center text-slate-400">
             <Pen size={24} className="mx-auto mb-2 opacity-20" />
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Tocar para firmar</span>
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Tocar para capturar firma</span>
           </div>
         )}
       </div>
 
       <Dialog open={isFullScreen} onOpenChange={setIsFullScreen}>
-        <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-4 md:p-6 bg-slate-900 border-none shadow-2xl">
+        <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-4 md:p-6 bg-slate-900 border-none shadow-2xl overflow-hidden">
           <DialogHeader className="text-white mb-2">
-            <DialogTitle className="font-black uppercase tracking-tighter text-lg">{title}</DialogTitle>
+            <div className="flex justify-between items-center">
+                <DialogTitle className="font-black uppercase tracking-tighter text-lg">{title}</DialogTitle>
+                <Button variant="ghost" size="icon" onClick={() => setIsFullScreen(false)} className="text-white hover:bg-white/10 rounded-full">
+                    <X size={24} />
+                </Button>
+            </div>
             <DialogDescription className="text-slate-400 text-xs">
-              Dibuje su firma de forma clara sobre el lienzo blanco. Use su dedo o un lápiz táctil.
+              Dibuje su firma de forma clara sobre el lienzo. Use su dedo o un lápiz táctil. Pulse "Aceptar" para guardar.
             </DialogDescription>
           </DialogHeader>
 
