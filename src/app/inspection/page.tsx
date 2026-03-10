@@ -1,9 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, Suspense, useRef } from 'react';
-import { useUser } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { collection, query, where, getDocs, setDoc, doc, Timestamp, addDoc, updateDoc } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
+import { db } from '@/lib/db-local';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -32,7 +35,7 @@ import {
 type FormType = 'hoja-trabajo' | 'informe-tecnico' | 'informe-revision' | 'informe-simplificado';
 
 const InspectionPageContent = () => {
-  const { user } = useUser();
+  const { user, firestore, isUserLoading } = useFirebase();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>(TABS.MENU);
   const [activeInspectionForm, setActiveInspectionForm] = useState<FormType | null>(null);
@@ -40,6 +43,7 @@ const InspectionPageContent = () => {
   const screenSize = useScreenSize();
   const [hasMounted, setHasMounted] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // --- PWA Install State ---
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -50,32 +54,134 @@ const InspectionPageContent = () => {
   const [aiData, setAiData] = useState<ProcessDictationOutput | null>(null);
   const recognitionRef = useRef<any>(null);
 
+  // --- SYNC ENGINE ---
+  useEffect(() => {
+    const syncOfflineData = async () => {
+      if (isOnline && !isSyncing && user && firestore) {
+        const storage = getStorage();
+        setIsSyncing(true);
+
+        const pendingHojas = await db.hojas_trabajo.where({ synced: 0 }).toArray();
+        const pendingJornadas = await db.registros_jornada.where({ synced: 0 }).toArray();
+        const pendingGastos = await db.gastos.where({ synced: 0 }).toArray();
+        const totalPending = pendingHojas.length + pendingJornadas.length + pendingGastos.length;
+
+        if (totalPending > 0) {
+          toast({
+            title: "Conexión recuperada. Sincronizando...",
+            description: `${totalPending} registros pendientes por subir.`,
+          });
+
+          let syncedCount = 0;
+
+          // --- Sync All Reports (from hojas_trabajo table) ---
+          for (const record of pendingHojas) {
+            try {
+              const { data, images, inspectorSignature, clientSignature } = record.data;
+              const formType = data.formType;
+
+              const trabajosRef = collection(firestore, 'trabajos');
+              const qTrabajos = query(trabajosRef, where('formType', '==', formType));
+              const trabajosSnapshot = await getDocs(qTrabajos);
+              const sequentialNumber = (trabajosSnapshot.size + syncedCount + 1).toString().padStart(3, '0');
+              const year = new Date().getFullYear();
+              
+              let idPrefix = 'DOC';
+              if (formType === 'hoja-trabajo') idPrefix = 'HT';
+              else if (formType === 'informe-revision') idPrefix = 'IR';
+              else if (formType === 'informe-tecnico') idPrefix = 'IT';
+              else if (formType === 'informe-simplificado') idPrefix = 'IS';
+              
+              const docId = `${idPrefix}-${year}-${sequentialNumber}`;
+
+              const imageUrls = await Promise.all((images || []).map(async (image: File) => {
+                  const imageRef = ref(storage, `informes/${docId}/${image.name}`);
+                  await uploadBytes(imageRef, image);
+                  return await getDownloadURL(imageRef);
+              }));
+
+              const inspectorSignatureUrl = inspectorSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/inspector.png`), inspectorSignature, 'data_url')) : null;
+              const clientSignatureUrl = clientSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/cliente.png`), clientSignature, 'data_url')) : null;
+              
+              const docData = { ...data, imageUrls, inspectorSignatureUrl, clientSignatureUrl, id: docId, fecha_creacion: Timestamp.now() };
+              
+              await setDoc(doc(firestore, 'trabajos', docId), docData);
+              await db.hojas_trabajo.update(record.id!, { synced: 1, firebaseId: docId });
+              syncedCount++;
+            } catch (error) {
+              console.error('Failed to sync report:', record.id, error);
+            }
+          }
+
+          // --- Sync Jornadas ---
+          for (const record of pendingJornadas) {
+             try {
+                const { data, signature } = record.data;
+                const jornadaId = `J-${Date.now().toString().slice(-6)}-${user.uid.slice(0,4)}`;
+                const firmaUrl = await getDownloadURL(await uploadString(ref(storage, `firmas_jornadas/${jornadaId}.png`), signature, 'data_url'));
+                
+                const jornadaDocRef = doc(collection(firestore, "jornadas"), jornadaId);
+                await setDoc(jornadaDocRef, { ...data, firmaUrl, id: jornadaDocRef.id, fecha_creacion: serverTimestamp() });
+                await db.registros_jornada.update(record.id!, { synced: 1, firebaseId: jornadaId });
+
+             } catch(error) {
+                console.error("Failed to sync jornada record:", record.id, error);
+             }
+          }
+
+          // --- Sync Gastos ---
+           for (const record of pendingGastos) {
+             try {
+                const { data } = record.data;
+                const gastoRef = doc(collection(firestore, "gastos"));
+                let comprobanteUrl = '';
+
+                if (data.comprobanteFile) {
+                    const fileRef = ref(storage, `comprobantes_gastos/${gastoRef.id}/${data.comprobanteFile.name}`);
+                    await uploadBytes(fileRef, data.comprobanteFile);
+                    comprobanteUrl = await getDownloadURL(fileRef);
+                }
+
+                const cleanData = { ...data };
+                delete cleanData.comprobanteFile;
+                
+                await setDoc(gastoRef, { ...cleanData, comprobanteUrl, fecha_creacion: serverTimestamp() });
+                await db.gastos.update(record.id!, { synced: 1, firebaseId: gastoRef.id });
+
+             } catch(error) {
+                 console.error("Failed to sync gasto record:", record.id, error);
+             }
+           }
+
+
+          toast({
+            title: "¡Sincronización completa!",
+            description: `${totalPending} registros se han guardado en la nube.`,
+          });
+        }
+        setIsSyncing(false);
+      }
+    };
+    syncOfflineData();
+  }, [isOnline, isSyncing, user, firestore, toast]);
+
   useEffect(() => {
     setHasMounted(true);
     
     const handleInstallPrompt = (e: Event) => {
-        // Prevent the mini-infobar from appearing on mobile
         e.preventDefault();
-        // Stash the event so it can be triggered later.
         setInstallPrompt(e);
     };
 
     if (typeof window !== "undefined") {
       window.addEventListener('beforeinstallprompt', handleInstallPrompt);
 
-      // --- Service Worker Registration ---
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js')
-          .then((registration) => {
-            console.log('Service Worker registered successfully with scope: ', registration.scope);
-          })
-          .catch((error) => {
-            console.error('Service Worker registration failed: ', error);
-          });
+          .then((reg) => console.log('Service Worker registered.', reg))
+          .catch((err) => console.log('Service Worker registration failed:', err));
       }
-      // --- End of Service Worker Registration ---
 
-      // --- Initialize Speech Recognition ---
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
@@ -135,13 +241,11 @@ const InspectionPageContent = () => {
         };
         
         recognition.onend = () => {
-            // This ensures the button state is correct if recognition stops on its own
             setIsDictating(false);
         };
 
         recognitionRef.current = recognition;
       }
-      // --- End of Speech Recognition Init ---
 
       return () => {
         window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
@@ -167,15 +271,12 @@ const InspectionPageContent = () => {
   
   const handleStartInspectionFromTask = (task: any) => {
     setSelectedTask(task);
-    // Asume un tipo de formulario por defecto o extrae el tipo de la tarea
     setActiveInspectionForm('informe-revision'); 
     setActiveTab(TABS.NEW_INSPECTION);
   };
 
   const handleBackToHub = () => {
     setActiveInspectionForm(null);
-    // Al limpiar el formulario activo, la vista vuelve al "Hub" de selección
-    // siempre que la pestaña activa siga siendo TABS.NEW_INSPECTION.
   }
 
   const handleInstallClick = () => {
@@ -199,26 +300,25 @@ const InspectionPageContent = () => {
   };
 
   const toggleDictation = () => {
-    if (!isOnline) {
-        toast({ variant: "destructive", title: "Sin Conexión", description: "El dictado por IA requiere conexión a internet." });
-        return;
-    }
-    if (!recognitionRef.current) {
-        toast({ variant: "destructive", title: "Navegador no compatible", description: "El dictado por voz no funciona en este navegador. Prueba con Chrome." });
-        return;
-    }
-    if (isDictating) {
-        recognitionRef.current.stop();
-        setIsDictating(false); // Manually set state, onend can be slow
-    } else {
-        setAiData(null); // Reset previous data on new dictation
-        recognitionRef.current.start();
-        setIsDictating(true);
-    }
+      if (!isOnline) {
+          toast({ variant: "destructive", title: "Sin Conexión", description: "El dictado por IA requiere conexión a internet." });
+          return;
+      }
+      if (!recognitionRef.current) {
+          toast({ variant: "destructive", title: "Navegador no compatible", description: "El dictado por voz no funciona en este navegador. Prueba con Chrome." });
+          return;
+      }
+      if (isDictating) {
+          recognitionRef.current.stop();
+          setIsDictating(false);
+      } else {
+          setAiData(null);
+          recognitionRef.current.start();
+          setIsDictating(true);
+      }
   };
 
   const renderFloatingDictationButton = () => {
-      // Show only on data-heavy forms that benefit from global dictation
       const supportedForms: FormType[] = ['hoja-trabajo', 'informe-tecnico', 'informe-revision', 'informe-simplificado'];
       if (!activeInspectionForm || !supportedForms.includes(activeInspectionForm)) {
           return null;
@@ -238,7 +338,7 @@ const InspectionPageContent = () => {
       );
   };
 
-  if (!user) {
+  if (isUserLoading) {
      return <div className="flex h-screen items-center justify-center bg-slate-100"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
