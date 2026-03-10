@@ -131,7 +131,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase
-                    ${task.estado === 'Completado' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                    ${task.estado === 'Completado' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>
                     {task.id}
                   </span>
                   <span className="flex items-center gap-1 text-[9px] font-bold text-slate-400">
@@ -176,5 +176,3 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
     </div>
   );
 }
-
-    

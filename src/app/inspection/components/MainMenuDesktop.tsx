@@ -35,7 +35,7 @@ const menuItems = [
   {
     id: TABS.EXPENSES,
     label: 'Jornada Laboral',
-    desc: 'Registro de horas de trabajo y gastos.',
+    desc: 'Registro de horas y gastos.',
     icon: <Receipt size={28} />,
     classes: 'bg-slate-900 border-slate-700 text-primary',
     labelColor: 'text-white', // Texto claro para contraste

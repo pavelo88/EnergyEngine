@@ -35,7 +35,7 @@ const menuItems = [
   {
     id: TABS.EXPENSES,
     label: 'Jornada Laboral',
-    desc: 'Registro de horas de trabajo y gastos.',
+    desc: 'Registro de horas y gastos.',
     icon: <Receipt className="w-1/3 h-1/3" />,
     classes: 'bg-slate-900 border-slate-700 text-primary',
     labelColor: 'text-white',
@@ -76,10 +76,10 @@ export default function MainMenuTablet({ onNavigate, userName }: MainMenuProps) 
                 </div>
 
                 <div className="text-center flex-shrink-0">
-                  <h3 className={`text-6xl font-bold tracking-tight ${item.labelColor}`}>
+                  <h3 className={`text-4xl font-bold tracking-tight ${item.labelColor}`}>
                     {item.label}
                   </h3>
-                  <p className={`mt-2 text-2xl font-medium ${item.descColor}`}>{item.desc}</p>
+                  <p className={`mt-2 text-xl font-medium ${item.descColor}`}>{item.desc}</p>
                 </div>
 
                 <ArrowUpRight className="absolute top-6 right-6 text-slate-400 opacity-50 group-hover:opacity-100 transition-opacity" />

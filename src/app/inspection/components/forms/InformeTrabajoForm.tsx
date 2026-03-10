@@ -140,31 +140,31 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 // 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
 const drawHeader = () => {
   const logoX = leftMargin;
-  const logoY = 3; // ¡Mucho más arriba! (antes 10)
-  const logoWidth = 20; // Tamaño del logo ligeramente reducido para mayor elegancia
+  const logoY = 3;
+  const logoWidth = 20;
   const logoHeight = 20;
   
-  doc.setFillColor(39, 180, 96); // Un verde esmeralda para el fondo
+  doc.setFillColor(39, 180, 96);
   doc.rect(0, 0, pageWidth, 26, 'F'); 
 
   doc.addImage(logoLight.src, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
-  const textX = logoX + logoWidth + 6; // Margen de 4mm tras el logo
-  const textYStart = logoY + 9; // Ajuste vertical para alinearse con el logo
+  const textX = logoX + logoWidth + 6;
+  const textYStart = logoY + 9;
 
   doc.setFont('helvetica', 'bold');
   
-  doc.setFontSize(18); // Ligeramente más grande para que sea el título principal
-  doc.setTextColor(255, 255, 255); // Blanco puro
+  doc.setFontSize(18);
+  doc.setTextColor(255, 255, 255);
   doc.text("energy engine", textX, textYStart);
   
   doc.setFontSize(10);
-  doc.setTextColor(220, 220, 220); // Gris muy claro
+  doc.setTextColor(220, 220, 220);
   doc.text("GRUPOS ELECTRÓGENOS", textX, textYStart + 6);
   
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(220, 220, 220); // Gris muy claro para los links
+  doc.setTextColor(220, 220, 220);
 
   const rightTextX = pageWidth - rightMargin;
   

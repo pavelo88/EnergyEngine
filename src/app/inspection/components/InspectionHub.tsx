@@ -64,7 +64,7 @@ export default function InspectionHub({ onSelectInspectionType }: { onSelectInsp
       {/* Sección para cargar datos previos */}
       <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-4">
         <h2 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">
-          <HardDrive size={18} className="text-blue-500" />
+          <HardDrive size={18} className="text-primary" />
           Llenado Inteligente (Opcional)
         </h2>
         <p className="text-sm text-slate-500">
@@ -76,9 +76,9 @@ export default function InspectionHub({ onSelectInspectionType }: { onSelectInsp
             onChange={(e) => setInspectionId(e.target.value)}
             type="text" 
             placeholder="Ej: HT-24-1234" 
-            className="flex-grow p-4 rounded-2xl bg-slate-50 border-none font-bold text-slate-700 placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-grow p-4 rounded-2xl bg-slate-50 border-none font-bold text-slate-700 placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-primary"
           />
-          {loading && <Loader2 className="animate-spin text-blue-500" />}
+          {loading && <Loader2 className="animate-spin text-primary" />}
         </div>
         {error && <p className="text-red-500 text-xs font-bold">{error}</p>}
       </section>
@@ -91,16 +91,16 @@ export default function InspectionHub({ onSelectInspectionType }: { onSelectInsp
             <button 
               key={type.id}
               onClick={() => handleLoadInspection(type.id)}
-              className="relative bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col text-center justify-center items-center gap-4 group active:scale-[0.98] transition-all hover:border-blue-500/50 hover:shadow-lg md:h-64"
+              className="relative bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col text-center justify-center items-center gap-4 group active:scale-[0.98] transition-all hover:border-primary/50 hover:shadow-lg md:h-64"
             >
-              <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-3xl flex-shrink-0 flex items-center justify-center transition-transform group-hover:scale-110">
+              <div className="w-16 h-16 bg-primary/10 text-primary rounded-3xl flex-shrink-0 flex items-center justify-center transition-transform group-hover:scale-110">
                 <type.icon size={32} />
               </div>
               <div>
                 <h3 className="font-black text-slate-900 tracking-tight text-xl">{type.title}</h3>
                 <p className="text-sm text-slate-500 mt-1 max-w-[250px] mx-auto">{type.desc}</p>
               </div>
-              <ArrowRight className="text-slate-300 group-hover:text-blue-500 transition-colors absolute top-6 right-6" size={24}/>
+              <ArrowRight className="text-slate-300 group-hover:text-primary transition-colors absolute top-6 right-6" size={24}/>
             </button>
           ))}
         </div>

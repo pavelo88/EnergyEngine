@@ -76,13 +76,13 @@ export default function ProfileTab() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* TARJETA DE USUARIO */}
       <section className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-4">
-        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center">
+        <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
           <User size={32} />
         </div>
         <div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inspector RTS Conectado</p>
           <h2 className="text-xl font-black text-slate-900 tracking-tight">
-            {auth.currentUser?.email?.split('@')[0].toUpperCase() || 'TÉCNICO ENERGY'}
+            {auth.currentUser?.displayName?.toUpperCase() || auth.currentUser?.email?.split('@')[0].toUpperCase() || 'TÉCNICO ENERGY'}
           </h2>
           <p className="text-sm font-medium text-slate-500">{auth.currentUser?.email}</p>
         </div>
@@ -92,10 +92,10 @@ export default function ProfileTab() {
       <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
         <div className="flex justify-between items-center">
           <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">
-            <PenTool size={18} className="text-emerald-500" /> Firma del Inspector
+            <PenTool size={18} className="text-primary" /> Firma del Inspector
           </h3>
           {savedSignature && (
-            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
+            <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full">
               <CheckCircle2 size={12} /> CONFIGURADA
             </span>
           )}
@@ -132,7 +132,7 @@ export default function ProfileTab() {
             onClick={saveSignature}
             className="flex-1 flex items-center justify-center gap-2 p-4 rounded-2xl font-black text-white bg-slate-900 shadow-lg active:scale-95 transition-all text-xs"
           >
-            <Save size={16} className="text-emerald-500" /> GUARDAR FIRMA
+            <Save size={16} className="text-primary" /> GUARDAR FIRMA
           </button>
         </div>
 

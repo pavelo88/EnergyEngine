@@ -211,48 +211,36 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 // 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
 const drawHeader = () => {
   const logoX = leftMargin;
-  const logoY = 3; // ¡Mucho más arriba! (antes 10)
-  const logoWidth = 20; // Tamaño del logo ligeramente reducido para mayor elegancia
+  const logoY = 3; 
+  const logoWidth = 20; 
   const logoHeight = 20;
   
-  // --- 1. DIBUJAR EL FONDO VERDE PARA TODO EL ENCABEZADO ---
-  // Establece el color de relleno verde. He usado un verde de contraste (RGB).
-  doc.setFillColor(39, 180, 96); // Un verde esmeralda para el fondo
-  // Dibuja un rectángulo lleno (modo 'F') que cubre todo el ancho y una altura de 25mm.
+  doc.setFillColor(39, 180, 96);
   doc.rect(0, 0, pageWidth, 26, 'F'); 
 
-  // --- 2. DIBUJAR EL LOGO ---
   doc.addImage(logoLight.src, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
-  // --- 3. DIBUJAR EL TEXTO DE LA EMPRESA ---
-  const textX = logoX + logoWidth + 6; // Margen de 4mm tras el logo
-  const textYStart = logoY + 9; // Ajuste vertical para alinearse con el logo
+  const textX = logoX + logoWidth + 6; 
+  const textYStart = logoY + 9;
 
   doc.setFont('helvetica', 'bold');
   
-  // Línea 1: "energy engine" en BLANCO
-  doc.setFontSize(18); // Ligeramente más grande para que sea el título principal
-  doc.setTextColor(255, 255, 255); // Blanco puro
+  doc.setFontSize(18);
+  doc.setTextColor(255, 255, 255);
   doc.text("energy engine", textX, textYStart);
   
-  // Línea 2: "GRUPOS ELECTRÓGENOS" en GRIS CLARO
   doc.setFontSize(10);
-  doc.setTextColor(220, 220, 220); // Gris muy claro
+  doc.setTextColor(220, 220, 220);
   doc.text("GRUPOS ELECTRÓGENOS", textX, textYStart + 6);
   
-  // --- 4. DIBUJAR LA INFORMACIÓN DE CONTACTO A LA DERECHA ---
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(220, 220, 220); // Gris muy claro para los links
+  doc.setTextColor(220, 220, 220);
 
   const rightTextX = pageWidth - rightMargin;
   
-  // Subimos las coordenadas Y de los textos de la derecha para alinearlos con el logo superior.
-  // URL arriba
   doc.text("https://www.energyengine.es", rightTextX, logoY + 8, { align: 'right' });
-  // Teléfono en medio
   doc.text("Tel: 92 515 43 53", rightTextX, logoY + 13, { align: 'right' });
-  // Email abajo
   doc.text("serviciotecnico@energyengine.es", rightTextX, logoY + 16, { align: 'right' });
 };
 
@@ -344,13 +332,13 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                     setInspectorName(userName);
                     setFormData((prev: any) => ({...prev, tecnicos: userName}));
                 } else {
-                     setInspectorName(user.email || 'Técnico');
-                     setFormData((prev: any) => ({...prev, tecnicos: user.email || 'Técnico' }));
+                     setInspectorName(user.displayName || user.email || 'Técnico');
+                     setFormData((prev: any) => ({...prev, tecnicos: user.displayName || user.email || 'Técnico' }));
                 }
             } catch(e: any) {
                 console.error("Error fetching user name:", e);
-                setInspectorName(user.email || 'Técnico');
-                setFormData((prev: any) => ({...prev, tecnicos: user.email || 'Técnico' }));
+                setInspectorName(user.displayName || user.email || 'Técnico');
+                setFormData((prev: any) => ({...prev, tecnicos: user.displayName || user.email || 'Técnico' }));
             }
         }
     };

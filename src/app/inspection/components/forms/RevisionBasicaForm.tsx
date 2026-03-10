@@ -23,10 +23,10 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
   <div className="space-y-1 w-full text-left">
     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
     <div className="relative group">
-      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-purple-500 transition-colors" size={16}/>}
+      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={16}/>}
       <input 
         type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-purple-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
+        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
       />
     </div>
   </div>
@@ -37,7 +37,7 @@ const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
         <label className="text-[9px] font-black text-slate-500 w-full text-center">{label}</label>
         <input 
             type="text" value={value || ''} onChange={e => onChange(e.target.value)}
-            className="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-2 outline-none focus:border-purple-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
+            className="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-2 outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
         />
     </div>
 ));
@@ -257,31 +257,31 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   // 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
 const drawHeader = () => {
   const logoX = leftMargin;
-  const logoY = 3; // ¡Mucho más arriba! (antes 10)
-  const logoWidth = 20; // Tamaño del logo ligeramente reducido para mayor elegancia
+  const logoY = 3;
+  const logoWidth = 20;
   const logoHeight = 20;
   
-  doc.setFillColor(39, 180, 96); // Un verde esmeralda para el fondo
+  doc.setFillColor(39, 180, 96);
   doc.rect(0, 0, pageWidth, 26, 'F'); 
 
   doc.addImage(logoLight.src, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
-  const textX = logoX + logoWidth + 6; // Margen de 4mm tras el logo
-  const textYStart = logoY + 9; // Ajuste vertical para alinearse con el logo
+  const textX = logoX + logoWidth + 6;
+  const textYStart = logoY + 9;
 
   doc.setFont('helvetica', 'bold');
   
-  doc.setFontSize(18); // Ligeramente más grande para que sea el título principal
-  doc.setTextColor(255, 255, 255); // Blanco puro
+  doc.setFontSize(18);
+  doc.setTextColor(255, 255, 255);
   doc.text("energy engine", textX, textYStart);
   
   doc.setFontSize(10);
-  doc.setTextColor(220, 220, 220); // Gris muy claro
+  doc.setTextColor(220, 220, 220);
   doc.text("GRUPOS ELECTRÓGENOS", textX, textYStart + 6);
   
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(220, 220, 220); // Gris muy claro para los links
+  doc.setTextColor(220, 220, 220);
 
   const rightTextX = pageWidth - rightMargin;
   
@@ -563,7 +563,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
         
         <main className="p-4 md:p-6 space-y-8 pb-40">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-black text-slate-800 border-l-4 border-purple-500 pl-4 uppercase tracking-tighter">Revisión Básica</h2>
+              <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Revisión Básica</h2>
             </div>
 
             {/* --- DATOS GENERALES --- */}
@@ -582,9 +582,9 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
                     <button 
                         onClick={handleCaptureLocation} 
                         disabled={locationStatus === 'loading'} 
-                        className={`w-full bg-slate-50 border-2 rounded-xl p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 text-slate-700 hover:border-purple-500'}`}
+                        className={`w-full bg-slate-50 border-2 rounded-xl p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 text-slate-700 hover:border-primary'}`}
                     >
-                        {locationStatus === 'loading' && <Loader2 className="animate-spin text-purple-500" size={16}/>}
+                        {locationStatus === 'loading' && <Loader2 className="animate-spin text-primary" size={16}/>}
                         {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 size={16}/> : <MapPin size={16}/>)}
                         <span>{formData.location ? `Ubicación Capturada: ${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación (Obligatorio)'}</span>
                     </button>
@@ -597,11 +597,11 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
                     <h3 className="font-bold text-slate-500">{section}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                         {(items as string[]).map(it => (
-                        <div key={it} className={`p-4 rounded-xl flex justify-between items-center transition-all border ${formData.checklist[it] ? 'bg-purple-50/50 border-purple-200/50' : 'bg-slate-50/50 border-slate-100'}`}>
+                        <div key={it} className={`p-4 rounded-xl flex justify-between items-center transition-all border ${formData.checklist[it] ? 'bg-primary/10 border-primary/20' : 'bg-slate-50/50 border-slate-100'}`}>
                             <span className="text-lg font-bold text-slate-700">{it}</span>
                             <div className="flex gap-1">
                             {["OK", "DEFECTUOSO", "CAMBIO"].map(st => (
-                                <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-20 h-8 rounded-lg text-[10px] font-black border-2 transition-all ${formData.checklist[it] === st ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-purple-300'}`}>{st}</button>
+                                <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-20 h-8 rounded-lg text-[10px] font-black border-2 transition-all ${formData.checklist[it] === st ? 'bg-primary border-primary text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-primary/50'}`}>{st}</button>
                             ))}
                             </div>
                         </div>
@@ -649,7 +649,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
             </section>
 
              <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-                <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Camera className="text-purple-500"/> Evidencia Fotográfica</h2>
+                <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Camera className="text-primary"/> Evidencia Fotográfica</h2>
                 <div>
                     <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-200 transition-colors">
                         <Camera size={32} className="text-slate-400 mb-2"/>
@@ -694,7 +694,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
                     {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
                 </button>
                 <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
-                    {saving ? <Loader2 className="animate-spin text-purple-500" /> : isSaved ? <CheckCircle2 className="text-purple-500" /> : <Save className="text-purple-500" />}
+                    {saving ? <Loader2 className="animate-spin text-primary" /> : isSaved ? <CheckCircle2 className="text-primary" /> : <Save className="text-primary" />}
                     {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR REVISIÓN'}
                 </button>
             </div>

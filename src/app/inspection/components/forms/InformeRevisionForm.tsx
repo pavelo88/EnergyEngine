@@ -224,31 +224,31 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 // 7. DIBUJAR ENCABEZADOS Y PIES DE PÁGINA GLOBALES
 const drawHeader = () => {
   const logoX = leftMargin;
-  const logoY = 3; // ¡Mucho más arriba! (antes 10)
-  const logoWidth = 20; // Tamaño del logo ligeramente reducido para mayor elegancia
+  const logoY = 3;
+  const logoWidth = 20;
   const logoHeight = 20;
   
-  doc.setFillColor(39, 180, 96); // Un verde esmeralda para el fondo
+  doc.setFillColor(39, 180, 96);
   doc.rect(0, 0, pageWidth, 26, 'F'); 
 
   doc.addImage(logoLight.src, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
-  const textX = logoX + logoWidth + 6; // Margen de 4mm tras el logo
-  const textYStart = logoY + 9; // Ajuste vertical para alinearse con el logo
+  const textX = logoX + logoWidth + 6;
+  const textYStart = logoY + 9;
 
   doc.setFont('helvetica', 'bold');
   
-  doc.setFontSize(18); // Ligeramente más grande para que sea el título principal
-  doc.setTextColor(255, 255, 255); // Blanco puro
+  doc.setFontSize(18);
+  doc.setTextColor(255, 255, 255);
   doc.text("energy engine", textX, textYStart);
   
   doc.setFontSize(10);
-  doc.setTextColor(220, 220, 220); // Gris muy claro
+  doc.setTextColor(220, 220, 220);
   doc.text("GRUPOS ELECTRÓGENOS", textX, textYStart + 6);
   
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(220, 220, 220); // Gris muy claro para los links
+  doc.setTextColor(220, 220, 220);
 
   const rightTextX = pageWidth - rightMargin;
   
@@ -525,9 +525,9 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
                     <button 
                         onClick={handleCaptureLocation} 
                         disabled={locationStatus === 'loading'} 
-                        className={`w-full bg-slate-50 border-2 rounded-xl p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 text-slate-700 hover:border-blue-500'}`}
+                        className={`w-full bg-slate-50 border-2 rounded-xl p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 text-slate-700 hover:border-primary'}`}
                     >
-                        {locationStatus === 'loading' && <Loader2 className="animate-spin text-blue-500" size={16}/>}
+                        {locationStatus === 'loading' && <Loader2 className="animate-spin text-primary" size={16}/>}
                         {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 size={16}/> : <MapPin size={16}/>)}
                         <span>{formData.location ? `Ubicación Capturada: ${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación (Obligatorio)'}</span>
                     </button>
@@ -539,13 +539,13 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
             {Object.entries(CHECKLIST_SECTIONS).map(([section, items]) => (
                 <section key={section} className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
                     <h3 className="font-bold text-slate-500">{section}</h3>
-                    <div className="grid grid-cols-1 gap-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                         {(items as string[]).map(it => (
-                        <div key={it} className={`p-4 rounded-xl flex justify-between items-center transition-all border ${formData.checklist[it] ? 'bg-blue-50/50 border-blue-200/50' : 'bg-slate-50/50 border-slate-100'}`}>
+                        <div key={it} className={`p-4 rounded-xl flex justify-between items-center transition-all border ${formData.checklist[it] ? 'bg-primary/10 border-primary/20' : 'bg-slate-50/50 border-slate-100'}`}>
                             <span className="text-lg font-bold text-slate-700">{it}</span>
                             <div className="flex gap-1">
                             {["OK", "DEFECTUOSO", "CAMBIO"].map(st => (
-                                <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-20 h-8 rounded-lg text-[10px] font-black border-2 transition-all ${formData.checklist[it] === st ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-blue-300'}`}>{st}</button>
+                                <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-20 h-8 rounded-lg text-[10px] font-black border-2 transition-all ${formData.checklist[it] === st ? 'bg-primary border-primary text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-primary/50'}`}>{st}</button>
                             ))}
                             </div>
                         </div>
@@ -578,7 +578,7 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
             </section>
             
             <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-                <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Camera className="text-blue-500"/> Evidencia Fotográfica</h2>
+                <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Camera className="text-primary"/> Evidencia Fotográfica</h2>
                 <div>
                     <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-200 transition-colors">
                         <Camera size={32} className="text-slate-400 mb-2"/>
@@ -623,7 +623,7 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
                     {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
                 </button>
                 <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
-                    {saving ? <Loader2 className="animate-spin text-blue-500" /> : isSaved ? <CheckCircle2 className="text-blue-500" /> : <Save className="text-blue-500" />}
+                    {saving ? <Loader2 className="animate-spin text-primary" /> : isSaved ? <CheckCircle2 className="text-primary" /> : <Save className="text-primary" />}
                     {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR REVISIÓN'}
                 </button>
             </div>
