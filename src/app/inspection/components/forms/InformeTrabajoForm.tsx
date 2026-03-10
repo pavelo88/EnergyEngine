@@ -10,6 +10,9 @@ import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
 import logoLight from '@/app/logo.png';
+import { useOnlineStatus } from '@/hooks/use-online-status';
+import { db } from '@/lib/db-local';
+import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
@@ -194,6 +197,7 @@ const drawHeader = () => {
 export default function InformeTecnicoForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
   const db = useFirestore();
+  const isOnline = useOnlineStatus();
   const [inspectorName, setInspectorName] = useState('');
   
   const [formData, setFormData] = useState({
@@ -319,37 +323,71 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   };
 
   const handleSave = async () => {
-    if (!db || !user || !inspectorSignature) return alert("La firma del inspector es obligatoria.");
+    if (!user || !db || !inspectorSignature) {
+      alert("La firma del inspector es obligatoria.");
+      return;
+    }
+    if (isSaved) return;
+
     setSaving(true);
     const formType = 'informe-tecnico';
-    try {
-      // GENERATE SEQUENTIAL ID
-      const trabajosRef = collection(db, 'trabajos');
-      const qTrabajos = query(trabajosRef, where('formType', '==', formType));
-      const trabajosSnapshot = await getDocs(qTrabajos);
-      const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
-      const year = new Date().getFullYear();
-      const docId = `IT-${year}-${sequentialNumber}`;
 
-      const docData = { 
-        ...formData, 
-        inspectorSignatureUrl: inspectorSignature, 
-        tecnicoId: user.uid, 
-        tecnicoNombre: inspectorName,
-        fecha_creacion: Timestamp.now(), 
-        formType: formType,
-        id: docId,
-        estado: 'Completado',
-      };
-      await setDoc(doc(db, 'trabajos', docId), docData);
-      setSavedDocId(docId);
-      setIsSaved(true);
-      alert(`Informe Técnico guardado. ID: ${docId}`);
-    } catch (e: any) { 
-        console.error("Error saving document:", e); 
-    } finally { 
-        setSaving(false); 
+    const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
+        const localData = { ...formData };
+        if (!synced) {
+            (localData as any).inspectorSignature = inspectorSignature;
+        }
+
+        await db.hojas_trabajo.add({
+            firebaseId: firebaseId || '',
+            synced,
+            data: localData,
+            createdAt: new Date(),
+        });
+
+        if (!synced) {
+            alert('Modo offline: El informe se ha guardado en tu dispositivo y se sincronizará cuando vuelvas a tener conexión.');
+        } else {
+            alert(`Informe Técnico guardado con éxito. ID: ${firebaseId}`);
+        }
+    };
+
+    if (isOnline) {
+        try {
+            const trabajosRef = collection(db, 'trabajos');
+            const qTrabajos = query(trabajosRef, where('formType', '==', formType));
+            const trabajosSnapshot = await getDocs(qTrabajos);
+            const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
+            const year = new Date().getFullYear();
+            const docId = `IT-${year}-${sequentialNumber}`;
+
+            const storage = getStorage();
+            const inspectorSignatureUrl = inspectorSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/inspector.png`), inspectorSignature, 'data_url')) : null;
+
+            const docData = { 
+                ...formData, 
+                inspectorSignatureUrl: inspectorSignatureUrl, 
+                tecnicoId: user.uid, 
+                tecnicoNombre: inspectorName,
+                fecha_creacion: Timestamp.now(), 
+                formType: formType,
+                id: docId,
+                estado: 'Completado',
+            };
+
+            await setDoc(doc(db, 'trabajos', docId), docData);
+            await saveDataToLocal(true, docId);
+            setSavedDocId(docId);
+            setIsSaved(true);
+
+        } catch (error) {
+            console.error("Error guardando en Firebase, guardando localmente...", error);
+            await saveDataToLocal(false);
+        }
+    } else {
+        await saveDataToLocal(false);
     }
+    setSaving(false);
   };
 
   return (

@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from '@/components/ui/input';
+import { useOnlineStatus } from '@/hooks/use-online-status';
+import { db } from '@/lib/db-local';
 
 // --- TIPOS DE DATOS ---
 type GastoItem = {
@@ -32,8 +34,9 @@ const initialGastoState = { rubro: 'Alimentación', monto: '', descripcion: '', 
 // --- COMPONENTE PRINCIPAL ---
 export default function RegistroJornadaForm() {
   const { user } = useUser();
-  const db = useFirestore();
-  const storage = db ? getStorage(db.app) : null;
+  const dbFirestore = useFirestore();
+  const storage = dbFirestore ? getStorage(dbFirestore.app) : null;
+  const isOnline = useOnlineStatus();
 
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const [observacionesDiarias, setObservacionesDiarias] = useState('');
@@ -148,78 +151,102 @@ export default function RegistroJornadaForm() {
   const totalGastos = useMemo(() => gastos.reduce((acc, curr) => acc + curr.monto, 0), [gastos]);
 
   const handleSaveParte = async () => {
-    if (!user || !db || !storage) return alert("Error de autenticación o servicios no disponibles.");
+    if (!user || !dbFirestore || !storage) return alert("Error de autenticación o servicios no disponibles.");
     if (!horas.normales) return alert("Por favor, introduce al menos las horas normales trabajadas.");
     if (!signature) return alert("La firma del técnico es obligatoria para validar la jornada.");
     if (!ubicacionPrincipal) return alert("La ubicación principal es obligatoria para iniciar la jornada.");
 
     setLoading(true);
-    try {
-        // 1. Guardar cada gasto como un documento individual en la colección 'gastos'
-        const gastosBatch = writeBatch(db);
-        const gastosCollectionRef = collection(db, "gastos");
-        const jornadaId = `J-${Date.now().toString().slice(-6)}`;
+    
+    const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
+        const jornadaData = {
+            reportDate, horas, observacionesDiarias, ubicacionPrincipal, lugarTrabajo,
+            inspectorId: user.uid, inspectorNombre: user.displayName || user.email,
+        };
 
-        for (const gasto of gastos) {
-            const gastoRef = doc(gastosCollectionRef); // Nuevo doc para cada gasto
-            
-            let comprobanteUrl = '';
-            if (gasto.comprobanteFile) {
-                const fileRef = ref(storage, `comprobantes_gastos/${jornadaId}/${gasto.comprobanteFile.name}`);
-                await uploadBytes(fileRef, gasto.comprobanteFile);
-                comprobanteUrl = await getDownloadURL(fileRef);
-            }
-
-            gastosBatch.set(gastoRef, {
-                fecha: reportDate,
-                inspectorId: user.uid,
-                inspectorNombre: user.displayName || user.email,
-                clienteNombre: lugarTrabajo || 'Varios/Oficina',
-                descripcion: gasto.descripcion,
-                categoria: gasto.rubro,
-                monto: gasto.monto,
-                estado: 'Pendiente de Aprobación',
-                forma_pago: gasto.forma_pago,
-                comprobanteUrl: comprobanteUrl
-            });
-        }
-        await gastosBatch.commit();
-
-        // 2. Guardar la jornada (horas y observaciones) en la colección 'jornadas'
-        const jornadaDocRef = doc(collection(db, "jornadas"), jornadaId);
-        const firmaUrl = await getDownloadURL(await uploadString(ref(storage, `firmas_jornadas/${jornadaId}.png`), signature, 'data_url'));
-
-        await setDoc(jornadaDocRef, {
-            id: jornadaDocRef.id,
+        const gastosData = gastos.map(g => ({
+            ...g,
+            fecha: reportDate,
             inspectorId: user.uid,
             inspectorNombre: user.displayName || user.email,
-            fecha: reportDate,
-            ubicacionPrincipal,
-            lugarTrabajo,
-            horas,
-            observaciones: observacionesDiarias,
-            firmaUrl,
-            fecha_creacion: serverTimestamp(),
+            clienteNombre: lugarTrabajo || 'Varios/Oficina',
+            estado: 'Pendiente de Aprobación',
+        }));
+        
+        await db.registros_jornada.add({
+            firebaseId: firebaseId || '',
+            synced,
+            data: { ...jornadaData, signature }, // Guardamos la firma en base64
+            createdAt: new Date(),
         });
         
-        alert(`¡Jornada y ${gastos.length} gastos registrados con éxito! ID: ${jornadaId}`);
+        for (const gasto of gastosData) {
+            await db.gastos.add({
+                firebaseId: '', // Gastos se sincronizarán por separado
+                synced,
+                data: gasto,
+                createdAt: new Date(),
+            });
+        }
         
-        // Reset form
-        setReportDate(new Date());
-        setHoras({ normales: '', extrasTipo1: '', extrasTipo2: '' });
-        setObservacionesDiarias('');
-        setGastos([]);
-        clearCanvas();
-        setUbicacionPrincipal(null);
-        setLocationStatus('idle');
-        setLugarTrabajo('');
+        if (!synced) {
+            alert('Modo offline: La jornada y los gastos se han guardado localmente y se sincronizarán más tarde.');
+        } else {
+            alert(`¡Jornada y ${gastos.length} gastos registrados con éxito y sincronizados! ID: ${firebaseId}`);
+        }
+    };
 
-    } catch (e: any) {
-        console.error("Error al guardar el parte diario: ", e);
-        alert("Error al guardar: " + e.message);
-    } finally {
-        setLoading(false);
+    if (isOnline) {
+        try {
+            const jornadaId = `J-${Date.now().toString().slice(-6)}`;
+            const firmaUrl = await getDownloadURL(await uploadString(ref(storage, `firmas_jornadas/${jornadaId}.png`), signature, 'data_url'));
+
+            const gastosBatch = writeBatch(dbFirestore);
+            const gastosCollectionRef = collection(dbFirestore, "gastos");
+            for (const gasto of gastos) {
+                const gastoRef = doc(gastosCollectionRef);
+                let comprobanteUrl = '';
+                if (gasto.comprobanteFile) {
+                    const fileRef = ref(storage, `comprobantes_gastos/${jornadaId}/${gasto.comprobanteFile.name}`);
+                    await uploadBytes(fileRef, gasto.comprobanteFile);
+                    comprobanteUrl = await getDownloadURL(fileRef);
+                }
+                gastosBatch.set(gastoRef, {
+                    fecha: reportDate, inspectorId: user.uid, inspectorNombre: user.displayName || user.email,
+                    clienteNombre: lugarTrabajo || 'Varios/Oficina', descripcion: gasto.descripcion, categoria: gasto.rubro,
+                    monto: gasto.monto, estado: 'Pendiente de Aprobación', forma_pago: gasto.forma_pago,
+                    comprobanteUrl
+                });
+            }
+            await gastosBatch.commit();
+            
+            const jornadaDocRef = doc(collection(dbFirestore, "jornadas"), jornadaId);
+            await setDoc(jornadaDocRef, {
+                id: jornadaDocRef.id, inspectorId: user.uid, inspectorNombre: user.displayName || user.email,
+                fecha: reportDate, ubicacionPrincipal, lugarTrabajo, horas,
+                observaciones: observacionesDiarias, firmaUrl, fecha_creacion: serverTimestamp(),
+            });
+
+            await saveDataToLocal(true, jornadaId);
+            
+        } catch (e: any) {
+            console.error("Error guardando en Firebase, guardando localmente...", e);
+            await saveDataToLocal(false);
+        }
+    } else {
+        await saveDataToLocal(false);
     }
+    
+    // Reset form
+    setReportDate(new Date());
+    setHoras({ normales: '', extrasTipo1: '', extrasTipo2: '' });
+    setObservacionesDiarias('');
+    setGastos([]);
+    clearCanvas();
+    setUbicacionPrincipal(null);
+    setLocationStatus('idle');
+    setLugarTrabajo('');
+    setLoading(false);
   };
 
 

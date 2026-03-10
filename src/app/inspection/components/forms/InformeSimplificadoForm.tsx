@@ -9,8 +9,10 @@ import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
 import { INITIAL_FORM_DATA } from '../../lib/form-constants';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import logoLight from '@/app/logo.png';
+import { useOnlineStatus } from '@/hooks/use-online-status';
+import { db } from '@/lib/db-local';
 
 const SIMPLIFIED_CHECKLIST_ITEMS = [
     "Filtro de Aceite",
@@ -264,6 +266,7 @@ const drawHeader = () => {
 export default function InformeSimplificadoForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
   const db = useFirestore();
+  const isOnline = useOnlineStatus();
   const [inspectorName, setInspectorName] = useState('');
   const [images, setImages] = useState<File[]>([]);
   
@@ -410,68 +413,74 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
   };
 
   const handleSave = async () => {
-    if (!db || !user) return alert("Error de autenticación.");
+    if (!user || !db) return alert("Error de autenticación o de base de datos. Por favor, recarga la página.");
     if (isSaved) return;
 
-    // VALIDATION
     if (!formData.cliente || !formData.instalacion || !formData.location || !inspectorSignature || !clientSignature) {
       alert("Es obligatorio rellenar Cliente, Instalación, Localización y ambas Firmas para guardar.");
       return;
     }
-
     setSaving(true);
-    
-    try {
-        // AUTO-CREATE CLIENT
-        const clientesRef = collection(db, "clientes");
-        const q = query(clientesRef, where("nombre", "==", formData.cliente.trim()));
-        const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty && formData.cliente.trim().length > 0) {
-            await addDoc(clientesRef, {
-                nombre: formData.cliente.trim(),
-                direccion: formData.direccion || '',
-                email: '',
-                telefono: ''
-            });
+    const formType = 'informe-simplificado';
+
+    const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
+        const localData = { ...formData };
+        if (!synced) {
+            (localData as any).images = images;
+            (localData as any).inspectorSignature = inspectorSignature;
+            (localData as any).clientSignature = clientSignature;
         }
+        await db.hojas_trabajo.add({ // Save to the generic reports table
+            firebaseId: firebaseId || '',
+            synced,
+            data: localData,
+            createdAt: new Date(),
+        });
+        if (!synced) {
+            alert('Modo offline: El informe se ha guardado en tu dispositivo y se sincronizará cuando vuelvas a tener conexión.');
+        } else {
+            alert(`Informe Simplificado guardado con éxito. ID: ${firebaseId}`);
+        }
+    };
 
-        const storage = getStorage();
-        const year = new Date().getFullYear();
-        const trabajosRef = collection(db, 'trabajos');
-        const qTrabajos = query(trabajosRef, where('formType', '==', 'informe-simplificado'));
-        const trabajosSnapshot = await getDocs(qTrabajos);
-        const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
-        const docId = `IS-${year}-${sequentialNumber}`;
+    if (isOnline) {
+        try {
+            const trabajosRef = collection(db, 'trabajos');
+            const qTrabajos = query(trabajosRef, where('formType', '==', formType));
+            const trabajosSnapshot = await getDocs(qTrabajos);
+            const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
+            const year = new Date().getFullYear();
+            const docId = `IS-${year}-${sequentialNumber}`;
 
-        const imageUrls = await Promise.all(
-            images.map(async (image) => {
-            const imageRef = ref(storage, `informes/${docId}/${image.name}`);
-            await uploadBytes(imageRef, image);
-            return await getDownloadURL(imageRef);
-            })
-        );
+            const storage = getStorage();
+            const imageUrls = await Promise.all(images.map(async (image) => {
+                const imageRef = ref(storage, `informes/${docId}/${image.name}`);
+                await uploadBytes(imageRef, image);
+                return await getDownloadURL(imageRef);
+            }));
 
-      const docData = { 
-          ...formData,
-          imageUrls,
-          inspectorSignatureUrl: inspectorSignature, 
-          clientSignatureUrl: clientSignature, 
-          tecnicoId: user.uid, 
-          tecnicoNombre: inspectorName, 
-          fecha_creacion: Timestamp.now(), 
-          formType: 'informe-simplificado',
-          id: docId,
-          estado: 'Completado',
-      };
-      await setDoc(doc(db, 'trabajos', docId), docData);
-      setSavedDocId(docId);
-      setIsSaved(true);
-      alert(`Informe Simplificado guardado con éxito. ID: ${docId}`);
-    } catch (e: any) { 
-      console.error("Error saving document:", e); 
-      alert("Error al guardar."); 
+            const inspectorSignatureUrl = inspectorSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/inspector.png`), inspectorSignature, 'data_url')) : null;
+            const clientSignatureUrl = clientSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/cliente.png`), clientSignature, 'data_url')) : null;
+
+            const docData = {
+                ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl,
+                tecnicoId: user.uid, tecnicoNombre: inspectorName,
+                fecha_creacion: Timestamp.now(), formType, id: docId, estado: 'Completado',
+            };
+
+            await setDoc(doc(db, 'trabajos', docId), docData);
+            await saveDataToLocal(true, docId);
+            setSavedDocId(docId);
+            setIsSaved(true);
+
+        } catch (error) {
+            console.error("Error guardando en Firebase, guardando localmente...", error);
+            await saveDataToLocal(false);
+        }
+    } else {
+        await saveDataToLocal(false);
     }
-    finally { setSaving(false); }
+    setSaving(false);
   };
   
   return (
