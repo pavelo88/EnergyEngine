@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
-import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage'; // CORRECCIÓN: Importaciones necesarias de Storage
+import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useFirestore, useUser } from '@/firebase';
 import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Mic } from 'lucide-react';
 import { splitTechnicalReport } from '@/ai/flows/split-technical-report-flow';
@@ -211,6 +211,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   const [inspectorName, setInspectorName] = useState('');
   
   const [formData, setFormData] = useState({
+    formType: 'informe-tecnico',
     cliente: '',
     motor: '',
     modelo: '',
@@ -350,15 +351,14 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       const year = new Date().getFullYear();
       const docId = `IT-${year}-${sequentialNumber}`;
 
-      // CORRECCIÓN: Subir firma a Storage para evitar límite de tamaño en Firestore
       const storage = getStorage();
       const inspectorSignatureRef = ref(storage, `firmas/${docId}/inspector.png`);
-      await uploadString(inspectorSignatureRef, inspectorSignature, 'data_url');
-      const inspectorSignatureUrl = await getDownloadURL(inspectorSignatureRef);
+      const uploadResult = await uploadString(inspectorSignatureRef, inspectorSignature, 'data_url');
+      const inspectorSignatureUrl = await getDownloadURL(uploadResult.ref);
 
       const docData = { 
         ...formData, 
-        inspectorSignatureUrl: inspectorSignatureUrl, // CORRECCIÓN: Guardamos la URL
+        inspectorSignatureUrl: inspectorSignatureUrl,
         tecnicoId: user.email || user.uid, 
         tecnicoNombre: inspectorName,
         fecha_guardado: Timestamp.now(), 
@@ -379,7 +379,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   };
 
   return (
-    <main className="max-w-4xl mx-auto p-4 md:p-6 space-y-8 animate-in fade-in bg-slate-50 min-h-screen">
+    <main className="space-y-8 animate-in fade-in bg-slate-50 min-h-screen">
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-4 border-b">
@@ -394,7 +394,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
       <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Técnico</h2>
       
-      <section className="bg-white p-8 rounded-lg shadow-sm space-y-6 border border-slate-100">
+      <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
          <h3 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Datos de Identificación</h3>
          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <StableInput label="Cliente" icon={User} value={formData.cliente} onChange={(v: string) => handleInputChange('cliente', v)}/>
@@ -409,7 +409,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
               <button 
                   onClick={handleCaptureLocation} 
                   disabled={locationStatus === 'loading'} 
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-lg p-4 flex items-center justify-center gap-3 font-bold text-slate-700 shadow-sm hover:border-primary transition-colors disabled:opacity-50"
+                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 flex items-center justify-center gap-3 font-bold text-slate-700 shadow-sm hover:border-primary transition-colors disabled:opacity-50"
               >
                   {locationStatus === 'loading' && <Loader2 className="animate-spin text-primary" size={18}/>}
                   {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 className="text-primary" size={18}/> : <MapPin className="text-slate-400" size={18}/>)}
@@ -419,7 +419,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
           </div>
       </section>
 
-      <section className="bg-white p-8 rounded-lg shadow-sm space-y-8 border border-slate-100">
+      <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-8 border border-slate-100">
          <div className="flex justify-between items-center">
             <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">
                 <Type size={18} className="text-primary" /> Descripción de la incidencia
@@ -430,27 +430,26 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             </button>
         </div>
         <textarea 
-            className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-lg p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600 shadow-inner resize-y leading-relaxed" 
+            className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600 shadow-inner resize-y leading-relaxed" 
             placeholder="Dicte o escriba aquí el informe completo. La IA lo estructurará en Antecedentes, Intervención y Resumen."
             value={formData.reportContent} 
             onChange={(e: any) => handleInputChange('reportContent', e.target.value)}
         />
       </section>
       
-      <section className="bg-white p-8 rounded-lg shadow-sm space-y-6 border border-slate-100">
+      <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
         <h2 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Validación</h2>
         <div>
-            {/* CORRECCIÓN: Se agregó la propiedad "signature" que faltaba */}
             <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
             <p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p>
         </div>
       </section>
       
       <div className="flex flex-col md:flex-row gap-4">
-        <button onClick={handlePdfAction} className="w-full p-8 bg-white text-slate-900 border-2 border-slate-200 rounded-lg font-bold text-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
+        <button onClick={handlePdfAction} className="w-full p-8 bg-white text-slate-900 border-2 border-slate-200 rounded-[2.5rem] font-bold text-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
             {isSaved ? <Printer/> : <FileSearch/>} {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
         </button>
-        <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-8 bg-slate-900 text-white rounded-lg font-black text-xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
+        <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
           {saving ? <Loader2 className="animate-spin text-primary"/> : isSaved ? <CheckCircle2 className="text-primary"/> : <Save className="text-primary"/>} {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR INFORME'}
         </button>
       </div>

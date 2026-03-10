@@ -223,7 +223,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
 export default function HojaTrabajoForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
-  const db = useFirestore();
+  const firestore = useFirestore();
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
@@ -287,9 +287,9 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
 
   useEffect(() => {
     const fetchUserName = async () => {
-        if (user && user.email && db) {
+        if (user && user.email && firestore) {
             try {
-                const userDocRef = doc(db, 'usuarios', user.email);
+                const userDocRef = doc(firestore, 'usuarios', user.email);
                 const userDocSnap = await getDoc(userDocRef);
                 if (userDocSnap.exists()) {
                     const userName = userDocSnap.data().nombre;
@@ -307,7 +307,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         }
     };
     fetchUserName();
-  }, [user, db]);
+  }, [user, firestore]);
 
   useEffect(() => {
     if (initialData) {
@@ -425,7 +425,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
   };
 
   const handleSave = async () => {
-    if (!user || !db || !user.email) return;
+    if (!user || !firestore || !user.email) return;
     if (!formData.cliente || !formData.instalacion || !formData.location || !inspectorSignature || !clientSignature) {
       toast({ variant: 'destructive', title: 'Datos incompletos' });
       return;
@@ -445,7 +445,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     if (isOnline) {
         try {
             const formType = 'hoja-trabajo';
-            const sequential = (await getDocs(query(collection(db, 'trabajos'), where('formType', '==', formType)))).size + 1;
+            const sequential = (await getDocs(query(collection(firestore, 'trabajos'), where('formType', '==', formType)))).size + 1;
             const docId = `HT-${new Date().getFullYear()}-${sequential.toString().padStart(3, '0')}`;
             const storage = getStorage();
 
@@ -469,8 +469,8 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                 fecha_creacion: Timestamp.now(), id: docId, formType, estado: 'Completado',
             };
             
-            await setDoc(doc(db, 'trabajos', docId), docData);
-            if (initialData?.id) await updateDoc(doc(db, 'trabajos', initialData.id), { estado: 'Completado' });
+            await setDoc(doc(firestore, 'trabajos', docId), docData);
+            if (initialData?.id) await updateDoc(doc(firestore, 'trabajos', initialData.id), { estado: 'Completado' });
             
             await saveDataToLocal(true, docId);
             setSavedDocId(docId);
@@ -499,7 +499,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         </DialogContent>
       </Dialog>
       
-      <main className="p-4 md:p-6 space-y-8 pb-40">
+      <main className="space-y-8 pb-40">
         <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase">Hoja de Trabajo</h2>
       
         <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">

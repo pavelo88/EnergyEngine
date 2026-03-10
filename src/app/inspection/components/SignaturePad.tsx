@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { Pen, Trash2, Check } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -14,7 +14,7 @@ interface SignaturePadProps {
 
 export default function SignaturePad({ title, onSignatureEnd, signature }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const hasDrawnRef = useRef<boolean>(false); // CORRECCIÓN: Referencia segura para saber si el usuario dibujó
+  const hasDrawnRef = useRef<boolean>(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -25,10 +25,8 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Reiniciamos el estado de dibujo al abrir el diálogo
     hasDrawnRef.current = false;
 
-    // --- High-resolution canvas setup ---
     const scale = window.devicePixelRatio;
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * scale;
@@ -40,7 +38,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
         img.src = signature;
         img.onload = () => {
             ctx.drawImage(img, 0, 0, canvas.width / scale, canvas.height / scale);
-            hasDrawnRef.current = true; // Si ya hay una firma cargada, la marcamos como válida
+            hasDrawnRef.current = true;
         };
     }
 
@@ -80,7 +78,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       ctx.lineTo(currentPoint.x, currentPoint.y);
       ctx.stroke();
       lastPoint = currentPoint;
-      hasDrawnRef.current = true; // CORRECCIÓN: En cuanto el usuario traza una línea, marcamos que no está en blanco
+      hasDrawnRef.current = true;
     };
 
     canvas.addEventListener('mousedown', start);
@@ -104,11 +102,10 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
 
   const handleSave = () => {
     if (canvasRef.current) {
-        // CORRECCIÓN: Evaluamos de forma segura usando nuestra referencia
         if (hasDrawnRef.current) {
             onSignatureEnd(canvasRef.current.toDataURL('image/png'));
         } else if (!signature) {
-            onSignatureEnd(null); // Si el lienzo está intacto, pasamos null
+            onSignatureEnd(null);
         }
         setIsDialogOpen(false);
     }
@@ -146,6 +143,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       >
         <DialogHeader className="flex-row items-center justify-between p-4 border-b bg-slate-50 rounded-t-2xl">
           <DialogTitle className="text-base font-bold">{title}</DialogTitle>
+          <DialogDescription className="sr-only">Panel para dibujar la firma digitalmente.</DialogDescription>
           <div className="flex items-center gap-2">
             <Button variant="destructive" size="sm" onClick={handleClearAndClose}><Trash2 size={16}/> Borrar firma</Button>
             <Button size="sm" onClick={handleSave}><Check size={16} /> Guardar y Cerrar</Button>

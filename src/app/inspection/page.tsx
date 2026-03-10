@@ -45,17 +45,14 @@ const InspectionPageContent = () => {
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // --- PWA Install State ---
   const [installPrompt, setInstallPrompt] = useState<any>(null);
 
-  // --- Global Dictation State ---
   const [isDictating, setIsDictating] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiData, setAiData] = useState<ProcessDictationOutput | null>(null);
   const recognitionRef = useRef<any>(null);
   const dictationBufferRef = useRef<string>('');
 
-  // --- SYNC ENGINE ---
   useEffect(() => {
     const syncOfflineData = async () => {
       if (isOnline && !isSyncing && user && firestore) {
@@ -76,7 +73,6 @@ const InspectionPageContent = () => {
 
           let syncedCount = 0;
 
-          // --- Sync All Reports (from hojas_trabajo table) ---
           for (const record of pendingHojas) {
             try {
               const dataToSync = record.data;
@@ -138,7 +134,6 @@ const InspectionPageContent = () => {
             }
           }
 
-          // --- Sync Jornadas ---
           for (const record of pendingJornadas) {
              try {
                 const { signature, ...jornadaData } = record.data;
@@ -161,7 +156,6 @@ const InspectionPageContent = () => {
              }
           }
 
-          // --- Sync Gastos ---
            for (const record of pendingGastos) {
              try {
                 const { comprobanteFile, ...gastoData } = record.data;
@@ -236,7 +230,6 @@ const InspectionPageContent = () => {
         recognition.onerror = (event: any) => {
             console.error('Error de reconocimiento de voz:', event.error);
             if (event.error === 'no-speech') {
-                // Ignore no-speech so it doesn't kill the UX, it will just time out eventually
             } else if (event.error !== 'aborted') {
                 toast({
                     variant: "destructive",
@@ -358,7 +351,7 @@ const InspectionPageContent = () => {
           return null;
       }
 
-      const bottomPosition = activeTab === TABS.MENU ? 'bottom-8' : 'bottom-28';
+      const bottomPosition = screenSize === 'mobile' ? 'bottom-28' : 'bottom-8';
 
       return (
           <button
@@ -444,9 +437,11 @@ const InspectionPageContent = () => {
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
       />
-      <div className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28">
-        {renderContent()}
-      </div>
+      <main className="flex-grow w-full md:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-0">
+         {renderContent()}
+        </div>
+      </main>
       {renderFloatingDictationButton()}
       <Footer activeTab={activeTab} onNavigate={handleNavigate} />
     </div>
