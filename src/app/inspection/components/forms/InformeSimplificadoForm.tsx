@@ -11,10 +11,11 @@ import SignaturePad from '../SignaturePad';
 import { INITIAL_FORM_DATA } from '../../lib/form-constants';
 import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import { useOnlineStatus } from '@/hooks/use-online-status';
-import { db } from '@/lib/db-local';
+import { db as dbLocal } from '@/lib/db-local';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
 
+// 1. Lista de ítems del checklist simplificado
 const SIMPLIFIED_CHECKLIST_ITEMS = [
     "Filtro de Aceite",
     "Filtro de Combustible",
@@ -56,7 +57,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
 
-    // Márgenes Globales
     const leftMargin = 15;
     const rightMargin = 15;
     const topMargin = 40;
@@ -66,14 +66,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     let currentY = topMargin;
 
-    // 1. Título
     doc.setTextColor(darkColor);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.text(`INFORME SIMPLIFICADO - Nº: ${finalID}`, leftMargin, currentY);
     currentY += 6;
 
-    // 2. Datos Generales
     autoTable(doc, {
         startY: currentY,
         body: [
@@ -92,7 +90,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     currentY = (doc as any).lastAutoTable.finalY + 6;
 
-    // 3. Checklist de Recambios
     autoTable(doc, {
         startY: currentY,
         head: [['RECAMBIOS Y MATERIALES', 'OK', 'DEFECTUOSO', 'CAMBIO']],
@@ -117,7 +114,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     currentY = (doc as any).lastAutoTable.finalY + 8;
     
-     // 4. Tabla de Pruebas
     autoTable(doc, {
         startY: currentY,
         body: [
@@ -141,7 +137,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     currentY = (doc as any).lastAutoTable.finalY + 8;
 
-    // 5. OBSERVACIONES
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(darkColor);
@@ -160,25 +155,14 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     blocks.forEach((block: string) => {
       const text = block.replace(/\n/g, ' ').trim();
       if (!text) return;
-
       const isTitle = text.endsWith(':') && text.toUpperCase() === text;
-
       if (isTitle) {
-          if (currentY + 15 > pageHeight - bottomMargin) {
-              doc.addPage();
-              currentY = topMargin;
-          }
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(darkColor);
-          doc.text(text, leftMargin, currentY);
-          currentY += 6;
+          if (currentY + 15 > pageHeight - bottomMargin) { doc.addPage(); currentY = topMargin; }
+          doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(darkColor);
+          doc.text(text, leftMargin, currentY); currentY += 6;
       } else {
           autoTable(doc, {
-              startY: currentY,
-              margin: globalMargin,
-              body: [[text]],
-              theme: 'plain',
+              startY: currentY, margin: globalMargin, body: [[text]], theme: 'plain',
               styles: { font: 'helvetica', fontSize: 9, cellPadding: 0, halign: 'justify', textColor: darkColor },
               columnStyles: { 0: { cellWidth: contentWidth } }
           });
@@ -188,16 +172,10 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     currentY += 8;
     
-     // 6. Firmas
     const signatureBlockHeight = 45;
-    if (currentY + signatureBlockHeight > pageHeight - bottomMargin) {
-        doc.addPage();
-        currentY = topMargin;
-    }
+    if (currentY + signatureBlockHeight > pageHeight - bottomMargin) { doc.addPage(); currentY = topMargin; }
 
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
     if (report.inspectorSignatureUrl) doc.addImage(report.inspectorSignatureUrl, 'PNG', 25, currentY, 60, 25);
     doc.line(25, currentY + 25, 85, currentY + 25);
     doc.text("Firma técnico:", 25, currentY + 30);
@@ -210,18 +188,15 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        drawPdfHeader(doc);
-        drawPdfFooter(doc, i, totalPages);
+        doc.setPage(i); drawPdfHeader(doc); drawPdfFooter(doc, i, totalPages);
     }
-    
     return doc;
 };
 
 
 export default function InformeSimplificadoForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
-  const db = useFirestore();
+  const firestore = useFirestore();
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
@@ -243,13 +218,13 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   useEffect(() => {
-    if (user && user.email && db) {
-        getDoc(doc(db, 'usuarios', user.email)).then(snap => {
+    if (user?.email && firestore) {
+        getDoc(doc(firestore, 'usuarios', user.email)).then(snap => {
             if (snap.exists()) setInspectorName(snap.data().nombre);
             else setInspectorName(user.email || 'Técnico');
         }).catch((e: any) => console.error(e));
     }
-  }, [user, db]);
+  }, [user, firestore]);
 
   useEffect(() => {
     if (initialData) {
@@ -271,15 +246,8 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
   useEffect(() => {
     if (aiData) {
       setFormData((prev: any) => {
-          const newRecambiosChecklist = { ...prev.recambios_checklist, ...aiData.checklist_updates };
-          if (aiData.all_ok) {
-            SIMPLIFIED_CHECKLIST_ITEMS.forEach(item => {
-              if (!newRecambiosChecklist[item]) {
-                newRecambiosChecklist[item] = 'OK';
-              }
-            });
-          }
-
+          const newCheck = { ...prev.recambios_checklist, ...aiData.checklist_updates };
+          if (aiData.all_ok) { SIMPLIFIED_CHECKLIST_ITEMS.forEach(it => { if (!newCheck[it]) newCheck[it] = 'OK'; }); }
           return {
             ...prev,
             cliente: aiData.identidad.cliente || prev.cliente,
@@ -292,7 +260,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
             potencia: aiData.identidad.potencia_kva || prev.potencia,
             recibidoPor: aiData.identidad.recibe || prev.recibidoPor,
             observaciones: aiData.observations_summary || prev.observaciones,
-            recambios_checklist: newRecambiosChecklist,
+            recambios_checklist: newCheck,
             datos_pruebas: {
               horas: aiData.mediciones_generales.horas || prev.datos_pruebas.horas,
               presion: aiData.mediciones_generales.presion || prev.datos_pruebas.presion,
@@ -316,156 +284,76 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
     }
   }, [aiData]);
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData((prev: any) => ({...prev, [field]: value}));
-  };
-  
-  const handleNestedChange = (section: string, field: string, value: string) => {
-    setFormData((prev: any) => ({ ...prev, [section]: { ...(prev as any)[section], [field]: value } }));
-  };
-
-  const handleChecklistChange = (item: string, status: string) => {
-    setFormData((prev: any) => ({ ...prev, recambios_checklist: { ...prev.recambios_checklist, [item]: status } }));
-  };
+  const handleInputChange = (f: string, v: any) => setFormData((p: any) => ({...p, [f]: v}));
+  const handleNestedChange = (s: string, f: string, v: string) => setFormData((p: any) => ({ ...p, [s]: { ...p[s], [f]: v } }));
+  const handleChecklistChange = (it: string, st: string) => setFormData((p: any) => ({ ...p, recambios_checklist: { ...p.recambios_checklist, [it]: st } }));
 
   const handleCaptureLocation = () => {
-    if (!navigator.geolocation) {
-      toast({ variant: 'destructive', title: 'Error de Geolocalización', description: 'Tu navegador no soporta esta función.' });
-      setLocationStatus('error');
-      return;
-    }
+    if (!navigator.geolocation) return setLocationStatus('error');
     setLocationStatus('loading');
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        handleInputChange('location', { lat: latitude, lon: longitude });
-        setLocationStatus('success');
-      },
-      () => {
-        toast({ variant: 'destructive', title: 'Ubicación denegada', description: 'Asegúrate de tener los permisos de localización activados.' });
-        setLocationStatus('error');
-      }
+      (pos) => { handleInputChange('location', { lat: pos.coords.latitude, lon: pos.coords.longitude }); setLocationStatus('success'); },
+      () => { setLocationStatus('error'); toast({ variant: 'destructive', title: 'Error de ubicación' }); }
     );
   };
   
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setImages(prev => [...prev, ...Array.from(e.target.files!)]);
-    }
-  };
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files) setImages(p => [...p, ...Array.from(e.target.files!)]); };
 
   const handlePdfAction = () => {
-    if (!saving) {
-        const reportData = {
-          ...formData,
-          inspectorSignatureUrl: inspectorSignature,
-          clientSignatureUrl: clientSignature,
-        };
-        const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
-        if (isSaved) {
-            doc.save(`Informe_Simplificado_${savedDocId}.pdf`);
-        } else {
-            setPreviewPdfUrl(doc.output('datauristring'));
-        }
-    }
+    const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: clientSignature };
+    const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
+    if (isSaved) docPdf.save(`Informe_Simplificado_${savedDocId}.pdf`); else setPreviewPdfUrl(docPdf.output('datauristring'));
   };
 
   const handleSave = async () => {
-    if (!user || !db || !user.email) {
-        toast({ variant: 'destructive', title: 'Error de autenticación', description: 'Por favor, recarga la página.' });
-        return;
-    }
-    if (isSaved) return;
-
+    if (!user?.email || !firestore) return;
     if (!formData.cliente || !formData.instalacion || !formData.location || !inspectorSignature || !clientSignature) {
-      toast({ variant: 'destructive', title: 'Datos incompletos', description: 'Cliente, instalación, localización y ambas firmas son obligatorios.' });
-      return;
+      toast({ variant: 'destructive', title: 'Datos incompletos', description: 'Revisa cliente, ubicación y firmas.' }); return;
     }
     setSaving(true);
 
     const updateOriginalJobStatus = async (jobId: string) => {
-      if (isOnline && db) {
-          try {
-              const jobRef = doc(db, 'trabajos', jobId);
-              await updateDoc(jobRef, { estado: 'Completado' });
-          } catch (updateError) {
-              console.error(`Failed to update job ${jobId} status:`, updateError);
-              toast({
-                  variant: "destructive",
-                  title: "Error de Actualización",
-                  description: `No se pudo marcar el trabajo ${jobId} como completado.`,
-              });
-          }
+      if (isOnline && firestore) {
+          try { await updateDoc(doc(firestore, 'trabajos', jobId), { estado: 'Completado' }); } catch (e) { console.error(e); }
       }
     };
     
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
-        const localData = { 
-          ...formData, 
-          formType: 'informe-simplificado',
-          originalJobId: initialData?.id || null 
-        };
-        if (!synced) {
-            (localData as any).images = images;
-            (localData as any).inspectorSignature = inspectorSignature;
-            (localData as any).clientSignature = clientSignature;
-        }
-        await db.hojas_trabajo.add({ // Save to the generic reports table
-            firebaseId: firebaseId || '',
-            synced,
-            data: localData,
-            createdAt: new Date(),
-        });
-        if (!synced) {
-            toast({ title: 'Guardado localmente (sin conexión)', description: 'El informe se sincronizará cuando vuelvas a tener conexión.' });
-        } else {
-            toast({ title: '¡Guardado y Sincronizado!', description: `El informe simplificado ha sido guardado con el ID: ${firebaseId}` });
-        }
+        const localData = { ...formData, formType: 'informe-simplificado', originalJobId: initialData?.id || null };
+        if (!synced) { (localData as any).images = images; (localData as any).inspectorSignature = inspectorSignature; (localData as any).clientSignature = clientSignature; }
+        await dbLocal.hojas_trabajo.add({ firebaseId: firebaseId || '', synced, data: localData, createdAt: new Date() });
     };
 
     if (isOnline) {
         try {
-            const formType = 'informe-simplificado';
-            const trabajosRef = collection(db, 'trabajos');
-            const qTrabajos = query(trabajosRef, where('formType', '==', formType));
-            const trabajosSnapshot = await getDocs(qTrabajos);
-            const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
-            const year = new Date().getFullYear();
-            const docId = `IS-${year}-${sequentialNumber}`;
-
+            const sequential = (await getDocs(query(collection(firestore, 'trabajos'), where('formType', '==', 'informe-simplificado')))).size + 1;
+            const docId = `IS-${new Date().getFullYear()}-${sequential.toString().padStart(3, '0')}`;
             const storage = getStorage();
-            const imageUrls = await Promise.all(images.map(async (image) => {
-                const imageRef = ref(storage, `informes/${docId}/${image.name}`);
-                await uploadBytes(imageRef, image);
-                return await getDownloadURL(imageRef);
+
+            const imageUrls = await Promise.all(images.map(async (img) => {
+                const r = ref(storage, `informes/${docId}/${img.name}`);
+                await uploadBytes(r, img); return await getDownloadURL(r);
             }));
 
-            const inspectorSignatureUrl = inspectorSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/inspector.png`), inspectorSignature, 'data_url')) : null;
-            const clientSignatureUrl = clientSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/cliente.png`), clientSignature, 'data_url')) : null;
+            // Fix Firmas Firebase Reference
+            const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
+            await uploadString(inspRef, inspectorSignature, 'data_url');
+            const inspectorSignatureUrl = await getDownloadURL(inspRef);
 
-            const docData = {
-                ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl,
-                tecnicoId: user.email, tecnicoNombre: inspectorName,
-                fecha_creacion: Timestamp.now(), formType, id: docId, estado: 'Completado',
-            };
+            const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
+            await uploadString(cliRef, clientSignature, 'data_url');
+            const clientSignatureUrl = await getDownloadURL(cliRef);
 
-            await setDoc(doc(db, 'trabajos', docId), docData);
+            const docData = { ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl, tecnicoId: user.email, tecnicoNombre: inspectorName, fecha_creacion: Timestamp.now(), formType: 'informe-simplificado', id: docId, estado: 'Completado' };
 
-            if (initialData?.id) {
-              await updateOriginalJobStatus(initialData.id);
-            }
+            await setDoc(doc(firestore, 'trabajos', docId), docData);
+            if (initialData?.id) await updateOriginalJobStatus(initialData.id);
 
             await saveDataToLocal(true, docId);
-            setSavedDocId(docId);
-            setIsSaved(true);
-
-        } catch (error) {
-            console.error("Error guardando en Firebase, guardando localmente...", error);
-            await saveDataToLocal(false);
-        }
-    } else {
-        await saveDataToLocal(false);
-    }
+            setSavedDocId(docId); setIsSaved(true);
+            toast({ title: '¡Guardado y Sincronizado!' });
+        } catch (error) { console.error("Error Firebase:", error); await saveDataToLocal(false); }
+    } else { await saveDataToLocal(false); }
     setSaving(false);
   };
   
@@ -473,22 +361,14 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full bg-slate-50 min-h-screen">
        <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
             <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
-                <DialogHeader className="p-4 border-b">
-                    <DialogTitle>Vista Previa de Informe Simplificado</DialogTitle>
-                    <DialogDescription>Revisa el borrador. Este NO es el documento final.</DialogDescription>
-                </DialogHeader>
-                <div className="flex-1 bg-slate-200 p-4">
-                    {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full shadow-lg" title="PDF Preview" />}
-                </div>
+                <DialogHeader className="p-4 border-b"><DialogTitle>Vista Previa de Informe Simplificado</DialogTitle></DialogHeader>
+                <div className="flex-1 bg-slate-200 p-4">{previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full shadow-lg" title="PDF Preview" />}</div>
             </DialogContent>
         </Dialog>
         
         <main className="p-4 md:p-6 space-y-8 pb-40">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Simplificado</h2>
-            </div>
+            <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Simplificado</h2>
 
-            {/* --- DATOS GENERALES --- */}
             <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
                 <h3 className="font-bold text-slate-500">Datos Generales</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -501,19 +381,13 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
                     <StableInput label="Nº Motor" icon={Hash} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>
                     <StableInput label="Nº Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: string) => handleInputChange('n_grupo', v)}/>
                     <StableInput label="Potencia" icon={Zap} value={formData.potencia} onChange={(v: string) => handleInputChange('potencia', v)}/>
-                    <button 
-                        onClick={handleCaptureLocation} 
-                        disabled={locationStatus === 'loading'} 
-                        className={`w-full bg-slate-50 border-2 rounded-lg p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 text-slate-700 hover:border-primary'}`}
-                    >
-                        {locationStatus === 'loading' && <Loader2 className="animate-spin text-primary" size={16}/>}
-                        {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 size={16}/> : <MapPin size={16}/>)}
-                        <span>{formData.location ? `Ubicación Capturada: ${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación (Obligatorio)'}</span>
+                    <button onClick={handleCaptureLocation} disabled={locationStatus === 'loading'} className={`w-full bg-slate-50 border-2 rounded-lg p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100'}`}>
+                        {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={16}/> : <MapPin size={16}/>}
+                        <span>{formData.location ? `Ubicación Capturada` : 'Capturar Ubicación (Obligatorio)'}</span>
                     </button>
                 </div>
             </section>
             
-            {/* --- CHECKLIST DE RECAMBIOS --- */}
             <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-4 border border-slate-100">
                 <h3 className="font-bold text-slate-500">Recambios y Materiales</h3>
                 <div className="grid grid-cols-1 gap-y-4">
@@ -522,7 +396,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
                         <span className="text-lg font-bold text-slate-700">{it}</span>
                         <div className="flex gap-1">
                         {["OK", "DEFECTUOSO", "CAMBIO"].map(st => (
-                            <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-20 h-8 rounded-lg text-[10px] font-black border-2 transition-all ${formData.recambios_checklist[it] === st ? 'bg-primary border-primary text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-primary/50'}`}>{st}</button>
+                            <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-20 h-8 rounded-lg text-[10px] font-black border-2 transition-all ${formData.recambios_checklist[it] === st ? 'bg-primary border-primary text-white' : 'bg-white border-slate-200 text-slate-400'}`}>{st}</button>
                         ))}
                         </div>
                     </div>
@@ -530,7 +404,6 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
                 </div>
             </section>
 
-            {/* --- PRUEBAS --- */}
             <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
                 <h3 className="font-bold text-slate-500">Datos de Pruebas y Carga</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -538,70 +411,38 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
                     <StableInput icon={Gauge} label="Presión Aceite" value={formData.datos_pruebas.presion} onChange={(v: string) => handleNestedChange('datos_pruebas', 'presion', v)} />
                     <StableInput icon={Thermometer} label="Temperatura" value={formData.datos_pruebas.temperatura} onChange={(v: string) => handleNestedChange('datos_pruebas', 'temperatura', v)} />
                     <StableInput icon={Droplets} label="Nivel Combustible" value={formData.datos_pruebas.nivel_combustible} onChange={(v: string) => handleNestedChange('datos_pruebas', 'nivel_combustible', v)} />
-                    <StableInput icon={Zap} label="Tensión Alternador" value={formData.datos_pruebas.tension_alternador} onChange={(v: string) => handleNestedChange('datos_pruebas', 'tension_alternador', v)} />
-                    <StableInput icon={Wind} label="Frecuencia" value={formData.datos_pruebas.frecuencia} onChange={(v: string) => handleNestedChange('datos_pruebas', 'frecuencia', v)} />
-                    <StableInput icon={Battery} label="Carga Baterías" value={formData.datos_pruebas.carga_baterias} onChange={(v: string) => handleNestedChange('datos_pruebas', 'carga_baterias', v)} />
+                    <StableInput icon={Wind} label="Frecuencia" value={formData.datos_pruebas.frecuencia} onChange={(v: any) => handleNestedChange('datos_pruebas', 'frecuencia', v)} />
+                    <StableInput icon={Battery} label="Carga Baterías" value={formData.datos_pruebas.carga_baterias} onChange={(v: any) => handleNestedChange('datos_pruebas', 'carga_baterias', v)} />
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t mt-4">
                     <LoadTestInput label="Tensión RS" value={formData.pruebas_carga.tension_rs} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_rs', v)} />
                     <LoadTestInput label="Tensión ST" value={formData.pruebas_carga.tension_st} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_st', v)} />
                     <LoadTestInput label="Tensión RT" value={formData.pruebas_carga.tension_rt} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_rt', v)} />
-                    <LoadTestInput label="Intensidad R" value={formData.pruebas_carga.intensidad_r} onChange={(v: string) => handleNestedChange('pruebas_carga', 'intensidad_r', v)} />
-                    <LoadTestInput label="Intensidad S" value={formData.pruebas_carga.intensidad_s} onChange={(v: string) => handleNestedChange('pruebas_carga', 'intensidad_s', v)} />
-                    <LoadTestInput label="Intensidad T" value={formData.pruebas_carga.intensidad_t} onChange={(v: string) => handleNestedChange('pruebas_carga', 'intensidad_t', v)} />
                     <LoadTestInput label="Potencia kW" value={formData.pruebas_carga.potencia_kw} onChange={(v: string) => handleNestedChange('pruebas_carga', 'potencia_kw', v)} />
                 </div>
             </section>
             
              <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
                 <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Camera className="text-primary"/> Evidencia Fotográfica</h2>
-                <div>
-                    <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center text-center hover:bg-slate-200 transition-colors">
-                        <Camera size={32} className="text-slate-400 mb-2"/>
-                        <span className="font-bold text-slate-600">Adjuntar Imágenes</span>
-                        <span className="text-xs text-slate-500">Toma una foto o selecciona archivos</span>
-                    </label>
-                    <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange}/>
-                </div>
-                {images.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {images.map((img, i) => (
-                            <div key={i} className="relative aspect-square">
-                                <img src={URL.createObjectURL(img)} alt={`preview ${i}`} className="w-full h-full object-cover rounded-lg"/>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center hover:bg-slate-200 transition-colors">
+                    <Camera size={32} className="text-slate-400 mb-2"/><span className="font-bold">Adjuntar Imágenes</span>
+                </label>
+                <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange}/>
+                {images.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-4 gap-4">{images.map((img, i) => (<div key={i} className="relative aspect-square"><img src={URL.createObjectURL(img)} alt={`pv ${i}`} className="w-full h-full object-cover rounded-lg"/></div>))}</div>)}
             </section>
 
-            {/* --- OBSERVACIONES Y FIRMAS --- */}
             <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
                 <h3 className="font-bold text-slate-500">Observaciones</h3>
-                <textarea className="w-full h-24 bg-slate-50 border-2 border-slate-100 rounded-lg p-4 resize-none" placeholder="Añade tus observaciones aquí..." value={formData.observaciones} onChange={e => handleInputChange('observaciones', e.target.value)}/>
+                <textarea className="w-full h-24 bg-slate-50 border-2 border-slate-100 rounded-lg p-4 resize-none" placeholder="Escribe aquí tus observaciones..." value={formData.observaciones} onChange={e => handleInputChange('observaciones', e.target.value)}/>
                 <div className="grid md:grid-cols-2 gap-8 items-start pt-6">
-                    <div>
-                        <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
-                        <p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p>
-                    </div>
-                    <div>
-                        <SignaturePad title="Firma del Cliente" signature={clientSignature} onSignatureEnd={setClientSignature} />
-                        <div className="mt-2">
-                        <StableInput label="" icon={User} value={formData.recibidoPor} onChange={(v: string) => handleInputChange('recibidoPor', v)} placeholder="Nombre del receptor"/>
-                        </div>
-                    </div>
+                    <div><SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} /><p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p></div>
+                    <div><SignaturePad title="Conforme Cliente" signature={clientSignature} onSignatureEnd={setClientSignature} /><div className="mt-2"><StableInput label="" icon={User} value={formData.recibidoPor} onChange={(v: string) => handleInputChange('recibidoPor', v)} placeholder="Nombre receptor"/></div></div>
                 </div>
             </section>
 
-            {/* --- ACCIONES --- */}
             <div className="flex flex-col md:flex-row gap-4">
-                <button onClick={handlePdfAction} disabled={saving} className="w-full p-6 bg-white text-slate-900 border-2 border-slate-200 rounded-lg font-bold text-base shadow-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
-                    {isSaved ? <Printer size={20} /> : <FileSearch size={20} />}
-                    {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
-                </button>
-                <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-lg font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
-                    {saving ? <Loader2 className="animate-spin text-primary" /> : isSaved ? <CheckCircle2 className="text-primary" /> : <Save className="text-primary" />}
-                    {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR INFORME'}
-                </button>
+                <button onClick={handlePdfAction} className="w-full p-6 bg-white border-2 border-slate-200 rounded-lg font-bold flex items-center justify-center gap-4">{isSaved ? <Printer size={20} /> : <FileSearch size={20} />}{isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}</button>
+                <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-lg font-black flex items-center justify-center gap-4">{saving ? <Loader2 className="animate-spin text-primary" /> : isSaved ? <CheckCircle2 className="text-primary" /> : <Save className="text-primary" />}{saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR INFORME'}</button>
             </div>
         </main>
     </div>

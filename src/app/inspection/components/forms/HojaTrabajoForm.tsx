@@ -1,8 +1,8 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
-import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Car, Euro, Zap, Thermometer, Battery, Droplets, Wind, Gauge, Mic, Camera } from 'lucide-react';
+import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Car, Euro, Zap, Thermometer, Battery, Droplets, Wind, Gauge, Camera } from 'lucide-react';
 import { enhanceTechnicalRequest } from '@/ai/flows/enhance-technical-request-flow';
 import { ProcessDictationOutput } from '@/ai/flows/process-dictation-flow';
 import jsPDF from 'jspdf';
@@ -11,11 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import SignaturePad from '../SignaturePad';
 import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import { useOnlineStatus } from '@/hooks/use-online-status';
-import { db } from '@/lib/db-local';
+import { db as dbLocal } from '@/lib/db-local';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
 
-// Memoized input component for performance
+// Componente de entrada memoizado para rendimiento
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
@@ -32,7 +32,7 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
   </div>
 ));
 
-// New component for the load test inputs
+// Componente para los inputs de prueba de carga
 const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
     <div className="flex flex-col items-center gap-1">
         <label className="text-[9px] font-black text-slate-500 w-full text-center">{label}</label>
@@ -65,7 +65,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   doc.setTextColor(darkColor);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text("HOJA DE TRABAJO", leftMargin, currentY);
+  doc.text("HOJA DE TRABAJOS", leftMargin, currentY);
 
   doc.setFontSize(10);
   doc.text(`Nº: ${finalID}`, pageWidth - rightMargin, currentY, { align: 'right' });
@@ -221,7 +221,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   return doc;
 };
 
-
 export default function HojaTrabajoForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
   const db = useFirestore();
@@ -318,7 +317,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     }
   }, [initialData]);
 
-  // Effect to process incoming AI data
+  // Proceso de datos IA
   useEffect(() => {
     if (aiData) {
       setFormData((prev: any) => ({
@@ -396,10 +395,10 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         ...p, 
         trabajos_realizados: res.improved,
       }));
-       toast({ title: 'Informe mejorado', description: 'La IA ha refinado y mejorado el texto del informe.' });
+       toast({ title: 'Informe mejorado', description: 'La IA ha refinado el texto.' });
     } catch(e: any) {
       console.error("AI enhancement failed:", e);
-      toast({ variant: 'destructive', title: 'Error de la IA', description: 'No se pudo procesar la mejora del informe.' });
+      toast({ variant: 'destructive', title: 'Error de la IA' });
     } finally {
       setAiLoading(false);
     }
@@ -407,104 +406,57 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
 
   const handlePdfAction = () => {
     if (!formData.cliente || !formData.instalacion) {
-        toast({ variant: 'destructive', title: 'Faltan datos', description: 'El cliente y la instalación son obligatorios para generar el PDF.' });
+        toast({ variant: 'destructive', title: 'Faltan datos', description: 'Cliente e instalación obligatorios.' });
         return;
     }
-    
-    const reportData = {
-      ...formData,
-      inspectorSignatureUrl: inspectorSignature,
-      clientSignatureUrl: clientSignature,
-    };
-    
+    const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: clientSignature };
     const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
-
-    if (isSaved) {
-      doc.save(`Hoja_Trabajo_${savedDocId}.pdf`);
-    } else {
-      setPreviewPdfUrl(doc.output('datauristring'));
-    }
+    if (isSaved) doc.save(`Hoja_Trabajo_${savedDocId}.pdf`);
+    else setPreviewPdfUrl(doc.output('datauristring'));
   };
 
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setImages(prev => [...prev, ...Array.from(e.target.files!)]);
-    }
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) setImages(prev => [...prev, ...Array.from(e.target.files!)]);
   };
 
   const handleSave = async () => {
-    if (!user || !db || !user.email) {
-        toast({ variant: 'destructive', title: 'Error de autenticación', description: 'Por favor, recarga la página.' });
-        return;
-    }
+    if (!user || !db || !user.email) return;
     if (!formData.cliente || !formData.instalacion || !formData.location || !inspectorSignature || !clientSignature) {
-      toast({ variant: 'destructive', title: 'Datos incompletos', description: 'Cliente, instalación, localización y ambas firmas son obligatorios.' });
+      toast({ variant: 'destructive', title: 'Datos incompletos' });
       return;
     }
     setSaving(true);
 
-    const updateOriginalJobStatus = async (jobId: string) => {
-      if (isOnline && db) {
-          try {
-              const jobRef = doc(db, 'trabajos', jobId);
-              await updateDoc(jobRef, { estado: 'Completado' });
-          } catch (updateError) {
-              console.error(`Failed to update job ${jobId} status:`, updateError);
-              toast({
-                  variant: "destructive",
-                  title: "Error de Actualización",
-                  description: `No se pudo marcar el trabajo ${jobId} como completado.`,
-              });
-          }
-      }
-    };
-
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
-        const localData = { 
-          ...formData, 
-          formType: 'hoja-trabajo',
-          originalJobId: initialData?.id || null
-        };
-        
+        const localData = { ...formData, originalJobId: initialData?.id || null };
         if (!synced) {
             (localData as any).images = images;
             (localData as any).inspectorSignature = inspectorSignature;
             (localData as any).clientSignature = clientSignature;
         }
-
-        await db.hojas_trabajo.add({
-            firebaseId: firebaseId || '',
-            synced,
-            data: localData,
-            createdAt: new Date(),
-        });
-
-        if (!synced) {
-            toast({ title: 'Guardado localmente (sin conexión)', description: 'El informe se sincronizará cuando vuelvas a tener conexión.' });
-        } else {
-            toast({ title: '¡Guardado y Sincronizado!', description: `La hoja de trabajo ha sido guardada con el ID: ${firebaseId}` });
-        }
+        await dbLocal.hojas_trabajo.add({ firebaseId: firebaseId || '', synced, data: localData, createdAt: new Date() });
     };
 
     if (isOnline) {
         try {
             const formType = 'hoja-trabajo';
-            const trabajosRef = collection(db, 'trabajos');
-            const qTrabajos = query(trabajosRef, where('formType', '==', formType));
-            const trabajosSnapshot = await getDocs(qTrabajos);
-            const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
-            const year = new Date().getFullYear();
-            const docId = `HT-${year}-${sequentialNumber}`;
-
+            const sequential = (await getDocs(query(collection(db, 'trabajos'), where('formType', '==', formType)))).size + 1;
+            const docId = `HT-${new Date().getFullYear()}-${sequential.toString().padStart(3, '0')}`;
             const storage = getStorage();
+
             const imageUrls = await Promise.all(images.map(async (image) => {
-                const imageRef = ref(storage, `informes/${docId}/${image.name}`);
-                await uploadBytes(imageRef, image);
-                return await getDownloadURL(imageRef);
+                const imgRef = ref(storage, `informes/${docId}/${image.name}`);
+                await uploadBytes(imgRef, image);
+                return getDownloadURL(imgRef);
             }));
 
-            const inspectorSignatureUrl = inspectorSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/inspector.png`), inspectorSignature, 'data_url')) : null;
-            const clientSignatureUrl = clientSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/cliente.png`), clientSignature, 'data_url')) : null;
+            const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
+            await uploadString(inspRef, inspectorSignature, 'data_url');
+            const inspectorSignatureUrl = await getDownloadURL(inspRef);
+
+            const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
+            await uploadString(cliRef, clientSignature, 'data_url');
+            const clientSignatureUrl = await getDownloadURL(cliRef);
             
             const docData = {
                 ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl,
@@ -513,17 +465,14 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
             };
             
             await setDoc(doc(db, 'trabajos', docId), docData);
-
-            if (initialData?.id) {
-              await updateOriginalJobStatus(initialData.id);
-            }
+            if (initialData?.id) await updateDoc(doc(db, 'trabajos', initialData.id), { estado: 'Completado' });
             
             await saveDataToLocal(true, docId);
             setSavedDocId(docId);
             setIsSaved(true);
-
+            toast({ title: '¡Sincronizado!' });
         } catch (error) {
-            console.error("Error guardando en Firebase, guardando localmente...", error);
+            console.error(error);
             await saveDataToLocal(false);
         }
     } else {
@@ -537,165 +486,146 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-4 border-b">
-            <DialogTitle>Vista Previa de Hoja de Trabajo</DialogTitle>
-             <DialogDescription>Revisa el borrador antes de guardarlo. Este NO es el documento final.</DialogDescription>
+            <DialogTitle>Vista Previa</DialogTitle>
           </DialogHeader>
           <div className="flex-1 bg-slate-200 p-4">
-            {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full shadow-lg" title="PDF Preview" />}
+            {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full" title="PDF Preview" />}
           </div>
         </DialogContent>
       </Dialog>
       
       <main className="p-4 md:p-6 space-y-8 pb-40">
-        <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Hoja de Trabajo</h2>
-        </div>
+        <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase">Hoja de Trabajo</h2>
       
-      <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
-            <div className="lg:col-span-2 space-y-3">
-              <StableInput label="Cliente" icon={Users} value={formData.cliente} onChange={(v: any) => handleInputChange('cliente', v)}/>
-              <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={(v: any) => handleInputChange('instalacion', v)}/>
-              <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: any) => handleInputChange('motor', v)}/>
-              <StableInput label="N' Motor" icon={Hash} value={formData.n_motor} onChange={(v: any) => handleInputChange('n_motor', v)}/>
-              <StableInput label="Grupo" icon={Settings} value={formData.grupo} onChange={(v: any) => handleInputChange('grupo', v)}/>
-              <StableInput label="N' Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: any) => handleInputChange('n_grupo', v)}/>
-              <StableInput label="N' de Pedido" icon={Hash} value={formData.n_pedido} onChange={(v: any) => handleInputChange('n_pedido', v)}/>
-            </div>
-            <div className="lg:col-span-2 space-y-3">
-               <StableInput label="Fecha" icon={Calendar} type="date" value={formData.fecha} onChange={(v: any) => handleInputChange('fecha', v)}/>
-               <StableInput label="Técnicos" icon={User} value={formData.tecnicos} onChange={(v: any) => handleInputChange('tecnicos', v)}/>
-               <StableInput label="H. Asistencia" icon={Clock} value={formData.h_asistencia} onChange={(v: any) => handleInputChange('h_asistencia', v)}/>
-               <StableInput label="Tipo de Servicio" icon={Type} value={formData.tipo_servicio} onChange={(v: any) => handleInputChange('tipo_servicio', v)}/>
-               <StableInput label="KMs." icon={Car} type="number" value={formData.kms} onChange={(v: any) => handleInputChange('kms', v)}/>
-               <StableInput label="Dieta (€)" icon={Euro} type="number" value={formData.dieta} onChange={(v: any) => handleInputChange('dieta', v)}/>
-               <div className="flex items-center gap-2 pt-2">
-                 <label className="flex items-center gap-2 text-sm font-bold text-slate-600">
-                    <input type="checkbox" checked={formData.media_dieta} onChange={(e: any) => handleInputChange('media_dieta', e.target.checked)} className="form-checkbox h-5 w-5 text-primary rounded" />
-                    1/2 Dieta
-                 </label>
-                 {formData.media_dieta && <StableInput label="Cantidad" type="number" value={formData.media_dieta_cantidad} onChange={(v: any) => handleInputChange('media_dieta_cantidad', v)}/>}
-               </div>
-            </div>
-            <div className="lg:col-span-4">
-              <button 
-                  onClick={handleCaptureLocation} 
-                  disabled={locationStatus === 'loading'} 
-                  className={`w-full bg-slate-50 border-2 rounded-lg p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 text-slate-700 hover:border-primary'}`}
-              >
-                  {locationStatus === 'loading' && <Loader2 className="animate-spin text-primary" size={16}/>}
-                  {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 size={16}/> : <MapPin size={16}/>)}
-                  <span>{formData.location ? `Ubicación Capturada: ${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación (Obligatorio)'}</span>
-              </button>
-            </div>
-         </div>
-      </section>
-      
-      <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-          <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Settings className="text-primary"/> Parámetros Técnicos</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <StableInput icon={Clock} label="Horas" value={formData.parametrosTecnicos.horas} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'horas', v)} />
-              <StableInput icon={Gauge} label="Presión Aceite" value={formData.parametrosTecnicos.presionAceite} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'presionAceite', v)} />
-              <StableInput icon={Zap} label="Tensión" value={formData.parametrosTecnicos.tension} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'tension', v)} />
-              <StableInput icon={Thermometer} label="T' (°C):" value={formData.parametrosTecnicos.temperatura} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'temperatura', v)} />
-              <StableInput icon={Droplets} label="Nivel Combustible (%):" value={formData.parametrosTecnicos.nivelCombustible} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'nivelCombustible', v)} />
-              <StableInput icon={Wind} label="Frecuencia (Hz):" value={formData.parametrosTecnicos.frecuencia} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'frecuencia', v)} />
-              <div className="sm:col-span-2 lg:col-span-3">
-                <StableInput icon={Battery} label="Tensión de baterías (V):" value={formData.parametrosTecnicos.tensionBaterias} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'tensionBaterias', v)} />
+        <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="lg:col-span-2 space-y-3">
+                <StableInput label="Cliente" icon={Users} value={formData.cliente} onChange={(v: any) => handleInputChange('cliente', v)}/>
+                <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={(v: any) => handleInputChange('instalacion', v)}/>
+                <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: any) => handleInputChange('motor', v)}/>
+                <StableInput label="N' Motor" icon={Hash} value={formData.n_motor} onChange={(v: any) => handleInputChange('n_motor', v)}/>
+                <StableInput label="Grupo" icon={Settings} value={formData.grupo} onChange={(v: any) => handleInputChange('grupo', v)}/>
+                <StableInput label="N' Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: any) => handleInputChange('n_grupo', v)}/>
+                <StableInput label="N' de Pedido" icon={Hash} value={formData.n_pedido} onChange={(v: any) => handleInputChange('n_pedido', v)}/>
               </div>
+              <div className="lg:col-span-2 space-y-3">
+                 <StableInput label="Fecha" icon={Calendar} type="date" value={formData.fecha} onChange={(v: any) => handleInputChange('fecha', v)}/>
+                 <StableInput label="Técnicos" icon={User} value={formData.tecnicos} onChange={(v: any) => handleInputChange('tecnicos', v)}/>
+                 <StableInput label="H. Asistencia" icon={Clock} value={formData.h_asistencia} onChange={(v: any) => handleInputChange('h_asistencia', v)}/>
+                 <StableInput label="Tipo de Servicio" icon={Type} value={formData.tipo_servicio} onChange={(v: any) => handleInputChange('tipo_servicio', v)}/>
+                 <StableInput label="KMs." icon={Car} type="number" value={formData.kms} onChange={(v: any) => handleInputChange('kms', v)}/>
+                 <StableInput label="Dieta (€)" icon={Euro} type="number" value={formData.dieta} onChange={(v: any) => handleInputChange('dieta', v)}/>
+                 <div className="flex items-center gap-2 pt-2">
+                   <label className="flex items-center gap-2 text-sm font-bold">
+                      <input type="checkbox" checked={formData.media_dieta} onChange={(e: any) => handleInputChange('media_dieta', e.target.checked)} className="form-checkbox h-5 w-5 text-primary rounded" />
+                      1/2 Dieta
+                   </label>
+                   {formData.media_dieta && <StableInput label="Cantidad" type="number" value={formData.media_dieta_cantidad} onChange={(v: any) => handleInputChange('media_dieta_cantidad', v)}/>}
+                 </div>
+              </div>
+              <div className="lg:col-span-4">
+                <button onClick={handleCaptureLocation} className={`w-full p-3 border-2 rounded-lg font-bold transition-all ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 hover:border-primary'}`}>
+                    {locationStatus === 'loading' ? <Loader2 className="animate-spin mx-auto"/> : formData.location ? 'Ubicación Capturada' : 'Capturar Ubicación'}
+                </button>
+              </div>
+           </div>
+        </section>
+        
+        <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
+            <h2 className="text-xl font-black flex items-center gap-3"><Settings className="text-primary"/> Parámetros Técnicos</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <StableInput icon={Clock} label="Horas" value={formData.parametrosTecnicos.horas} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'horas', v)} />
+                <StableInput icon={Gauge} label="Presión Aceite" value={formData.parametrosTecnicos.presionAceite} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'presionAceite', v)} />
+                <StableInput icon={Zap} label="Tensión" value={formData.parametrosTecnicos.tension} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'tension', v)} />
+                <StableInput icon={Thermometer} label="Tª (°C):" value={formData.parametrosTecnicos.temperatura} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'temperatura', v)} />
+                <StableInput icon={Droplets} label="Nivel Combustible (%):" value={formData.parametrosTecnicos.nivelCombustible} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'nivelCombustible', v)} />
+                <StableInput icon={Wind} label="Frecuencia (Hz):" value={formData.parametrosTecnicos.frecuencia} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'frecuencia', v)} />
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <StableInput icon={Battery} label="Tensión de baterías (V):" value={formData.parametrosTecnicos.tensionBaterias} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'tensionBaterias', v)} />
+                </div>
+            </div>
+        </section>
+
+        <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
+          <h2 className="text-xl font-black flex items-center gap-3"><Zap className="text-primary"/> Potencia con carga</h2>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-x-8 gap-y-4 items-end">
+              <div className="md:col-span-3">
+                <StableInput label="Potencia con carga" value={formData.potenciaConCarga.potencia} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'potencia', v)} />
+              </div>
+               <div className="md:col-span-3 space-y-4">
+                  <h4 className="text-sm font-bold text-center">Tensión</h4>
+                  <div className="grid grid-cols-3 gap-2">
+                      <LoadTestInput label="RS:" value={formData.potenciaConCarga.tensionRS} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionRS', v)} />
+                      <LoadTestInput label="ST:" value={formData.potenciaConCarga.tensionST} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionST', v)} />
+                      <LoadTestInput label="RT:" value={formData.potenciaConCarga.tensionRT} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionRT', v)} />
+                  </div>
+              </div>
+              <div className="md:col-span-3 space-y-4">
+                  <h4 className="text-sm font-bold text-center">Intensidad</h4>
+                   <div className="grid grid-cols-3 gap-2">
+                      <LoadTestInput label="R:" value={formData.potenciaConCarga.intensidadR} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadR', v)} />
+                      <LoadTestInput label="S:" value={formData.potenciaConCarga.intensidadS} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadS', v)} />
+                      <LoadTestInput label="T:" value={formData.potenciaConCarga.intensidadT} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadT', v)} />
+                  </div>
+              </div>
+              <div className="md:col-span-3 space-y-4">
+                  <h4 className="text-sm font-bold text-center">Potencia (kW)</h4>
+                   <LoadTestInput label="kW" value={formData.potenciaConCarga.potenciaKW} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'potenciaKW', v)} />
+              </div>
+          </div>
+        </section>
+
+        <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
+          <div className="flex justify-between items-center">
+              <h2 className="text-xl font-black">Trabajos Realizados</h2>
+              <button onClick={improveReport} disabled={aiLoading} className="flex items-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg">
+                  {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />} Pulir con IA
+              </button>
+          </div>
+          <textarea className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-lg p-6 resize-none" value={formData.trabajos_realizados} onChange={(e: any) => handleInputChange('trabajos_realizados', e.target.value)}/>
+       </section>
+       
+      <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
+          <h2 className="text-xl font-black flex items-center gap-3"><Camera className="text-primary"/> Evidencia Fotográfica</h2>
+          <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center">
+              <Camera size={32} className="text-slate-400 mb-2"/>
+              <span className="font-bold">Adjuntar Imágenes</span>
+          </label>
+          <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange}/>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {images.map((img, i) => (
+                  <div key={i} className="aspect-square relative">
+                      <img src={URL.createObjectURL(img)} alt="preview" className="w-full h-full object-cover rounded-lg"/>
+                  </div>
+              ))}
           </div>
       </section>
 
       <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-        <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Zap className="text-primary"/> Potencia con carga</h2>
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-x-8 gap-y-4 items-end">
-            <div className="md:col-span-3">
-              <StableInput label="Potencia con carga" value={formData.potenciaConCarga.potencia} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'potencia', v)} />
-            </div>
-             <div className="md:col-span-3 space-y-4">
-                <h4 className="text-sm font-bold text-center text-slate-500">Tensión</h4>
-                <div className="grid grid-cols-3 gap-2">
-                    <LoadTestInput label="RS:" value={formData.potenciaConCarga.tensionRS} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionRS', v)} />
-                    <LoadTestInput label="ST:" value={formData.potenciaConCarga.tensionST} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionST', v)} />
-                    <LoadTestInput label="RT:" value={formData.potenciaConCarga.tensionRT} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionRT', v)} />
-                </div>
-            </div>
-            <div className="md:col-span-3 space-y-4">
-                <h4 className="text-sm font-bold text-center text-slate-500">Intensidad</h4>
-                 <div className="grid grid-cols-3 gap-2">
-                    <LoadTestInput label="R:" value={formData.potenciaConCarga.intensidadR} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadR', v)} />
-                    <LoadTestInput label="S:" value={formData.potenciaConCarga.intensidadS} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadS', v)} />
-                    <LoadTestInput label="T:" value={formData.potenciaConCarga.intensidadT} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadT', v)} />
-                </div>
-            </div>
-            <div className="md:col-span-3 space-y-4">
-                <h4 className="text-sm font-bold text-center text-slate-500">Potencia (kW)</h4>
-                 <div className="">
-                     <LoadTestInput label="kW" value={formData.potenciaConCarga.potenciaKW} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'potenciaKW', v)} />
-                </div>
-            </div>
-        </div>
+          <h2 className="text-xl font-black">Firmas</h2>
+          <div className="grid md:grid-cols-2 gap-8 items-start">
+              <div>
+                <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
+                <p className="text-center font-bold mt-2">{inspectorName}</p>
+              </div>
+              <div>
+                <SignaturePad title="Conforme Cliente" signature={clientSignature} onSignatureEnd={setClientSignature} />
+                <StableInput label="" value={formData.recibidoPor} onChange={(v: any) => handleInputChange('recibidoPor', v)} placeholder="Nombre receptor"/>
+              </div>
+          </div>
       </section>
 
-      <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-        <div className="flex justify-between items-center">
-            <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Type className="text-primary"/> Trabajos Realizados</h2>
-            <button onClick={improveReport} disabled={aiLoading} className="flex items-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors active:scale-95">
-                {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />}
-                Pulir con IA
-            </button>
-        </div>
-        <textarea className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-lg p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600 shadow-inner resize-none leading-relaxed" placeholder="Describe los trabajos realizados..." value={formData.trabajos_realizados} onChange={(e: any) => handleInputChange('trabajos_realizados', e.target.value)}/>
-     </section>
-     
-    <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-        <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Camera className="text-primary"/> Evidencia Fotográfica</h2>
-        <div>
-            <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center text-center hover:bg-slate-200 transition-colors">
-                <Camera size={32} className="text-slate-400 mb-2"/>
-                <span className="font-bold text-slate-600">Adjuntar Imágenes</span>
-                <span className="text-xs text-slate-500">Toma una foto o selecciona archivos</span>
-            </label>
-            <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange}/>
-        </div>
-        {images.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {images.map((img, i) => (
-                    <div key={i} className="relative aspect-square">
-                        <img src={URL.createObjectURL(img)} alt={`preview ${i}`} className="w-full h-full object-cover rounded-lg"/>
-                    </div>
-                ))}
-            </div>
-        )}
-    </section>
-
-    <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-        <h2 className="text-xl font-black text-slate-900">Firmas</h2>
-        <div className="grid md:grid-cols-2 gap-8 items-start">
-            <div>
-              <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
-              <p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p>
-            </div>
-            <div>
-              <SignaturePad title="Conforme Cliente" signature={clientSignature} onSignatureEnd={setClientSignature} />
-               <div className="mt-2">
-                <StableInput label="" icon={User} value={formData.recibidoPor} onChange={(v: any) => handleInputChange('recibidoPor', v)} placeholder="Nombre del receptor"/>
-              </div>
-            </div>
-        </div>
-    </section>
-
-    <div className="flex flex-col md:flex-row gap-4">
-        <button onClick={handlePdfAction} disabled={saving} className="w-full p-6 bg-white text-slate-900 border-2 border-slate-200 rounded-lg font-bold text-base shadow-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
-            {isSaved ? <Printer size={20} /> : <FileSearch size={20} />}
-            {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
-        </button>
-        <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-lg font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
-          {saving ? <Loader2 className="animate-spin text-primary" /> : isSaved ? <CheckCircle2 className="text-primary" /> : <Save className="text-primary" />}
-          {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR'}
-        </button>
-    </div>
-    </main>
+      <div className="flex flex-col md:flex-row gap-4">
+          <button onClick={handlePdfAction} className="w-full p-6 bg-white border-2 rounded-lg font-bold flex items-center justify-center gap-4">
+              {isSaved ? <Printer size={20} /> : <FileSearch size={20} />}
+              {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
+          </button>
+          <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-lg font-black flex items-center justify-center gap-4">
+            {saving ? <Loader2 className="animate-spin" /> : isSaved ? <CheckCircle2 /> : <Save />}
+            {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR'}
+          </button>
+      </div>
+      </main>
     </div>
   );
 }

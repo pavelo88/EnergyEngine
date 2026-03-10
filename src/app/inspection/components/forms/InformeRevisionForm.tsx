@@ -11,7 +11,7 @@ import SignaturePad from '../SignaturePad';
 import { CHECKLIST_SECTIONS, INITIAL_FORM_DATA } from '../../lib/form-constants';
 import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import { useOnlineStatus } from '@/hooks/use-online-status';
-import { db } from '@/lib/db-local';
+import { db as dbLocal } from '@/lib/db-local';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
 
@@ -236,7 +236,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
 export default function InformeRevisionForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
-  const db = useFirestore();
+  const firestore = useFirestore();
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
@@ -254,19 +254,18 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   useEffect(() => {
-    if (user && user.email && db) {
-        getDoc(doc(db, 'usuarios', user.email)).then(snap => {
+    if (user && user.email && firestore) {
+        getDoc(doc(firestore, 'usuarios', user.email)).then(snap => {
             if (snap.exists()) setInspectorName(snap.data().nombre);
             else setInspectorName(user.email || 'Técnico');
         }).catch((e: any) => {
             console.error(e);
         });
     }
-  }, [user, db]);
+  }, [user, firestore]);
 
   useEffect(() => {
     if (initialData) {
-      // Deep merge initialData with formData
       setFormData((prev: any) => ({
           ...prev,
           cliente: initialData.clienteNombre || prev.cliente,
@@ -282,7 +281,6 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
     }
   }, [initialData]);
 
-  // Effect to process incoming AI data from global dictation
   useEffect(() => {
     if (aiData) {
       setFormData((prev: any) => {
@@ -386,7 +384,7 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
   };
 
   const handleSave = async () => {
-    if (!user || !db || !user.email) {
+    if (!user || !firestore || !user.email) {
         toast({ variant: 'destructive', title: 'Error de autenticación', description: 'Por favor, recarga la página.' });
         return;
     }
@@ -399,9 +397,9 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
     setSaving(true);
 
     const updateOriginalJobStatus = async (jobId: string) => {
-      if (isOnline && db) {
+      if (isOnline && firestore) {
           try {
-              const jobRef = doc(db, 'trabajos', jobId);
+              const jobRef = doc(firestore, 'trabajos', jobId);
               await updateDoc(jobRef, { estado: 'Completado' });
           } catch (updateError) {
               console.error(`Failed to update job ${jobId} status:`, updateError);
@@ -425,7 +423,7 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
             (localData as any).inspectorSignature = inspectorSignature;
             (localData as any).clientSignature = clientSignature;
         }
-        await db.hojas_trabajo.add({ // Save to the generic reports table
+        await dbLocal.hojas_trabajo.add({ 
             firebaseId: firebaseId || '',
             synced,
             data: localData,
@@ -441,7 +439,7 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
     if (isOnline) {
         try {
             const formType = 'informe-revision';
-            const trabajosRef = collection(db, 'trabajos');
+            const trabajosRef = collection(firestore, 'trabajos');
             const qTrabajos = query(trabajosRef, where('formType', '==', formType));
             const trabajosSnapshot = await getDocs(qTrabajos);
             const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
@@ -455,8 +453,13 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
                 return await getDownloadURL(imageRef);
             }));
             
-            const inspectorSignatureUrl = inspectorSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/inspector.png`), inspectorSignature, 'data_url')) : null;
-            const clientSignatureUrl = clientSignature ? await getDownloadURL(await uploadString(ref(storage, `firmas/${docId}/cliente.png`), clientSignature, 'data_url')) : null;
+            const inspectorSignatureRef = ref(storage, `firmas/${docId}/inspector.png`);
+            await uploadString(inspectorSignatureRef, inspectorSignature, 'data_url');
+            const inspectorSignatureUrl = await getDownloadURL(inspectorSignatureRef);
+
+            const clientSignatureRef = ref(storage, `firmas/${docId}/cliente.png`);
+            await uploadString(clientSignatureRef, clientSignature, 'data_url');
+            const clientSignatureUrl = await getDownloadURL(clientSignatureRef);
 
             const docData = {
                 ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl,
@@ -464,7 +467,7 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
                 fecha_creacion: Timestamp.now(), formType, id: docId, estado: 'Completado',
             };
             
-            await setDoc(doc(db, 'trabajos', docId), docData);
+            await setDoc(doc(firestore, 'trabajos', docId), docData);
 
             if (initialData?.id) {
               await updateOriginalJobStatus(initialData.id);

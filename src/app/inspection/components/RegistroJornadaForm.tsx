@@ -7,13 +7,13 @@ import {
 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
-import { addDoc, collection, serverTimestamp, updateDoc, doc, writeBatch } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, updateDoc, doc, writeBatch, setDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from '@/components/ui/input';
 import { useOnlineStatus } from '@/hooks/use-online-status';
