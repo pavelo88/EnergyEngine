@@ -10,7 +10,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
-import logoLight from '@/app/logo.png';
+import { logoBase64 } from '@/lib/logo-base64';
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
@@ -152,7 +152,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
       doc.rect(0, 0, pageWidth, 26, 'F'); 
 
       // --- 2. DIBUJAR EL LOGO ---
-      doc.addImage(logoLight.src, 'PNG', logoX, logoY, logoWidth, logoHeight);
+      doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
       // --- 3. DIBUJAR EL TEXTO DE LA EMPRESA ---
       const textX = logoX + logoWidth + 6; // Margen de 4mm tras el logo

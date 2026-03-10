@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore"; 
 import { useFirestore } from '@/firebase';
-import { PlusCircle, Trash2, Pencil } from 'lucide-react';
+import { PlusCircle, Trash2, Pencil, Mail, Phone, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 
 type Client = {
   id: string;
@@ -101,27 +102,50 @@ export default function ClientsPage() {
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm">
-          <div className="overflow-x-auto">
-            {loading ? <p>Cargando...</p> : (
+          {loading ? <p>Cargando...</p> : (
+            <>
+              {/* VISTA DE TARJETAS PARA MÓVIL Y TABLET */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:hidden">
+                {clients.map(client => (
+                  <Card key={client.id} className="rounded-[2rem] p-6 space-y-4 flex flex-col">
+                    <div className="flex-grow space-y-3">
+                      <h3 className="font-bold text-lg text-slate-800">{client.nombre}</h3>
+                      <div className="space-y-2 text-sm text-slate-500">
+                        {client.direccion && <p className="flex items-center gap-2"><MapPin size={14} /> {client.direccion}</p>}
+                        {client.email && <p className="flex items-center gap-2"><Mail size={14} /> {client.email}</p>}
+                        {client.telefono && <p className="flex items-center gap-2"><Phone size={14} /> {client.telefono}</p>}
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 border-t pt-4">
+                        <Button variant="ghost" size="icon" onClick={() => openModalForEdit(client)}><Pencil size={18}/></Button>
+                        <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600" onClick={() => handleDeleteClient(client)}><Trash2 size={18}/></Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+
+              {/* VISTA DE TABLA PARA ESCRITORIO */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full text-left">
-                <thead><tr className="border-b"><th className="p-3">Nombre</th><th className="p-3">Dirección</th><th className="p-3">Email</th><th className="p-3">Teléfono</th><th className="p-3">Acciones</th></tr></thead>
-                <tbody>
-                    {clients.map(client => (
-                    <tr key={client.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3 font-medium">{client.nombre}</td>
-                        <td className="p-3">{client.direccion}</td>
-                        <td className="p-3">{client.email}</td>
-                        <td className="p-3">{client.telefono}</td>
-                        <td className="p-3 flex items-center gap-4">
-                            <button onClick={() => openModalForEdit(client)} className="text-slate-500 hover:text-primary"><Pencil size={18}/></button>
-                            <button onClick={() => handleDeleteClient(client)} className="text-slate-500 hover:text-red-600"><Trash2 size={18}/></button>
-                        </td>
-                    </tr>
-                    ))}
-                </tbody>
+                  <thead><tr className="border-b"><th className="p-3">Nombre</th><th className="p-3">Dirección</th><th className="p-3">Email</th><th className="p-3">Teléfono</th><th className="p-3">Acciones</th></tr></thead>
+                  <tbody>
+                      {clients.map(client => (
+                      <tr key={client.id} className="border-b hover:bg-gray-50">
+                          <td className="p-3 font-medium">{client.nombre}</td>
+                          <td className="p-3">{client.direccion}</td>
+                          <td className="p-3">{client.email}</td>
+                          <td className="p-3">{client.telefono}</td>
+                          <td className="p-3 flex items-center gap-4">
+                              <button onClick={() => openModalForEdit(client)} className="text-slate-500 hover:text-primary"><Pencil size={18}/></button>
+                              <button onClick={() => handleDeleteClient(client)} className="text-slate-500 hover:text-red-600"><Trash2 size={18}/></button>
+                          </td>
+                      </tr>
+                      ))}
+                  </tbody>
                 </table>
-            )}
-          </div>
+              </div>
+            </>
+          )}
         </div>
 
         {isModalOpen && (

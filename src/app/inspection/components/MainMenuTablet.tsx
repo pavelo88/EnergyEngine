@@ -63,7 +63,7 @@ export default function MainMenuTablet({ onNavigate, userName }: MainMenuProps) 
           <h1 className="text-slate-800 text-7xl font-black mt-1 tracking-tighter">Panel de Control</h1>
       </header>
 
-      <main className="w-full max-w-4xl mx-auto flex-grow flex flex-col">
+      <main className="w-full max-w-7xl mx-auto flex-grow flex flex-col">
         <div className="w-full grid grid-cols-2 gap-8 flex-grow">
           {menuItems.map((item) => (
               <button

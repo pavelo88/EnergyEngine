@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc, updateDoc } from 'firebase/firestore';
+import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useFirestore, useUser } from '@/firebase';
 import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Mic } from 'lucide-react';
 import { splitTechnicalReport } from '@/ai/flows/split-technical-report-flow';
@@ -10,8 +11,7 @@ import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import SignaturePad from '../SignaturePad';
 import { useOnlineStatus } from '@/hooks/use-online-status';
-import { db as dbLocal } from '@/lib/db-local'; // CORRECCIÓN: Alias dbLocal para evitar colisión con useFirestore
-import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { db as dbLocal } from '@/lib/db-local';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
 
@@ -38,16 +38,14 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const pageHeight = doc.internal.pageSize.height;
     const pageWidth = doc.internal.pageSize.width;
     
-    // Márgenes
     const leftMargin = 15;
     const rightMargin = 15;
     const bottomMargin = 30;
-    const topMargin = 40; // Margen superior para cuando salta de página
+    const topMargin = 40;
     const contentWidth = pageWidth - leftMargin - rightMargin;
 
     let currentY = topMargin;
 
-    // 1. Título
     const title = `INFORME TÉCNICO Nº: ${finalID}`;
     doc.setTextColor(darkColor);
     doc.setFontSize(14);
@@ -55,7 +53,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text(title, leftMargin, currentY);
     currentY += 10;
     
-    // 2. Tabla de Datos
     autoTable(doc, {
         startY: currentY,
         body: [
@@ -75,24 +72,19 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     currentY = (doc as any).lastAutoTable.finalY + 10;
     
-    // 3. Título de Sección
     doc.setTextColor(darkColor);
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text("Descripción de la incidencia", leftMargin, currentY);
     currentY += 8;
 
-    // 4. Renderizado del Texto (El truco del justificado)
     const rawText = report.reportContent || '';
-    const blocks = rawText.split('\n\n'); // Cortamos por saltos de línea dobles
+    const blocks = rawText.split('\n\n');
 
     blocks.forEach((block: string) => {
-        const text = block.replace(/\n/g, ' ').trim(); // Limpiamos saltos de línea simples
-        
+        const text = block.replace(/\n/g, ' ').trim();
         if (!text) return;
-
         const isTitle = text.endsWith(':') && text.toUpperCase() === text;
-
         if (isTitle) {
             if (currentY + 15 > pageHeight - bottomMargin) {
                 doc.addPage();
@@ -109,22 +101,13 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
                 margin: { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin },
                 body: [[text]],
                 theme: 'plain',
-                styles: {
-                    font: 'helvetica',
-                    fontSize: 9,
-                    cellPadding: 0,
-                    halign: 'justify',
-                    textColor: darkColor
-                },
-                columnStyles: {
-                    0: { cellWidth: contentWidth }
-                }
+                styles: { font: 'helvetica', fontSize: 9, cellPadding: 0, halign: 'justify', textColor: darkColor },
+                columnStyles: { 0: { cellWidth: contentWidth } }
             });
             currentY = (doc as any).lastAutoTable.finalY + 4;
         }
     });
 
-    // 5. Bloque de Firma
     const signatureBlockHeight = 45;
     if (currentY + signatureBlockHeight > pageHeight - bottomMargin) {
       doc.addPage();
@@ -147,14 +130,13 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         drawPdfHeader(doc);
         drawPdfFooter(doc, i, pageCount);
     }
-
     return doc;
 };
 
 
 export default function InformeTrabajoForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
   const { user } = useUser();
-  const firestore = useFirestore(); // Renombrado para consistencia
+  const firestore = useFirestore();
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
@@ -237,7 +219,7 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
 
   const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
-      toast({ variant: 'destructive', title: 'Error de Geolocalización', description: 'Tu navegador no soporta esta función.' });
+      toast({ variant: 'destructive', title: 'Error de Geolocalización' });
       setLocationStatus('error');
       return;
     }
@@ -249,7 +231,7 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
         setLocationStatus('success');
       },
       () => {
-        toast({ variant: 'destructive', title: 'Ubicación denegada', description: 'Asegúrate de tener los permisos de localización activados.' });
+        toast({ variant: 'destructive', title: 'Ubicación denegada' });
         setLocationStatus('error');
       }
     );
@@ -270,46 +252,38 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
   };
 
   const handlePdfAction = () => {
-    const reportData = {
-    ...formData,
-    inspectorSignatureUrl: inspectorSignature,
-    };
+    const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature };
     const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
     if (isSaved) {
-    docPdf.save(`Informe_Tecnico_${savedDocId}.pdf`);
+      docPdf.save(`Informe_Tecnico_${savedDocId}.pdf`);
     } else {
-    setPreviewPdfUrl(docPdf.output('datauristring'));
+      setPreviewPdfUrl(docPdf.output('datauristring'));
     }
   };
 
   const handleSave = async () => {
-    if (!user || !firestore || !user.email) {
-        toast({ variant: 'destructive', title: 'Error de autenticación', description: 'Por favor, recarga la página.' });
+    if (!firestore || !user?.email || !inspectorSignature) {
+        toast({ variant: 'destructive', title: 'Datos incompletos', description: 'La firma del inspector es obligatoria.' });
         return;
     }
     if (isSaved) return;
-    if (!inspectorSignature) {
-        toast({ variant: 'destructive', title: 'Falta Firma', description: 'La firma del inspector es obligatoria para guardar.' });
-        return;
-    }
+
     setSaving(true);
     
     const updateOriginalJobStatus = async (jobId: string) => {
-      if (isOnline && firestore) {
-          try {
-              const jobRef = doc(firestore, 'trabajos', jobId);
-              await updateDoc(jobRef, { estado: 'Completado' });
-          } catch (updateError) {
-              console.error(`Failed to update job ${jobId} status:`, updateError);
-          }
-      }
+        if (isOnline && firestore) {
+            try {
+                await updateDoc(doc(firestore, 'trabajos', jobId), { estado: 'Completado' });
+            } catch (updateError) {
+                console.error(`Failed to update job status:`, updateError);
+            }
+        }
     };
 
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
         const localData = { 
           ...formData, 
-          formType: 'informe-tecnico',
-          originalJobId: initialData?.id || null
+          originalJobId: initialData?.id || null 
         };
         if (!synced) {
             (localData as any).inspectorSignature = inspectorSignature;
@@ -321,37 +295,30 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
             data: localData,
             createdAt: new Date(),
         });
-
-        if (!synced) {
-            toast({ title: 'Guardado localmente (sin conexión)', description: 'El informe se sincronizará cuando vuelvas a tener conexión.' });
+        
+        if (synced) {
+            toast({ title: '¡Guardado y Sincronizado!', description: `ID: ${firebaseId}` });
         } else {
-            toast({ title: '¡Guardado y Sincronizado!', description: `El informe técnico ha sido guardado con el ID: ${firebaseId}` });
+            toast({ title: 'Guardado localmente', description: 'Se sincronizará al recuperar la conexión.' });
         }
     };
     
     if (isOnline) {
         try {
             const formType = 'informe-tecnico';
-            const trabajosRef = collection(firestore, 'trabajos');
-            const qTrabajos = query(trabajosRef, where('formType', '==', formType));
-            const trabajosSnapshot = await getDocs(qTrabajos);
-            const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
-            const year = new Date().getFullYear();
-            const docId = `IT-${year}-${sequentialNumber}`;
+            const q = query(collection(firestore, 'trabajos'), where('formType', '==', formType));
+            const snapshot = await getDocs(q);
+            const sequential = (snapshot.size + 1).toString().padStart(3, '0');
+            const docId = `IT-${new Date().getFullYear()}-${sequential}`;
 
             const storage = getStorage();
-            
-            // CORRECCIÓN: Manejo de promesas de Storage separadas para evitar error de tipado
-            let inspectorSignatureUrl = null;
-            if (inspectorSignature) {
-                const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
-                await uploadString(signatureRef, inspectorSignature, 'data_url');
-                inspectorSignatureUrl = await getDownloadURL(signatureRef);
-            }
+            const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
+            await uploadString(signatureRef, inspectorSignature, 'data_url');
+            const inspectorSignatureUrl = await getDownloadURL(signatureRef);
 
             const docData = { 
                 ...formData, 
-                inspectorSignatureUrl, 
+                inspectorSignatureUrl,
                 tecnicoId: user.email, 
                 tecnicoNombre: inspectorName,
                 fecha_creacion: Timestamp.now(), 
@@ -359,6 +326,7 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
                 id: docId,
                 estado: 'Completado',
             };
+            
             await setDoc(doc(firestore, 'trabajos', docId), docData);
 
             if (initialData?.id) {

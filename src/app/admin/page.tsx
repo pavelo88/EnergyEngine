@@ -3,21 +3,26 @@
 import { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
-import { Users, Briefcase, Clock } from 'lucide-react';
+import { Users, Briefcase, Clock, Loader2 } from 'lucide-react';
 
 type StatCardProps = {
   title: string;
   value: number | string;
   icon: React.ElementType;
   color: string;
+  loading: boolean;
 };
 type Job = { id: string; clienteNombre: string; estado: string; inspectorNombres: string[]; };
 
-const StatCard = ({ title, value, icon: Icon, color }: StatCardProps) => (
+const StatCard = ({ title, value, icon: Icon, color, loading }: StatCardProps) => (
   <div className={`bg-white p-6 rounded-2xl shadow-sm flex items-center justify-between`}>
     <div>
       <p className="text-sm font-medium text-slate-500">{title}</p>
-      <p className="text-3xl font-bold text-slate-800">{value}</p>
+      {loading ? (
+        <Loader2 className="h-8 w-8 animate-spin text-slate-300 mt-1" />
+      ) : (
+        <p className="text-3xl font-bold text-slate-800">{value}</p>
+      )}
     </div>
     <div className={`rounded-full p-3 ${color}`}>
       <Icon className="h-6 w-6 text-white" />
@@ -41,31 +46,30 @@ export default function AdminDashboardPage() {
       setStats(prev => ({ ...prev, clients: snapshot.size }));
     });
 
-    const qInspectors = query(collection(db, 'usuarios'), where("rol", "==", "inspector"));
+    const qInspectors = query(collection(db, 'usuarios'), where("roles", "array-contains", "inspector"));
     const unsubInspectors = onSnapshot(qInspectors, snapshot => {
         setStats(prev => ({ ...prev, inspectors: snapshot.size }));
     });
 
-    const qJobs = query(collection(db, 'trabajos'), orderBy('fechaCreacion', 'desc'));
+    const qJobs = query(collection(db, 'trabajos'), orderBy('fecha_creacion', 'desc'));
     const unsubJobs = onSnapshot(qJobs, snapshot => {
       let pending = 0;
       let inProgress = 0;
       const jobs: Job[] = [];
       
       snapshot.forEach(doc => {
-        const data = doc.data(); // <-- Le quitamos el "as Job" aquí
+        const data = doc.data();
         if (data.estado === 'Pendiente') pending++;
         if (data.estado === 'En Progreso') inProgress++;
         
         if (jobs.length < 5) {
-            // Unimos el ID y los datos, y AHORA le decimos que es un Job
             jobs.push({ id: doc.id, ...data } as Job); 
         }
       });
 
       setStats(prev => ({ ...prev, pendingJobs: pending, inProgressJobs: inProgress }));
       setRecentJobs(jobs);
-      setLoading(false);
+      if (loading) setLoading(false);
     });
 
     return () => {
@@ -73,7 +77,7 @@ export default function AdminDashboardPage() {
       unsubInspectors();
       unsubJobs();
     };
-  }, [db]);
+  }, [db, loading]);
 
   return (
     <div className="space-y-8">
@@ -85,16 +89,16 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Clientes Totales" value={stats.clients} icon={Users} color="bg-blue-500" />
-        <StatCard title="Trabajos Pendientes" value={stats.pendingJobs} icon={Clock} color="bg-yellow-500" />
-        <StatCard title="Trabajos En Progreso" value={stats.inProgressJobs} icon={Briefcase} color="bg-indigo-500" />
-        <StatCard title="Inspectores Activos" value={stats.inspectors} icon={Users} color="bg-green-500" />
+        <StatCard title="Clientes Totales" value={stats.clients} icon={Users} color="bg-blue-500" loading={loading} />
+        <StatCard title="Trabajos Pendientes" value={stats.pendingJobs} icon={Clock} color="bg-yellow-500" loading={loading} />
+        <StatCard title="Trabajos En Progreso" value={stats.inProgressJobs} icon={Briefcase} color="bg-indigo-500" loading={loading} />
+        <StatCard title="Inspectores Activos" value={stats.inspectors} icon={Users} color="bg-green-500" loading={loading} />
       </div>
 
       <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm">
             <h2 className="text-xl font-bold text-slate-700 mb-4">Trabajos Recientes</h2>
             <div className="overflow-x-auto">
-            {loading ? <p>Cargando...</p> : (
+            {loading ? <div className="h-40 flex items-center justify-center"><Loader2 className="animate-spin text-primary"/></div> : (
                 <table className="w-full text-left">
                 <thead>
                     <tr className="border-b"><th className="p-3">Cliente</th><th className="p-3">Inspectores</th><th className="p-3">Estado</th></tr>

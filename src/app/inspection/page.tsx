@@ -6,7 +6,7 @@ import { Loader2, Mic, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { collection, query, where, getDocs, setDoc, doc, Timestamp, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
-import { db } from '@/lib/db-local';
+import { db as dbLocal } from '@/lib/db-local';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -29,7 +29,7 @@ import {
   InformeTecnicoFormLazy,
   InformeRevisionFormLazy,
   InformeSimplificadoFormLazy,
-  RevisionBasicaFormLazy // CORRECCIÓN 3: Importamos el formulario faltante
+  RevisionBasicaFormLazy
 } from './lazy-tabs';
 
 type FormType = 'hoja-trabajo' | 'informe-tecnico' | 'informe-revision' | 'informe-simplificado' | 'revision-basica';
@@ -53,7 +53,7 @@ const InspectionPageContent = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiData, setAiData] = useState<ProcessDictationOutput | null>(null);
   const recognitionRef = useRef<any>(null);
-  const dictationBufferRef = useRef<string>(''); // CORRECCIÓN 2: Búfer para acumular el dictado sin cortes
+  const dictationBufferRef = useRef<string>('');
 
   // --- SYNC ENGINE ---
   useEffect(() => {
@@ -62,10 +62,9 @@ const InspectionPageContent = () => {
         const storage = getStorage();
         setIsSyncing(true);
 
-        // MEJORA: Simplificamos a !record.synced para evitar el error TS2367 (boolean vs number)
-        const pendingHojas = await db.hojas_trabajo.filter(record => !record.synced).toArray();
-        const pendingJornadas = await db.registros_jornada.filter(record => !record.synced).toArray();
-        const pendingGastos = await db.gastos.filter(record => !record.synced).toArray();
+        const pendingHojas = await dbLocal.hojas_trabajo.filter(record => !record.synced).toArray();
+        const pendingJornadas = await dbLocal.registros_jornada.filter(record => !record.synced).toArray();
+        const pendingGastos = await dbLocal.gastos.filter(record => !record.synced).toArray();
         
         const totalPending = pendingHojas.length + pendingJornadas.length + pendingGastos.length;
 
@@ -105,7 +104,6 @@ const InspectionPageContent = () => {
                   return await getDownloadURL(imageRef);
               }));
 
-              // MEJORA: Separamos subida y URL en dos pasos para evitar error TS2345 de StorageReference
               let inspectorSignatureUrl = null;
               if (inspectorSignature) {
                   const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
@@ -133,8 +131,7 @@ const InspectionPageContent = () => {
                 }
               }
               
-              // CORRECCIÓN 1: Actualizamos a true
-              await db.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
+              await dbLocal.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
               syncedCount++;
             } catch (error) {
               console.error('Failed to sync report:', record.id, error);
@@ -147,7 +144,6 @@ const InspectionPageContent = () => {
                 const { signature, ...jornadaData } = record.data;
                 const jornadaId = `J-${Date.now().toString().slice(-6)}-${user.uid.slice(0,4)}`;
                 
-                // MEJORA: Separamos subida y URL en dos pasos para evitar error TS2345
                 let firmaUrl = null;
                 if (signature) {
                     const sigRef = ref(storage, `firmas_jornadas/${jornadaId}.png`);
@@ -158,8 +154,7 @@ const InspectionPageContent = () => {
                 const jornadaDocRef = doc(collection(firestore, "jornadas"), jornadaId);
                 await setDoc(jornadaDocRef, { ...jornadaData, firmaUrl, id: jornadaDocRef.id, fecha_creacion: serverTimestamp() });
                 
-                // CORRECCIÓN 1: Actualizamos a true
-                await db.registros_jornada.update(record.id!, { synced: true, firebaseId: jornadaId });
+                await dbLocal.registros_jornada.update(record.id!, { synced: true, firebaseId: jornadaId });
 
              } catch(error) {
                 console.error("Failed to sync jornada record:", record.id, error);
@@ -181,8 +176,7 @@ const InspectionPageContent = () => {
                 
                 await setDoc(gastoRef, { ...gastoData, comprobanteUrl, fecha_creacion: serverTimestamp() });
                 
-                // CORRECCIÓN 1: Actualizamos a true
-                await db.gastos.update(record.id!, { synced: true, firebaseId: gastoRef.id });
+                await dbLocal.gastos.update(record.id!, { synced: true, firebaseId: gastoRef.id });
 
              } catch(error) {
                  console.error("Failed to sync gasto record:", record.id, error);
@@ -226,7 +220,6 @@ const InspectionPageContent = () => {
         recognition.lang = 'es-ES';
         recognition.interimResults = false;
 
-        // CORRECCIÓN 2: Modificamos onresult para que solo acumule el texto sin detener el micrófono
         recognition.onresult = (event: any) => {
             let chunk = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -254,7 +247,6 @@ const InspectionPageContent = () => {
             }
         };
         
-        // CORRECCIÓN 2: Procesamos el texto completo solo cuando el micrófono se detiene
         recognition.onend = async () => {
             setIsDictating(false);
             const finalText = dictationBufferRef.current.trim();
@@ -278,7 +270,7 @@ const InspectionPageContent = () => {
                     });
                 } finally {
                     setAiLoading(false);
-                    dictationBufferRef.current = ''; // Limpiamos el búfer para el próximo dictado
+                    dictationBufferRef.current = '';
                 }
             }
         };
@@ -316,6 +308,7 @@ const InspectionPageContent = () => {
 
   const handleBackToHub = () => {
     setActiveInspectionForm(null);
+    setActiveTab(TABS.MENU);
   }
 
   const handleInstallClick = () => {
@@ -348,11 +341,10 @@ const InspectionPageContent = () => {
           return;
       }
       if (isDictating) {
-          // Detener el reconocimiento disparará el evento onend y procesará el búfer
           recognitionRef.current.stop();
           toast({ title: "Procesando dictado...", description: "La IA está estructurando la información." });
       } else {
-          dictationBufferRef.current = ''; // Limpiar el búfer al iniciar
+          dictationBufferRef.current = '';
           setAiData(null);
           recognitionRef.current.start();
           setIsDictating(true);
@@ -366,10 +358,12 @@ const InspectionPageContent = () => {
           return null;
       }
 
+      const bottomPosition = activeTab === TABS.MENU ? 'bottom-8' : 'bottom-28';
+
       return (
           <button
               onClick={toggleDictation}
-              className={`fixed bottom-28 md:bottom-10 right-6 w-16 h-16 rounded-full text-white shadow-2xl flex items-center justify-center z-50 transition-all duration-300 transform active:scale-90
+              className={`fixed ${bottomPosition} right-6 w-16 h-16 rounded-full text-white shadow-2xl flex items-center justify-center z-50 transition-all duration-300 transform active:scale-90
               ${isDictating ? 'bg-red-600 animate-pulse' : 'bg-primary'}
               ${aiLoading ? 'bg-gray-400 cursor-not-allowed' : ''}`}
               disabled={aiLoading}
@@ -412,7 +406,7 @@ const InspectionPageContent = () => {
             case 'informe-tecnico': FormComponent = InformeTecnicoFormLazy; break;
             case 'informe-revision': FormComponent = InformeRevisionFormLazy; break;
             case 'informe-simplificado': FormComponent = InformeSimplificadoFormLazy; break;
-            case 'revision-basica': FormComponent = RevisionBasicaFormLazy; break; // CORRECCIÓN 3: Formulario integrado
+            case 'revision-basica': FormComponent = RevisionBasicaFormLazy; break;
             default: return <p>Formulario no encontrado</p>;
         }
 
@@ -445,12 +439,12 @@ const InspectionPageContent = () => {
       <Header 
         activeTab={activeTab}
         isSubNavActive={!!activeInspectionForm}
-        onBack={activeInspectionForm ? handleBackToHub : () => handleNavigate(TABS.MENU)}
+        onBack={handleBackToHub}
         isOnline={isOnline}
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
       />
-      <div className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28">
         {renderContent()}
       </div>
       {renderFloatingDictationButton()}

@@ -3,8 +3,7 @@
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import logoLight from '@/app/logo.png';
-import logoDark from '@/app/logo2.jpg';
+import { logoBase64 } from '@/lib/logo-base64';
 
 export const Logo = () => {
   const { theme, systemTheme } = useTheme();
@@ -26,8 +25,8 @@ export const Logo = () => {
     );
   }
 
-  const currentTheme = theme === 'system' ? systemTheme : theme;
-  const logoSrc = currentTheme === 'dark' ? logoDark : logoLight;
+  // The base64 logo works for both themes.
+  const logoSrc = logoBase64;
 
   return (
     <div className="flex items-center gap-3">
