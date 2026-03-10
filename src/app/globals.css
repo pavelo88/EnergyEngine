@@ -9,7 +9,7 @@
   }
 
   :root {
-    --background: 0 0% 100%;
+    --background: 210 20% 98%;
     --foreground: 222.2 84% 4.9%;
 
     --card: 0 0% 100%;
@@ -18,26 +18,28 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
  
-    --primary: 145 63% 40%;
+    /* Verde corporativo, más vibrante */
+    --primary: 147 60% 42%;
     --primary-foreground: 210 40% 98%;
  
-    --secondary: 210 40% 96.1%;
+    /* Plata satinado para fondos secundarios */
+    --secondary: 210 30% 95%;
     --secondary-foreground: 222.2 47.4% 11.2%;
  
-    --muted: 210 40% 96.1%;
+    --muted: 210 30% 95%;
     --muted-foreground: 215.4 16.3% 46.9%;
  
-    --accent: 210 40% 96.1%;
+    --accent: 210 30% 95%;
     --accent-foreground: 222.2 47.4% 11.2%;
  
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 145 63% 40%;
+    --border: 210 20% 88%;
+    --input: 210 20% 88%;
+    --ring: 147 60% 42%; /* Anillo de focus a juego con el primario */
  
-    --radius: 1rem;
+    --radius: 0.75rem; /* Bordes un poco más suaves */
   }
  
   .dark {
@@ -50,7 +52,7 @@
     --popover: 224 71% 4%;
     --popover-foreground: 213 31% 91%;
 
-    --primary: 145 63% 40%;
+    --primary: 147 60% 42%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 215 28% 17%;
@@ -67,7 +69,7 @@
 
     --border: 215 28% 17%;
     --input: 215 28% 17%;
-    --ring: 145 63% 40%;
+    --ring: 147 60% 42%;
   }
 }
  
