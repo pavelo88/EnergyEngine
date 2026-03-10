@@ -64,7 +64,6 @@ const InspectionPageContent = () => {
     }
   }, []);
 
-  // Sincronización robusta para modo supervivencia
   const syncOfflineData = useCallback(async () => {
     if (!isOnline || isSyncing || !user || !firestore) return;
     
@@ -150,7 +149,7 @@ const InspectionPageContent = () => {
   const toggleDictation = () => {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (!SpeechRecognition) {
-          toast({ variant: "destructive", title: "Error", description: "Voz no compatible." });
+          toast({ variant: "destructive", title: "Función no compatible", description: "El dictado por voz no está disponible en este navegador." });
           return;
       }
       if (isDictating) {
@@ -172,14 +171,14 @@ const InspectionPageContent = () => {
                   try {
                       const res = await processDictation({ dictation: dictationBufferRef.current });
                       setAiData(res);
-                      toast({ title: "Voz procesada" });
+                      toast({ title: "Voz Procesada", description: "La IA ha rellenado el formulario con tu dictado." });
                   } catch (e) {
                       console.error("Fallo IA:", e);
                       setAiData({
                           observations_summary: dictationBufferRef.current,
                           identidad: {}, all_ok: false, checklist_updates: {}, mediciones_generales: {}, pruebas_carga: {}
                       } as any);
-                      toast({ variant: "destructive", title: "IA Fuera de Servicio", description: "Usando dictado plano." });
+                      toast({ variant: "destructive", title: "IA Fuera de Servicio", description: "Usando dictado plano. Por favor, revise los campos." });
                   } finally {
                       setAiLoading(false);
                   }
@@ -188,14 +187,14 @@ const InspectionPageContent = () => {
           recognitionRef.current = recognition;
           recognition.start();
           setIsDictating(true);
-          toast({ title: "Escuchando..." });
+          toast({ title: "Escuchando...", description: "Hable con claridad sobre el estado del equipo." });
       }
   };
 
-  if (isUserLoading) return <div className="flex h-screen items-center justify-center bg-slate-100"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  if (isUserLoading) return <div className="flex h-screen items-center justify-center bg-slate-100"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   const renderContent = () => {
-    if (!hasMounted) return <div className="flex-grow flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+    if (!hasMounted) return <div className="flex-grow flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     if (activeTab === TABS.MENU) {
       const name = user?.displayName || user?.email?.split('@')[0] || 'Técnico';
@@ -207,7 +206,7 @@ const InspectionPageContent = () => {
     let props: any = {};
 
     if (activeTab === TABS.NEW_INSPECTION) {
-        if (!activeInspectionForm) return <div className="w-full h-full"><InspectionHub onSelectInspectionType={handleSelectInspectionType} /></div>;
+        if (!activeInspectionForm) return <div className="w-full h-full max-w-7xl mx-auto"><InspectionHub onSelectInspectionType={handleSelectInspectionType} /></div>;
         
         switch (activeInspectionForm) {
             case 'hoja-trabajo': Component = HojaTrabajoFormLazy; break;
@@ -223,13 +222,13 @@ const InspectionPageContent = () => {
             case TABS.TASKS: Component = TasksTabLazy; props = { onStartInspection: handleStartInspectionFromTask }; break;
             case TABS.EXPENSES: Component = RegistroJornadaForm; break;
             case TABS.PROFILE: Component = ProfileTabLazy; break;
-            default: return <p>No encontrado</p>;
+            default: return <p className="text-center py-20 text-slate-400">Componente no encontrado</p>;
         }
     }
 
     return (
-      <Suspense fallback={<div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div>}>
-        <div className="w-full h-full pb-32">
+      <Suspense fallback={<div className="py-40 flex flex-col items-center justify-center gap-4 text-slate-400 font-bold"><Loader2 className="animate-spin text-primary" size={40} /> CARGANDO MÓDULO...</div>}>
+        <div className="w-full h-full pb-40 max-w-7xl mx-auto">
           <Component {...props} />
         </div>
       </Suspense>
@@ -253,7 +252,7 @@ const InspectionPageContent = () => {
       {activeInspectionForm && (
           <button
               onClick={toggleDictation}
-              className={`fixed bottom-24 right-6 w-16 h-16 rounded-full text-white shadow-2xl flex items-center justify-center z-50 transition-all transform active:scale-90
+              className={`fixed bottom-24 right-6 w-16 h-16 rounded-full text-white shadow-2xl flex items-center justify-center z-50 transition-all transform active:scale-90 hover:scale-105
               ${isDictating ? 'bg-red-600 animate-pulse' : 'bg-primary'} ${aiLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={aiLoading}
           >

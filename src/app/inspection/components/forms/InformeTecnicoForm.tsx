@@ -162,6 +162,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [savedDocId, setSavedDocId] = useState('');
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
@@ -171,7 +172,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     if (user && user.email && firestore) {
         getDoc(doc(firestore, 'usuarios', user.email)).then(snap => {
             if (snap.exists()) setInspectorName(snap.data().nombre);
-            else setInspectorName(user.displayName || user.email || 'Técnico');
+            else setInspectorName(user.displayName || user.email || 'Técnico Especialista');
         });
     }
   }, [user, firestore]);
@@ -214,7 +215,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
   const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
-      toast({ variant: 'destructive', title: 'Error GPS' });
+      toast({ variant: 'destructive', title: 'Error GPS', description: 'Tu dispositivo no soporta geolocalización.' });
       setLocationStatus('error');
       return;
     }
@@ -224,8 +225,12 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         const { latitude, longitude } = position.coords;
         handleInputChange('location', { lat: latitude, lon: longitude });
         setLocationStatus('success');
+        toast({ title: 'GPS OK', description: 'Ubicación registrada con éxito.' });
       },
-      () => { setLocationStatus('error'); }
+      () => { 
+        toast({ variant: 'destructive', title: 'GPS Fallido', description: 'Active permisos de ubicación.' });
+        setLocationStatus('error'); 
+      }
     );
   };
 
@@ -236,32 +241,40 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       const res = await splitTechnicalReport({ dictation: formData.reportContent });
       const formattedText = `ANTECEDENTES:\n\n${res.antecedentes}\n\nINTERVENCIÓN:\n\n${res.intervencion}\n\nRESUMEN Y SITUACIÓN ACTUAL:\n\n${res.resumen}`;
       setFormData((p: any) => ({ ...p, reportContent: formattedText }));
-      toast({ title: 'Informe estructurado por IA' });
+      toast({ title: '¡Pulido por IA!', description: 'El reporte ha sido estructurado formalmente.' });
     } catch (e: any) { 
         console.error("AI Error:", e);
         toast({ 
           variant: 'destructive', 
           title: 'IA no disponible', 
-          description: 'Clave de API expirada o bloqueada. Use edición manual.' 
+          description: 'Error de servidor. El informe se mantendrá como texto manual.' 
         });
     } finally { setAiLoading(false); }
   };
 
   const handlePdfAction = () => {
-    try {
-        const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature };
-        const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
-        
-        // Timeout para asegurar que el Dialog cargue el iframe correctamente
-        const uri = docPdf.output('datauristring');
-        setPreviewPdfUrl(uri);
-        
-        if (isSaved) {
-          docPdf.save(`Informe_Tecnico_${savedDocId}.pdf`);
-        }
-    } catch (e) {
-        toast({ variant: 'destructive', title: 'Error al generar PDF' });
+    if (!formData.cliente || !formData.instalacion) {
+        toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Cliente e Instalación son obligatorios para generar PDF.' });
+        return;
     }
+    setPdfLoading(true);
+    setTimeout(() => {
+        try {
+            const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature };
+            const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
+            
+            const uri = docPdf.output('datauristring');
+            setPreviewPdfUrl(uri);
+            
+            if (isSaved) {
+              docPdf.save(`Informe_Tecnico_${savedDocId}.pdf`);
+            }
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error PDF', description: 'No se pudo generar el documento.' });
+        } finally {
+            setPdfLoading(false);
+        }
+    }, 500);
   };
 
   const handleSave = async () => {
@@ -276,8 +289,8 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     if (missing.length > 0) {
         toast({ 
           variant: 'destructive', 
-          title: 'Datos incompletos', 
-          description: `Por favor, completa: ${missing.join(', ')}` 
+          title: 'Datos Incompletos', 
+          description: `Por favor complete: ${missing.join(', ')}` 
         });
         return;
     }
@@ -290,11 +303,11 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         await dbLocal.hojas_trabajo.add({ firebaseId: firebaseId || '', synced, data: localData, createdAt: new Date() });
         
         if (synced) {
-            toast({ title: '¡Sincronizado!', description: `Informe guardado con ID: ${firebaseId}` });
+            toast({ title: '¡Informe Sincronizado!', description: `Guardado con éxito. ID: ${firebaseId}` });
         } else {
             toast({ 
               title: 'Guardado Localmente', 
-              description: 'Error de conexión/CORS. Se sincronizará automáticamente al detectar red permitida.' 
+              description: 'Error de red. Se sincronizará automáticamente al detectar conexión.' 
             });
         }
     };
@@ -306,15 +319,14 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             const docId = `IT-${new Date().getFullYear()}-${(trabajosSnap.size + 1).toString().padStart(3, '0')}`;
             const storage = getStorage();
             
-            // Subida de firma con manejo de CORS
             let inspectorSignatureUrl = null;
             try {
               const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
               await uploadString(signatureRef, inspectorSignature!, 'data_url');
               inspectorSignatureUrl = await getDownloadURL(signatureRef);
-            } catch (corsErr) {
-              console.warn("CORS Error uploading signature, will save local:", corsErr);
-              throw new Error("CORS_ERROR");
+            } catch (storageErr) {
+              console.warn("Storage Error, will save local:", storageErr);
+              throw new Error("STORAGE_ERROR");
             }
 
             const docData = { 
@@ -345,12 +357,12 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   };
 
   return (
-    <main className="max-w-4xl mx-auto p-2 md:p-6 space-y-8 animate-in fade-in bg-slate-50 min-h-screen">
+    <main className="max-w-4xl mx-auto space-y-8 animate-in fade-in">
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
         <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden">
           <DialogHeader className="p-4 border-b bg-white">
             <DialogTitle className="font-black uppercase tracking-tighter">Borrador Informe Técnico</DialogTitle>
-            <DialogDescription className="sr-only">Previsualización del informe.</DialogDescription>
+            <DialogDescription className="text-xs text-slate-500">Documento profesional para validación de intervenciones.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 bg-slate-200">
             {previewPdfUrl && (
@@ -360,7 +372,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         </DialogContent>
       </Dialog>
 
-      <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Técnico</h2>
+      <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe de Intervención Técnica</h2>
       
       <section className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -370,16 +382,16 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             <StableInput label="Nº de motor" icon={Type} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>
             <StableInput label="Grupo" icon={Settings} value={formData.grupo} onChange={(v: string) => handleInputChange('grupo', v)}/>
             <div className="md:col-span-2">
-                <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={(v: string) => handleInputChange('instalacion', v)}/>
+                <StableInput label="Instalación / Ubicación Específica" icon={MapPin} value={formData.instalacion} onChange={(v: string) => handleInputChange('instalacion', v)}/>
             </div>
             <div className="md:col-span-2">
               <button 
                   onClick={handleCaptureLocation} 
                   disabled={locationStatus === 'loading'} 
-                  className={`w-full p-4 border-2 rounded-2xl font-black flex items-center justify-center gap-3 transition-all ${formData.location ? 'border-green-500 text-green-600 bg-green-50' : 'border-slate-100 text-slate-400 hover:border-primary'}`}
+                  className={`w-full p-4 border-2 rounded-2xl font-black flex items-center justify-center gap-3 transition-all active:scale-95 ${formData.location ? 'border-green-500 text-green-600 bg-green-50' : 'border-slate-100 text-slate-400 hover:border-primary'}`}
               >
                   {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={18}/> : <MapPin size={18}/>}
-                  <span>{formData.location ? `UBICACIÓN OK: ${formData.location.lat.toFixed(4)}` : 'CAPTURAR UBICACIÓN GPS'}</span>
+                  <span>{formData.location ? `COORDENADAS REGISTRADAS` : 'CAPTURAR UBICACIÓN GPS'}</span>
               </button>
             </div>
           </div>
@@ -387,30 +399,41 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
       <section className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm space-y-8 border border-slate-100">
          <div className="flex justify-between items-center">
-            <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">Incidencia</h3>
-            <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-[10px] font-black bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-100">
-                {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />} IA ESTRUCTURAR
+            <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">Detalles de la Incidencia</h3>
+            <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-[10px] font-black bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-colors active:scale-95">
+                {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />} 
+                {aiLoading ? 'ESTRUCTURANDO...' : 'ESTRUCTURAR CON IA'}
             </button>
         </div>
         <textarea 
-            className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600 transition-all resize-none shadow-inner" 
-            placeholder="Escriba el informe aquí..."
+            className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600 transition-all resize-none shadow-inner leading-relaxed" 
+            placeholder="Escriba o dicte aquí el informe completo. Use la IA para separar automáticamente en Antecedentes, Intervención y Situación Actual."
             value={formData.reportContent} 
             onChange={(e: any) => handleInputChange('reportContent', e.target.value)}
         />
       </section>
       
       <section className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
-        <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
+        <SignaturePad title="Firma del Técnico Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
         <p className="text-center font-black text-slate-400 text-[10px] uppercase tracking-widest">{inspectorName}</p>
       </section>
       
-      <div className="flex flex-col md:flex-row gap-4">
-        <button onClick={handlePdfAction} className="w-full p-8 bg-white text-slate-900 border-2 border-slate-200 rounded-[2.5rem] font-black text-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-primary shadow-lg">
-            {isSaved ? <Printer className="text-primary"/> : <FileSearch className="text-primary"/>} VISTA PREVIA PDF
+      <div className="flex flex-col md:flex-row gap-4 pt-6">
+        <button 
+            onClick={handlePdfAction} 
+            disabled={pdfLoading}
+            className="w-full p-8 bg-white text-slate-900 border-2 border-slate-200 rounded-[2.5rem] font-black text-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-primary shadow-lg disabled:opacity-50"
+        >
+            {pdfLoading ? <Loader2 className="animate-spin text-primary" size={24}/> : isSaved ? <Printer className="text-primary"/> : <FileSearch className="text-primary"/>} 
+            {pdfLoading ? 'GENERANDO...' : 'VISTA PREVIA PDF'}
         </button>
-        <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 shadow-2xl">
-          {saving ? <Loader2 className="animate-spin text-primary"/> : isSaved ? <CheckCircle2 className="text-primary"/> : <Save className="text-primary"/>} {saving ? 'GUARDANDO...' : isSaved ? 'HOJA GUARDADA' : 'FINALIZAR Y GUARDAR'}
+        <button 
+            onClick={handleSave} 
+            disabled={saving || isSaved} 
+            className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 shadow-2xl disabled:bg-slate-700"
+        >
+          {saving ? <Loader2 className="animate-spin text-primary" size={24}/> : isSaved ? <CheckCircle2 className="text-primary"/> : <Save className="text-primary"/>} 
+          {saving ? 'GUARDANDO INFORME...' : isSaved ? 'INFORME GUARDADO' : 'CERRAR Y GUARDAR'}
         </button>
       </div>
     </main>

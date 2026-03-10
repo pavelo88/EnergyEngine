@@ -19,7 +19,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [hasContent, setHasContent] = useState(!!signature);
 
-  // Inicialización estable del lienzo con suavizado
+  // Inicialización del lienzo con suavizado extremo
   useEffect(() => {
     if (!isFullScreen) return;
 
@@ -37,16 +37,18 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       canvas.height = rect.height * scale;
       
       ctx.scale(scale, scale);
+      
+      // Configuración para trazo suave y redondeado
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#0f172a';
+      ctx.strokeStyle = '#0f172a'; // Slate-900
       ctx.lineWidth = 3;
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, rect.width, rect.height);
 
       contextRef.current = ctx;
 
-      // Cargar firma existente si hay una
+      // Cargar firma previa si existe
       if (signature) {
         const img = new Image();
         img.src = signature;
@@ -56,7 +58,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       }
     };
 
-    const timer = setTimeout(initCanvas, 150);
+    const timer = setTimeout(initCanvas, 100);
     return () => clearTimeout(timer);
   }, [isFullScreen, signature]);
 
@@ -86,7 +88,10 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   };
 
   const stopDrawing = () => {
-    if (isDrawing) setIsDrawing(false);
+    if (isDrawing) {
+      setIsDrawing(false);
+      contextRef.current?.closePath();
+    }
   };
 
   const handleSave = () => {
@@ -114,12 +119,12 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       <div 
         onClick={() => setIsFullScreen(true)}
         className={cn(
-          "w-full h-40 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex items-center justify-center cursor-pointer hover:border-primary transition-all overflow-hidden relative",
+          "w-full h-40 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex items-center justify-center cursor-pointer hover:border-primary transition-all overflow-hidden relative group",
           signature ? "bg-white border-solid border-primary/20 shadow-inner" : ""
         )}
       >
         {signature ? (
-          <img src={signature} alt="Firma guardada" className="max-h-full max-w-full object-contain p-4" />
+          <img src={signature} alt="Firma guardada" className="max-h-full max-w-full object-contain p-4 transition-transform group-hover:scale-105" />
         ) : (
           <div className="text-center text-slate-400">
             <Pen size={24} className="mx-auto mb-2 opacity-20" />
@@ -133,7 +138,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
           <DialogHeader className="text-white mb-2">
             <DialogTitle className="font-black uppercase tracking-tighter text-lg">{title}</DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
-              Dibuje su firma con el dedo o puntero. El trazo se guardará al pulsar Aceptar.
+              Dibuje su firma con precisión. El trazo se guardará automáticamente al pulsar Aceptar.
             </DialogDescription>
           </DialogHeader>
 
@@ -163,7 +168,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
               <Trash2 size={20} className="mr-2" /> LIMPIAR
             </Button>
             <Button 
-              className="flex-1 h-14 rounded-2xl bg-primary text-white hover:bg-primary/90 font-black text-lg shadow-lg"
+              className="flex-1 h-14 rounded-2xl bg-primary text-white hover:bg-primary/90 font-black text-lg shadow-lg active:scale-95 transition-transform"
               onClick={handleSave}
             >
               <Check size={24} className="mr-2" /> ACEPTAR FIRMA
