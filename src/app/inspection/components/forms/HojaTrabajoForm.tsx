@@ -426,10 +426,24 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
 
   const handleSave = async () => {
     if (!user || !firestore || !user.email) return;
-    if (!formData.cliente || !formData.instalacion || !formData.location || !inspectorSignature || !clientSignature) {
-      toast({ variant: 'destructive', title: 'Datos incompletos' });
+    
+    // Validación detallada
+    const missingFields = [];
+    if (!formData.cliente) missingFields.push('Cliente');
+    if (!formData.instalacion) missingFields.push('Instalación');
+    if (!formData.location) missingFields.push('Ubicación (GPS)');
+    if (!inspectorSignature) missingFields.push('Firma Inspector');
+    if (!clientSignature) missingFields.push('Firma Cliente');
+
+    if (missingFields.length > 0) {
+      toast({ 
+        variant: 'destructive', 
+        title: 'Datos incompletos', 
+        description: `Faltan los siguientes campos obligatorios: ${missingFields.join(', ')}.` 
+      });
       return;
     }
+
     setSaving(true);
 
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
@@ -455,12 +469,13 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                 return getDownloadURL(imgRef);
             }));
 
+            // Subida de firmas con referencias estables
             const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
-            await uploadString(inspRef, inspectorSignature, 'data_url');
+            await uploadString(inspRef, inspectorSignature!, 'data_url');
             const inspectorSignatureUrl = await getDownloadURL(inspRef);
 
             const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
-            await uploadString(cliRef, clientSignature, 'data_url');
+            await uploadString(cliRef, clientSignature!, 'data_url');
             const clientSignatureUrl = await getDownloadURL(cliRef);
             
             const docData = {
@@ -475,13 +490,15 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
             await saveDataToLocal(true, docId);
             setSavedDocId(docId);
             setIsSaved(true);
-            toast({ title: '¡Sincronizado!' });
-        } catch (error) {
-            console.error(error);
+            toast({ title: '¡Sincronizado!', description: `Documento guardado con ID: ${docId}` });
+        } catch (error: any) {
+            console.error("Error guardando en Firebase:", error);
             await saveDataToLocal(false);
+            toast({ title: 'Guardado localmente', description: 'Ocurrió un error de red, el archivo se sincronizará más tarde.' });
         }
     } else {
         await saveDataToLocal(false);
+        toast({ title: 'Guardado localmente', description: 'Sin conexión a internet. Se sincronizará automáticamente.' });
     }
     setSaving(false);
   };
@@ -492,6 +509,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-4 border-b">
             <DialogTitle>Vista Previa</DialogTitle>
+            <DialogDescription className="sr-only">Visualización previa del documento PDF generado.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 bg-slate-200 p-4">
             {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full" title="PDF Preview" />}

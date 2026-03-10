@@ -29,7 +29,7 @@ export default function Header({ activeTab, isOnline, onBack, isSubNavActive, on
         )}
         <div className="flex flex-col leading-none">
           <span className="font-headline text-white italic tracking-tighter text-xl font-black">energy engine</span>
-          <span className="text-[8px] font-black text-white/40 tracking-[0.2em] uppercase -mt-0.5">Professional Suite</span>
+          <span className="text-[8px] font-black text-white/40 tracking-[0.2em] uppercase -mt-0.5">GRUPOS ELECTRÓGENOS</span>
         </div>
       </div>
 
