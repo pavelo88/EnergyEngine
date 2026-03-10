@@ -6,8 +6,12 @@ import { useFirestore } from '@/firebase';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Edit, Trash2, UserPlus, Loader2, X, LinkIcon, User } from 'lucide-react';
+import { Edit, Trash2, UserPlus, Loader2, X, Link as LinkIcon, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 
 // Esquema de validación para el formulario de usuario
 const userSchema = z.object({
@@ -114,7 +118,7 @@ export default function UsersPage() {
       {loading ? (
           <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
         ) : (
-          <div className="bg-white rounded-xl shadow-lg overflow-x-auto">
+          <div className="bg-white rounded-lg shadow-lg overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-slate-100"><tr><th className="p-4 text-sm font-semibold text-slate-600">Nombre</th><th className="p-4 text-sm font-semibold text-slate-600">Identificación</th><th className="p-4 text-sm font-semibold text-slate-600">Rol</th><th className="p-4 text-sm font-semibold text-slate-600">Estado</th><th className="p-4 text-sm font-semibold text-slate-600">Acciones</th></tr></thead>
               <tbody>
@@ -135,20 +139,20 @@ export default function UsersPage() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg">
             <form onSubmit={handleSubmit(onSubmit)}>
               <div className="p-6 border-b"><div className="flex justify-between items-center"><h2 className="text-xl font-bold text-slate-800">{editingUser ? 'Editar Usuario' : 'Crear Nuevo Usuario'}</h2><button type="button" onClick={closeModal} className="p-1 rounded-full hover:bg-slate-100"><X className="h-5 w-5"/></button></div></div>
               <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                 <InputField id="nombre" label="Nombre Completo" register={register('nombre')} error={errors.nombre} icon={User} />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><InputField id="dni" label="Identificación (DNI)" register={register('dni')} error={errors.dni} icon={User} /><InputField id="email" label="Correo Electrónico" type="email" register={register('email')} error={errors.email} icon={User} /></div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Roles</label>
+                  <Label className="block text-sm font-medium text-slate-700 mb-2">Roles</Label>
                   <div className="flex gap-4"><CheckboxField id="role-admin" label="Admin" value="admin" register={register('roles')} /><CheckboxField id="role-inspector" label="Inspector" value="inspector" register={register('roles')} /></div>
                   {errors.roles && <p className="mt-2 text-sm text-red-600">{errors.roles.message}</p>}
                 </div>
                 {selectedRoles.includes('inspector') && (<InputField id="firmaUrl" label="URL de la Firma" register={register('firmaUrl')} error={errors.firmaUrl} icon={LinkIcon} placeholder="https://..." />)}
               </div>
-              <div className="p-6 bg-slate-50 rounded-b-2xl flex justify-end gap-3"><Button type="button" variant="ghost" onClick={closeModal}>Cancelar</Button><Button type="submit">{editingUser ? 'Guardar Cambios' : 'Crear Usuario'}</Button></div>
+              <div className="p-6 bg-slate-50 rounded-b-lg flex justify-end gap-3"><Button type="button" variant="ghost" onClick={closeModal}>Cancelar</Button><Button type="submit">{editingUser ? 'Guardar Cambios' : 'Crear Usuario'}</Button></div>
             </form>
           </div>
         </div>
@@ -157,5 +161,20 @@ export default function UsersPage() {
   );
 }
 
-const InputField = ({ id, label, type = 'text', register, error, icon: Icon, ...props }: any) => (<div><label htmlFor={id} className="block text-sm font-medium text-slate-700 mb-2">{label}</label><div className="relative">{Icon && <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><Icon className="h-5 w-5 text-slate-400" /></div>}<input id={id} type={type} {...register} {...props} className={`block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm ${Icon ? 'pl-10' : 'pl-4'}`} /></div>{error && <p className="mt-2 text-sm text-red-600">{error.message}</p>}</div>);
-const CheckboxField = ({ id, label, value, register }: any) => (<div className="flex items-center"><input id={id} type="checkbox" value={value} {...register} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" /><label htmlFor={id} className="ml-2 block text-sm text-slate-900">{label}</label></div>);
+const InputField = ({ id, label, type = 'text', register, error, icon: Icon, ...props }: any) => (
+    <div className='space-y-2'>
+        <Label htmlFor={id} className="font-medium text-slate-700">{label}</Label>
+        <div className="relative">
+            {Icon && <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><Icon className="h-5 w-5 text-slate-400" /></div>}
+            <Input id={id} type={type} {...register} {...props} className={cn(Icon ? 'pl-10' : 'pl-4')} />
+        </div>
+        {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
+    </div>
+);
+
+const CheckboxField = ({ id, label, value, register }: any) => (
+    <div className="flex items-center gap-2">
+        <Checkbox id={id} value={value} {...register} />
+        <Label htmlFor={id} className="font-medium text-slate-700">{label}</Label>
+    </div>
+);

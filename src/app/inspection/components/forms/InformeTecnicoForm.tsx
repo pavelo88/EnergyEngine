@@ -15,13 +15,13 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
   <div className="space-y-1 w-full text-left">
     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
     <div className="relative group">
-      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-green-500 transition-colors" size={18}/>}
+      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={18}/>}
       <input
         type={type}
         value={value || ''}
         onChange={(e: any) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 ${Icon ? 'pl-12' : ''} outline-none focus:border-green-500 focus:bg-white transition-all font-bold text-slate-700 shadow-sm`}
+        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-lg p-4 ${Icon ? 'pl-12' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm`}
       />
     </div>
   </div>
@@ -378,8 +378,10 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
           </div>
         </DialogContent>
       </Dialog>
+
+      <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Técnico</h2>
       
-      <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+      <section className="bg-white p-8 rounded-lg shadow-sm space-y-6 border border-slate-100">
          <h3 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Datos de Identificación</h3>
          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <StableInput label="Cliente" icon={User} value={formData.cliente} onChange={(v: string) => handleInputChange('cliente', v)}/>
@@ -394,20 +396,20 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
               <button 
                   onClick={handleCaptureLocation} 
                   disabled={locationStatus === 'loading'} 
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 flex items-center justify-center gap-3 font-bold text-slate-700 shadow-sm hover:border-green-500 transition-colors disabled:opacity-50"
+                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-lg p-4 flex items-center justify-center gap-3 font-bold text-slate-700 shadow-sm hover:border-primary transition-colors disabled:opacity-50"
               >
-                  {locationStatus === 'loading' && <Loader2 className="animate-spin text-green-500" size={18}/>}
-                  {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 className="text-green-500" size={18}/> : <MapPin className="text-slate-400" size={18}/>)}
+                  {locationStatus === 'loading' && <Loader2 className="animate-spin text-primary" size={18}/>}
+                  {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 className="text-primary" size={18}/> : <MapPin className="text-slate-400" size={18}/>)}
                   <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación'}</span>
               </button>
             </div>
           </div>
       </section>
 
-      <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-8 border border-slate-100">
+      <section className="bg-white p-8 rounded-lg shadow-sm space-y-8 border border-slate-100">
          <div className="flex justify-between items-center">
             <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">
-                <Type size={18} className="text-green-500" /> Descripción de la incidencia
+                <Type size={18} className="text-primary" /> Descripción de la incidencia
             </h3>
             <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors active:scale-95">
                 {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />}
@@ -415,14 +417,14 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             </button>
         </div>
         <textarea 
-            className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 outline-none focus:border-green-500 focus:bg-white font-medium text-slate-600 shadow-inner resize-y leading-relaxed" 
+            className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-lg p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600 shadow-inner resize-y leading-relaxed" 
             placeholder="Dicte o escriba aquí el informe completo. La IA lo estructurará en Antecedentes, Intervención y Resumen."
             value={formData.reportContent} 
             onChange={(e: any) => handleInputChange('reportContent', e.target.value)}
         />
       </section>
       
-      <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+      <section className="bg-white p-8 rounded-lg shadow-sm space-y-6 border border-slate-100">
         <h2 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Validación</h2>
         <div>
             <SignaturePad title="Firma del Inspector" onSignatureEnd={setInspectorSignature} />
@@ -431,11 +433,11 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       </section>
       
       <div className="flex flex-col md:flex-row gap-4">
-        <button onClick={handlePdfAction} className="w-full p-8 bg-white text-slate-900 border-2 border-slate-200 rounded-[2.5rem] font-bold text-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
+        <button onClick={handlePdfAction} className="w-full p-8 bg-white text-slate-900 border-2 border-slate-200 rounded-lg font-bold text-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
             {isSaved ? <Printer/> : <FileSearch/>} {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
         </button>
-        <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
-          {saving ? <Loader2 className="animate-spin text-green-500"/> : isSaved ? <CheckCircle2 className="text-green-500"/> : <Save className="text-green-500"/>} {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR INFORME'}
+        <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-8 bg-slate-900 text-white rounded-lg font-black text-xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
+          {saving ? <Loader2 className="animate-spin text-primary"/> : isSaved ? <CheckCircle2 className="text-primary"/> : <Save className="text-primary"/>} {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR INFORME'}
         </button>
       </div>
     </main>

@@ -26,7 +26,7 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
       {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={16}/>}
       <input 
         type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
+        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-lg p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
       />
     </div>
   </div>
@@ -567,7 +567,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
             </div>
 
             {/* --- DATOS GENERALES --- */}
-            <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+            <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
                 <h3 className="font-bold text-slate-500">Datos Generales</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <StableInput label="Cliente" icon={Users} value={formData.cliente} onChange={(v: string) => handleInputChange('cliente', v)}/>
@@ -582,7 +582,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
                     <button 
                         onClick={handleCaptureLocation} 
                         disabled={locationStatus === 'loading'} 
-                        className={`w-full bg-slate-50 border-2 rounded-xl p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 text-slate-700 hover:border-primary'}`}
+                        className={`w-full bg-slate-50 border-2 rounded-lg p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 text-slate-700 hover:border-primary'}`}
                     >
                         {locationStatus === 'loading' && <Loader2 className="animate-spin text-primary" size={16}/>}
                         {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 size={16}/> : <MapPin size={16}/>)}
@@ -593,11 +593,11 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
             
             {/* --- CHECKLISTS --- */}
             {Object.entries(BASIC_REVISION_CHECKLIST).map(([section, items]) => (
-                <section key={section} className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+                <section key={section} className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-4 border border-slate-100">
                     <h3 className="font-bold text-slate-500">{section}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                         {(items as string[]).map(it => (
-                        <div key={it} className={`p-4 rounded-xl flex justify-between items-center transition-all border ${formData.checklist[it] ? 'bg-primary/10 border-primary/20' : 'bg-slate-50/50 border-slate-100'}`}>
+                        <div key={it} className={`p-4 rounded-lg flex justify-between items-center transition-all border ${formData.checklist[it] ? 'bg-primary/10 border-primary/20' : 'bg-slate-50/50 border-slate-100'}`}>
                             <span className="text-lg font-bold text-slate-700">{it}</span>
                             <div className="flex gap-1">
                             {["OK", "DEFECTUOSO", "CAMBIO"].map(st => (
@@ -611,7 +611,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
             ))}
 
             {/* --- RECAMBIOS Y MATERIALES --- */}
-            <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+            <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
                 <h3 className="font-bold text-slate-500">Recambios y Materiales</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <StableInput icon={Wrench} label="F.A. (Filtro Aceite)" value={formData.recambios.fa} onChange={(v: string) => handleNestedChange('recambios', 'fa', v)} />
@@ -626,7 +626,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
             </section>
 
             {/* --- PRUEBAS --- */}
-            <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+            <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
                 <h3 className="font-bold text-slate-500">Datos de Pruebas y Carga</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <StableInput icon={Clock} label="Horas" value={formData.datos_pruebas.horas} onChange={(v: string) => handleNestedChange('datos_pruebas', 'horas', v)} />
@@ -648,10 +648,10 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
                 </div>
             </section>
 
-             <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+             <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
                 <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Camera className="text-primary"/> Evidencia Fotográfica</h2>
                 <div>
-                    <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-200 transition-colors">
+                    <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center text-center hover:bg-slate-200 transition-colors">
                         <Camera size={32} className="text-slate-400 mb-2"/>
                         <span className="font-bold text-slate-600">Adjuntar Imágenes</span>
                         <span className="text-xs text-slate-500">Toma una foto o selecciona archivos</span>
@@ -670,9 +670,9 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
             </section>
 
             {/* --- OBSERVACIONES Y FIRMAS --- */}
-            <section className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+            <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
                 <h3 className="font-bold text-slate-500">Observaciones</h3>
-                <textarea className="w-full h-24 bg-slate-50 border-2 border-slate-100 rounded-xl p-4 resize-none" placeholder="Añade tus observaciones aquí..." value={formData.observaciones} onChange={e => handleInputChange('observaciones', e.target.value)}/>
+                <textarea className="w-full h-24 bg-slate-50 border-2 border-slate-100 rounded-lg p-4 resize-none" placeholder="Añade tus observaciones aquí..." value={formData.observaciones} onChange={e => handleInputChange('observaciones', e.target.value)}/>
                 <div className="grid md:grid-cols-2 gap-8 items-start pt-6">
                     <div>
                         <SignaturePad title="Firma del Inspector" onSignatureEnd={setInspectorSignature} />
@@ -689,11 +689,11 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
 
             {/* --- ACCIONES --- */}
             <div className="flex flex-col md:flex-row gap-4">
-                <button onClick={handlePdfAction} disabled={saving} className="w-full p-6 bg-white text-slate-900 border-2 border-slate-200 rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
+                <button onClick={handlePdfAction} disabled={saving} className="w-full p-6 bg-white text-slate-900 border-2 border-slate-200 rounded-lg font-bold text-base shadow-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
                     {isSaved ? <Printer size={20} /> : <FileSearch size={20} />}
                     {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
                 </button>
-                <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
+                <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-lg font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
                     {saving ? <Loader2 className="animate-spin text-primary" /> : isSaved ? <CheckCircle2 className="text-primary" /> : <Save className="text-primary" />}
                     {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR REVISIÓN'}
                 </button>

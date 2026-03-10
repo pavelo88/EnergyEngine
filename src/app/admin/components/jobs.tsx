@@ -7,6 +7,8 @@ import { PlusCircle, Loader2, Pencil, Trash2, Download, MapPin } from 'lucide-re
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 
@@ -41,6 +43,8 @@ export default function JobsPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [selectedInspectorIds, setSelectedInspectorIds] = useState<string[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<Job['estado']>('Pendiente');
   const db = useFirestore();
 
   // --- Carga de Datos (Jobs, Inspectores, Clientes) ---
@@ -58,7 +62,6 @@ export default function JobsPage() {
       setClients(snapshot.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre })));
     });
     
-    // Consulta unificada que ordena por el campo estandarizado 'fecha_creacion'
     const qJobs = query(collection(db, 'trabajos'), orderBy('fecha_creacion', 'desc'));
 
     const unsubJobs = onSnapshot(qJobs, snapshot => {
@@ -84,8 +87,12 @@ export default function JobsPage() {
   useEffect(() => {
     if (editingJob) {
       setSelectedInspectorIds(editingJob.inspectorIds || []);
+      setSelectedClientId(editingJob.clienteId || '');
+      setSelectedStatus(editingJob.estado || 'Pendiente');
     } else {
       setSelectedInspectorIds([]);
+      setSelectedClientId('');
+      setSelectedStatus('Pendiente');
     }
   }, [editingJob]);
 
@@ -96,7 +103,7 @@ export default function JobsPage() {
     setFormLoading(true);
     const formData = new FormData(e.currentTarget);
     
-    const clienteId = formData.get('clienteId') as string;
+    const clienteId = selectedClientId;
     const selectedClient = clients.find(c => c.id === clienteId);
     
     const selectedInspectors = inspectors.filter(i => selectedInspectorIds.includes(i.id));
@@ -107,7 +114,7 @@ export default function JobsPage() {
       clienteNombre: selectedClient?.nombre || 'N/A',
       inspectorIds: selectedInspectorIds,
       inspectorNombres: selectedInspectors.map(i => i.nombre),
-      estado: formData.get('estado') as Job['estado'],
+      estado: selectedStatus,
       formType: 'job', // Marcamos este documento como un trabajo manual
     };
 
@@ -221,7 +228,7 @@ export default function JobsPage() {
       </div>
 
       {/* --- Tabla de Trabajos --*/}
-      <div className="bg-white p-6 rounded-2xl shadow-sm">
+      <div className="bg-white p-6 rounded-lg shadow-sm">
         <div className="overflow-x-auto">
           {loading ? <p>Cargando trabajos...</p> : (
             <table className="w-full text-left">
@@ -263,20 +270,26 @@ export default function JobsPage() {
       {/* --- Modal de Añadir/Editar Trabajo --*/}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-lg">
+          <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg">
             <h2 className="text-2xl font-bold text-slate-800 mb-6">{editingJob ? 'Editar Trabajo' : 'Crear Nuevo Trabajo'}</h2>
-            <form onSubmit={handleFormSubmit} className="grid grid-cols-1 gap-5">
-              
-              <textarea required rows={3} className="p-3 border rounded-lg bg-white" name="descripcion" placeholder="Descripción del trabajo..." defaultValue={editingJob?.descripcion || ''}></textarea>
-              
-              <select required className="p-3 border rounded-lg bg-white" name="clienteId" defaultValue={editingJob?.clienteId || ''}>
-                <option value="" disabled>Seleccionar cliente...</option>
-                {clients.map(client => <option key={client.id} value={client.id}>{client.nombre}</option>)}
-              </select>
+            <form onSubmit={handleFormSubmit} className="grid grid-cols-1 gap-6">
+                <div className="space-y-2">
+                    <Label htmlFor="descripcion">Descripción del trabajo</Label>
+                    <Textarea required id="descripcion" name="descripcion" placeholder="Describe el trabajo..." defaultValue={editingJob?.descripcion || ''} />
+                </div>
+                 <div className="space-y-2">
+                    <Label>Seleccionar cliente</Label>
+                    <Select required value={selectedClientId} onValueChange={setSelectedClientId}>
+                        <SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger>
+                        <SelectContent>
+                            {clients.map(client => <SelectItem key={client.id} value={client.id}>{client.nombre}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">Asignar Inspectores</label>
-                <div className="max-h-40 overflow-y-auto space-y-2 p-3 border rounded-lg bg-slate-50">
+                <Label className="block mb-2">Asignar Inspectores</Label>
+                <div className="max-h-40 overflow-y-auto space-y-3 p-4 border rounded-md bg-slate-50">
                   {inspectors.map(inspector => (
                     <div key={inspector.id} className="flex items-center">
                       <Checkbox
@@ -284,19 +297,24 @@ export default function JobsPage() {
                         checked={selectedInspectorIds.includes(inspector.id)}
                         onCheckedChange={() => handleInspectorSelection(inspector.id)}
                       />
-                      <Label htmlFor={`inspector-${inspector.id}`} className="ml-2 text-sm font-medium text-slate-700">
+                      <Label htmlFor={`inspector-${inspector.id}`} className="ml-3 text-sm font-medium text-slate-700">
                         {inspector.nombre}
                       </Label>
                     </div>
                   ))}
                 </div>
               </div>
-
-              <select required className="p-3 border rounded-lg bg-white" name="estado" defaultValue={editingJob?.estado || 'Pendiente'}>
-                <option value="Pendiente">Pendiente</option>
-                <option value="En Progreso">En Progreso</option>
-                <option value="Completado">Completado</option>
-              </select>
+                <div className="space-y-2">
+                    <Label>Estado</Label>
+                     <Select required value={selectedStatus} onValueChange={(v: Job['estado']) => setSelectedStatus(v)}>
+                        <SelectTrigger><SelectValue placeholder="Seleccionar estado..." /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Pendiente">Pendiente</SelectItem>
+                            <SelectItem value="En Progreso">En Progreso</SelectItem>
+                            <SelectItem value="Completado">Completado</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
 
               <div className="flex justify-end gap-4 mt-4">
                 <Button type="button" variant="ghost" onClick={closeModal}>Cancelar</Button>

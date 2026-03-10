@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore"; 
 import { useFirestore } from '@/firebase';
-import { PlusCircle, Trash2, Pencil, Building } from 'lucide-react';
+import { PlusCircle, Trash2, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type Client = {
   id: string;
@@ -98,7 +100,7 @@ export default function ClientsPage() {
             </Button>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm">
+        <div className="bg-white p-6 rounded-lg shadow-sm">
           <div className="overflow-x-auto">
             {loading ? <p>Cargando...</p> : (
                 <table className="w-full text-left">
@@ -124,13 +126,26 @@ export default function ClientsPage() {
 
         {isModalOpen && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-lg">
+                <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg">
                     <h2 className="text-2xl font-bold text-slate-800 mb-6">{editingClient ? 'Editar Cliente' : 'Añadir Nuevo Cliente'}</h2>
-                    <form onSubmit={handleFormSubmit} className="grid grid-cols-1 gap-5">
-                        <input required className="p-3 border rounded-lg" name="nombre" placeholder="Nombre del cliente o empresa" defaultValue={editingClient?.nombre || ''} />
-                        <input className="p-3 border rounded-lg" name="direccion" placeholder="Dirección (opcional)" defaultValue={editingClient?.direccion || ''} />
-                        <input className="p-3 border rounded-lg" name="email" type="email" placeholder="Email (opcional)" defaultValue={editingClient?.email || ''} />
-                        <input className="p-3 border rounded-lg" name="telefono" placeholder="Teléfono (opcional)" defaultValue={editingClient?.telefono || ''} />
+                    <form onSubmit={handleFormSubmit} className="grid grid-cols-1 gap-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="nombre">Nombre del cliente o empresa</Label>
+                            <Input required id="nombre" name="nombre" placeholder="Nombre del cliente o empresa" defaultValue={editingClient?.nombre || ''} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="direccion">Dirección</Label>
+                            <Input id="direccion" name="direccion" placeholder="Dirección (opcional)" defaultValue={editingClient?.direccion || ''} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="email">Email</Label>
+                            <Input id="email" name="email" type="email" placeholder="Email (opcional)" defaultValue={editingClient?.email || ''} />
+                        </div>
+                        <div className="space-y-2">
+                             <Label htmlFor="telefono">Teléfono</Label>
+                            <Input id="telefono" name="telefono" placeholder="Teléfono (opcional)" defaultValue={editingClient?.telefono || ''} />
+                        </div>
+
                         <div className="flex justify-end gap-4 mt-4">
                             <Button type="button" variant="ghost" onClick={closeModal}>Cancelar</Button>
                             <Button type="submit">Guardar</Button>
