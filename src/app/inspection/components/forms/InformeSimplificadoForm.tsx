@@ -208,7 +208,12 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
     recambios_checklist: {},
   });
     
-  const [inspectorSignature, setInspectorSignature] = useState<string | null>(null);
+  const [inspectorSignature, setInspectorSignature] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('energy_engine_signature');
+    }
+    return null;
+  });
   const [clientSignature, setClientSignature] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);

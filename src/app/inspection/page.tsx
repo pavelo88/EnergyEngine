@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useFirebase } from '@/firebase';
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { collection, query, where, getDocs, setDoc, doc, Timestamp, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, setDoc, doc, Timestamp, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import { db } from '@/lib/db-local';
 
@@ -28,9 +28,9 @@ import {
   HojaTrabajoFormLazy,
   InformeTecnicoFormLazy,
   InformeRevisionFormLazy,
-  InformeSimplificadoFormLazy
+  InformeSimplificadoFormLazy,
+  RevisionBasicaFormLazy // CORRECCIÓN 3: Importamos el formulario faltante
 } from './lazy-tabs';
-
 
 type FormType = 'hoja-trabajo' | 'informe-tecnico' | 'informe-revision' | 'informe-simplificado' | 'revision-basica';
 
@@ -53,6 +53,7 @@ const InspectionPageContent = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiData, setAiData] = useState<ProcessDictationOutput | null>(null);
   const recognitionRef = useRef<any>(null);
+  const dictationBufferRef = useRef<string>(''); // CORRECCIÓN 2: Búfer para acumular el dictado sin cortes
 
   // --- SYNC ENGINE ---
   useEffect(() => {
@@ -61,9 +62,11 @@ const InspectionPageContent = () => {
         const storage = getStorage();
         setIsSyncing(true);
 
-        const pendingHojas = await db.hojas_trabajo.where({ synced: 0 }).toArray();
-        const pendingJornadas = await db.registros_jornada.where({ synced: 0 }).toArray();
-        const pendingGastos = await db.gastos.where({ synced: 0 }).toArray();
+        // CORRECCIÓN 1: Filtramos por booleano o número para evitar fallos de tipado estricto en Dexie
+        const pendingHojas = await db.hojas_trabajo.filter(record => record.synced === false || record.synced === 0).toArray();
+        const pendingJornadas = await db.registros_jornada.filter(record => record.synced === false || record.synced === 0).toArray();
+        const pendingGastos = await db.gastos.filter(record => record.synced === false || record.synced === 0).toArray();
+        
         const totalPending = pendingHojas.length + pendingJornadas.length + pendingGastos.length;
 
         if (totalPending > 0) {
@@ -118,7 +121,8 @@ const InspectionPageContent = () => {
                 }
               }
               
-              await db.hojas_trabajo.update(record.id!, { synced: 1, firebaseId: docId });
+              // CORRECCIÓN 1: Actualizamos a true
+              await db.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
               syncedCount++;
             } catch (error) {
               console.error('Failed to sync report:', record.id, error);
@@ -134,7 +138,9 @@ const InspectionPageContent = () => {
                 
                 const jornadaDocRef = doc(collection(firestore, "jornadas"), jornadaId);
                 await setDoc(jornadaDocRef, { ...jornadaData, firmaUrl, id: jornadaDocRef.id, fecha_creacion: serverTimestamp() });
-                await db.registros_jornada.update(record.id!, { synced: 1, firebaseId: jornadaId });
+                
+                // CORRECCIÓN 1: Actualizamos a true
+                await db.registros_jornada.update(record.id!, { synced: true, firebaseId: jornadaId });
 
              } catch(error) {
                 console.error("Failed to sync jornada record:", record.id, error);
@@ -155,13 +161,14 @@ const InspectionPageContent = () => {
                 }
                 
                 await setDoc(gastoRef, { ...gastoData, comprobanteUrl, fecha_creacion: serverTimestamp() });
-                await db.gastos.update(record.id!, { synced: 1, firebaseId: gastoRef.id });
+                
+                // CORRECCIÓN 1: Actualizamos a true
+                await db.gastos.update(record.id!, { synced: true, firebaseId: gastoRef.id });
 
              } catch(error) {
                  console.error("Failed to sync gasto record:", record.id, error);
              }
            }
-
 
           if(totalPending > 0) {
             toast({
@@ -200,21 +207,44 @@ const InspectionPageContent = () => {
         recognition.lang = 'es-ES';
         recognition.interimResults = false;
 
-        recognition.onresult = async (event: any) => {
-            let fullTranscript = '';
+        // CORRECCIÓN 2: Modificamos onresult para que solo acumule el texto sin detener el micrófono
+        recognition.onresult = (event: any) => {
+            let chunk = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
                 if (event.results[i].isFinal) {
-                    fullTranscript += event.results[i][0].transcript;
+                    chunk += event.results[i][0].transcript + ' ';
                 }
             }
-            
-            if (fullTranscript) {
-                console.log('Dictado final capturado:', fullTranscript);
-                setAiLoading(true);
-                recognition.stop(); 
+            if (chunk) {
+                dictationBufferRef.current += chunk;
+                console.log('Segmento de dictado:', chunk);
+            }
+        };
+
+        recognition.onerror = (event: any) => {
+            console.error('Error de reconocimiento de voz:', event.error);
+            if (event.error === 'no-speech') {
+                // Ignore no-speech so it doesn't kill the UX, it will just time out eventually
+            } else if (event.error !== 'aborted') {
+                toast({
+                    variant: "destructive",
+                    title: "Error de Micrófono",
+                    description: "No se pudo usar el dictado. Revisa los permisos.",
+                });
                 setIsDictating(false);
+            }
+        };
+        
+        // CORRECCIÓN 2: Procesamos el texto completo solo cuando el micrófono se detiene
+        recognition.onend = async () => {
+            setIsDictating(false);
+            const finalText = dictationBufferRef.current.trim();
+            
+            if (finalText) {
+                console.log('Dictado final a procesar:', finalText);
+                setAiLoading(true);
                 try {
-                    const res = await processDictation({ dictation: fullTranscript });
+                    const res = await processDictation({ dictation: finalText });
                     setAiData(res);
                     toast({
                       title: "IA ha procesado el dictado",
@@ -229,30 +259,9 @@ const InspectionPageContent = () => {
                     });
                 } finally {
                     setAiLoading(false);
+                    dictationBufferRef.current = ''; // Limpiamos el búfer para el próximo dictado
                 }
             }
-        };
-
-        recognition.onerror = (event: any) => {
-            console.error('Error de reconocimiento de voz:', event.error);
-            if (event.error === 'no-speech') {
-                toast({
-                    variant: "destructive",
-                    title: "No se detectó audio",
-                    description: "Inténtalo de nuevo y asegúrate de hablar cerca del micrófono.",
-                });
-            } else if (event.error !== 'aborted') {
-                toast({
-                    variant: "destructive",
-                    title: "Error de Micrófono",
-                    description: "No se pudo iniciar el dictado. Revisa los permisos del micrófono en tu navegador.",
-                });
-            }
-            setIsDictating(false);
-        };
-        
-        recognition.onend = () => {
-            setIsDictating(false);
         };
 
         recognitionRef.current = recognition;
@@ -277,7 +286,7 @@ const InspectionPageContent = () => {
   const handleSelectInspectionType = (formType: FormType, data?: any) => {
     setSelectedTask(data);
     setActiveInspectionForm(formType);
-    setActiveTab(TABS.NEW_INSPECTION); // Navega a la pestaña de inspección
+    setActiveTab(TABS.NEW_INSPECTION);
   };
   
   const handleStartInspectionFromTask = (task: any) => {
@@ -320,12 +329,15 @@ const InspectionPageContent = () => {
           return;
       }
       if (isDictating) {
+          // Detener el reconocimiento disparará el evento onend y procesará el búfer
           recognitionRef.current.stop();
-          setIsDictating(false);
+          toast({ title: "Procesando dictado...", description: "La IA está estructurando la información." });
       } else {
+          dictationBufferRef.current = ''; // Limpiar el búfer al iniciar
           setAiData(null);
           recognitionRef.current.start();
           setIsDictating(true);
+          toast({ title: "Micrófono abierto", description: "Puedes hablar con normalidad. Haz pausas si lo necesitas." });
       }
   };
 
@@ -381,6 +393,7 @@ const InspectionPageContent = () => {
             case 'informe-tecnico': FormComponent = InformeTecnicoFormLazy; break;
             case 'informe-revision': FormComponent = InformeRevisionFormLazy; break;
             case 'informe-simplificado': FormComponent = InformeSimplificadoFormLazy; break;
+            case 'revision-basica': FormComponent = RevisionBasicaFormLazy; break; // CORRECCIÓN 3: Formulario integrado
             default: return <p>Formulario no encontrado</p>;
         }
 

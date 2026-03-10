@@ -14,6 +14,7 @@ interface SignaturePadProps {
 
 export default function SignaturePad({ title, onSignatureEnd, signature }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hasDrawnRef = useRef<boolean>(false); // CORRECCIÓN: Referencia segura para saber si el usuario dibujó
   const [isDrawing, setIsDrawing] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -23,6 +24,9 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    // Reiniciamos el estado de dibujo al abrir el diálogo
+    hasDrawnRef.current = false;
 
     // --- High-resolution canvas setup ---
     const scale = window.devicePixelRatio;
@@ -34,7 +38,10 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     if (signature) {
         const img = new Image();
         img.src = signature;
-        img.onload = () => ctx.drawImage(img, 0, 0, canvas.width / scale, canvas.height / scale);
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, canvas.width / scale, canvas.height / scale);
+            hasDrawnRef.current = true; // Si ya hay una firma cargada, la marcamos como válida
+        };
     }
 
     ctx.lineWidth = 2.5;
@@ -73,6 +80,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       ctx.lineTo(currentPoint.x, currentPoint.y);
       ctx.stroke();
       lastPoint = currentPoint;
+      hasDrawnRef.current = true; // CORRECCIÓN: En cuanto el usuario traza una línea, marcamos que no está en blanco
     };
 
     canvas.addEventListener('mousedown', start);
@@ -96,15 +104,18 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
 
   const handleSave = () => {
     if (canvasRef.current) {
-        // Only update if canvas is not blank
-        if (!canvasRef.current.toDataURL().includes('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA+gAAAEsCAYAAADR74/OAAABiklEQVR4Xu3BMQEAAADCoPVPbQwfoAAAAAAAAAAAA')) {
+        // CORRECCIÓN: Evaluamos de forma segura usando nuestra referencia
+        if (hasDrawnRef.current) {
             onSignatureEnd(canvasRef.current.toDataURL('image/png'));
+        } else if (!signature) {
+            onSignatureEnd(null); // Si el lienzo está intacto, pasamos null
         }
         setIsDialogOpen(false);
     }
   };
   
   const handleClearAndClose = () => {
+    hasDrawnRef.current = false;
     onSignatureEnd(null);
     setIsDialogOpen(false);
   }

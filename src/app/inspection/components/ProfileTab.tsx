@@ -18,40 +18,72 @@ export default function ProfileTab() {
     if (stored) setSavedSignature(stored);
   }, []);
 
-  // --- LÓGICA DE DIBUJO (MOUSE Y TOUCH) ---
-  const startDrawing = (e: any) => {
-    setIsDrawing(true);
-    draw(e);
-  };
-
-  const stopDrawing = () => {
-    const ctx = canvasRef.current?.getContext('2d');
-    ctx?.beginPath();
-    setIsDrawing(false);
-  };
-
-  const draw = (e: any) => {
-    if (!isDrawing || !canvasRef.current) return;
+  // --- CONFIGURACIÓN DE ALTA RESOLUCIÓN PARA EL CANVAS ---
+  useEffect(() => {
     const canvas = canvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Ajustar coordenadas para Mouse o Touch de forma segura para TypeScript
+    const scale = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    
+    // Solo ajustar si el canvas no ha sido escalado aún
+    if (canvas.width !== rect.width * scale) {
+        canvas.width = rect.width * scale;
+        canvas.height = rect.height * scale;
+        ctx.scale(scale, scale);
+        
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#0f172a'; // Slate-900
+    }
+  }, []);
+
+  // --- LÓGICA DE DIBUJO (MOUSE Y TOUCH MEJORADA) ---
+  const getPos = (e: any) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     const clientX = e.clientX || (e.touches && e.touches[0].clientX);
     const clientY = e.clientY || (e.touches && e.touches[0].clientY);
     
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  };
 
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#0f172a'; // Slate-900
+  const startDrawing = (e: any) => {
+    e.preventDefault(); // Prevenir scroll en móviles
+    setIsDrawing(true);
+    const pos = getPos(e);
+    const ctx = canvasRef.current?.getContext('2d');
+    if (ctx) {
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+    }
+  };
 
-    ctx.lineTo(x, y);
+  const stopDrawing = (e?: any) => {
+    if (e) e.preventDefault();
+    setIsDrawing(false);
+    const ctx = canvasRef.current?.getContext('2d');
+    ctx?.beginPath();
+  };
+
+  const draw = (e: any) => {
+    if (!isDrawing || !canvasRef.current) return;
+    e.preventDefault(); // Prevenir scroll en móviles
+    
+    const pos = getPos(e);
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
+
+    ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(x, y);
+    ctx.moveTo(pos.x, pos.y);
     setHasSignature(true);
   };
 
@@ -59,13 +91,18 @@ export default function ProfileTab() {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (canvas && ctx) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Limpiar considerando el escalado de alta resolución
+      ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
       setHasSignature(false);
     }
   };
 
   const saveSignature = () => {
     if (!canvasRef.current) return;
+    if (!hasSignature) {
+        alert("Por favor, dibuja una firma antes de guardar.");
+        return;
+    }
     const base64 = canvasRef.current.toDataURL('image/png');
     localStorage.setItem('energy_engine_signature', base64);
     setSavedSignature(base64);
@@ -104,10 +141,9 @@ export default function ProfileTab() {
         <div className="relative group">
           <canvas
             ref={canvasRef}
-            width={600}
-            height={300}
             onMouseDown={startDrawing}
             onMouseUp={stopDrawing}
+            onMouseOut={stopDrawing}
             onMouseMove={draw}
             onTouchStart={startDrawing}
             onTouchEnd={stopDrawing}

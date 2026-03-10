@@ -244,7 +244,12 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
   
   const [formData, setFormData] = useState<any>({ ...INITIAL_FORM_DATA, formType: 'informe-revision' });
     
-  const [inspectorSignature, setInspectorSignature] = useState<string | null>(null);
+  const [inspectorSignature, setInspectorSignature] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('energy_engine_signature');
+    }
+    return null;
+  });
   const [clientSignature, setClientSignature] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);

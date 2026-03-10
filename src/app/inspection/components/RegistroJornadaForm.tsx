@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
   Save, Loader2, User, Euro, Trash2, Plus, 
   FileText, ClipboardSignature, Upload, Camera, Calendar as CalendarIcon, FileSearch, Building, Clock, AlertTriangle, MapPin, CheckCircle2
@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db } from '@/lib/db-local';
 import { useToast } from '@/hooks/use-toast';
+import SignaturePad from './SignaturePad';
 
 // --- TIPOS DE DATOS ---
 type GastoItem = {
@@ -58,60 +59,9 @@ export default function RegistroJornadaForm() {
   
   const [loading, setLoading] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
-  const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- LÓGICA DE FIRMA ---
-  useEffect(() => {
-    const canvas = signatureCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let drawing = false;
-    ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.strokeStyle = '#0f172a';
-
-    const getPos = (e: any) => {
-      const rect = canvas.getBoundingClientRect();
-      const clientX = e.clientX || e.touches[0].clientX;
-      const clientY = e.clientY || e.touches[0].clientY;
-      return { x: clientX - rect.left, y: clientY - rect.top };
-    }
-    const start = (e: any) => { drawing = true; draw(e) };
-    const end = () => { if(drawing) { drawing = false; ctx.beginPath(); setSignature(canvas.toDataURL()); }};
-    const draw = (e: any) => {
-        if (!drawing) return; e.preventDefault();
-        const { x, y } = getPos(e);
-        ctx.lineTo(x, y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, y);
-    };
-
-    canvas.addEventListener('mousedown', start);
-    canvas.addEventListener('mouseup', end); canvas.addEventListener('mouseleave', end);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('touchstart', start, { passive: false });
-    canvas.addEventListener('touchend', end);
-    canvas.addEventListener('touchmove', draw, { passive: false });
-
-    return () => {
-      canvas.removeEventListener('mousedown', start);
-      canvas.removeEventListener('mouseup', end); canvas.removeEventListener('mouseleave', end);
-      canvas.removeEventListener('mousemove', draw);
-      canvas.removeEventListener('touchstart', start);
-      canvas.removeEventListener('touchend', end);
-      canvas.removeEventListener('touchmove', draw);
-    };
-  }, []);
-
-  const clearCanvas = () => {
-    const canvas = signatureCanvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      ctx?.clearRect(0, 0, canvas.width, canvas.height);
-      setSignature(null);
-    }
-  };
-
-    const handleCaptureLocation = () => {
+  const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
       toast({ variant: 'destructive', title: 'Error de Geolocalización', description: 'Tu navegador no soporta esta función.' });
       setLocationStatus('error');
@@ -224,7 +174,9 @@ export default function RegistroJornadaForm() {
                 const gastoRef = doc(gastosCollectionRef);
                 let comprobanteUrl = '';
                 if (gasto.comprobanteFile) {
-                    const fileRef = ref(storage, `comprobantes_gastos/${jornadaId}/${gasto.comprobanteFile.name}`);
+                    // CORRECCIÓN 1: Evitar sobrescritura de archivos agregando un ID único al nombre
+                    const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}_${gasto.comprobanteFile.name}`;
+                    const fileRef = ref(storage, `comprobantes_gastos/${jornadaId}/${uniqueFileName}`);
                     await uploadBytes(fileRef, gasto.comprobanteFile);
                     comprobanteUrl = await getDownloadURL(fileRef);
                 }
@@ -259,7 +211,7 @@ export default function RegistroJornadaForm() {
     setHoras({ normales: '', extrasTipo1: '', extrasTipo2: '' });
     setObservacionesDiarias('');
     setGastos([]);
-    clearCanvas();
+    setSignature(null);
     setUbicacionPrincipal(null);
     setLocationStatus('idle');
     setLugarTrabajo('');
@@ -428,9 +380,10 @@ export default function RegistroJornadaForm() {
       <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
         <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter"><ClipboardSignature size={18} className="text-primary"/> Validación del Técnico</h3>
         <p className="text-xs text-slate-500 font-medium">Declaro que las horas y gastos arriba indicados son correctos y corresponden a la jornada señalada.</p>
-        <div className="space-y-2 pt-2">
-            <canvas ref={signatureCanvasRef} width={600} height={200} className="w-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-crosshair touch-none" />
-            <button onClick={clearCanvas} className="text-xs text-red-500 font-bold hover:underline">Borrar Firma</button>
+        
+        {/* CORRECCIÓN 2: Usamos el componente unificado */}
+        <div className="pt-2">
+            <SignaturePad title="Firma del Técnico" signature={signature} onSignatureEnd={setSignature} />
         </div>
       </section>
 

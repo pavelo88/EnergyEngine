@@ -67,7 +67,8 @@ export default function ReportsPage() {
                 doc = generateInformeRevisionPDF(report, report.tecnicoNombre, report.id);
                 break;
             case 'informe-tecnico':
-                doc = generateInformeTecnicoPDF(report, report.tecnicoNombre, report.id_informe);
+                // CORRECCIÓN: Cambiado report.id_informe por report.id
+                doc = generateInformeTecnicoPDF(report, report.tecnicoNombre, report.id);
                 break;
             case 'informe-simplificado':
                 doc = generateInformeSimplificadoPDF(report, report.tecnicoNombre, report.id);
@@ -151,5 +152,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    

@@ -172,7 +172,12 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     reportContent: '',
   });
   
-  const [inspectorSignature, setInspectorSignature] = useState<string | null>(null);
+  const [inspectorSignature, setInspectorSignature] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('energy_engine_signature');
+    }
+    return null;
+  });
 
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
