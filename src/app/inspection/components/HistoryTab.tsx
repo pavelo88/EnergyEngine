@@ -2,13 +2,15 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  ClipboardList, MapPin, Search, Filter, Clock, CheckCircle2, Loader2, ArrowRight
+  Search, Clock, Loader2, ArrowRight, CheckCircle2 as SyncedIcon, MapPin
 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useOnlineStatus } from '@/hooks/use-online-status';
+import { db as localDb } from '@/lib/db-local';
 
 interface Task {
   id: string;
@@ -17,6 +19,9 @@ interface Task {
   instalacion: string;
   estado: 'Pendiente' | 'En Progreso' | 'Completado';
   fecha_creacion?: any;
+  firebaseId?: string;
+  synced?: boolean;
+  createdAt?: Date;
   [key: string]: any;
 }
 
@@ -26,7 +31,8 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
   const [filter, setFilter] = useState<'pending' | 'completed'>('pending');
   const [searchTerm, setSearchTerm] = useState('');
   const { user } = useUser();
-  const db = useFirestore();
+  const db = useFirestore(); // Firestore instance
+  const isOnline = useOnlineStatus();
 
   useEffect(() => {
     if (!user || !db) return;
@@ -34,34 +40,42 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
     const fetchTasks = async () => {
       setLoading(true);
       try {
-        const q1 = query(
-          collection(db, "trabajos"),
-          where("inspectorIds", "array-contains", user.uid)
-        );
+        const firestoreTaskMap = new Map<string, Task>();
+        // 1. Fetch from Firestore if online to get the most up-to-date list
+        if (isOnline) {
+          const q1 = query(collection(db, "trabajos"), where("inspectorIds", "array-contains", user.uid));
+          const q2 = query(collection(db, "trabajos"), where("tecnicoId", "==", user.uid));
+          const [assignedSnap, createdSnap] = await Promise.all([getDocs(q1), getDocs(q2)]);
+          
+          assignedSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true } as Task));
+          createdSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true } as Task));
+        }
 
-        const q2 = query(
-          collection(db, "trabajos"),
-          where("tecnicoId", "==", user.uid)
-        );
-
-        const [assignedSnapshot, createdSnapshot] = await Promise.all([
-          getDocs(q1),
-          getDocs(q2),
-        ]);
-
-        const assignedTasks = assignedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Task[];
-        const createdTasks = createdSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Task[];
-
-        const allTasks = [...assignedTasks, ...createdTasks];
-        const uniqueTasks = Array.from(new Map(allTasks.map(task => [task.id, task])).values());
-        
-        uniqueTasks.sort((a, b) => {
-          const dateA = a.fecha_creacion?.toDate() || 0;
-          const dateB = b.fecha_creacion?.toDate() || 0;
-          return dateB - dateA;
+        // 2. Fetch all from LocalDB (Dexie)
+        const localTasksRaw = await localDb.hojas_trabajo.toArray();
+        const localTaskMap = new Map<string, Task>();
+        localTasksRaw.forEach(t => {
+          const taskData = { ...t.data, id: t.id!.toString(), synced: t.synced, firebaseId: t.firebaseId, createdAt: t.createdAt };
+          const key = t.firebaseId || `local_${t.id}`;
+          localTaskMap.set(key, taskData);
         });
 
-        setTasks(uniqueTasks);
+        // 3. Merge: Start with local, overwrite/add with Firestore data
+        const finalTaskMap = new Map<string, Task>(localTaskMap);
+        firestoreTaskMap.forEach((task, id) => {
+          finalTaskMap.set(id, task);
+        });
+        
+        let combinedTasks = Array.from(finalTaskMap.values());
+        
+        // 4. Sort
+        combinedTasks.sort((a, b) => {
+          const dateA = a.createdAt || a.fecha_creacion?.toDate();
+          const dateB = b.createdAt || b.fecha_creacion?.toDate();
+          return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
+        });
+
+        setTasks(combinedTasks);
 
       } catch (error) {
         console.error("Error fetching tasks:", error);
@@ -71,7 +85,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
     };
 
     fetchTasks();
-  }, [user, db]);
+  }, [user, db, isOnline]);
 
   const filteredTasks = useMemo(() => {
     let filtered = tasks;
@@ -88,12 +102,25 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
             (t.clienteNombre && t.clienteNombre.toLowerCase().includes(lowercasedTerm)) ||
             (t.cliente && t.cliente.toLowerCase().includes(lowercasedTerm)) ||
             (t.instalacion && t.instalacion.toLowerCase().includes(lowercasedTerm)) ||
-            t.id.toLowerCase().includes(lowercasedTerm)
+            t.id.toLowerCase().includes(lowercasedTerm) ||
+            (t.firebaseId && t.firebaseId.toLowerCase().includes(lowercasedTerm))
         );
     }
 
     return filtered;
   }, [tasks, filter, searchTerm]);
+
+  const getReportTitle = (formType: any) => {
+    switch(formType) {
+        case 'hoja-trabajo': return 'Hoja de Trabajo';
+        case 'informe-revision': return 'Informe de Revisión';
+        case 'revision-basica': return 'Revisión Básica';
+        case 'informe-tecnico': return 'Informe Técnico';
+        case 'informe-simplificado': return 'Informe Simplificado';
+        case 'job': return 'Trabajo Manual';
+        default: return 'Documento';
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500 w-full max-w-4xl mx-auto">
@@ -129,19 +156,21 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
               className="w-full bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center justify-between group active:scale-[0.98] transition-all text-left disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase
-                    ${task.estado === 'Completado' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>
-                    {task.id}
+                    ${task.synced ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}`}>
+                    {task.firebaseId || `Local #${task.id}`}
                   </span>
                   <span className="flex items-center gap-1 text-[9px] font-bold text-slate-400">
-                    {task.estado === 'Completado' ? <CheckCircle2 size={12} className="text-green-500"/> : <Clock size={10} />}
-                    {task.estado}
+                    {task.synced 
+                      ? <SyncedIcon size={12} className="text-green-500"/> 
+                      : <Clock size={10} className="text-orange-500"/>}
+                    {task.synced ? 'En la Nube' : 'Pendiente'}
                   </span>
                 </div>
                 
                 <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">
-                  {task.clienteNombre || task.cliente || 'Cliente no asignado'}
+                  {getReportTitle(task.formType)}: {task.clienteNombre || task.cliente || 'Cliente no asignado'}
                 </h3>
                 
                 <div className="flex items-center gap-2 text-slate-400">
