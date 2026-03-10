@@ -13,6 +13,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'fire
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db } from '@/lib/db-local';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
+import { useToast } from '@/hooks/use-toast';
 
 // Memoized input component for performance
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
@@ -225,6 +226,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
   const { user } = useUser();
   const db = useFirestore();
   const isOnline = useOnlineStatus();
+  const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
   const [images, setImages] = useState<File[]>([]);
   
@@ -367,7 +369,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
 
   const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
-      alert('La geolocalización no es soportada por tu navegador.');
+      toast({ variant: 'destructive', title: 'Error de Geolocalización', description: 'Tu navegador no soporta esta función.' });
       setLocationStatus('error');
       return;
     }
@@ -379,7 +381,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         setLocationStatus('success');
       },
       () => {
-        alert("No se pudo obtener la ubicación. Por favor, asegúrate de que los permisos de localización están activados para esta página en los ajustes de tu navegador e inténtalo de nuevo.");
+        toast({ variant: 'destructive', title: 'Ubicación denegada', description: 'Asegúrate de tener los permisos de localización activados.' });
         setLocationStatus('error');
       }
     );
@@ -394,16 +396,20 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         ...p, 
         trabajos_realizados: res.improved,
       }));
+       toast({ title: 'Informe mejorado', description: 'La IA ha refinado y mejorado el texto del informe.' });
     } catch(e: any) {
       console.error("AI enhancement failed:", e);
-      alert("La IA tuvo problemas al refinar el informe.");
+      toast({ variant: 'destructive', title: 'Error de la IA', description: 'No se pudo procesar la mejora del informe.' });
     } finally {
       setAiLoading(false);
     }
   };
 
   const handlePdfAction = () => {
-    if (!formData.cliente || !formData.instalacion) return alert("El cliente y la instalación son obligatorios.");
+    if (!formData.cliente || !formData.instalacion) {
+        toast({ variant: 'destructive', title: 'Faltan datos', description: 'El cliente y la instalación son obligatorios para generar el PDF.' });
+        return;
+    }
     
     const reportData = {
       ...formData,
@@ -427,9 +433,12 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
   };
 
   const handleSave = async () => {
-    if (!user || !db) return alert("Error de autenticación o de base de datos. Por favor, recarga la página.");
+    if (!user || !db) {
+        toast({ variant: 'destructive', title: 'Error de autenticación', description: 'Por favor, recarga la página.' });
+        return;
+    }
     if (!formData.cliente || !formData.instalacion || !formData.location || !inspectorSignature || !clientSignature) {
-      alert("Es obligatorio rellenar Cliente, Instalación, Localización y ambas Firmas para guardar.");
+      toast({ variant: 'destructive', title: 'Datos incompletos', description: 'Cliente, instalación, localización y ambas firmas son obligatorios.' });
       return;
     }
     setSaving(true);
@@ -451,9 +460,9 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         });
 
         if (!synced) {
-            alert('Modo offline: El informe se ha guardado en tu dispositivo y se sincronizará cuando vuelvas a tener conexión.');
+            toast({ title: 'Guardado localmente (sin conexión)', description: 'El informe se sincronizará cuando vuelvas a tener conexión.' });
         } else {
-            alert(`Hoja de trabajo guardada con éxito. ID: ${firebaseId}`);
+            toast({ title: '¡Guardado y Sincronizado!', description: `La hoja de trabajo ha sido guardada con el ID: ${firebaseId}` });
         }
     };
 
@@ -499,7 +508,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
   };
 
   return (
-    <div className="animate-in fade-in w-full bg-slate-50 min-h-screen">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full bg-slate-50 min-h-screen">
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-4 border-b">

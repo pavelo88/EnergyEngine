@@ -13,6 +13,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'fire
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db } from '@/lib/db-local';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
+import { useToast } from '@/hooks/use-toast';
 
 // 1. Checklist específico y reducido para "Revisión Básica" (Sin filtros ni correas)
 const BASIC_REVISION_CHECKLIST = {
@@ -270,6 +271,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
   const { user } = useUser();
   const db = useFirestore();
   const isOnline = useOnlineStatus();
+  const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
   const [images, setImages] = useState<File[]>([]);
   
@@ -400,7 +402,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
 
   const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
-      alert('La geolocalización no es soportada por tu navegador.');
+      toast({ variant: 'destructive', title: 'Error de Geolocalización', description: 'Tu navegador no soporta esta función.' });
       setLocationStatus('error');
       return;
     }
@@ -412,7 +414,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
         setLocationStatus('success');
       },
       () => {
-        alert('No se pudo obtener la ubicación. Revisa los permisos del navegador.');
+        toast({ variant: 'destructive', title: 'Ubicación denegada', description: 'Asegúrate de tener los permisos de localización activados.' });
         setLocationStatus('error');
       }
     );
@@ -441,11 +443,14 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
   };
 
   const handleSave = async () => {
-    if (!db || !user) return alert("Error de autenticación.");
+    if (!db || !user) {
+        toast({ variant: 'destructive', title: 'Error de autenticación', description: 'Por favor, recarga la página.' });
+        return;
+    }
     if (isSaved) return;
 
     if (!formData.cliente || !formData.instalacion || !formData.location || !inspectorSignature || !clientSignature) {
-      alert("Es obligatorio rellenar Cliente, Instalación, Localización y ambas Firmas para guardar.");
+      toast({ variant: 'destructive', title: 'Datos incompletos', description: 'Cliente, instalación, localización y ambas firmas son obligatorios.' });
       return;
     }
 
@@ -466,9 +471,9 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
             createdAt: new Date(),
         });
         if (!synced) {
-            alert('Modo offline: El informe se ha guardado en tu dispositivo y se sincronizará cuando vuelvas a tener conexión.');
+            toast({ title: 'Guardado localmente (sin conexión)', description: 'El informe se sincronizará cuando vuelvas a tener conexión.' });
         } else {
-            alert(`Revisión Básica guardada con éxito. ID: ${firebaseId}`);
+            toast({ title: '¡Guardado y Sincronizado!', description: `La revisión básica ha sido guardada con el ID: ${firebaseId}` });
         }
     };
 
@@ -522,7 +527,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
   };
   
   return (
-    <div className="animate-in fade-in w-full bg-slate-50 min-h-screen">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full bg-slate-50 min-h-screen">
        <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
             <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
                 <DialogHeader className="p-4 border-b">

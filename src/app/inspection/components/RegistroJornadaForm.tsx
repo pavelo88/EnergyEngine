@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from '@/components/ui/input';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db } from '@/lib/db-local';
+import { useToast } from '@/hooks/use-toast';
 
 // --- TIPOS DE DATOS ---
 type GastoItem = {
@@ -37,6 +38,7 @@ export default function RegistroJornadaForm() {
   const dbFirestore = useFirestore();
   const storage = dbFirestore ? getStorage(dbFirestore.app) : null;
   const isOnline = useOnlineStatus();
+  const { toast } = useToast();
 
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const [observacionesDiarias, setObservacionesDiarias] = useState('');
@@ -111,7 +113,7 @@ export default function RegistroJornadaForm() {
 
     const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
-      alert('La geolocalización no es soportada por tu navegador.');
+      toast({ variant: 'destructive', title: 'Error de Geolocalización', description: 'Tu navegador no soporta esta función.' });
       setLocationStatus('error');
       return;
     }
@@ -123,7 +125,7 @@ export default function RegistroJornadaForm() {
         setLocationStatus('success');
       },
       () => {
-        alert("No se pudo obtener la ubicación. Por favor, asegúrate de que los permisos de localización están activados para esta página en los ajustes de tu navegador e inténtalo de nuevo.");
+        toast({ variant: 'destructive', title: 'Ubicación denegada', description: 'Asegúrate de tener los permisos de localización activados.' });
         setLocationStatus('error');
       }
     );
@@ -136,7 +138,8 @@ export default function RegistroJornadaForm() {
 
   const handleAddGasto = () => {
     if (!currentGasto.monto || !currentGasto.descripcion) {
-      return alert("El monto y la descripción del gasto son obligatorios.");
+      toast({ variant: 'destructive', title: 'Faltan datos', description: 'El monto y la descripción del gasto son obligatorios.' });
+      return;
     }
     setGastos([...gastos, { ...currentGasto, monto: parseFloat(currentGasto.monto) }]);
     setCurrentGasto(initialGastoState);
@@ -151,10 +154,22 @@ export default function RegistroJornadaForm() {
   const totalGastos = useMemo(() => gastos.reduce((acc, curr) => acc + curr.monto, 0), [gastos]);
 
   const handleSaveParte = async () => {
-    if (!user || !dbFirestore || !storage) return alert("Error de autenticación o servicios no disponibles.");
-    if (!horas.normales) return alert("Por favor, introduce al menos las horas normales trabajadas.");
-    if (!signature) return alert("La firma del técnico es obligatoria para validar la jornada.");
-    if (!ubicacionPrincipal) return alert("La ubicación principal es obligatoria para iniciar la jornada.");
+    if (!user || !dbFirestore || !storage) {
+        toast({ variant: 'destructive', title: 'Error de autenticación', description: 'Servicios no disponibles. Por favor, recarga.' });
+        return;
+    }
+    if (!horas.normales) {
+        toast({ variant: 'destructive', title: 'Faltan Horas', description: 'Introduce al menos las horas normales trabajadas.' });
+        return;
+    }
+    if (!signature) {
+        toast({ variant: 'destructive', title: 'Falta Firma', description: 'La firma del técnico es obligatoria.' });
+        return;
+    }
+    if (!ubicacionPrincipal) {
+        toast({ variant: 'destructive', title: 'Falta Ubicación', description: 'La ubicación principal es obligatoria para iniciar.' });
+        return;
+    }
 
     setLoading(true);
     
@@ -190,9 +205,9 @@ export default function RegistroJornadaForm() {
         }
         
         if (!synced) {
-            alert('Modo offline: La jornada y los gastos se han guardado localmente y se sincronizarán más tarde.');
+            toast({ title: 'Guardado localmente (sin conexión)', description: 'La jornada y los gastos se sincronizarán más tarde.' });
         } else {
-            alert(`¡Jornada y ${gastos.length} gastos registrados con éxito y sincronizados! ID: ${firebaseId}`);
+            toast({ title: '¡Jornada Registrada!', description: `Jornada y ${gastos.length} gastos sincronizados. ID: ${firebaseId}` });
         }
     };
 

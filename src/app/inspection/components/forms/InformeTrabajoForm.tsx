@@ -13,6 +13,7 @@ import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db } from '@/lib/db-local';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
+import { useToast } from '@/hooks/use-toast';
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
@@ -155,6 +156,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   const { user } = useUser();
   const db = useFirestore();
   const isOnline = useOnlineStatus();
+  const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
   
   const [formData, setFormData] = useState({
@@ -235,7 +237,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
   const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
-      alert('La geolocalización no es soportada por tu navegador.');
+      toast({ variant: 'destructive', title: 'Error de Geolocalización', description: 'Tu navegador no soporta esta función.' });
       setLocationStatus('error');
       return;
     }
@@ -247,7 +249,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         setLocationStatus('success');
       },
       () => {
-        alert("No se pudo obtener la ubicación. Por favor, asegúrate de que los permisos de localización están activados para esta página en los ajustes de tu navegador e inténtalo de nuevo.");
+        toast({ variant: 'destructive', title: 'Ubicación denegada', description: 'Asegúrate de tener los permisos de localización activados.' });
         setLocationStatus('error');
       }
     );
@@ -260,8 +262,10 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       const res = await splitTechnicalReport({ dictation: formData.reportContent });
       const formattedText = `ANTECEDENTES:\n\n${res.antecedentes}\n\nINTERVENCIÓN:\n\n${res.intervencion}\n\nRESUMEN Y SITUACIÓN ACTUAL:\n\n${res.resumen}`;
       setFormData((p: any) => ({ ...p, reportContent: formattedText }));
+      toast({ title: 'Informe Estructurado', description: 'La IA ha organizado el texto en las secciones correspondientes.' });
     } catch (e: any) { 
-        console.error("AI enhancement failed:", e); 
+        console.error("AI enhancement failed:", e);
+        toast({ variant: 'destructive', title: 'Error de la IA', description: 'No se pudo estructurar el informe.' });
     } finally { 
         setAiLoading(false); 
     }
@@ -281,11 +285,15 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   };
 
   const handleSave = async () => {
-    if (!user || !db || !inspectorSignature) {
-      alert("La firma del inspector es obligatoria.");
-      return;
+    if (!user || !db) {
+        toast({ variant: 'destructive', title: 'Error de autenticación', description: 'Por favor, recarga la página.' });
+        return;
     }
     if (isSaved) return;
+    if (!inspectorSignature) {
+        toast({ variant: 'destructive', title: 'Falta Firma', description: 'La firma del inspector es obligatoria para guardar.' });
+        return;
+    }
     setSaving(true);
     
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
@@ -302,9 +310,9 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         });
 
         if (!synced) {
-            alert('Modo offline: El informe se ha guardado en tu dispositivo y se sincronizará cuando vuelvas a tener conexión.');
+            toast({ title: 'Guardado localmente (sin conexión)', description: 'El informe se sincronizará cuando vuelvas a tener conexión.' });
         } else {
-            alert(`Informe Técnico guardado con éxito. ID: ${firebaseId}`);
+            toast({ title: '¡Guardado y Sincronizado!', description: `El informe técnico ha sido guardado con el ID: ${firebaseId}` });
         }
     };
 
@@ -323,7 +331,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
             const docData = { 
                 ...formData, 
-                inspectorSignatureUrl: inspectorSignatureUrl, 
+                inspectorSignatureUrl,
                 tecnicoId: user.uid, 
                 tecnicoNombre: inspectorName,
                 fecha_creacion: Timestamp.now(), 
@@ -347,7 +355,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   };
 
   return (
-    <main className="max-w-4xl mx-auto p-4 md:p-6 space-y-8 animate-in fade-in bg-slate-50 min-h-screen">
+    <main className="max-w-4xl mx-auto p-4 md:p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 bg-slate-50 min-h-screen">
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-4 border-b">
