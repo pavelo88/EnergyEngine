@@ -203,7 +203,6 @@ const InspectionPageContent = () => {
 
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js')
-          .then((reg) => console.log('Service Worker registered.', reg))
           .catch((err) => console.log('Service Worker registration failed:', err));
       }
 
@@ -223,14 +222,11 @@ const InspectionPageContent = () => {
             }
             if (chunk) {
                 dictationBufferRef.current += chunk;
-                console.log('Segmento de dictado:', chunk);
             }
         };
 
         recognition.onerror = (event: any) => {
-            console.error('Error de reconocimiento de voz:', event.error);
-            if (event.error === 'no-speech') {
-            } else if (event.error !== 'aborted') {
+            if (event.error !== 'no-speech' && event.error !== 'aborted') {
                 toast({
                     variant: "destructive",
                     title: "Error de Micrófono",
@@ -245,7 +241,6 @@ const InspectionPageContent = () => {
             const finalText = dictationBufferRef.current.trim();
             
             if (finalText) {
-                console.log('Dictado final a procesar:', finalText);
                 setAiLoading(true);
                 try {
                     const res = await processDictation({ dictation: finalText });
@@ -314,12 +309,7 @@ const InspectionPageContent = () => {
       return;
     }
     installPrompt.prompt();
-    installPrompt.userChoice.then((choiceResult: any) => {
-        if (choiceResult.outcome === 'accepted') {
-            console.log('User accepted the A2HS prompt');
-        } else {
-            console.log('User dismissed the A2HS prompt');
-        }
+    installPrompt.userChoice.then(() => {
         setInstallPrompt(null);
     });
   };
@@ -330,7 +320,7 @@ const InspectionPageContent = () => {
           return;
       }
       if (!recognitionRef.current) {
-          toast({ variant: "destructive", title: "Navegador no compatible", description: "El dictado por voz no funciona en este navegador. Prueba con Chrome." });
+          toast({ variant: "destructive", title: "Navegador no compatible", description: "El dictado por voz no funciona en este navegador." });
           return;
       }
       if (isDictating) {
@@ -341,7 +331,7 @@ const InspectionPageContent = () => {
           setAiData(null);
           recognitionRef.current.start();
           setIsDictating(true);
-          toast({ title: "Micrófono abierto", description: "Puedes hablar con normalidad. Haz pausas si lo necesitas." });
+          toast({ title: "Micrófono abierto", description: "Puedes hablar con normalidad." });
       }
   };
 
@@ -428,7 +418,7 @@ const InspectionPageContent = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="flex flex-col min-h-screen bg-slate-50 overflow-x-hidden">
       <Header 
         activeTab={activeTab}
         isSubNavActive={!!activeInspectionForm}
@@ -437,8 +427,8 @@ const InspectionPageContent = () => {
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
       />
-      <main className="flex-grow w-full md:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-0">
+      <main className="flex-grow w-full md:px-0">
+        <div className="w-full max-w-none">
          {renderContent()}
         </div>
       </main>

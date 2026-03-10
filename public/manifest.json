@@ -1,16 +1,17 @@
 {
   "name": "Energy Engine",
   "short_name": "EnergyEngine",
-  "description": "Aplicación de inspección y mantenimiento para grupos electrógenos.",
-  "start_url": "/inspection",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#f1f5f9",
-  "theme_color": "#14b8a6",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981",
+  "description": "Herramienta de gestión de inspecciones y mantenimiento para Energy Engine.",
   "icons": [
     {
       "src": "/icon.svg",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }

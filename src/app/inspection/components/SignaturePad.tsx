@@ -143,10 +143,10 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       >
         <DialogHeader className="flex-row items-center justify-between p-4 border-b bg-slate-50 rounded-t-2xl">
           <DialogTitle className="text-base font-bold">{title}</DialogTitle>
-          <DialogDescription className="sr-only">Panel para dibujar la firma digitalmente.</DialogDescription>
+          <DialogDescription className="sr-only">Superficie táctil para capturar la firma del técnico o cliente de forma digital.</DialogDescription>
           <div className="flex items-center gap-2">
-            <Button variant="destructive" size="sm" onClick={handleClearAndClose}><Trash2 size={16}/> Borrar firma</Button>
-            <Button size="sm" onClick={handleSave}><Check size={16} /> Guardar y Cerrar</Button>
+            <Button variant="destructive" size="sm" onClick={handleClearAndClose}><Trash2 size={16}/> Borrar</Button>
+            <Button size="sm" onClick={handleSave}><Check size={16} /> Guardar</Button>
           </div>
         </DialogHeader>
         <div className="flex-grow bg-slate-100 p-2 md:p-4">

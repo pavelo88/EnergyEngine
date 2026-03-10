@@ -3,7 +3,6 @@
 import React from 'react';
 import { ChevronLeft, Download } from 'lucide-react';
 import TABS from '../constants';
-import { Logo } from '@/components/icons';
 
 interface HeaderProps {
   activeTab: string;
@@ -18,11 +17,10 @@ export default function Header({ activeTab, isOnline, onBack, isSubNavActive, on
   const showBackButton = activeTab !== TABS.MENU || isSubNavActive;
 
   return (
-    <header className="px-6 py-4 bg-slate-800 backdrop-blur-lg border-b border-white/80 flex justify-between items-center sticky top-0 z-50 shadow-sm">
-      
+    <header className="w-full px-6 py-4 bg-slate-800 backdrop-blur-lg border-b border-white/10 flex justify-between items-center sticky top-0 z-50 shadow-sm">
       <div className="flex items-center gap-4">
         {showBackButton && (
-          <button onClick={onBack} className="w-10 h-10 bg-black/5 rounded-xl flex items-center justify-center text-white border border-black/10 hover:bg-black/10 transition-all">
+          <button onClick={onBack} className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center text-white border border-white/10 hover:bg-white/10 transition-all">
             <ChevronLeft size={20} />
           </button>
         )}
@@ -35,7 +33,7 @@ export default function Header({ activeTab, isOnline, onBack, isSubNavActive, on
             {isOnline ? 'ONLINE' : 'OFFLINE'}
         </div>
         {canInstall && (
-            <button onClick={onInstall} className="w-8 h-8 bg-black/5 rounded-xl flex items-center justify-center text-white border border-black/10 hover:bg-black/10 transition-all" title="Instalar aplicación">
+            <button onClick={onInstall} className="w-8 h-8 bg-white/5 rounded-xl flex items-center justify-center text-white border border-white/10 hover:bg-white/10 transition-all" title="Instalar aplicación">
                 <Download size={14} />
             </button>
         )}
