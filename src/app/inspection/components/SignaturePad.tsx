@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Pen, Trash2, Check } from 'lucide-react';
+import { Pen, Trash2, Check, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -19,11 +19,11 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [hasContent, setHasContent] = useState(!!signature);
 
-  // Inicialización del canvas con alta resolución y suavizado
+  // Inicialización ultra-limpia del canvas
   useEffect(() => {
     if (!isFullScreen) return;
 
-    const timer = setTimeout(() => {
+    const initCanvas = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       
@@ -53,11 +53,14 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
           ctx.drawImage(img, 0, 0, rect.width, rect.height);
         };
       }
-    }, 150);
+    };
 
+    // Delay para asegurar que el DOM del Dialog esté listo
+    const timer = setTimeout(initCanvas, 200);
     return () => clearTimeout(timer);
   }, [isFullScreen, signature]);
 
+  // Uso de Pointer Events para máxima compatibilidad y fluidez
   const getPos = (e: React.PointerEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
@@ -84,7 +87,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   };
 
   const stopDrawing = () => {
-    setIsDrawing(false);
+    if (isDrawing) setIsDrawing(false);
   };
 
   const handleSave = () => {
@@ -117,7 +120,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
         )}
       >
         {signature ? (
-          <img src={signature} alt="Firma" className="max-h-full max-w-full object-contain p-4" />
+          <img src={signature} alt="Firma guardada" className="max-h-full max-w-full object-contain p-4" />
         ) : (
           <div className="text-center text-slate-400">
             <Pen size={24} className="mx-auto mb-2 opacity-20" />
@@ -127,11 +130,11 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       </div>
 
       <Dialog open={isFullScreen} onOpenChange={setIsFullScreen}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-4 md:p-6 bg-slate-900 border-none shadow-2xl overflow-hidden rounded-[2.5rem]">
+        <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-4 md:p-6 bg-slate-900 border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
           <DialogHeader className="text-white mb-2">
             <DialogTitle className="font-black uppercase tracking-tighter text-lg">{title}</DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
-              Use su dedo o lápiz óptico. El trazo es ahora más suave y profesional.
+              Dibuje su firma con el dedo o puntero. El trazo se guardará al pulsar Aceptar.
             </DialogDescription>
           </DialogHeader>
 

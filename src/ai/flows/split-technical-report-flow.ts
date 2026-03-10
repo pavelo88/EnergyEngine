@@ -31,7 +31,17 @@ export type SplitTechnicalReportOutput = z.infer<
 export async function splitTechnicalReport(
   input: SplitTechnicalReportInput
 ): Promise<SplitTechnicalReportOutput> {
-  return splitTechnicalReportFlow(input);
+  try {
+    return await splitTechnicalReportFlow(input);
+  } catch (e: any) {
+    console.error("splitTechnicalReport error (Key likely blocked):", e);
+    // Fallback robusto si la clave de API está bloqueada
+    return {
+      antecedentes: input.dictation,
+      intervencion: "No estructurado por error de servicio de IA.",
+      resumen: "Revise manualmente."
+    };
+  }
 }
 
 const splitTechnicalReportPrompt = ai.definePrompt({

@@ -59,7 +59,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
                 ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
                 [{ content: 'Cliente:', styles: { fontStyle: 'bold' } }, { content: report.cliente, colSpan: 3 }],
                 [{ content: 'Instalación:', styles: { fontStyle: 'bold' } }, { content: report.instalacion, colSpan: 3 }],
-                [{ content: 'UBICACIÓN (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
+                [{ content: 'UBICACIÓN:', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
                 ['Motor:', report.motor, 'Modelo:', report.modelo],
                 ['Nº de motor:', report.n_motor, 'Grupo:', report.grupo],
             ],
@@ -236,9 +236,14 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       const res = await splitTechnicalReport({ dictation: formData.reportContent });
       const formattedText = `ANTECEDENTES:\n\n${res.antecedentes}\n\nINTERVENCIÓN:\n\n${res.intervencion}\n\nRESUMEN Y SITUACIÓN ACTUAL:\n\n${res.resumen}`;
       setFormData((p: any) => ({ ...p, reportContent: formattedText }));
-      toast({ title: 'Informe estructurado' });
+      toast({ title: 'Informe estructurado por IA' });
     } catch (e: any) { 
-        toast({ variant: 'destructive', title: 'IA no disponible', description: 'API Key expirada. Use edición manual.' });
+        console.error("AI Error:", e);
+        toast({ 
+          variant: 'destructive', 
+          title: 'IA no disponible', 
+          description: 'Clave de API expirada o bloqueada. Use edición manual.' 
+        });
     } finally { setAiLoading(false); }
   };
 
@@ -246,13 +251,16 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     try {
         const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature };
         const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
+        
+        // Timeout para asegurar que el Dialog cargue el iframe correctamente
+        const uri = docPdf.output('datauristring');
+        setPreviewPdfUrl(uri);
+        
         if (isSaved) {
           docPdf.save(`Informe_Tecnico_${savedDocId}.pdf`);
-        } else {
-          setPreviewPdfUrl(docPdf.output('datauristring'));
         }
     } catch (e) {
-        toast({ variant: 'destructive', title: 'Error PDF' });
+        toast({ variant: 'destructive', title: 'Error al generar PDF' });
     }
   };
 
@@ -266,7 +274,11 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     if (!inspectorSignature) missing.push('Firma Inspector');
 
     if (missing.length > 0) {
-        toast({ variant: 'destructive', title: 'Faltan datos', description: `Completa: ${missing.join(', ')}` });
+        toast({ 
+          variant: 'destructive', 
+          title: 'Datos incompletos', 
+          description: `Por favor, completa: ${missing.join(', ')}` 
+        });
         return;
     }
 
@@ -280,7 +292,10 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         if (synced) {
             toast({ title: '¡Sincronizado!', description: `Informe guardado con ID: ${firebaseId}` });
         } else {
-            toast({ title: 'Guardado Localmente', description: 'Error de CORS/Red. Se sincronizará automáticamente después.' });
+            toast({ 
+              title: 'Guardado Localmente', 
+              description: 'Error de conexión/CORS. Se sincronizará automáticamente al detectar red permitida.' 
+            });
         }
     };
     
@@ -291,11 +306,28 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             const docId = `IT-${new Date().getFullYear()}-${(trabajosSnap.size + 1).toString().padStart(3, '0')}`;
             const storage = getStorage();
             
-            const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
-            await uploadString(signatureRef, inspectorSignature!, 'data_url');
-            const inspectorSignatureUrl = await getDownloadURL(signatureRef);
+            // Subida de firma con manejo de CORS
+            let inspectorSignatureUrl = null;
+            try {
+              const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
+              await uploadString(signatureRef, inspectorSignature!, 'data_url');
+              inspectorSignatureUrl = await getDownloadURL(signatureRef);
+            } catch (corsErr) {
+              console.warn("CORS Error uploading signature, will save local:", corsErr);
+              throw new Error("CORS_ERROR");
+            }
 
-            const docData = { ...formData, inspectorSignatureUrl, tecnicoId: user.email, tecnicoNombre: inspectorName, fecha_creacion: Timestamp.now(), formType, id: docId, estado: 'Completado' };
+            const docData = { 
+              ...formData, 
+              inspectorSignatureUrl, 
+              tecnicoId: user.email, 
+              tecnicoNombre: inspectorName, 
+              fecha_creacion: Timestamp.now(), 
+              formType, 
+              id: docId, 
+              estado: 'Completado' 
+            };
+            
             await setDoc(doc(firestore, 'trabajos', docId), docData);
             if (initialData?.id) await updateDoc(doc(firestore, 'trabajos', initialData.id), { estado: 'Completado' });
 
@@ -303,7 +335,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             setSavedDocId(docId);
             setIsSaved(true);
         } catch (e: any) { 
-            console.error("Firebase save failed, saving to local DB:", e);
+            console.error("Cloud save failed:", e);
             await saveDataToLocal(false);
         }
     } else {
@@ -375,10 +407,10 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       
       <div className="flex flex-col md:flex-row gap-4">
         <button onClick={handlePdfAction} className="w-full p-8 bg-white text-slate-900 border-2 border-slate-200 rounded-[2.5rem] font-black text-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-primary shadow-lg">
-            {isSaved ? <Printer className="text-primary"/> : <FileSearch className="text-primary"/>} PDF
+            {isSaved ? <Printer className="text-primary"/> : <FileSearch className="text-primary"/>} VISTA PREVIA PDF
         </button>
         <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 shadow-2xl">
-          {saving ? <Loader2 className="animate-spin text-primary"/> : isSaved ? <CheckCircle2 className="text-primary"/> : <Save className="text-primary"/>} GUARDAR INFORME
+          {saving ? <Loader2 className="animate-spin text-primary"/> : isSaved ? <CheckCircle2 className="text-primary"/> : <Save className="text-primary"/>} {saving ? 'GUARDANDO...' : isSaved ? 'HOJA GUARDADA' : 'FINALIZAR Y GUARDAR'}
         </button>
       </div>
     </main>

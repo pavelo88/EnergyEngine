@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense, useRef } from 'react';
+import React, { useState, useEffect, Suspense, useRef, useCallback } from 'react';
 import { useFirebase } from '@/firebase';
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -64,53 +64,60 @@ const InspectionPageContent = () => {
     }
   }, []);
 
-  // Sincronización robusta sin errores de hooks
-  useEffect(() => {
-    if (isOnline && !isSyncing && user && firestore && hasMounted) {
-      const syncOfflineData = async () => {
-        const storage = getStorage();
-        setIsSyncing(true);
+  // Función de sincronización estabilizada
+  const syncOfflineData = useCallback(async () => {
+    if (!isOnline || isSyncing || !user || !firestore) return;
+    
+    setIsSyncing(true);
+    const storage = getStorage();
 
-        try {
-          const pendingHojas = await dbLocal.hojas_trabajo.filter(record => !record.synced).toArray();
-          if (pendingHojas.length > 0) {
-            for (const record of pendingHojas) {
-              const { images, inspectorSignature, clientSignature, originalJobId, ...formDataForFirebase } = record.data;
-              const docId = `SYNC-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    try {
+      const pendingHojas = await dbLocal.hojas_trabajo.filter(record => !record.synced).toArray();
+      if (pendingHojas.length > 0) {
+        for (const record of pendingHojas) {
+          try {
+            const { images, inspectorSignature, clientSignature, originalJobId, ...formDataForFirebase } = record.data;
+            const docId = record.firebaseId || `SYNC-${Date.now()}`;
 
-              let inspectorSignatureUrl = null;
-              if (inspectorSignature) {
-                  const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
-                  await uploadString(inspRef, inspectorSignature, 'data_url');
-                  inspectorSignatureUrl = await getDownloadURL(inspRef);
-              }
-
-              let clientSignatureUrl = null;
-              if (clientSignature) {
-                  const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
-                  await uploadString(cliRef, clientSignature, 'data_url');
-                  clientSignatureUrl = await getDownloadURL(cliRef);
-              }
-              
-              const docData = { ...formDataForFirebase, inspectorSignatureUrl, clientSignatureUrl, id: docId, fecha_creacion: Timestamp.now() };
-              await setDoc(doc(firestore, 'trabajos', docId), docData);
-
-              if (originalJobId) {
-                await updateDoc(doc(firestore, 'trabajos', originalJobId), { estado: 'Completado' });
-              }
-              
-              await dbLocal.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
+            let inspectorSignatureUrl = null;
+            if (inspectorSignature && inspectorSignature.startsWith('data:')) {
+                const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
+                await uploadString(inspRef, inspectorSignature, 'data_url');
+                inspectorSignatureUrl = await getDownloadURL(inspRef);
             }
+
+            let clientSignatureUrl = null;
+            if (clientSignature && clientSignature.startsWith('data:')) {
+                const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
+                await uploadString(cliRef, clientSignature, 'data_url');
+                clientSignatureUrl = await getDownloadURL(cliRef);
+            }
+            
+            const docData = { ...formDataForFirebase, inspectorSignatureUrl, clientSignatureUrl, id: docId, fecha_creacion: Timestamp.now() };
+            await setDoc(doc(firestore, 'trabajos', docId), docData);
+
+            if (originalJobId) {
+              await updateDoc(doc(firestore, 'trabajos', originalJobId), { estado: 'Completado' });
+            }
+            
+            await dbLocal.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
+          } catch (itemError) {
+            console.error('Failed to sync record:', record.id, itemError);
           }
-        } catch (error) {
-          console.error('Failed to sync:', error);
-        } finally {
-          setIsSyncing(false);
         }
-      };
+      }
+    } catch (error) {
+      console.error('Sincronización general fallida:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [isOnline, isSyncing, user, firestore]);
+
+  useEffect(() => {
+    if (isOnline && hasMounted) {
       syncOfflineData();
     }
-  }, [isOnline, user, firestore, hasMounted, isSyncing]);
+  }, [isOnline, hasMounted, syncOfflineData]);
 
   const handleNavigate = (tab: string) => {
     setActiveTab(tab);
@@ -168,11 +175,16 @@ const InspectionPageContent = () => {
                       toast({ title: "Voz procesada" });
                   } catch (e) {
                       console.error("AI Fallback active:", e);
+                      // Fallback robusto si la clave de API falla
                       setAiData({
                           observations_summary: dictationBufferRef.current,
                           identidad: {}, all_ok: false, checklist_updates: {}, mediciones_generales: {}, pruebas_carga: {}
                       } as any);
-                      toast({ variant: "destructive", title: "Modo Manual", description: "IA fuera de servicio. Guardando dictado directo." });
+                      toast({ 
+                        variant: "destructive", 
+                        title: "Modo Manual", 
+                        description: "IA fuera de servicio por clave de API. Usando dictado directo." 
+                      });
                   } finally {
                       setAiLoading(false);
                   }
