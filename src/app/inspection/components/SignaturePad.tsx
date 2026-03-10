@@ -23,17 +23,15 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     if (!isFullScreen || !canvasRef.current) return;
 
     const canvas = canvasRef.current;
-    const rect = canvas.parentElement?.getBoundingClientRect() || { width: 800, height: 400 };
-    
-    // Configuración de alta resolución
-    const scale = window.devicePixelRatio || 1;
-    canvas.width = rect.width * scale;
-    canvas.height = rect.height * scale;
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    // Configuración de alta resolución
+    const scale = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    
+    canvas.width = rect.width * scale;
+    canvas.height = rect.height * scale;
     
     ctx.scale(scale, scale);
     ctx.lineCap = 'round';
@@ -51,18 +49,19 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     }
   }, [isFullScreen, signature]);
 
-  const getCoordinates = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+  const getCoordinates = useCallback((e: any) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    
     return {
       x: clientX - rect.left,
       y: clientY - rect.top
     };
   }, []);
 
-  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+  const startDrawing = (e: any) => {
     e.preventDefault();
     const { x, y } = getCoordinates(e);
     const ctx = canvasRef.current?.getContext('2d');
@@ -73,7 +72,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     }
   };
 
-  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+  const draw = (e: any) => {
     if (!isDrawing || !canvasRef.current) return;
     e.preventDefault();
     const { x, y } = getCoordinates(e);
@@ -85,8 +84,9 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     }
   };
 
-  const stopDrawing = () => {
+  const stopDrawing = (e: any) => {
     if (isDrawing) {
+      e.preventDefault();
       const ctx = canvasRef.current?.getContext('2d');
       ctx?.closePath();
       setIsDrawing(false);
@@ -106,7 +106,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     if (canvas) {
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         setHasContent(false);
         onSignatureEnd(null);
       }
@@ -139,7 +139,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
           <DialogHeader className="text-white mb-2">
             <DialogTitle className="font-black uppercase tracking-tighter text-lg">{title}</DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
-              Dibuje su firma en el recuadro blanco de forma clara.
+              Dibuje su firma en el recuadro blanco de forma clara. Use su dedo o un lápiz táctil.
             </DialogDescription>
           </DialogHeader>
 

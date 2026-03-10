@@ -15,7 +15,6 @@ import { db as dbLocal } from '@/lib/db-local';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
 
-// Componente de entrada memoizado para rendimiento
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
@@ -32,7 +31,6 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
   </div>
 ));
 
-// Componente para los inputs de prueba de carga
 const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
     <div className="flex flex-col items-center gap-1">
         <label className="text-[9px] font-black text-slate-500 w-full text-center">{label}</label>
@@ -48,11 +46,10 @@ const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
 export const generatePDF = (report: any, inspectorName: string, reportId: string | null) => {
   const doc = new jsPDF();
   const finalID = reportId || 'BORRADOR';
-  const darkColor = '#0f172a'; // Slate-900
+  const darkColor = '#0f172a';
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
 
-  // Márgenes
   const leftMargin = 15;
   const rightMargin = 15;
   const topMargin = 40;
@@ -61,7 +58,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
   let currentY = topMargin;
 
-  // 1. Sub-header (Título y Nº)
   doc.setTextColor(darkColor);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
@@ -71,7 +67,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   doc.text(`Nº: ${finalID}`, pageWidth - rightMargin, currentY, { align: 'right' });
   currentY += 6;
 
-  // 2. Tabla de Cliente y Servicio
   autoTable(doc, {
       startY: currentY,
       body: [
@@ -91,7 +86,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
   currentY = (doc as any).lastAutoTable.finalY + 8;
 
-  // 3. TRABAJOS REALIZADOS
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.text("TRABAJOS REALIZADOS", leftMargin, currentY);
@@ -131,7 +125,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
   currentY += 6;
 
-  // 4. PARÁMETROS TÉCNICOS
   if (currentY + 40 > pageHeight - bottomMargin) {
       doc.addPage();
       currentY = topMargin;
@@ -157,7 +150,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
   currentY = (doc as any).lastAutoTable.finalY + 8;
 
-  // 5. POTENCIA CON CARGA
   if (currentY + 45 > pageHeight - bottomMargin) {
       doc.addPage();
       currentY = topMargin;
@@ -185,7 +177,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
   currentY = (doc as any).lastAutoTable.finalY + 4;
 
-  // 6. FIRMAS
   const signatureBlockHeight = 45;
   if (currentY + signatureBlockHeight > pageHeight - bottomMargin) {
       doc.addPage();
@@ -195,7 +186,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   
-  // Firma Técnico (Izquierda)
   if (report.inspectorSignatureUrl) {
       doc.addImage(report.inspectorSignatureUrl, 'PNG', 25, currentY, 60, 25);
   }
@@ -203,7 +193,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   doc.text("Firma técnico:", 25, currentY + 30);
   doc.text(inspectorName || '', 25, currentY + 35);
 
-  // Firma Cliente (Derecha)
   if (report.clientSignatureUrl) {
       doc.addImage(report.clientSignatureUrl, 'PNG', 125, currentY, 60, 25);
   }
@@ -239,7 +228,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     n_grupo: '',
     n_pedido: '',
     location: null as { lat: number, lon: number } | null,
-    fecha: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+    fecha: new Date().toISOString().split('T')[0],
     tecnicos: '',
     h_asistencia: '',
     tipo_servicio: 'MANTENIMIENTO CORRECTIVO',
@@ -296,8 +285,9 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                     setInspectorName(userName);
                     setFormData((prev: any) => ({...prev, tecnicos: userName}));
                 } else {
-                     setInspectorName(user.displayName || user.email || 'Técnico');
-                     setFormData((prev: any) => ({...prev, tecnicos: user.displayName || user.email || 'Técnico' }));
+                     const name = user.displayName || user.email || 'Técnico';
+                     setInspectorName(name);
+                     setFormData((prev: any) => ({...prev, tecnicos: name }));
                 }
             } catch(e: any) {
                 console.error("Error fetching user name:", e);
@@ -313,7 +303,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     if (initialData) {
       setFormData((prev: any) => ({
         ...prev,
-        cliente: initialData.clienteNombre || prev.cliente,
+        cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
         instalacion: initialData.instalacion || prev.instalacion,
         motor: initialData.modelo || prev.motor,
         n_motor: initialData.n_motor || prev.n_motor,
@@ -322,7 +312,6 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     }
   }, [initialData]);
 
-  // Proceso de datos IA
   useEffect(() => {
     if (aiData) {
       setFormData((prev: any) => ({
@@ -373,7 +362,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
 
   const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
-      toast({ variant: 'destructive', title: 'Error de Geolocalización', description: 'Tu navegador no soporta esta función.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Gps no soportado.' });
       setLocationStatus('error');
       return;
     }
@@ -385,7 +374,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         setLocationStatus('success');
       },
       () => {
-        toast({ variant: 'destructive', title: 'Ubicación denegada', description: 'Asegúrate de tener los permisos de localización activados.' });
+        toast({ variant: 'destructive', title: 'Permiso denegado', description: 'Activa el GPS para esta web.' });
         setLocationStatus('error');
       }
     );
@@ -400,10 +389,10 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         ...p, 
         trabajos_realizados: res.improved,
       }));
-       toast({ title: 'Informe mejorado', description: 'La IA ha refinado el texto.' });
+       toast({ title: '¡Pulido!', description: 'IA ha mejorado el texto.' });
     } catch(e: any) {
       console.error("AI enhancement failed:", e);
-      toast({ variant: 'destructive', title: 'Error de la IA' });
+      toast({ variant: 'destructive', title: 'Error IA' });
     } finally {
       setAiLoading(false);
     }
@@ -411,13 +400,13 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
 
   const handlePdfAction = () => {
     if (!formData.cliente || !formData.instalacion) {
-        toast({ variant: 'destructive', title: 'Faltan datos', description: 'Cliente e instalación obligatorios.' });
+        toast({ variant: 'destructive', title: 'Faltan datos', description: 'Cliente e Instalación obligatorios.' });
         return;
     }
     const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: clientSignature };
-    const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
-    if (isSaved) doc.save(`Hoja_Trabajo_${savedDocId}.pdf`);
-    else setPreviewPdfUrl(doc.output('datauristring'));
+    const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
+    if (isSaved) docPdf.save(`Hoja_Trabajo_${savedDocId}.pdf`);
+    else setPreviewPdfUrl(docPdf.output('datauristring'));
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -427,19 +416,19 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
   const handleSave = async () => {
     if (!user || !firestore || !user.email) return;
     
-    // Validación detallada
+    // Validación de campos obligatorios para guardar
     const missingFields = [];
     if (!formData.cliente) missingFields.push('Cliente');
     if (!formData.instalacion) missingFields.push('Instalación');
-    if (!formData.location) missingFields.push('Ubicación (GPS)');
+    if (!formData.location) missingFields.push('Localización GPS');
     if (!inspectorSignature) missingFields.push('Firma Inspector');
     if (!clientSignature) missingFields.push('Firma Cliente');
 
     if (missingFields.length > 0) {
       toast({ 
         variant: 'destructive', 
-        title: 'Datos incompletos', 
-        description: `Faltan los siguientes campos obligatorios: ${missingFields.join(', ')}.` 
+        title: 'Faltan datos críticos', 
+        description: `Por favor completa: ${missingFields.join(', ')}` 
       });
       return;
     }
@@ -459,8 +448,9 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     if (isOnline) {
         try {
             const formType = 'hoja-trabajo';
-            const sequential = (await getDocs(query(collection(firestore, 'trabajos'), where('formType', '==', formType)))).size + 1;
-            const docId = `HT-${new Date().getFullYear()}-${sequential.toString().padStart(3, '0')}`;
+            const qCount = query(collection(firestore, 'trabajos'), where('formType', '==', formType));
+            const trabajosSnap = await getDocs(qCount);
+            const docId = `HT-${new Date().getFullYear()}-${(trabajosSnap.size + 1).toString().padStart(3, '0')}`;
             const storage = getStorage();
 
             const imageUrls = await Promise.all(images.map(async (image) => {
@@ -469,7 +459,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                 return getDownloadURL(imgRef);
             }));
 
-            // Subida de firmas con referencias estables
+            // Subida de firmas
             const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
             await uploadString(inspRef, inspectorSignature!, 'data_url');
             const inspectorSignatureUrl = await getDownloadURL(inspRef);
@@ -490,15 +480,15 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
             await saveDataToLocal(true, docId);
             setSavedDocId(docId);
             setIsSaved(true);
-            toast({ title: '¡Sincronizado!', description: `Documento guardado con ID: ${docId}` });
+            toast({ title: '¡Guardado!', description: `ID: ${docId}` });
         } catch (error: any) {
-            console.error("Error guardando en Firebase:", error);
+            console.error("Error saving to Firebase:", error);
             await saveDataToLocal(false);
-            toast({ title: 'Guardado localmente', description: 'Ocurrió un error de red, el archivo se sincronizará más tarde.' });
+            toast({ title: 'Guardado Local', description: 'Error de red, se subirá luego.' });
         }
     } else {
         await saveDataToLocal(false);
-        toast({ title: 'Guardado localmente', description: 'Sin conexión a internet. Se sincronizará automáticamente.' });
+        toast({ title: 'Guardado Offline', description: 'Se sincronizará al volver la conexión.' });
     }
     setSaving(false);
   };
@@ -508,8 +498,8 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-4 border-b">
-            <DialogTitle>Vista Previa</DialogTitle>
-            <DialogDescription className="sr-only">Visualización previa del documento PDF generado.</DialogDescription>
+            <DialogTitle>Vista Previa de Documento</DialogTitle>
+            <DialogDescription className="sr-only">Previsualización del PDF generado.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 bg-slate-200 p-4">
             {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full" title="PDF Preview" />}
@@ -548,7 +538,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
               </div>
               <div className="lg:col-span-4">
                 <button onClick={handleCaptureLocation} className={`w-full p-3 border-2 rounded-xl font-bold transition-all ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 hover:border-primary'}`}>
-                    {locationStatus === 'loading' ? <Loader2 className="animate-spin mx-auto"/> : formData.location ? 'Ubicación Capturada' : 'Capturar Ubicación'}
+                    {locationStatus === 'loading' ? <Loader2 className="animate-spin mx-auto"/> : formData.location ? 'Ubicación OK' : 'Capturar Ubicación (Obligatorio)'}
                 </button>
               </div>
            </div>
@@ -605,7 +595,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                   {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />} Pulir con IA
               </button>
           </div>
-          <textarea className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 resize-none" value={formData.trabajos_realizados} onChange={(e: any) => handleInputChange('trabajos_realizados', e.target.value)}/>
+          <textarea className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 resize-none" value={formData.trabajos_realizados} onChange={(e: any) => handleInputChange('trabajos_realizados', e.target.value)} placeholder="Describe aquí las tareas hechas..."/>
        </section>
        
       <section className="bg-white p-6 md:p-10 rounded-3xl shadow-sm space-y-6 border border-slate-100">
@@ -625,27 +615,29 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
       </section>
 
       <section className="bg-white p-6 md:p-10 rounded-3xl shadow-sm space-y-6 border border-slate-100">
-          <h2 className="text-xl font-black">Firmas</h2>
+          <h2 className="text-xl font-black">Validación</h2>
           <div className="grid md:grid-cols-2 gap-8 items-start">
               <div>
                 <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
-                <p className="text-center font-bold mt-2">{inspectorName}</p>
+                <p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p>
               </div>
               <div>
                 <SignaturePad title="Conforme Cliente" signature={clientSignature} onSignatureEnd={setClientSignature} />
-                <StableInput label="" value={formData.recibidoPor} onChange={(v: any) => handleInputChange('recibidoPor', v)} placeholder="Nombre receptor"/>
+                <div className="mt-2">
+                  <StableInput label="" value={formData.recibidoPor} onChange={(v: any) => handleInputChange('recibidoPor', v)} placeholder="Nombre del receptor"/>
+                </div>
               </div>
           </div>
       </section>
 
       <div className="flex flex-col md:flex-row gap-4">
-          <button onClick={handlePdfAction} className="w-full p-6 bg-white border-2 rounded-2xl font-bold flex items-center justify-center gap-4">
+          <button onClick={handlePdfAction} className="w-full p-6 bg-white border-2 border-slate-200 rounded-2xl font-bold flex items-center justify-center gap-4 hover:border-primary transition-all">
               {isSaved ? <Printer size={20} /> : <FileSearch size={20} />}
               {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
           </button>
-          <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-4">
+          <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-4 disabled:bg-slate-700">
             {saving ? <Loader2 className="animate-spin" /> : isSaved ? <CheckCircle2 /> : <Save />}
-            {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR'}
+            {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR HOJA'}
           </button>
       </div>
       </main>

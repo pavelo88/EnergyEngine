@@ -2,20 +2,17 @@
 
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-base64';
 
 export const Logo = () => {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [logoError, setLogoError] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // El primer renderizado (Server y Client) debe ser idéntico
-  // Renderizamos un esqueleto neutro hasta que el cliente esté montado
+  // Renderizado neutro para evitar errores de hidratación
   if (!mounted) {
     return (
       <div className="flex items-center gap-3 h-[48px]">
@@ -28,21 +25,23 @@ export const Logo = () => {
     );
   }
 
-  // Una vez montado en el cliente, decidimos el logo según el tema resuelto
   const isDark = resolvedTheme === 'dark';
+  // Usamos <img> estándar para evitar el error 400 de Next.js Image Optimizer en este entorno
   const logoSrc = isDark ? '/logo2.png' : '/logo.png';
 
   return (
     <div className="flex items-center gap-3">
       <div className="relative w-12 h-12 flex items-center justify-center">
-        <Image 
-          src={logoError ? logoBase64 : logoSrc} 
+        <img 
+          src={logoSrc} 
           alt="Energy Engine Logo" 
           width={48} 
           height={48} 
           className="object-contain transition-opacity duration-300"
-          priority
-          onError={() => setLogoError(true)}
+          onError={(e) => {
+            // Fallback a base64 si la imagen física no carga
+            (e.target as HTMLImageElement).src = logoBase64;
+          }}
         />
       </div>
       <div className="flex flex-col leading-none">

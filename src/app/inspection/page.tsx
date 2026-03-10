@@ -67,11 +67,9 @@ const InspectionPageContent = () => {
 
         if (totalPending > 0) {
           toast({
-            title: "Conexión recuperada. Sincronizando...",
-            description: `${totalPending} registros pendientes por subir.`,
+            title: "Sincronizando...",
+            description: `${totalPending} tareas pendientes.`,
           });
-
-          let syncedCount = 0;
 
           for (const record of pendingHojas) {
             try {
@@ -82,7 +80,7 @@ const InspectionPageContent = () => {
               const trabajosRef = collection(firestore, 'trabajos');
               const qTrabajos = query(trabajosRef, where('formType', '==', formType));
               const trabajosSnapshot = await getDocs(qTrabajos);
-              const sequentialNumber = (trabajosSnapshot.size + syncedCount + 1).toString().padStart(3, '0');
+              const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
               const year = new Date().getFullYear();
               
               let idPrefix = 'DOC';
@@ -122,67 +120,45 @@ const InspectionPageContent = () => {
                 try {
                     const jobRef = doc(firestore, 'trabajos', originalJobId);
                     await updateDoc(jobRef, { estado: 'Completado' });
-                } catch (updateError) {
-                    console.error(`Sync engine failed to update job ${originalJobId}:`, updateError);
-                }
+                } catch (e) { console.error(e); }
               }
               
               await dbLocal.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
-              syncedCount++;
             } catch (error) {
               console.error('Failed to sync report:', record.id, error);
             }
           }
 
+          // Jornadas y Gastos
           for (const record of pendingJornadas) {
              try {
                 const { signature, ...jornadaData } = record.data;
                 const jornadaId = `J-${Date.now().toString().slice(-6)}-${user.uid.slice(0,4)}`;
-                
-                let firmaUrl = null;
-                if (signature) {
-                    const sigRef = ref(storage, `firmas_jornadas/${jornadaId}.png`);
-                    await uploadString(sigRef, signature, 'data_url');
-                    firmaUrl = await getDownloadURL(sigRef);
-                }
-                
+                const sigRef = ref(storage, `firmas_jornadas/${jornadaId}.png`);
+                await uploadString(sigRef, signature, 'data_url');
+                const firmaUrl = await getDownloadURL(sigRef);
                 const jornadaDocRef = doc(collection(firestore, "jornadas"), jornadaId);
                 await setDoc(jornadaDocRef, { ...jornadaData, firmaUrl, id: jornadaDocRef.id, fecha_creacion: serverTimestamp() });
-                
                 await dbLocal.registros_jornada.update(record.id!, { synced: true, firebaseId: jornadaId });
-
-             } catch(error) {
-                console.error("Failed to sync jornada record:", record.id, error);
-             }
+             } catch(e) { console.error(e); }
           }
 
-           for (const record of pendingGastos) {
+          for (const record of pendingGastos) {
              try {
                 const { comprobanteFile, ...gastoData } = record.data;
                 const gastoRef = doc(collection(firestore, "gastos"));
                 let comprobanteUrl = '';
-
                 if (comprobanteFile) {
                     const fileRef = ref(storage, `comprobantes_gastos/${gastoRef.id}/${comprobanteFile.name}`);
                     await uploadBytes(fileRef, comprobanteFile);
                     comprobanteUrl = await getDownloadURL(fileRef);
                 }
-                
                 await setDoc(gastoRef, { ...gastoData, comprobanteUrl, fecha_creacion: serverTimestamp() });
-                
                 await dbLocal.gastos.update(record.id!, { synced: true, firebaseId: gastoRef.id });
-
-             } catch(error) {
-                 console.error("Failed to sync gasto record:", record.id, error);
-             }
+             } catch(e) { console.error(e); }
            }
 
-          if(totalPending > 0) {
-            toast({
-              title: "¡Sincronización completa!",
-              description: `${totalPending} registros se han guardado en la nube.`,
-            });
-          }
+          toast({ title: "¡Sincronizado!", description: "Todos los datos están en la nube." });
         }
         setIsSyncing(false);
       }
@@ -193,7 +169,7 @@ const InspectionPageContent = () => {
   useEffect(() => {
     setHasMounted(true);
     
-    const handleInstallPrompt = (e: Event) => {
+    const handleInstallPrompt = (e: any) => {
         e.preventDefault();
         setInstallPrompt(e);
     };
@@ -202,8 +178,7 @@ const InspectionPageContent = () => {
       window.addEventListener('beforeinstallprompt', handleInstallPrompt);
 
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js')
-          .catch((err) => console.log('Service Worker registration failed:', err));
+        navigator.serviceWorker.register('/sw.js').catch(e => console.log('SW fail:', e));
       }
 
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -211,84 +186,42 @@ const InspectionPageContent = () => {
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.lang = 'es-ES';
-        recognition.interimResults = false;
-
         recognition.onresult = (event: any) => {
-            let chunk = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    chunk += event.results[i][0].transcript + ' ';
-                }
-            }
-            if (chunk) {
-                dictationBufferRef.current += chunk;
+                if (event.results[i].isFinal) dictationBufferRef.current += event.results[i][0].transcript + ' ';
             }
         };
-
-        recognition.onerror = (event: any) => {
-            if (event.error !== 'no-speech' && event.error !== 'aborted') {
-                toast({
-                    variant: "destructive",
-                    title: "Error de Micrófono",
-                    description: "No se pudo usar el dictado. Revisa los permisos.",
-                });
-                setIsDictating(false);
-            }
-        };
-        
         recognition.onend = async () => {
             setIsDictating(false);
             const finalText = dictationBufferRef.current.trim();
-            
             if (finalText) {
                 setAiLoading(true);
                 try {
                     const res = await processDictation({ dictation: finalText });
                     setAiData(res);
-                    
-                    if (res.error) {
-                      toast({
-                        variant: "destructive",
-                        title: "Aviso de IA",
-                        description: "El servicio de IA no está disponible ahora, pero el texto ha sido registrado.",
-                      });
-                    } else {
-                      toast({
-                        title: "IA ha procesado el dictado",
-                        description: "Los campos del formulario han sido actualizados.",
-                      });
-                    }
+                    toast({ title: "Dictado Procesado" });
                 } catch (e) {
-                    console.error("AI dictation processing failed:", e);
-                    toast({
-                      variant: "destructive",
-                      title: "Error de la IA",
-                      description: "La IA no pudo procesar el dictado. Inténtalo de nuevo.",
-                    });
+                    console.error(e);
+                    toast({ variant: "destructive", title: "Error IA", description: "No se pudo procesar el dictado." });
                 } finally {
                     setAiLoading(false);
                     dictationBufferRef.current = '';
                 }
             }
         };
-
         recognitionRef.current = recognition;
       }
 
       return () => {
         window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
-        if (recognitionRef.current) {
-            recognitionRef.current.abort();
-        }
+        if (recognitionRef.current) recognitionRef.current.abort();
       };
     }
   }, [toast]);
 
   const handleNavigate = (tab: string) => {
     setActiveTab(tab);
-    if (tab !== TABS.NEW_INSPECTION) {
-      setActiveInspectionForm(null);
-    }
+    if (tab !== TABS.NEW_INSPECTION) setActiveInspectionForm(null);
   };
 
   const handleSelectInspectionType = (formType: FormType, data?: any) => {
@@ -304,98 +237,66 @@ const InspectionPageContent = () => {
   };
 
   const handleBackToHub = () => {
-    setActiveInspectionForm(null);
-    setActiveTab(TABS.MENU);
+    if (activeInspectionForm) setActiveInspectionForm(null);
+    else setActiveTab(TABS.MENU);
   }
 
   const handleInstallClick = () => {
-    if (!installPrompt) {
-      toast({
-        variant: "destructive",
-        title: "Instalación no disponible",
-        description: "Tu navegador no ha habilitado la instalación o la app ya está instalada.",
-      });
-      return;
-    }
+    if (!installPrompt) return;
     installPrompt.prompt();
-    installPrompt.userChoice.then(() => {
-        setInstallPrompt(null);
-    });
+    installPrompt.userChoice.then(() => setInstallPrompt(null));
   };
 
   const toggleDictation = () => {
       if (!isOnline) {
-          toast({ variant: "destructive", title: "Sin Conexión", description: "El dictado por IA requiere conexión a internet." });
+          toast({ variant: "destructive", title: "Sin Conexión", description: "IA requiere internet." });
           return;
       }
       if (!recognitionRef.current) {
-          toast({ variant: "destructive", title: "Navegador no compatible", description: "El dictado por voz no funciona en este navegador." });
+          toast({ variant: "destructive", title: "Error", description: "Navegador no compatible con voz." });
           return;
       }
       if (isDictating) {
           recognitionRef.current.stop();
-          toast({ title: "Procesando dictado...", description: "La IA está estructurando la información." });
+          toast({ title: "Procesando..." });
       } else {
           dictationBufferRef.current = '';
           setAiData(null);
           recognitionRef.current.start();
           setIsDictating(true);
-          toast({ title: "Micrófono abierto", description: "Puedes hablar con normalidad." });
+          toast({ title: "Escuchando..." });
       }
   };
 
   const renderFloatingDictationButton = () => {
-      const supportedForms: FormType[] = ['hoja-trabajo', 'informe-tecnico', 'informe-revision', 'informe-simplificado', 'revision-basica'];
-      if (!activeInspectionForm || !supportedForms.includes(activeInspectionForm)) {
-          return null;
-      }
-
-      const bottomPosition = screenSize === 'mobile' ? 'bottom-28' : 'bottom-8';
-
+      if (!activeInspectionForm) return null;
+      const bottomPos = screenSize === 'mobile' ? 'bottom-28' : 'bottom-8';
       return (
           <button
               onClick={toggleDictation}
-              className={`fixed ${bottomPosition} right-6 w-16 h-16 rounded-full text-white shadow-2xl flex items-center justify-center z-50 transition-all duration-300 transform active:scale-90
+              className={`fixed ${bottomPos} right-6 w-16 h-16 rounded-full text-white shadow-2xl flex items-center justify-center z-50 transition-all transform active:scale-90
               ${isDictating ? 'bg-red-600 animate-pulse' : 'bg-primary'}
-              ${aiLoading ? 'bg-gray-400 cursor-not-allowed' : ''}`}
+              ${aiLoading ? 'bg-gray-400' : ''}`}
               disabled={aiLoading}
-              aria-label={isDictating ? 'Detener dictado' : 'Iniciar dictado'}
           >
               {aiLoading ? <Loader2 className="animate-spin" size={28}/> : isDictating ? <Square size={24}/> : <Mic size={28}/>}
           </button>
       );
   };
 
-  if (isUserLoading) {
-     return <div className="flex h-screen items-center justify-center bg-slate-100"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-  }
+  if (isUserLoading) return <div className="flex h-screen items-center justify-center bg-slate-100"><Loader2 className="h-8 w-8 animate-spin" /></div>;
 
   const renderContent = () => {
     if (!hasMounted) return <div className="flex-grow flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>;
 
     if (activeTab === TABS.MENU) {
-      const userName = user?.displayName || user?.email?.split('@')[0] || 'Inspector';
-      switch (screenSize) {
-        case 'mobile':
-          return <MainMenuMobile onNavigate={handleNavigate} userName={userName} />;
-        case 'tablet':
-          return <MainMenuTablet onNavigate={handleNavigate} userName={userName} />;
-        case 'desktop':
-          return <MainMenuDesktop onNavigate={handleNavigate} userName={userName} />;
-        default:
-          return <MainMenuMobile onNavigate={handleNavigate} userName={userName} />;
-      }
+      const name = user?.displayName || user?.email?.split('@')[0] || 'Inspector';
+      if (screenSize === 'desktop' || screenSize === 'tablet') return <MainMenuDesktop onNavigate={handleNavigate} userName={name} />;
+      return <MainMenuMobile onNavigate={handleNavigate} userName={name} />;
     }
 
     if (activeTab === TABS.NEW_INSPECTION) {
-        if (!activeInspectionForm) {
-            return (
-              <div className="w-full p-4 md:p-8">
-                <InspectionHub onSelectInspectionType={handleSelectInspectionType} />
-              </div>
-            );
-        }
-        
+        if (!activeInspectionForm) return <div className="w-full p-4 md:p-8"><InspectionHub onSelectInspectionType={handleSelectInspectionType} /></div>;
         let FormComponent;
         switch (activeInspectionForm) {
             case 'hoja-trabajo': FormComponent = HojaTrabajoFormLazy; break;
@@ -405,33 +306,18 @@ const InspectionPageContent = () => {
             case 'revision-basica': FormComponent = RevisionBasicaFormLazy; break;
             default: FormComponent = InformeTecnicoFormLazy;
         }
-
-        return (
-            <Suspense fallback={<div className="flex-grow flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>}>
-                <div className="w-full p-4 md:p-8">
-                  <FormComponent initialData={selectedTask} aiData={aiData} />
-                </div>
-            </Suspense>
-        );
+        return <Suspense fallback={<div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div>}><div className="w-full p-4 md:p-8"><FormComponent initialData={selectedTask} aiData={aiData} /></div></Suspense>;
     }
 
-    let TabComponent: React.ElementType;
+    let TabComp: any;
     let props: any = {};
-    
     switch (activeTab) {
-        case TABS.TASKS: TabComponent = TasksTabLazy; props = { onStartInspection: handleStartInspectionFromTask }; break;
-        case TABS.EXPENSES: TabComponent = RegistroJornadaForm; break;
-        case TABS.PROFILE: TabComponent = ProfileTabLazy; break;
+        case TABS.TASKS: TabComp = TasksTabLazy; props = { onStartInspection: handleStartInspectionFromTask }; break;
+        case TABS.EXPENSES: TabComp = RegistroJornadaForm; break;
+        case TABS.PROFILE: TabComp = ProfileTabLazy; break;
         default: return <p>Pestaña no encontrada</p>;
     }
-
-    return (
-      <Suspense fallback={<div className="flex-grow flex items-center justify-center p-20"><Loader2 className="animate-spin" /></div>}>
-        <div className="w-full p-4 md:p-8">
-          <TabComponent {...props} />
-        </div>
-      </Suspense>
-    );
+    return <Suspense fallback={<div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div>}><div className="w-full p-4 md:p-8"><TabComp {...props} /></div></Suspense>;
   };
 
   return (
@@ -444,10 +330,8 @@ const InspectionPageContent = () => {
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
       />
-      <main className="flex-grow w-full pt-0">
-        <div className="w-full">
+      <main className="flex-grow w-full">
          {renderContent()}
-        </div>
       </main>
       {renderFloatingDictationButton()}
       <Footer activeTab={activeTab} onNavigate={handleNavigate} />
