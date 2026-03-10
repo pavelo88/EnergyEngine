@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import Sidebar from '@/app/admin/components/Sidebar';
+import Header from '@/app/admin/components/Header';
 import { useUser, useAuth, useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
@@ -11,6 +12,7 @@ import ForceChangePassword from '@/components/auth/ForceChangePassword';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
@@ -69,6 +71,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setSidebarOpen(false);
   };
   
+  const getTitleFromPathname = (path: string) => {
+    if (path === '/admin') return 'Dashboard';
+    const slug = path.split('/').pop() || '';
+    return slug.charAt(0).toUpperCase() + slug.slice(1).replace('-', ' ');
+  };
+
   if (authStatus === 'loading' || authStatus === 'unauthorized') {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -85,6 +93,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="flex h-screen bg-slate-50">
       <Sidebar isOpen={isSidebarOpen} onClose={handleSidebarClose} user={user}/>
       <div className="flex flex-1 flex-col overflow-y-auto">
+        <Header onMenuClick={() => setSidebarOpen(true)} title={getTitleFromPathname(pathname)} />
         <main className="flex-1 p-4 sm:p-6 md:p-8">
           {children}
         </main>
