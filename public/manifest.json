@@ -1,21 +1,23 @@
 {
-  "name": "Energy Engine",
-  "short_name": "EnergyEngine",
-  "description": "Plataforma de gestión de inspecciones y mantenimientos para grupos electrógenos.",
+  "name": "Energy Engine RTS",
+  "short_name": "EnergyRTS",
+  "description": "Herramienta de Reporte Técnico para Energy Engine.",
   "start_url": "/inspection",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#10b981",
+  "background_color": "#f8fafc",
+  "theme_color": "#14532d",
   "icons": [
     {
-      "src": "/icons/icon-192x192.png",
+      "src": "icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-512x512.png",
+      "src": "icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

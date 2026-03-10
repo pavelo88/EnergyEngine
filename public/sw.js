@@ -1,91 +1,73 @@
-// Define a unique cache name for this version of the service worker.
 const CACHE_NAME = 'energy-engine-cache-v1';
-
-// List of essential files to be cached for the app to work offline.
-const CACHE_FILES = [
+// Lista de archivos fundamentales para que la app 'shell' funcione offline.
+// Next.js genera archivos con hashes, por lo que un enfoque más dinámico es mejor.
+// Este service worker cacheará las rutas principales y luego cualquier nueva petición.
+const urlsToCache = [
   '/',
   '/inspection',
-  '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
-  // Note: Next.js build files (like JS chunks and CSS) will be added to this list dynamically.
-  // For now, we set up the core caching logic.
+  '/manifest.json'
 ];
 
-// The 'install' event is fired when the service worker is first installed.
-self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Install');
-  // waitUntil() ensures that the service worker will not install until the code inside has successfully completed.
+// Evento de instalación: se abre el caché y se guardan los archivos base.
+self.addEventListener('install', event => {
   event.waitUntil(
-    // Open the cache.
     caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('[Service Worker] Caching app shell');
-        // Add all the specified files to the cache.
-        return cache.addAll(CACHE_FILES);
-      })
-      .catch(error => {
-        console.error('[Service Worker] Failed to cache app shell:', error);
+      .then(cache => {
+        console.log('Opened cache');
+        return cache.addAll(urlsToCache);
       })
   );
 });
 
-// The 'activate' event is fired when the service worker becomes active.
-// This is a good time to manage old caches.
-self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activate');
-  event.waitUntil(
-    caches.keys().then((keyList) => {
-      return Promise.all(keyList.map((key) => {
-        // If the cache name is not the current one, delete it.
-        if (key !== CACHE_NAME) {
-          console.log('[Service Worker] Removing old cache', key);
-          return caches.delete(key);
-        }
-      }));
-    })
-  );
-  // Tell the active service worker to take control of the page immediately.
-  return self.clients.claim();
-});
-
-// The 'fetch' event is fired for every network request made by the page.
-self.addEventListener('fetch', (event) => {
-  // We only want to handle GET requests.
-  if (event.request.method !== 'GET') {
-    return;
-  }
-  
-  // For navigation requests (e.g., loading a new page), use a network-first strategy.
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request)
-        .catch(() => caches.match('/inspection')) // Fallback to the main inspection page if network fails.
-    );
-    return;
-  }
-
-  // For all other requests (assets like JS, CSS, images), use a cache-first strategy.
+// Evento de fetch: intercepta todas las peticiones de red.
+self.addEventListener('fetch', event => {
   event.respondWith(
+    // 1. Intenta encontrar la respuesta en el caché.
     caches.match(event.request)
-      .then((response) => {
-        // If the request is in the cache, return the cached response.
+      .then(response => {
+        // Si se encuentra en caché, la devuelve.
         if (response) {
           return response;
         }
-        
-        // If the request is not in the cache, fetch it from the network.
-        return fetch(event.request).then((networkResponse) => {
-          // And cache the new response for future use.
-          return caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, networkResponse.clone());
-            return networkResponse;
-          });
-        });
+
+        // 2. Si no está en caché, la busca en la red.
+        const fetchRequest = event.request.clone();
+
+        return fetch(fetchRequest).then(
+          response => {
+            // Si la respuesta de red no es válida, la devuelve tal cual.
+            if(!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+
+            // Clona la respuesta válida.
+            const responseToCache = response.clone();
+
+            // Abre el caché y guarda la nueva respuesta.
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(event.request, responseToCache);
+              });
+
+            return response;
+          }
+        );
       })
-      .catch(error => {
-        console.error('[Service Worker] Fetch failed:', error);
-        // You could return a fallback asset here if needed, e.g., an offline placeholder image.
-      })
+    );
+});
+
+// Evento de activación: limpia cachés antiguos para mantener la app actualizada.
+self.addEventListener('activate', event => {
+  const cacheWhitelist = [CACHE_NAME];
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheWhitelist.indexOf(cacheName) === -1) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
   );
 });
