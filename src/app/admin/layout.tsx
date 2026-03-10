@@ -1,102 +1,91 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTheme } from 'next-themes';
-import Sidebar from '@/app/admin/components/Sidebar';
-import Header from '@/app/admin/components/Header';
-import { useUser, useAuth, useFirestore } from '@/firebase';
+import { useRouter } from 'next/navigation';
+import { useFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { Loader2 } from 'lucide-react';
-import ForceChangePassword from '@/components/auth/ForceChangePassword';
+import { Loader2, ShieldAlert } from 'lucide-react';
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function InspectionLayout({ children }: { children: React.ReactNode }) {
+  const { user, firestore, isUserLoading, auth } = useFirebase();
   const router = useRouter();
-  const pathname = usePathname();
-  const { user, isUserLoading } = useUser();
-  const auth = useAuth();
-  const firestore = useFirestore();
-  const { setTheme } = useTheme();
   
-  const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [authStatus, setAuthStatus] = useState<'loading' | 'authorized' | 'unauthorized' | 'needs_password_change'>('loading');
+  // Estados de autorización: 'loading' | 'authorized' | 'unauthorized'
+  const [authStatus, setAuthStatus] = useState<'loading' | 'authorized' | 'unauthorized'>('loading');
 
   useEffect(() => {
-    // Force light theme for the admin panel
-    setTheme('light');
-  }, [setTheme]);
+    const checkInspectorAccess = async () => {
+      // 1. Esperar a que Firebase termine de cargar el estado inicial
+      if (isUserLoading) return;
 
-  useEffect(() => {
-    if (isUserLoading || !firestore) return;
+      // 2. Si no hay usuario autenticado, redirigir al login de inspección
+      if (!user) {
+        setAuthStatus('unauthorized');
+        router.replace('/auth/inspection');
+        return;
+      }
 
-    if (user && user.email) {
-      const checkUserStatus = async () => {
-        try {
-          const userDocRef = doc(firestore, 'usuarios', user.email!);
+      try {
+        // 3. Verificar si el usuario existe en Firestore y tiene el rol 'inspector'
+        if (user.email && firestore) {
+          const userDocRef = doc(firestore, 'usuarios', user.email);
           const userDocSnap = await getDoc(userDocRef);
-          
+
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
-            if (userData.roles?.includes('admin')) {
-              if (userData.forcePasswordChange) {
-                setAuthStatus('needs_password_change');
-              } else {
-                setAuthStatus('authorized');
-              }
+            const roles = userData.roles || [];
+
+            // Validar que sea inspector (o admin que también puede inspeccionar)
+            if (roles.includes('inspector') || roles.includes('admin')) {
+              setAuthStatus('authorized');
             } else {
+              console.warn("Acceso denegado: El usuario no tiene rol de inspector.");
               setAuthStatus('unauthorized');
-              if (auth) await auth.signOut();
-              router.push('/auth/admin');
+              router.replace('/auth/inspection');
             }
           } else {
+            console.error("Documento de usuario no encontrado en Firestore.");
             setAuthStatus('unauthorized');
-            if (auth) await auth.signOut();
-            router.push('/auth/admin');
+            router.replace('/auth/inspection');
           }
-        } catch (error) {
-            console.error("Error al verificar el rol del admin:", error);
-            setAuthStatus('unauthorized');
-            if (auth) await auth.signOut();
-            router.push('/auth/admin');
         }
-      };
-      checkUserStatus();
-    } else if (!isUserLoading && !user) {
-      setAuthStatus('unauthorized');
-      router.push('/auth/admin');
-    }
-  }, [user, isUserLoading, router, auth, firestore]);
+      } catch (error) {
+        console.error("Error verificando permisos de inspección:", error);
+        setAuthStatus('unauthorized');
+        router.replace('/auth/inspection');
+      }
+    };
 
-  const handleSidebarClose = () => {
-    setSidebarOpen(false);
-  };
-  
-  const getTitleFromPathname = (path: string) => {
-    if (path === '/admin') return 'Dashboard';
-    const slug = path.split('/').pop() || '';
-    return slug.charAt(0).toUpperCase() + slug.slice(1).replace('-', ' ');
-  };
+    checkInspectorAccess();
+  }, [user, isUserLoading, firestore, router]);
 
-  if (authStatus === 'loading' || authStatus === 'unauthorized') {
+  // Pantalla de carga mientras se verifica la identidad
+  if (authStatus === 'loading' || isUserLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-16 w-16 animate-spin" />
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-slate-50 gap-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-slate-500 font-bold animate-pulse">VERIFICANDO CREDENCIALES...</p>
       </div>
     );
   }
 
-  if (authStatus === 'needs_password_change') {
-    return <ForceChangePassword onPasswordChanged={() => setAuthStatus('authorized')} />;
+  // Prevención de "flicker" o parpadeo del contenido si no está autorizado
+  if (authStatus === 'unauthorized') {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-slate-50 gap-4">
+        <ShieldAlert className="h-12 w-12 text-red-500" />
+        <p className="text-slate-800 font-bold text-center px-4">
+          Sesión expirada o sin permisos. Redirigiendo...
+        </p>
+      </div>
+    );
   }
 
+  // Si está autorizado, renderizar la aplicación de inspección
   return (
-    <div className="flex h-screen bg-slate-50">
-      <Sidebar isOpen={isSidebarOpen} onClose={handleSidebarClose} user={user}/>
-      <div className="flex flex-1 flex-col overflow-y-auto">
-        <Header onMenuClick={() => setSidebarOpen(true)} title={getTitleFromPathname(pathname)} />
-        <main className="flex-1 p-4 sm:p-6 md:p-8">
-          {children}
-        </main>
+    <div className="bg-slate-50 dark:bg-slate-900 min-h-screen">
+      <div className="flex flex-col min-h-screen relative">
+        {children}
       </div>
     </div>
   );

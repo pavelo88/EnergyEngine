@@ -477,6 +477,16 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
             const docId = `IR-${year}-${sequentialNumber}`;
 
             const storage = getStorage();
+
+            // --- CORRECCIÓN AQUÍ ---
+            // Creamos constantes locales verificadas para que TypeScript no se queje
+            const safeInspectorSignature = inspectorSignature;
+            const safeClientSignature = clientSignature;
+
+            if (!safeInspectorSignature || !safeClientSignature) {
+                throw new Error("Las firmas han desaparecido antes de la subida.");
+            }
+
             const imageUrls = await Promise.all(images.map(async (image) => {
                 const imageRef = ref(storage, `informes/${docId}/${image.name}`);
                 await uploadBytes(imageRef, image);
@@ -484,12 +494,15 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
             }));
             
             const inspectorSignatureRef = ref(storage, `firmas/${docId}/inspector.png`);
-            await uploadString(inspectorSignatureRef, inspectorSignature, 'data_url');
+            // Usamos la constante verificada que garantiza ser string
+            await uploadString(inspectorSignatureRef, safeInspectorSignature, 'data_url');
             const inspectorSignatureUrl = await getDownloadURL(inspectorSignatureRef);
 
             const clientSignatureRef = ref(storage, `firmas/${docId}/cliente.png`);
-            await uploadString(clientSignatureRef, clientSignature, 'data_url');
+            // Usamos la constante verificada que garantiza ser string
+            await uploadString(clientSignatureRef, safeClientSignature, 'data_url');
             const clientSignatureUrl = await getDownloadURL(clientSignatureRef);
+            // --- FIN DE LA CORRECCIÓN ---
 
             const docData = {
                 ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl,
@@ -516,7 +529,7 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
     }
     setSaving(false);
   };
-  
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full bg-slate-50 min-h-screen">
        <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
