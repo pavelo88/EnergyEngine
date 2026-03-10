@@ -4,6 +4,7 @@
       "https://www.energyengine.es",
       "https://energyengine.es",
       "https://*.cloudworkstations.dev",
+      "https://*.firebaseapp.com",
       "http://localhost:3000",
       "http://localhost:9002"
     ],

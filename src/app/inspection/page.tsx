@@ -4,8 +4,8 @@ import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useFirebase } from '@/firebase';
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { collection, query, where, getDocs, setDoc, doc, Timestamp, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
+import { collection, query, where, getDocs, setDoc, doc, Timestamp, updateDoc } from 'firebase/firestore';
+import { getStorage, ref, getDownloadURL, uploadString } from 'firebase/storage';
 import { db as dbLocal } from '@/lib/db-local';
 
 import Header from './components/Header';
@@ -52,43 +52,35 @@ const InspectionPageContent = () => {
   const recognitionRef = useRef<any>(null);
   const dictationBufferRef = useRef<string>('');
 
-  // Sincronización automática
+  // Efecto de inicialización montado
   useEffect(() => {
-    const syncOfflineData = async () => {
-      if (isOnline && !isSyncing && user && firestore) {
+    setHasMounted(true);
+    if (typeof window !== "undefined") {
+      const handleInstallPrompt = (e: any) => {
+          e.preventDefault();
+          setInstallPrompt(e);
+      };
+      window.addEventListener('beforeinstallprompt', handleInstallPrompt);
+      return () => window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
+    }
+  }, []);
+
+  // Sincronización automática desacoplada
+  useEffect(() => {
+    if (isOnline && !isSyncing && user && firestore && hasMounted) {
+      const syncOfflineData = async () => {
         const storage = getStorage();
         setIsSyncing(true);
 
         const pendingHojas = await dbLocal.hojas_trabajo.filter(record => !record.synced).toArray();
-        const pendingJornadas = await dbLocal.registros_jornada.filter(record => !record.synced).toArray();
-        const pendingGastos = await dbLocal.gastos.filter(record => !record.synced).toArray();
-        
-        const totalPending = pendingHojas.length + pendingJornadas.length + pendingGastos.length;
+        if (pendingHojas.length > 0) {
+          toast({ title: "Sincronizando...", description: `${pendingHojas.length} registros pendientes.` });
 
-        if (totalPending > 0) {
-          toast({
-            title: "Sincronizando...",
-            description: `${totalPending} registros pendientes de subir.`,
-          });
-
-          // Sincronizar Informes
           for (const record of pendingHojas) {
             try {
-              const dataToSync = record.data;
-              const { images, inspectorSignature, clientSignature, originalJobId, ...formDataForFirebase } = dataToSync;
-              const formType = formDataForFirebase.formType;
+              const { images, inspectorSignature, clientSignature, originalJobId, ...formDataForFirebase } = record.data;
+              const docId = `SYNC-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
-              const year = new Date().getFullYear();
-              let idPrefix = 'DOC';
-              if (formType === 'hoja-trabajo') idPrefix = 'HT';
-              else if (formType === 'informe-revision') idPrefix = 'IR';
-              else if (formType === 'informe-tecnico') idPrefix = 'IT';
-              else if (formType === 'informe-simplificado') idPrefix = 'IS';
-              else if (formType === 'revision-basica') idPrefix = 'BAS';
-              
-              const docId = `${idPrefix}-${year}-${Date.now().toString().slice(-3)}`;
-
-              // Subida de firmas si existen localmente
               let inspectorSignatureUrl = null;
               if (inspectorSignature) {
                   const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
@@ -104,42 +96,24 @@ const InspectionPageContent = () => {
               }
               
               const docData = { ...formDataForFirebase, inspectorSignatureUrl, clientSignatureUrl, id: docId, fecha_creacion: Timestamp.now() };
-              
               await setDoc(doc(firestore, 'trabajos', docId), docData);
 
               if (originalJobId) {
-                try {
-                    await updateDoc(doc(firestore, 'trabajos', originalJobId), { estado: 'Completado' });
-                } catch (e) { console.error(e); }
+                await updateDoc(doc(firestore, 'trabajos', originalJobId), { estado: 'Completado' });
               }
               
               await dbLocal.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
             } catch (error) {
-              console.error('Failed to sync report:', record.id, error);
+              console.error('Failed to sync:', error);
             }
           }
-
           toast({ title: "Sincronización Completa" });
         }
         setIsSyncing(false);
-      }
-    };
-    syncOfflineData();
-  }, [isOnline, isSyncing, user, firestore, toast]);
-
-  useEffect(() => {
-    setHasMounted(true);
-    
-    if (typeof window !== "undefined") {
-      const handleInstallPrompt = (e: any) => {
-          e.preventDefault();
-          setInstallPrompt(e);
       };
-      window.addEventListener('beforeinstallprompt', handleInstallPrompt);
-
-      return () => window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
+      syncOfflineData();
     }
-  }, []);
+  }, [isOnline, user, firestore, hasMounted]); // Reducidas dependencias para evitar bucles
 
   const handleNavigate = (tab: string) => {
     setActiveTab(tab);
@@ -172,7 +146,7 @@ const InspectionPageContent = () => {
   const toggleDictation = () => {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (!SpeechRecognition) {
-          toast({ variant: "destructive", title: "Error", description: "Voz no compatible con este navegador." });
+          toast({ variant: "destructive", title: "Error", description: "Voz no compatible." });
           return;
       }
       if (isDictating) {
@@ -197,7 +171,12 @@ const InspectionPageContent = () => {
                       toast({ title: "Voz procesada" });
                   } catch (e) {
                       console.error(e);
-                      toast({ variant: "destructive", title: "Error IA" });
+                      toast({ variant: "destructive", title: "Error IA", description: "IA no disponible, usando dictado directo." });
+                      // Fallback: usar el texto directo si la IA falla (ej: API Key leaked)
+                      setAiData({
+                          observations_summary: dictationBufferRef.current,
+                          identidad: {}, all_ok: false, checklist_updates: {}, mediciones_generales: {}, pruebas_carga: {}
+                      } as any);
                   } finally {
                       setAiLoading(false);
                   }
@@ -221,7 +200,6 @@ const InspectionPageContent = () => {
       return <MainMenuMobile onNavigate={handleNavigate} userName={name} />;
     }
 
-    // Renderizado a pantalla completa sin emulador de celular
     let Component;
     let props: any = {};
 
@@ -248,7 +226,7 @@ const InspectionPageContent = () => {
 
     return (
       <Suspense fallback={<div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div>}>
-        <div className="w-full max-w-7xl mx-auto p-4 md:p-8">
+        <div className="w-full max-w-7xl mx-auto p-2 md:p-8">
           <Component {...props} />
         </div>
       </Suspense>
@@ -265,14 +243,14 @@ const InspectionPageContent = () => {
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
       />
-      <main className="flex-grow w-full">
+      <main className="flex-grow w-full relative">
          {renderContent()}
       </main>
       
       {activeInspectionForm && (
           <button
               onClick={toggleDictation}
-              className={`fixed ${screenSize === 'mobile' ? 'bottom-28' : 'bottom-8'} right-6 w-16 h-16 rounded-full text-white shadow-2xl flex items-center justify-center z-50 transition-all transform active:scale-90
+              className={`fixed bottom-24 right-6 w-16 h-16 rounded-full text-white shadow-2xl flex items-center justify-center z-50 transition-all transform active:scale-90
               ${isDictating ? 'bg-red-600 animate-pulse' : 'bg-primary'} ${aiLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={aiLoading}
           >

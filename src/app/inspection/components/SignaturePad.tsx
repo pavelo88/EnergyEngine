@@ -18,7 +18,6 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [hasContent, setHasContent] = useState(!!signature);
 
-  // Inicializar canvas cuando se abre el modo pantalla completa
   useEffect(() => {
     if (!isFullScreen) return;
 
@@ -41,7 +40,6 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       ctx.strokeStyle = '#0f172a'; // Slate 900
       ctx.lineWidth = 3;
 
-      // Si ya hay una firma, la redibujamos para persistencia
       if (signature) {
         const img = new Image();
         img.src = signature;
@@ -51,46 +49,49 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       }
     };
 
-    // Delay crítico para asegurar que el DOM del Dialog esté renderizado y tenga dimensiones
-    const timer = setTimeout(initCanvas, 200);
+    const timer = setTimeout(initCanvas, 300);
     return () => clearTimeout(timer);
   }, [isFullScreen, signature]);
 
-  const getPos = (e: any) => {
+  const getPos = (e: React.PointerEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
-    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
     return {
-      x: clientX - rect.left,
-      y: clientY - rect.top
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
     };
   };
 
-  const startDrawing = (e: any) => {
-    e.preventDefault();
+  const startDrawing = (e: React.PointerEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Capturar el puntero para que el dibujo continue aunque salga del canvas
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+
     const pos = getPos(e);
-    const ctx = canvasRef.current?.getContext('2d');
-    if (ctx) {
-      ctx.beginPath();
-      ctx.moveTo(pos.x, pos.y);
-      setIsDrawing(true);
-    }
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    setIsDrawing(true);
   };
 
-  const draw = (e: any) => {
+  const draw = (e: React.PointerEvent) => {
     if (!isDrawing || !canvasRef.current) return;
-    e.preventDefault();
-    const pos = getPos(e);
     const ctx = canvasRef.current.getContext('2d');
-    if (ctx) {
-      ctx.lineTo(pos.x, pos.y);
-      ctx.stroke();
-      setHasContent(true);
-    }
+    if (!ctx) return;
+
+    const pos = getPos(e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    setHasContent(true);
   };
 
-  const stopDrawing = () => {
+  const stopDrawing = (e: React.PointerEvent) => {
+    if (isDrawing && e.target) {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    }
     setIsDrawing(false);
   };
 
@@ -107,7 +108,8 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     if (canvas) {
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const rect = canvas.getBoundingClientRect();
+        ctx.clearRect(0, 0, rect.width, rect.height);
         setHasContent(false);
         onSignatureEnd(null);
       }
@@ -126,11 +128,11 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
         )}
       >
         {signature ? (
-          <img src={signature} alt="Firma capturada" className="max-h-full max-w-full object-contain p-4" />
+          <img src={signature} alt="Firma" className="max-h-full max-w-full object-contain p-4" />
         ) : (
           <div className="text-center text-slate-400">
             <Pen size={24} className="mx-auto mb-2 opacity-20" />
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Tocar para capturar firma</span>
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Tocar para firmar</span>
           </div>
         )}
       </div>
@@ -138,31 +140,24 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       <Dialog open={isFullScreen} onOpenChange={setIsFullScreen}>
         <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-4 md:p-6 bg-slate-900 border-none shadow-2xl overflow-hidden">
           <DialogHeader className="text-white mb-2">
-            <div className="flex justify-between items-center">
-                <DialogTitle className="font-black uppercase tracking-tighter text-lg">{title}</DialogTitle>
-                <Button variant="ghost" size="icon" onClick={() => setIsFullScreen(false)} className="text-white hover:bg-white/10 rounded-full">
-                    <X size={24} />
-                </Button>
-            </div>
+            <DialogTitle className="font-black uppercase tracking-tighter text-lg">{title}</DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
-              Dibuje su firma de forma clara sobre el lienzo. Use su dedo o un lápiz táctil. Pulse "Aceptar" para guardar.
+              Dibuje su firma de forma clara sobre el lienzo blanco. Use su dedo o un lápiz táctil.
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 bg-white rounded-3xl relative overflow-hidden touch-none border-4 border-slate-800">
             <canvas
               ref={canvasRef}
-              onMouseDown={startDrawing}
-              onMouseMove={draw}
-              onMouseUp={stopDrawing}
-              onMouseLeave={stopDrawing}
-              onTouchStart={startDrawing}
-              onTouchMove={draw}
-              onTouchEnd={stopDrawing}
-              className="w-full h-full cursor-crosshair"
+              onPointerDown={startDrawing}
+              onPointerMove={draw}
+              onPointerUp={stopDrawing}
+              onPointerCancel={stopDrawing}
+              className="w-full h-full cursor-crosshair touch-none"
+              style={{ touchAction: 'none' }}
             />
             {!hasContent && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-200 font-black text-xl md:text-3xl uppercase tracking-[0.2em] opacity-50">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-100 font-black text-xl md:text-3xl uppercase tracking-[0.2em]">
                 Firme aquí
               </div>
             )}

@@ -65,7 +65,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
             ],
             theme: 'grid',
             styles: { fontSize: 9, cellPadding: 2, lineColor: '#ccc', lineWidth: 0.1 },
-            headStyles: { fillColor: '#fff', textColor: '#000'},
             columnStyles: { 0: { fontStyle: 'bold' }, 2: { fontStyle: 'bold' } },
             margin: { left: leftMargin, right: rightMargin },
         });
@@ -114,14 +113,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
           currentY = topMargin;
         }
         
-        currentY += 1;
+        currentY += 5;
 
         if (report.inspectorSignatureUrl) {
             try {
                 doc.addImage(report.inspectorSignatureUrl, 'PNG', leftMargin, currentY, 60, 25);
-            } catch (e) {
-                console.warn("Could not add signature to PDF", e);
-            }
+            } catch (e) { console.error(e); }
         }
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
@@ -131,11 +128,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         const pageCount = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
             doc.setPage(i);
-            try {
-                drawPdfHeader(doc);
-            } catch (e) {
-                console.warn("Could not draw header", e);
-            }
+            try { drawPdfHeader(doc); } catch(e) {}
             drawPdfFooter(doc, i, pageCount);
         }
     } catch (error) {
@@ -177,25 +170,15 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   useEffect(() => {
     if (user && user.email && firestore) {
         getDoc(doc(firestore, 'usuarios', user.email)).then(snap => {
-            if (snap.exists()) {
-              setInspectorName(snap.data().nombre);
-            } else {
-              setInspectorName(user.displayName || user.email || 'Técnico');
-            }
+            if (snap.exists()) setInspectorName(snap.data().nombre);
+            else setInspectorName(user.displayName || user.email || 'Técnico');
         });
     }
   }, [user, firestore]);
 
   useEffect(() => {
     if (initialData) {
-      const combinedContent = [
-        initialData.antecedentes,
-        initialData.intervencion,
-        initialData.resumen,
-        initialData.observaciones,
-        initialData.descripcion
-      ].filter(Boolean).join('\n\n');
-
+      const combinedContent = [initialData.antecedentes, initialData.intervencion, initialData.resumen, initialData.observaciones, initialData.descripcion].filter(Boolean).join('\n\n');
       setFormData((prev: any) => ({
         ...prev,
         cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
@@ -231,7 +214,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
   const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
-      toast({ variant: 'destructive', title: 'Error', description: 'GPS no soportado.' });
+      toast({ variant: 'destructive', title: 'Error GPS' });
       setLocationStatus('error');
       return;
     }
@@ -242,10 +225,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         handleInputChange('location', { lat: latitude, lon: longitude });
         setLocationStatus('success');
       },
-      () => {
-        toast({ variant: 'destructive', title: 'GPS Error', description: 'Activa la ubicación en tu navegador.' });
-        setLocationStatus('error');
-      }
+      () => { setLocationStatus('error'); }
     );
   };
 
@@ -256,29 +236,23 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       const res = await splitTechnicalReport({ dictation: formData.reportContent });
       const formattedText = `ANTECEDENTES:\n\n${res.antecedentes}\n\nINTERVENCIÓN:\n\n${res.intervencion}\n\nRESUMEN Y SITUACIÓN ACTUAL:\n\n${res.resumen}`;
       setFormData((p: any) => ({ ...p, reportContent: formattedText }));
-      toast({ title: 'IA: Informe estructurado' });
+      toast({ title: 'Informe estructurado' });
     } catch (e: any) { 
-        console.error("AI enhancement failed:", e);
-        toast({ variant: 'destructive', title: 'Error de IA', description: 'La clave de API podría haber expirado. Inténtalo manualmente.' });
-    } finally { 
-        setAiLoading(false); 
-    }
+        toast({ variant: 'destructive', title: 'IA no disponible', description: 'API Key expirada. Use edición manual.' });
+    } finally { setAiLoading(false); }
   };
 
   const handlePdfAction = () => {
     try {
         const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature };
         const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
-        
         if (isSaved) {
           docPdf.save(`Informe_Tecnico_${savedDocId}.pdf`);
         } else {
-          const uri = docPdf.output('datauristring');
-          setPreviewPdfUrl(uri);
+          setPreviewPdfUrl(docPdf.output('datauristring'));
         }
     } catch (e) {
-        console.error("PDF generation error:", e);
-        toast({ variant: 'destructive', title: 'Error PDF', description: 'No se pudo generar la vista previa.' });
+        toast({ variant: 'destructive', title: 'Error PDF' });
     }
   };
 
@@ -301,50 +275,22 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
         const localData = { ...formData, originalJobId: initialData?.id || null };
         if (!synced) (localData as any).inspectorSignature = inspectorSignature;
-
-        await dbLocal.hojas_trabajo.add({
-            firebaseId: firebaseId || '',
-            synced,
-            data: localData,
-            createdAt: new Date(),
-        });
-        
-        if (synced) toast({ title: '¡Sincronizado!', description: `ID: ${firebaseId}` });
-        else toast({ title: 'Guardado Local', description: 'Se subirá al recuperar conexión.' });
+        await dbLocal.hojas_trabajo.add({ firebaseId: firebaseId || '', synced, data: localData, createdAt: new Date() });
+        if (synced) toast({ title: '¡Sincronizado!' });
+        else toast({ title: 'Guardado Local' });
     };
     
     if (isOnline) {
         try {
             const formType = 'informe-tecnico';
-            const year = new Date().getFullYear();
-            const q = query(collection(firestore, 'trabajos'), where('formType', '==', formType));
-            const snapshot = await getDocs(q);
-            const docId = `IT-${year}-${(snapshot.size + 1).toString().padStart(3, '0')}`;
-
+            const docId = `IT-${new Date().getFullYear()}-${Date.now().toString().slice(-3)}`;
             const storage = getStorage();
-            let inspectorSignatureUrl = null;
             
-            try {
-                const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
-                await uploadString(signatureRef, inspectorSignature!, 'data_url');
-                inspectorSignatureUrl = await getDownloadURL(signatureRef);
-            } catch (corsErr) {
-                console.error("CORS Error uploading signature:", corsErr);
-                // Si falla por CORS, guardamos localmente
-                throw new Error("CORS_BLOCK");
-            }
+            const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
+            await uploadString(signatureRef, inspectorSignature!, 'data_url');
+            const inspectorSignatureUrl = await getDownloadURL(signatureRef);
 
-            const docData = { 
-                ...formData, 
-                inspectorSignatureUrl,
-                tecnicoId: user.email, 
-                tecnicoNombre: inspectorName,
-                fecha_creacion: Timestamp.now(), 
-                formType,
-                id: docId,
-                estado: 'Completado',
-            };
-            
+            const docData = { ...formData, inspectorSignatureUrl, tecnicoId: user.email, tecnicoNombre: inspectorName, fecha_creacion: Timestamp.now(), formType, id: docId, estado: 'Completado' };
             await setDoc(doc(firestore, 'trabajos', docId), docData);
             if (initialData?.id) await updateDoc(doc(firestore, 'trabajos', initialData.id), { estado: 'Completado' });
 
@@ -352,10 +298,6 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             setSavedDocId(docId);
             setIsSaved(true);
         } catch (e: any) { 
-            console.error("Error saving:", e);
-            if (e.message === "CORS_BLOCK") {
-                toast({ variant: 'destructive', title: 'Bloqueo de Seguridad (CORS)', description: 'Firebase Storage bloqueó la subida. Guardando localmente...' });
-            }
             await saveDataToLocal(false);
         }
     } else {
@@ -365,24 +307,16 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   };
 
   return (
-    <main className="max-w-4xl mx-auto p-4 md:p-6 space-y-8 animate-in fade-in bg-slate-50 min-h-screen">
+    <main className="max-w-4xl mx-auto p-2 md:p-6 space-y-8 animate-in fade-in bg-slate-50 min-h-screen">
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
-        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 bg-slate-800">
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-4 border-b bg-white">
-            <DialogTitle>Vista Previa del Informe Técnico</DialogTitle>
-            <DialogDescription>Borrador del documento final.</DialogDescription>
+            <DialogTitle>Vista Previa</DialogTitle>
+            <DialogDescription className="sr-only">Previsualización del informe técnico.</DialogDescription>
           </DialogHeader>
-          <div className="flex-1 bg-slate-700 p-2 md:p-4 overflow-hidden">
-            {previewPdfUrl ? (
-              <iframe 
-                src={previewPdfUrl} 
-                className="w-full h-full rounded-lg shadow-2xl bg-white" 
-                title="PDF Preview" 
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full text-white">
-                <Loader2 className="animate-spin mr-2"/> Generando previsualización...
-              </div>
+          <div className="flex-1 bg-slate-200 p-0 overflow-hidden">
+            {previewPdfUrl && (
+              <iframe src={previewPdfUrl} className="w-full h-full border-none" title="PDF Preview" />
             )}
           </div>
         </DialogContent>
@@ -390,8 +324,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
 
       <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Técnico</h2>
       
-      <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-         <h3 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Datos de Identificación</h3>
+      <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <StableInput label="Cliente" icon={User} value={formData.cliente} onChange={(v: string) => handleInputChange('cliente', v)}/>
             <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: string) => handleInputChange('motor', v)}/>
@@ -407,46 +340,39 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
                   disabled={locationStatus === 'loading'} 
                   className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 flex items-center justify-center gap-3 font-bold text-slate-700 shadow-sm hover:border-primary transition-colors disabled:opacity-50"
               >
-                  {locationStatus === 'loading' && <Loader2 className="animate-spin text-primary" size={18}/>}
-                  {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 className="text-primary" size={18}/> : <MapPin className="text-slate-400" size={18}/>)}
+                  {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={18}/> : <MapPin className="text-slate-400" size={18}/>}
                   <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación'}</span>
               </button>
             </div>
           </div>
       </section>
 
-      <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-8 border border-slate-100">
+      <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-8 border border-slate-100">
          <div className="flex justify-between items-center">
-            <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">
-                <Type size={18} className="text-primary" /> Descripción de la incidencia
-            </h3>
-            <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors active:scale-95">
-                {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />}
-                Pulir y Estructurar con IA
+            <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">Incidencia</h3>
+            <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg">
+                {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />} IA Estructurar
             </button>
         </div>
         <textarea 
-            className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600 shadow-inner resize-y leading-relaxed" 
-            placeholder="Dicte o escriba aquí el informe completo."
+            className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600" 
+            placeholder="Escriba el informe aquí..."
             value={formData.reportContent} 
             onChange={(e: any) => handleInputChange('reportContent', e.target.value)}
         />
       </section>
       
-      <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-        <h2 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Validación</h2>
-        <div>
-            <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
-            <p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p>
-        </div>
+      <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
+        <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
+        <p className="text-center font-bold text-slate-700">{inspectorName}</p>
       </section>
       
       <div className="flex flex-col md:flex-row gap-4">
-        <button onClick={handlePdfAction} className="w-full p-8 bg-white text-slate-900 border-2 border-slate-200 rounded-[2.5rem] font-bold text-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
-            {isSaved ? <Printer/> : <FileSearch/>} {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
+        <button onClick={handlePdfAction} className="w-full p-6 bg-white text-slate-900 border-2 border-slate-200 rounded-[2.5rem] font-bold text-lg flex items-center justify-center gap-4 active:scale-95 transition-all">
+            {isSaved ? <Printer/> : <FileSearch/>} PDF
         </button>
-        <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
-          {saving ? <Loader2 className="animate-spin text-primary"/> : isSaved ? <CheckCircle2 className="text-primary"/> : <Save className="text-primary"/>} {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR INFORME'}
+        <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50">
+          {saving ? <Loader2 className="animate-spin text-primary"/> : isSaved ? <CheckCircle2/> : <Save/>} GUARDAR
         </button>
       </div>
     </main>
