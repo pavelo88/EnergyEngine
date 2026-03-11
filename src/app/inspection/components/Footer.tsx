@@ -1,11 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Home, Compass, User, Power, Receipt, ClipboardList } from 'lucide-react';
-import { signOut } from 'firebase/auth';
-import { useAuth, useUser } from '@/firebase';
-import { useRouter } from 'next/navigation';
-import { useScreenSize } from '@/hooks/use-screen-size';
+import { Compass, User, Receipt, ClipboardList, Plus } from 'lucide-react';
 import TABS from '../constants';
 import { cn } from '@/lib/utils';
 
@@ -15,46 +11,48 @@ interface FooterProps {
 }
 
 export default function Footer({ activeTab, onNavigate }: FooterProps) {
-  const router = useRouter();
-  const auth = useAuth();
-  const { user } = useUser();
-  const screenSize = useScreenSize();
-
-  const handleSignOut = async () => {
-    if (!auth) return;
-    await signOut(auth);
-    router.push('/');
-  };
+  if (activeTab === TABS.MENU) {
+    // En el menú principal, el footer es parte de la navegación persistente
+  }
 
   const navItems = [
     { id: TABS.TASKS, icon: Compass, label: 'Tareas' },
-    { id: TABS.NEW_INSPECTION, icon: ClipboardList, label: 'Inspección' },
-    { id: TABS.EXPENSES, icon: Receipt, label: 'Jornada' },
+    { id: 'placeholder1', icon: Receipt, label: 'Gastos' },
+    { id: 'fab', icon: Plus, label: 'Nuevo', isFab: true },
+    { id: TABS.EXPENSES, icon: ClipboardList, label: 'Jornada' },
     { id: TABS.PROFILE, icon: User, label: 'Perfil' },
   ];
-  
-  if (activeTab === TABS.MENU) {
-    return null;
-  }
 
   return (
-    <footer className="fixed bottom-0 left-0 w-full z-40 lg:hidden">
-      <div className="w-full bg-white/70 dark:bg-slate-900/70 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)]">
-        <div className="max-w-md mx-auto flex justify-around items-center h-20">
+    <footer className="fixed bottom-0 left-0 w-full z-40 pb-[env(safe-area-inset-bottom)]">
+      <div className="bg-white/80 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 shadow-[0_-10px_40px_-5px_rgba(0,0,0,0.1)]">
+        <div className="max-w-md md:max-w-2xl mx-auto flex justify-around items-center h-20 px-4 relative">
           {navItems.map((item) => {
+            if (item.isFab) {
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => onNavigate(TABS.NEW_INSPECTION)}
+                  className="relative -top-8 w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-xl shadow-primary/40 border-4 border-white dark:border-slate-900 transition-transform active:scale-90 hover:scale-105 z-50"
+                >
+                  <Plus size={32} strokeWidth={3} />
+                </button>
+              );
+            }
+
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
-                onClick={() => onNavigate(item.id)}
+                onClick={() => item.id !== 'placeholder1' && onNavigate(item.id)}
                 className={cn(
-                    "flex flex-col items-center justify-center gap-1 w-16 transition-all duration-300",
+                    "flex flex-col items-center justify-center gap-1 w-14 transition-all duration-300",
                     isActive ? 'text-primary' : 'text-slate-400 hover:text-primary'
                 )}
               >
-                <Icon size={24} />
-                <span className="text-[10px] font-bold tracking-tight">{item.label}</span>
+                <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+                <span className="text-[9px] font-black uppercase tracking-tighter">{item.label}</span>
               </button>
             );
           })}

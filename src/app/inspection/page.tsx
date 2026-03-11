@@ -198,17 +198,17 @@ const InspectionPageContent = () => {
 
     if (activeTab === TABS.MENU) {
       const name = user?.displayName || user?.email?.split('@')[0] || 'Técnico';
-      // En Desktop y Tablet forzamos la misma estructura centrada según requerimiento
-      if (screenSize === 'desktop' || screenSize === 'tablet') {
-        return (
-          <div className="w-full flex justify-center py-8">
-            <div className="w-full max-w-lg md:max-w-2xl lg:max-w-4xl">
-              <MainMenuDesktop onNavigate={handleNavigate} userName={name} />
-            </div>
-          </div>
-        );
-      }
-      return <MainMenuMobile onNavigate={handleNavigate} userName={name} />;
+      
+      // Contenedor centrado para Desktop/Tablet simulado
+      return (
+        <div className="w-full max-w-4xl mx-auto px-4">
+          {(screenSize === 'desktop' || screenSize === 'tablet') ? (
+            <MainMenuDesktop onNavigate={handleNavigate} userName={name} />
+          ) : (
+            <MainMenuMobile onNavigate={handleNavigate} userName={name} />
+          )}
+        </div>
+      );
     }
 
     let Component;
@@ -237,7 +237,7 @@ const InspectionPageContent = () => {
 
     return (
       <Suspense fallback={<div className="py-40 flex flex-col items-center justify-center gap-4 text-slate-400 font-bold"><Loader2 className="animate-spin text-primary" size={40} /> CARGANDO MÓDULO...</div>}>
-        <div className="w-full h-full pb-40 max-w-4xl mx-auto">
+        <div className="w-full h-full max-w-4xl mx-auto">
           <Component {...props} />
         </div>
       </Suspense>
@@ -245,7 +245,7 @@ const InspectionPageContent = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 overflow-x-hidden pt-16">
+    <div className="flex flex-col min-h-screen bg-slate-50 overflow-x-hidden">
       <Header 
         activeTab={activeTab}
         isSubNavActive={!!activeInspectionForm}
@@ -254,7 +254,9 @@ const InspectionPageContent = () => {
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
       />
-      <main className="flex-grow w-full relative px-4 py-6">
+      
+      {/* EL ESPACIADO CRÍTICO: pt-16 para el header, pb-32/40 para el footer */}
+      <main className="flex-grow w-full pt-20 pb-32 md:pb-40 lg:pb-48 px-2 md:px-0">
          {renderContent()}
       </main>
       
