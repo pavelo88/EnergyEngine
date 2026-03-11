@@ -198,7 +198,16 @@ const InspectionPageContent = () => {
 
     if (activeTab === TABS.MENU) {
       const name = user?.displayName || user?.email?.split('@')[0] || 'Técnico';
-      if (screenSize === 'desktop' || screenSize === 'tablet') return <MainMenuDesktop onNavigate={handleNavigate} userName={name} />;
+      // En Desktop y Tablet forzamos la misma estructura centrada según requerimiento
+      if (screenSize === 'desktop' || screenSize === 'tablet') {
+        return (
+          <div className="w-full flex justify-center py-8">
+            <div className="w-full max-w-lg md:max-w-2xl lg:max-w-4xl">
+              <MainMenuDesktop onNavigate={handleNavigate} userName={name} />
+            </div>
+          </div>
+        );
+      }
       return <MainMenuMobile onNavigate={handleNavigate} userName={name} />;
     }
 
@@ -206,7 +215,7 @@ const InspectionPageContent = () => {
     let props: any = {};
 
     if (activeTab === TABS.NEW_INSPECTION) {
-        if (!activeInspectionForm) return <div className="w-full h-full max-w-7xl mx-auto"><InspectionHub onSelectInspectionType={handleSelectInspectionType} /></div>;
+        if (!activeInspectionForm) return <div className="w-full h-full max-w-4xl mx-auto"><InspectionHub onSelectInspectionType={handleSelectInspectionType} /></div>;
         
         switch (activeInspectionForm) {
             case 'hoja-trabajo': Component = HojaTrabajoFormLazy; break;
@@ -228,7 +237,7 @@ const InspectionPageContent = () => {
 
     return (
       <Suspense fallback={<div className="py-40 flex flex-col items-center justify-center gap-4 text-slate-400 font-bold"><Loader2 className="animate-spin text-primary" size={40} /> CARGANDO MÓDULO...</div>}>
-        <div className="w-full h-full pb-40 max-w-7xl mx-auto">
+        <div className="w-full h-full pb-40 max-w-4xl mx-auto">
           <Component {...props} />
         </div>
       </Suspense>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react'; // Importamos useMemo
 import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { Users, Briefcase, Clock, Loader2, TrendingUp } from 'lucide-react';
@@ -13,7 +13,13 @@ type StatCardProps = {
   color: string;
   loading: boolean;
 };
-type Job = { id: string; clienteNombre: string; estado: string; inspectorNombres: string[]; };
+
+type Job = { 
+  id: string; 
+  clienteNombre: string; 
+  estado: string; 
+  inspectorNombres: string[]; 
+};
 
 const StatCard = ({ title, value, icon: Icon, color, loading }: StatCardProps) => (
   <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
@@ -37,8 +43,15 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const db = useFirestore();
 
-  // Seteamos el título del Header Global
-  useAdminHeader('Panel de Control', <TrendingUp className="text-primary h-6 w-6" />);
+  // --- CORRECCIÓN AQUÍ ---
+  // Memoizamos el icono para que la referencia sea estable y no dispare el loop
+  const headerAction = useMemo(() => (
+    <TrendingUp className="text-primary h-6 w-6" />
+  ), []);
+
+  // Seteamos el título y la acción usando la referencia estable
+  useAdminHeader('Panel de Control', headerAction);
+  // -----------------------
 
   useEffect(() => {
     if (!db) {

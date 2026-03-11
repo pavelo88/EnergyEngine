@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 
 interface AdminHeaderContextType {
   title: string;
@@ -16,7 +16,6 @@ export function AdminHeaderProvider({ children }: { children: ReactNode }) {
   const [action, setAction] = useState<ReactNode | null>(null);
 
   // Memoizamos el valor del contexto para que las funciones setTitle/setAction sean estables
-  // y no disparen re-renders innecesarios en los componentes que consumen el contexto.
   const value = useMemo(() => ({
     title,
     setTitle,
@@ -31,32 +30,39 @@ export function AdminHeaderProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAdminHeader(newTitle: string, newAction: ReactNode | null = null) {
+/**
+ * Hook básico para acceder al contexto sin lógica adicional
+ */
+export function useAdminHeaderRaw() {
   const context = useContext(AdminHeaderContext);
-  if (!context) throw new Error('useAdminHeader must be used within AdminHeaderProvider');
+  if (!context) throw new Error('useAdminHeaderRaw must be used within AdminHeaderProvider');
+  return context;
+}
 
-  const { setTitle, setAction, title, action } = context;
+/**
+ * Hook declarativo para actualizar el Header desde cualquier página
+ */
+export function useAdminHeader(newTitle: string, newAction: ReactNode | null = null) {
+  const { setTitle, setAction, title, action } = useAdminHeaderRaw();
 
-  // Usamos efectos separados para Título y Acción para mayor control
+  // 1. Sincronizar el título solo si es diferente al actual
   useEffect(() => {
     if (newTitle !== title) {
       setTitle(newTitle);
     }
   }, [newTitle, title, setTitle]);
 
+  // 2. Sincronizar la acción solo si la referencia ha cambiado
   useEffect(() => {
-    // Solo actualizamos si la referencia de la acción es distinta
-    // Es CRITICO que el componente que llama use useMemo para el action
     if (newAction !== action) {
       setAction(newAction);
     }
   }, [newAction, action, setAction]);
 
-  return context;
-}
-
-export function useAdminHeaderRaw() {
-    const context = useContext(AdminHeaderContext);
-    if (!context) throw new Error('useAdminHeaderRaw must be used within AdminHeaderProvider');
-    return context;
+  /**
+   * NOTA IMPORTANTE: Se ha eliminado la limpieza (setAction(null)) 
+   * de este hook porque en Next.js, al navegar rápidamente, 
+   * el desmontaje de una página chocaba con el montaje de la siguiente,
+   * provocando el error de profundidad máxima de actualización.
+   */
 }
