@@ -19,7 +19,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [hasContent, setHasContent] = useState(!!signature);
 
-  // Inicialización del lienzo con suavizado extremo y fijación de fondo
+  // Inicialización del lienzo con suavizado extremo y fijación de fondo sólido
   useEffect(() => {
     if (!isFullScreen) return;
 
@@ -38,28 +38,31 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       
       ctx.scale(scale, scale);
       
-      // Configuración para trazo suave y redondeado
+      // Configuración para trazo suave y redondeado (Etapa 1)
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#0f172a'; // Slate-900
-      ctx.lineWidth = 3;
-      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#0f172a'; // Slate-900 para máxima legibilidad
+      ctx.lineWidth = 2.5; // Grosor óptimo para firmas
+      ctx.fillStyle = '#ffffff'; // Fondo blanco obligatorio para PDF
       ctx.fillRect(0, 0, rect.width, rect.height);
 
       contextRef.current = ctx;
 
-      // Cargar firma previa si existe
-      if (signature) {
+      // Cargar firma previa o firma del sistema si existe
+      const savedGlobal = localStorage.getItem('energy_engine_signature');
+      const finalInitial = signature || savedGlobal;
+
+      if (finalInitial) {
         const img = new Image();
-        img.src = signature;
+        img.src = finalInitial;
         img.onload = () => {
           ctx.drawImage(img, 0, 0, rect.width, rect.height);
+          setHasContent(true);
         };
       }
     };
 
-    // Pequeño delay para asegurar que el DOM del Dialog esté listo
-    const timer = setTimeout(initCanvas, 100);
+    const timer = setTimeout(initCanvas, 150);
     return () => clearTimeout(timer);
   }, [isFullScreen, signature]);
 
@@ -114,37 +117,37 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   };
 
   return (
-    <div className="space-y-2">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{title}</label>
+    <div className="space-y-1.5">
+      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{title}</label>
       
       <div 
         onClick={() => setIsFullScreen(true)}
         className={cn(
-          "w-full h-40 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex items-center justify-center cursor-pointer hover:border-primary transition-all overflow-hidden relative group",
+          "w-full h-32 bg-slate-50 border border-dashed border-slate-200 rounded-2xl flex items-center justify-center cursor-pointer hover:border-primary transition-all overflow-hidden relative group",
           signature ? "bg-white border-solid border-primary/20 shadow-inner" : ""
         )}
         style={{ touchAction: 'none' }}
       >
         {signature ? (
-          <img src={signature} alt="Firma guardada" className="max-h-full max-w-full object-contain p-4 transition-transform group-hover:scale-105" />
+          <img src={signature} alt="Firma guardada" className="max-h-full max-w-full object-contain p-3 transition-transform group-hover:scale-105" />
         ) : (
           <div className="text-center text-slate-400">
-            <Pen size={24} className="mx-auto mb-2 opacity-20" />
-            <span className="text-[10px] font-black uppercase tracking-tighter">Click para firmar</span>
+            <Pen size={20} className="mx-auto mb-1.5 opacity-20" />
+            <span className="text-[8px] font-black uppercase tracking-tighter">PULSAR PARA FIRMAR</span>
           </div>
         )}
       </div>
 
       <Dialog open={isFullScreen} onOpenChange={setIsFullScreen}>
-        <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-4 md:p-6 bg-slate-900 border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-4 bg-slate-900 border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
           <DialogHeader className="text-white mb-2">
-            <DialogTitle className="font-black uppercase tracking-tighter text-lg">{title}</DialogTitle>
-            <DialogDescription className="text-slate-400 text-xs">
-              Dibuje su firma con precisión. El trazo se guardará automáticamente al pulsar Aceptar.
+            <DialogTitle className="font-black uppercase tracking-tighter text-base">{title}</DialogTitle>
+            <DialogDescription className="text-slate-400 text-[10px]">
+              Dibuje su firma. El trazo se guardará en alta resolución.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 bg-white rounded-[2rem] relative overflow-hidden touch-none border-4 border-slate-800 shadow-inner">
+          <div className="flex-1 bg-white rounded-[1.5rem] relative overflow-hidden touch-none border-2 border-slate-800 shadow-inner">
             <canvas
               ref={canvasRef}
               onPointerDown={startDrawing}
@@ -155,25 +158,25 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
               style={{ touchAction: 'none' }}
             />
             {!hasContent && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-100 font-black text-3xl md:text-5xl uppercase tracking-[0.2em]">
-                Firme aquí
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-100 font-black text-2xl md:text-4xl uppercase tracking-[0.2em]">
+                FIRMAR AQUÍ
               </div>
             )}
           </div>
 
-          <div className="flex gap-4 mt-4">
+          <div className="flex gap-3 mt-4">
             <Button 
               variant="ghost" 
-              className="flex-1 h-14 rounded-2xl bg-white/5 text-white hover:bg-white/10 font-bold"
+              className="flex-1 h-12 rounded-xl bg-white/5 text-white hover:bg-white/10 font-bold text-xs"
               onClick={handleClear}
             >
-              <Trash2 size={20} className="mr-2" /> LIMPIAR
+              <Trash2 size={16} className="mr-2" /> LIMPIAR
             </Button>
             <Button 
-              className="flex-1 h-14 rounded-2xl bg-primary text-white hover:bg-primary/90 font-black text-lg shadow-lg active:scale-95 transition-transform"
+              className="flex-1 h-12 rounded-xl bg-primary text-white hover:bg-primary/90 font-black text-sm shadow-lg active:scale-95 transition-transform"
               onClick={handleSave}
             >
-              <Check size={24} className="mr-2" /> ACEPTAR FIRMA
+              <Check size={20} className="mr-2" /> ACEPTAR FIRMA
             </Button>
           </div>
         </DialogContent>

@@ -16,15 +16,15 @@ import { useToast } from '@/hooks/use-toast';
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
-    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
+    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
     <div className="relative group">
-      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={16}/>}
+      {Icon && <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={14}/>}
       <input 
         type={type}
         value={value || ''}
         onChange={(e: any) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
+        className={`w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 ${Icon ? 'pl-10' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-xs`}
       />
     </div>
   </div>
@@ -32,12 +32,12 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
 
 const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
     <div className="flex flex-col items-center gap-1">
-        <label className="text-[9px] font-black text-slate-500 w-full text-center">{label}</label>
+        <label className="text-[8px] font-black text-slate-500 w-full text-center">{label}</label>
         <input 
             type="text" 
             value={value || ''} 
             onChange={(e: any) => onChange(e.target.value)}
-            className="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-2 outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
+            className="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-xs text-center"
         />
     </div>
 ));
@@ -138,9 +138,9 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     autoTable(doc, {
         startY: currentY,
         body: [
-            [`Horas: ${report.parametrosTecnicos.horas}`, `Presión Aceite: ${report.parametrosTecnicos.presionAceite}`, `Tensión: ${report.parametrosTecnicos.tension}`],
-            [`Tª (°C): ${report.parametrosTecnicos.temperatura}`, `Nivel Combustible (%): ${report.parametrosTecnicos.nivelCombustible}`, `Frecuencia (Hz): ${report.parametrosTecnicos.frecuencia}`],
-            [{content: `Tensión de baterías (V): ${report.parametrosTecnicos.tensionBaterias}`, colSpan: 3}],
+            [`Horas: ${report.parametrosTecnicos?.horas || ''}`, `Presión Aceite: ${report.parametrosTecnicos?.presionAceite || ''}`, `Tensión: ${report.parametrosTecnicos?.tension || ''}`],
+            [`Tª (°C): ${report.parametrosTecnicos?.temperatura || ''}`, `Nivel Combustible (%): ${report.parametrosTecnicos?.nivelCombustible || ''}`, `Frecuencia (Hz): ${report.parametrosTecnicos?.frecuencia || ''}`],
+            [{content: `Tensión de baterías (V): ${report.parametrosTecnicos?.tensionBaterias || ''}`, colSpan: 3}],
         ],
         theme: 'grid',
         styles: {fontSize: 8, cellPadding: 1.5, minCellHeight: 8},
@@ -157,16 +157,16 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Potencia con carga: ${report.potenciaConCarga.potencia}`, leftMargin, currentY);
+    doc.text(`Potencia con carga: ${report.potenciaConCarga?.potencia || ''}`, leftMargin, currentY);
     currentY += 3;
 
     autoTable(doc, {
         startY: currentY,
         head: [['Tensión', 'Intensidad', 'Potencia (kW)']],
         body: [
-            [`RS: ${report.potenciaConCarga.tensionRS}`, `R: ${report.potenciaConCarga.intensidadR}`, {rowSpan: 3, content: report.potenciaConCarga.potenciaKW, styles: {valign: 'middle', halign: 'center'}}],
-            [`ST: ${report.potenciaConCarga.tensionST}`, `S: ${report.potenciaConCarga.intensidadS}`],
-            [`RT: ${report.potenciaConCarga.tensionRT}`, `T: ${report.potenciaConCarga.intensidadT}`],
+            [`RS: ${report.potenciaConCarga?.tensionRS || ''}`, `R: ${report.potenciaConCarga?.intensidadR || ''}`, {rowSpan: 3, content: report.potenciaConCarga?.potenciaKW || '', styles: {valign: 'middle', halign: 'center'}}],
+            [`ST: ${report.potenciaConCarga?.tensionST || ''}`, `S: ${report.potenciaConCarga?.intensidadS || ''}`],
+            [`RT: ${report.potenciaConCarga?.tensionRT || ''}`, `T: ${report.potenciaConCarga?.intensidadT || ''}`],
         ],
         theme: 'grid',
         styles: {fontSize: 9, cellPadding: 1.5, minCellHeight: 8},
@@ -408,7 +408,6 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     }
     
     setPdfLoading(true);
-    // Pequeño delay para mostrar el spinner y asegurar que el render sea fluido
     setTimeout(() => {
       try {
         const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: clientSignature };
@@ -536,12 +535,12 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         </DialogContent>
       </Dialog>
       
-      <main className="space-y-8">
-        <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Hoja de Trabajo</h2>
+      <main className="space-y-6">
+        <h2 className="text-xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Hoja de Trabajo</h2>
       
-        <section className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="lg:col-span-2 space-y-3">
+        <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-4 border border-slate-100">
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="lg:col-span-2 space-y-2">
                 <StableInput label="Cliente" icon={Users} value={formData.cliente} onChange={(v: any) => handleInputChange('cliente', v)}/>
                 <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={(v: any) => handleInputChange('instalacion', v)}/>
                 <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: any) => handleInputChange('motor', v)}/>
@@ -550,145 +549,145 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                 <StableInput label="N' Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: any) => handleInputChange('n_grupo', v)}/>
                 <StableInput label="N' de Pedido" icon={Hash} value={formData.n_pedido} onChange={(v: any) => handleInputChange('n_pedido', v)}/>
               </div>
-              <div className="lg:col-span-2 space-y-3">
+              <div className="lg:col-span-2 space-y-2">
                  <StableInput label="Fecha" icon={Calendar} type="date" value={formData.fecha} onChange={(v: any) => handleInputChange('fecha', v)}/>
                  <StableInput label="Técnicos" icon={User} value={formData.tecnicos} onChange={(v: any) => handleInputChange('tecnicos', v)}/>
                  <StableInput label="H. Asistencia" icon={Clock} value={formData.h_asistencia} onChange={(v: any) => handleInputChange('h_asistencia', v)}/>
                  <StableInput label="Tipo de Servicio" icon={Type} value={formData.tipo_servicio} onChange={(v: any) => handleInputChange('tipo_servicio', v)}/>
                  <StableInput label="KMs." icon={Car} type="number" value={formData.kms} onChange={(v: any) => handleInputChange('kms', v)}/>
                  <StableInput label="Dieta (€)" icon={Euro} type="number" value={formData.dieta} onChange={(v: any) => handleInputChange('dieta', v)}/>
-                 <div className="flex items-center gap-2 pt-2">
-                   <label className="flex items-center gap-2 text-sm font-black text-slate-600 cursor-pointer">
-                      <input type="checkbox" checked={formData.media_dieta} onChange={(e: any) => handleInputChange('media_dieta', e.target.checked)} className="form-checkbox h-5 w-5 text-primary rounded-lg border-2" />
+                 <div className="flex items-center gap-2 pt-1.5">
+                   <label className="flex items-center gap-2 text-xs font-black text-slate-600 cursor-pointer">
+                      <input type="checkbox" checked={formData.media_dieta} onChange={(e: any) => handleInputChange('media_dieta', e.target.checked)} className="form-checkbox h-4 w-4 text-primary rounded border-2" />
                       1/2 DIETA
                    </label>
                    {formData.media_dieta && <StableInput label="Cantidad" type="number" value={formData.media_dieta_cantidad} onChange={(v: any) => handleInputChange('media_dieta_cantidad', v)}/>}
                  </div>
               </div>
-              <div className="lg:col-span-4 pt-4">
+              <div className="lg:col-span-4 pt-2">
                 <button 
                   onClick={handleCaptureLocation} 
                   disabled={locationStatus === 'loading'}
-                  className={`w-full p-4 border-2 rounded-2xl font-black transition-all flex items-center justify-center gap-3 active:scale-95 ${formData.location ? 'border-green-500 text-green-600 bg-green-50' : 'border-slate-100 hover:border-primary text-slate-400'}`}
+                  className={`w-full p-3 border border-slate-200 rounded-xl font-black transition-all flex items-center justify-center gap-2 active:scale-95 text-xs ${formData.location ? 'border-green-500 text-green-600 bg-green-50' : 'border-slate-100 hover:border-primary text-slate-400'}`}
                 >
-                    {locationStatus === 'loading' ? <Loader2 className="animate-spin" /> : formData.location ? <CheckCircle2 size={20} /> : <MapPin size={20}/>}
+                    {locationStatus === 'loading' ? <Loader2 className="animate-spin" size={14} /> : formData.location ? <CheckCircle2 size={14} /> : <MapPin size={14}/>}
                     {formData.location ? `UBICACIÓN GPS REGISTRADA` : 'CAPTURAR UBICACIÓN GPS (OBLIGATORIO)'}
                 </button>
               </div>
            </div>
         </section>
         
-        <section className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
-            <h2 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter"><Settings className="text-primary"/> Parámetros Técnicos</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-4 border border-slate-100">
+            <h2 className="text-lg font-black flex items-center gap-2 uppercase tracking-tighter"><Settings className="text-primary" size={18}/> Parámetros Técnicos</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 <StableInput icon={Clock} label="Horas" value={formData.parametrosTecnicos.horas} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'horas', v)} />
                 <StableInput icon={Gauge} label="Presión Aceite" value={formData.parametrosTecnicos.presionAceite} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'presionAceite', v)} />
                 <StableInput icon={Zap} label="Tensión" value={formData.parametrosTecnicos.tension} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'tension', v)} />
                 <StableInput icon={Thermometer} label="Tª (°C):" value={formData.parametrosTecnicos.temperatura} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'temperatura', v)} />
                 <StableInput icon={Droplets} label="Nivel Combustible (%):" value={formData.parametrosTecnicos.nivelCombustible} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'nivelCombustible', v)} />
                 <StableInput icon={Wind} label="Frecuencia (Hz):" value={formData.parametrosTecnicos.frecuencia} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'frecuencia', v)} />
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <StableInput icon={Battery} label="Tensión de baterías (V):" value={formData.parametrosTecnicos.tensionBaterias} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'tensionBaterias', v)} />
+                <div className="col-span-2">
+                  <StableInput icon={Battery} label="Tensión baterías (V):" value={formData.parametrosTecnicos.tensionBaterias} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'tensionBaterias', v)} />
                 </div>
             </div>
         </section>
 
-        <section className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
-          <h2 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter"><Zap className="text-primary"/> Potencia con carga</h2>
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-x-8 gap-y-4 items-end">
+        <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-4 border border-slate-100">
+          <h2 className="text-lg font-black flex items-center gap-2 uppercase tracking-tighter"><Zap className="text-primary" size={18}/> Potencia con carga</h2>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-3 items-end">
               <div className="md:col-span-3">
                 <StableInput label="Potencia con carga" value={formData.potenciaConCarga.potencia} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'potencia', v)} />
               </div>
-               <div className="md:col-span-3 space-y-4">
-                  <h4 className="text-xs font-black text-center text-slate-400 uppercase tracking-widest">Tensión</h4>
-                  <div className="grid grid-cols-3 gap-2">
+               <div className="md:col-span-3 space-y-2">
+                  <h4 className="text-[8px] font-black text-center text-slate-400 uppercase tracking-widest">Tensión</h4>
+                  <div className="grid grid-cols-3 gap-1.5">
                       <LoadTestInput label="RS" value={formData.potenciaConCarga.tensionRS} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionRS', v)} />
                       <LoadTestInput label="ST" value={formData.potenciaConCarga.tensionST} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionST', v)} />
                       <LoadTestInput label="RT" value={formData.potenciaConCarga.tensionRT} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'tensionRT', v)} />
                   </div>
               </div>
-              <div className="md:col-span-3 space-y-4">
-                  <h4 className="text-xs font-black text-center text-slate-400 uppercase tracking-widest">Intensidad</h4>
-                   <div className="grid grid-cols-3 gap-2">
+              <div className="md:col-span-3 space-y-2">
+                  <h4 className="text-[8px] font-black text-center text-slate-400 uppercase tracking-widest">Intensidad</h4>
+                   <div className="grid grid-cols-3 gap-1.5">
                       <LoadTestInput label="R" value={formData.potenciaConCarga.intensidadR} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadR', v)} />
                       <LoadTestInput label="S" value={formData.potenciaConCarga.intensidadS} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadS', v)} />
                       <LoadTestInput label="T" value={formData.potenciaConCarga.intensidadT} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'intensidadT', v)} />
                   </div>
               </div>
-              <div className="md:col-span-3 space-y-4">
-                  <h4 className="text-xs font-black text-center text-slate-400 uppercase tracking-widest">Potencia (kW)</h4>
+              <div className="md:col-span-3 space-y-2">
+                  <h4 className="text-[8px] font-black text-center text-slate-400 uppercase tracking-widest">Potencia (kW)</h4>
                    <LoadTestInput label="kW" value={formData.potenciaConCarga.potenciaKW} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'potenciaKW', v)} />
               </div>
           </div>
         </section>
 
-        <section className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
+        <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-4 border border-slate-100">
           <div className="flex justify-between items-center">
-              <h2 className="text-xl font-black uppercase tracking-tighter">Trabajos Realizados</h2>
+              <h2 className="text-lg font-black uppercase tracking-tighter">Trabajos Realizados</h2>
               <button 
                 onClick={improveReport} 
                 disabled={aiLoading} 
-                className="flex items-center gap-2 text-[10px] font-black bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-colors active:scale-95 disabled:opacity-50"
+                className="flex items-center gap-2 text-[8px] font-black bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl hover:bg-indigo-100 transition-colors active:scale-95 disabled:opacity-50"
               >
-                  {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />} 
+                  {aiLoading ? <Loader2 size={12} className="animate-spin"/> : <Wand2 size={12} />} 
                   {aiLoading ? 'PROCESANDO...' : 'ESTRUCTURAR CON IA'}
               </button>
           </div>
           <textarea 
-            className="w-full h-48 bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 resize-none font-medium text-slate-600 outline-none focus:border-primary transition-all shadow-inner" 
+            className="w-full h-40 bg-slate-50 border border-slate-200 rounded-xl p-4 resize-none font-medium text-slate-600 outline-none focus:border-primary transition-all shadow-inner text-sm" 
             value={formData.trabajos_realizados} 
             onChange={(e: any) => handleInputChange('trabajos_realizados', e.target.value)} 
             placeholder="Describa aquí detalladamente las intervenciones realizadas..."
           />
        </section>
        
-      <section className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
-          <h2 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter"><Camera className="text-primary"/> Evidencia Fotográfica</h2>
-          <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] p-12 flex flex-col items-center justify-center hover:bg-white hover:border-primary transition-all group active:scale-[0.99]">
-              <Camera size={40} className="text-slate-300 mb-2 group-hover:text-primary transition-colors"/>
-              <span className="font-black text-slate-400 group-hover:text-slate-600 uppercase tracking-widest text-xs">Adjuntar Imágenes del Trabajo</span>
+      <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-4 border border-slate-100">
+          <h2 className="text-lg font-black flex items-center gap-2 uppercase tracking-tighter"><Camera className="text-primary" size={18}/> Evidencia Fotográfica</h2>
+          <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-50 border border-dashed border-slate-200 rounded-[2rem] p-8 flex flex-col items-center justify-center hover:bg-white hover:border-primary transition-all group active:scale-[0.99]">
+              <Camera size={32} className="text-slate-300 mb-1.5 group-hover:text-primary transition-colors"/>
+              <span className="font-black text-slate-400 group-hover:text-slate-600 uppercase tracking-widest text-[10px]">Adjuntar Imágenes del Trabajo</span>
           </label>
           <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange}/>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
               {images.map((img, i) => (
-                  <div key={i} className="aspect-square relative group overflow-hidden rounded-2xl border-2 border-slate-100 shadow-sm">
+                  <div key={i} className="aspect-square relative group overflow-hidden rounded-xl border border-slate-100 shadow-sm">
                       <img src={URL.createObjectURL(img)} alt="preview" className="w-full h-full object-cover transition-transform group-hover:scale-110"/>
                   </div>
               ))}
           </div>
       </section>
 
-      <section className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-sm space-y-8 border border-slate-100">
-          <h2 className="text-xl font-black uppercase tracking-tighter">Validación y Firmas</h2>
-          <div className="grid md:grid-cols-2 gap-8 items-start">
+      <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
+          <h2 className="text-lg font-black uppercase tracking-tighter">Validación y Firmas</h2>
+          <div className="grid md:grid-cols-2 gap-6 items-start">
               <div>
                 <SignaturePad title="Firma del Técnico Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
-                <p className="text-center font-black mt-3 text-slate-400 text-[10px] uppercase tracking-widest">{inspectorName}</p>
+                <p className="text-center font-black mt-2 text-slate-400 text-[8px] uppercase tracking-widest">{inspectorName}</p>
               </div>
               <div>
                 <SignaturePad title="Conforme Cliente / Receptor" signature={clientSignature} onSignatureEnd={setClientSignature} />
-                <div className="mt-4">
+                <div className="mt-3">
                   <StableInput label="Nombre de la persona que recibe" icon={User} value={formData.recibidoPor} onChange={(v: any) => handleInputChange('recibidoPor', v)} placeholder="Nombre completo"/>
                 </div>
               </div>
           </div>
       </section>
 
-      <div className="flex flex-col md:flex-row gap-4 pt-6">
+      <div className="flex flex-col md:flex-row gap-3 pt-4">
           <button 
             onClick={handlePdfAction} 
             disabled={pdfLoading}
-            className="w-full p-8 bg-white border-2 border-slate-200 rounded-[2.5rem] font-black flex items-center justify-center gap-4 hover:border-primary transition-all text-slate-700 shadow-lg active:scale-95 disabled:opacity-50"
+            className="w-full p-5 bg-white border border-slate-200 rounded-2xl font-bold flex items-center justify-center gap-3 hover:border-primary transition-all text-slate-700 shadow-md active:scale-95 disabled:opacity-50 text-sm"
           >
-              {pdfLoading ? <Loader2 className="animate-spin text-primary" size={24}/> : isSaved ? <Printer size={24} className="text-primary"/> : <FileSearch size={24} className="text-primary"/>}
+              {pdfLoading ? <Loader2 className="animate-spin text-primary" size={18}/> : isSaved ? <Printer size={18} className="text-primary"/> : <FileSearch size={18} className="text-primary"/>}
               {pdfLoading ? 'GENERANDO...' : isSaved ? 'IMPRIMIR HOJA FINAL' : 'VISTA PREVIA PDF'}
           </button>
           <button 
             onClick={handleSave} 
             disabled={saving || isSaved} 
-            className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 disabled:bg-slate-700 shadow-2xl active:scale-95 transition-all"
+            className="w-full p-5 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-3 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
           >
-            {saving ? <Loader2 className="animate-spin text-primary" /> : isSaved ? <CheckCircle2 className="text-primary" /> : <Save className="text-primary" />}
+            {saving ? <Loader2 className="animate-spin text-primary" size={18} /> : isSaved ? <CheckCircle2 className="text-primary" size={18} /> : <Save className="text-primary" size={18} />}
             {saving ? 'GUARDANDO DATOS...' : isSaved ? 'HOJA GUARDADA' : 'FINALIZAR Y GUARDAR'}
           </button>
       </div>

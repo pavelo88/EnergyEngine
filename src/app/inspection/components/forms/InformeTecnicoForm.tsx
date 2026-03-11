@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useFirestore, useUser } from '@/firebase';
@@ -16,15 +16,15 @@ import { useToast } from '@/hooks/use-toast';
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
-    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
+    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
     <div className="relative group">
-      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={18}/>}
+      {Icon && <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={14}/>}
       <input
         type={type}
         value={value || ''}
         onChange={(e: any) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl p-4 ${Icon ? 'pl-12' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm`}
+        className={`w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 ${Icon ? 'pl-10' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-xs`}
       />
     </div>
   </div>
@@ -158,7 +158,12 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     reportContent: '',
   });
   
-  const [inspectorSignature, setInspectorSignature] = useState<string | null>(null);
+  const [inspectorSignature, setInspectorSignature] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('energy_engine_signature');
+    }
+    return null;
+  });
 
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -258,7 +263,6 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         return;
     }
     setPdfLoading(true);
-    // Usamos un pequeño delay para asegurar que el estado de carga se renderice
     setTimeout(() => {
         try {
             const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature };
@@ -304,7 +308,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         } else {
             toast({ 
               title: 'Guardado Localmente', 
-              description: 'El servidor rechazó la subida (CORS). Se sincronizará automáticamente después.' 
+              description: 'Error de red. Se sincronizará automáticamente después.' 
             });
         }
     };
@@ -354,7 +358,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
   };
 
   return (
-    <main className="max-w-4xl mx-auto space-y-8 animate-in fade-in pb-40">
+    <main className="max-w-4xl mx-auto space-y-6 animate-in fade-in">
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
         <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden">
           <DialogHeader className="p-4 border-b bg-white">
@@ -369,10 +373,10 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         </DialogContent>
       </Dialog>
 
-      <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe de Intervención Técnica</h2>
+      <h2 className="text-xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe de Intervención Técnica</h2>
       
-      <section className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <StableInput label="Cliente" icon={User} value={formData.cliente} onChange={(v: string) => handleInputChange('cliente', v)}/>
             <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: string) => handleInputChange('motor', v)}/>
             <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={(v: string) => handleInputChange('modelo', v)}/>
@@ -385,51 +389,51 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
               <button 
                   onClick={handleCaptureLocation} 
                   disabled={locationStatus === 'loading'} 
-                  className={`w-full p-4 border-2 rounded-2xl font-black flex items-center justify-center gap-3 transition-all active:scale-95 ${formData.location ? 'border-green-500 text-green-600 bg-green-50' : 'border-slate-100 text-slate-400 hover:border-primary'}`}
+                  className={`w-full p-3 border border-slate-200 rounded-xl font-black flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 text-xs ${formData.location ? 'border-green-500 text-green-600 bg-green-50' : 'border-slate-100 text-slate-400 hover:border-primary'}`}
               >
-                  {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={18}/> : <MapPin size={18}/>}
+                  {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={14}/> : <MapPin size={14}/>}
                   <span>{formData.location ? `COORDENADAS REGISTRADAS` : 'CAPTURAR UBICACIÓN GPS'}</span>
               </button>
             </div>
           </div>
       </section>
 
-      <section className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm space-y-8 border border-slate-100">
+      <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
          <div className="flex justify-between items-center">
-            <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">Detalles de la Incidencia</h3>
-            <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-[10px] font-black bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-colors active:scale-95">
-                {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />} 
-                {aiLoading ? 'ESTRUCTURANDO...' : 'ESTRUCTURAR CON IA'}
+            <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Detalles de la Incidencia</h3>
+            <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-[8px] font-black bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors active:scale-95">
+                {aiLoading ? <Loader2 size={12} className="animate-spin"/> : <Wand2 size={12} />} 
+                {aiLoading ? 'ESTRUCTURANDO...' : 'IA ESTRUCTURAR'}
             </button>
         </div>
         <textarea 
-            className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600 transition-all resize-none shadow-inner leading-relaxed" 
+            className="w-full h-56 bg-slate-50 border border-slate-200 rounded-xl p-4 outline-none focus:border-primary focus:bg-white font-medium text-slate-600 transition-all resize-none shadow-inner leading-relaxed text-sm" 
             placeholder="Escriba o dicte aquí el informe completo. Use la IA para separar automáticamente en Antecedentes, Intervención y Situación Actual."
             value={formData.reportContent} 
             onChange={(e: any) => handleInputChange('reportContent', e.target.value)}
         />
       </section>
       
-      <section className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
+      <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm border border-slate-100">
         <SignaturePad title="Firma del Técnico Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
-        <p className="text-center font-black text-slate-400 text-[10px] uppercase tracking-widest">{inspectorName}</p>
+        <p className="text-center font-black text-slate-400 text-[8px] uppercase tracking-widest mt-2">{inspectorName}</p>
       </section>
       
-      <div className="flex flex-col md:flex-row gap-4 pt-6">
+      <div className="flex flex-col md:flex-row gap-3 pt-4">
         <button 
             onClick={handlePdfAction} 
             disabled={pdfLoading}
-            className="w-full p-8 bg-white text-slate-900 border-2 border-slate-200 rounded-[2.5rem] font-black text-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-primary shadow-lg disabled:opacity-50"
+            className="w-full p-5 bg-white text-slate-900 border border-slate-200 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 active:scale-95 transition-all hover:border-primary shadow-md disabled:opacity-50"
         >
-            {pdfLoading ? <Loader2 className="animate-spin text-primary" size={24}/> : isSaved ? <Printer className="text-primary"/> : <FileSearch className="text-primary"/>} 
+            {pdfLoading ? <Loader2 className="animate-spin text-primary" size={18}/> : isSaved ? <Printer className="text-primary" size={18}/> : <FileSearch className="text-primary" size={18}/>} 
             {pdfLoading ? 'GENERANDO...' : 'VISTA PREVIA PDF'}
         </button>
         <button 
             onClick={handleSave} 
             disabled={saving || isSaved} 
-            className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 shadow-2xl disabled:bg-slate-700"
+            className="w-full p-5 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 shadow-xl disabled:bg-slate-700"
         >
-          {saving ? <Loader2 className="animate-spin text-primary" size={24}/> : isSaved ? <CheckCircle2 className="text-primary"/> : <Save className="text-primary"/>} 
+          {saving ? <Loader2 className="animate-spin text-primary" size={18}/> : isSaved ? <CheckCircle2 className="text-primary" size={18}/> : <Save className="text-primary" size={18}/>} 
           {saving ? 'GUARDANDO INFORME...' : isSaved ? 'INFORME GUARDADO' : 'CERRAR Y GUARDAR'}
         </button>
       </div>

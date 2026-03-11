@@ -15,7 +15,6 @@ import { db as dbLocal } from '@/lib/db-local';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
 
-// 1. Lista de ítems del checklist simplificado
 const SIMPLIFIED_CHECKLIST_ITEMS = [
     "Filtro de Aceite",
     "Filtro de Combustible",
@@ -29,12 +28,12 @@ const SIMPLIFIED_CHECKLIST_ITEMS = [
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
-    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
+    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
     <div className="relative group">
-      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={16}/>}
+      {Icon && <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={14}/>}
       <input 
         type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-lg p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
+        className={`w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 ${Icon ? 'pl-10' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-xs`}
       />
     </div>
   </div>
@@ -42,10 +41,10 @@ const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "te
 
 const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
     <div className="flex flex-col items-center gap-1">
-        <label className="text-[9px] font-black text-slate-500 w-full text-center">{label}</label>
+        <label className="text-[8px] font-black text-slate-500 w-full text-center">{label}</label>
         <input 
             type="text" value={value || ''} onChange={e => onChange(e.target.value)}
-            className="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-2 outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
+            className="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-xs text-center"
         />
     </div>
 ));
@@ -93,18 +92,18 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
         autoTable(doc, {
             startY: currentY,
-            head: [['RECAMBIOS Y MATERIALES', 'OK', 'DEFECTUOSO', 'CAMBIO']],
+            head: [['RECAMBIOS Y MATERIALES', 'OK', 'DEFECT', 'CAMBIO']],
             body: SIMPLIFIED_CHECKLIST_ITEMS.map(item => [
                 item,
                 report.recambios_checklist?.[item] === 'OK' ? 'X' : '',
-                report.recambios_checklist?.[item] === 'DEFECTUOSO' ? 'X' : '',
+                report.recambios_checklist?.[item] === 'DEFECT' ? 'X' : '',
                 report.recambios_checklist?.[item] === 'CAMBIO' ? 'X' : '',
             ]),
             theme: 'grid',
             didParseCell: function (data) {
               const item = (data.row.raw as any[])[0] as string;
               const status = report.recambios_checklist?.[item];
-              if (status === 'DEFECTUOSO') data.cell.styles.fillColor = '#fee2e2';
+              if (status === 'DEFECT') data.cell.styles.fillColor = '#fee2e2';
               if (status === 'CAMBIO') data.cell.styles.fillColor = '#dcfce7';
             }, 
             styles: { fontSize: 7, cellPadding: 1.5, halign: 'center' },
@@ -413,11 +412,11 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
             </DialogContent>
         </Dialog>
         
-        <main className="space-y-8 pb-40">
-            <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Simplificado / Motobombas</h2>
+        <main className="space-y-6">
+            <h2 className="text-xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Simplificado / Motobombas</h2>
 
-            <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <StableInput label="Cliente" icon={Users} value={formData.cliente} onChange={(v: string) => handleInputChange('cliente', v)}/>
                     <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={(v: string) => handleInputChange('instalacion', v)}/>
                     <StableInput label="Dirección" icon={MapPin} value={formData.direccion} onChange={(v: string) => handleInputChange('direccion', v)}/>
@@ -427,22 +426,28 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
                     <StableInput label="Nº Motor" icon={Hash} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>
                     <StableInput label="Nº Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: string) => handleInputChange('n_grupo', v)}/>
                     <StableInput label="Potencia" icon={Zap} value={formData.potencia} onChange={(v: string) => handleInputChange('potencia', v)}/>
-                    <button onClick={handleCaptureLocation} disabled={locationStatus === 'loading'} className={`w-full bg-slate-50 border-2 rounded-lg p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-all active:scale-95 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100'}`}>
-                        {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={16}/> : <MapPin size={16}/>}
+                    <button onClick={handleCaptureLocation} disabled={locationStatus === 'loading'} className={`w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center justify-center gap-2 font-bold shadow-sm text-xs transition-all active:scale-95 disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100'}`}>
+                        {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={14}/> : <MapPin size={14}/>}
                         <span>{formData.location ? `UBICACIÓN CAPTURADA` : 'CAPTURAR GPS'}</span>
                     </button>
                 </div>
             </section>
             
-            <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-4 border border-slate-100">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-2">Recambios y Materiales Utilizados</h3>
-                <div className="grid grid-cols-1 gap-y-4">
+            <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-3 border border-slate-100">
+                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b pb-1.5">Recambios y Materiales Utilizados</h3>
+                <div className="grid grid-cols-1 gap-y-3">
                     {SIMPLIFIED_CHECKLIST_ITEMS.map(it => (
-                    <div key={it} className={`p-4 rounded-lg flex justify-between items-center transition-all border ${formData.recambios_checklist[it] ? 'bg-primary/5 border-primary/20' : 'bg-slate-50/50 border-slate-100'}`}>
-                        <span className="text-sm font-bold text-slate-700">{it}</span>
+                    <div key={it} className={`p-3 rounded-xl flex justify-between items-center transition-all border ${formData.recambios_checklist[it] ? 'bg-primary/5 border-primary/20' : 'bg-slate-50/50 border-slate-100'}`}>
+                        <span className="text-[11px] font-bold text-slate-700">{it}</span>
                         <div className="flex gap-1">
-                        {["OK", "DEFECTUOSO", "CAMBIO"].map(st => (
-                            <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-20 h-8 rounded-lg text-[9px] font-black border-2 transition-all active:scale-90 ${formData.recambios_checklist[it] === st ? 'bg-primary border-primary text-white' : 'bg-white border-slate-200 text-slate-400'}`}>{st}</button>
+                        {["OK", "DEFECT", "CAMBIO"].map(st => (
+                            <button 
+                              key={st} 
+                              onClick={() => handleChecklistChange(it, st)} 
+                              className={`w-14 h-7 rounded-lg text-[8px] font-black border transition-all active:scale-90 ${formData.recambios_checklist[it] === st ? 'bg-primary border-primary text-white' : 'bg-white border-slate-200 text-slate-400'}`}
+                            >
+                              {st}
+                            </button>
                         ))}
                         </div>
                     </div>
@@ -450,9 +455,9 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
                 </div>
             </section>
 
-            <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-2">Mediciones y Pruebas</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b pb-1.5">Mediciones y Pruebas</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <StableInput icon={Clock} label="Horas" value={formData.datos_pruebas.horas} onChange={(v: string) => handleNestedChange('datos_pruebas', 'horas', v)} />
                     <StableInput icon={Gauge} label="Presión Aceite" value={formData.datos_pruebas.presion} onChange={(v: string) => handleNestedChange('datos_pruebas', 'presion', v)} />
                     <StableInput icon={Thermometer} label="Temperatura" value={formData.datos_pruebas.temperatura} onChange={(v: string) => handleNestedChange('datos_pruebas', 'temperatura', v)} />
@@ -461,7 +466,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
                     <StableInput icon={Wind} label="Frecuencia" value={formData.datos_pruebas.frecuencia} onChange={(v: any) => handleNestedChange('datos_pruebas', 'frecuencia', v)} />
                     <StableInput icon={Battery} label="Carga Baterías" value={formData.datos_pruebas.carga_baterias} onChange={(v: any) => handleNestedChange('datos_pruebas', 'carga_baterias', v)} />
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t mt-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t mt-3">
                     <LoadTestInput label="Tensión RS" value={formData.pruebas_carga.tension_rs} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_rs', v)} />
                     <LoadTestInput label="Tensión ST" value={formData.pruebas_carga.tension_st} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_st', v)} />
                     <LoadTestInput label="Tensión RT" value={formData.pruebas_carga.tension_rt} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_rt', v)} />
@@ -469,39 +474,39 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
                 </div>
             </section>
             
-             <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-                <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Camera className="text-primary"/> Evidencia Multimedia</h2>
-                <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg p-12 flex flex-col items-center justify-center hover:bg-white hover:border-primary transition-all active:scale-[0.99]">
-                    <Camera size={32} className="text-slate-300 mb-2"/><span className="font-black text-xs uppercase tracking-widest text-slate-400">Capturar Imágenes</span>
+             <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+                <h2 className="text-lg font-black text-slate-900 flex items-center gap-2"><Camera className="text-primary" size={18}/> Evidencia Multimedia</h2>
+                <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center hover:bg-white hover:border-primary transition-all active:scale-[0.99]">
+                    <Camera size={28} className="text-slate-300 mb-1.5"/><span className="font-black text-[10px] uppercase tracking-widest text-slate-400">Capturar Imágenes</span>
                 </label>
                 <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange}/>
-                {images.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-4 gap-4">{images.map((img, i) => (<div key={i} className="relative aspect-square shadow-sm rounded-lg overflow-hidden border"><img src={URL.createObjectURL(img)} alt={`pv ${i}`} className="w-full h-full object-cover transition-transform hover:scale-110"/></div>))}</div>)}
+                {images.length > 0 && (<div className="grid grid-cols-3 sm:grid-cols-4 gap-3">{images.map((img, i) => (<div key={i} className="relative aspect-square shadow-sm rounded-lg overflow-hidden border"><img src={URL.createObjectURL(img)} alt={`pv ${i}`} className="w-full h-full object-cover transition-transform hover:scale-110"/></div>))}</div>)}
             </section>
 
-            <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-2">Observaciones Finales</h3>
-                <textarea className="w-full h-24 bg-slate-50 border-2 border-slate-100 rounded-lg p-4 resize-none outline-none focus:border-primary focus:bg-white transition-all shadow-inner" placeholder="Anote cualquier detalle relevante..." value={formData.observaciones} onChange={e => handleInputChange('observaciones', e.target.value)}/>
-                <div className="grid md:grid-cols-2 gap-8 items-start pt-6">
-                    <div><SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} /><p className="text-center font-black mt-2 text-slate-400 text-[9px] uppercase">{inspectorName}</p></div>
+            <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b pb-1.5">Observaciones Finales</h3>
+                <textarea className="w-full h-24 bg-slate-50 border border-slate-200 rounded-xl p-3 resize-none outline-none focus:border-primary focus:bg-white transition-all shadow-inner text-sm" placeholder="Anote cualquier detalle relevante..." value={formData.observaciones} onChange={e => handleInputChange('observaciones', e.target.value)}/>
+                <div className="grid md:grid-cols-2 gap-6 items-start pt-4">
+                    <div><SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} /><p className="text-center font-black mt-2 text-slate-400 text-[8px] uppercase">{inspectorName}</p></div>
                     <div><SignaturePad title="Conforme Cliente" signature={clientSignature} onSignatureEnd={setClientSignature} /><div className="mt-2"><StableInput label="" icon={User} value={formData.recibidoPor} onChange={(v: string) => handleInputChange('recibidoPor', v)} placeholder="Nombre receptor"/></div></div>
                 </div>
             </section>
 
-            <div className="flex flex-col md:flex-row gap-4 pt-6">
+            <div className="flex flex-col md:flex-row gap-3 pt-4">
                 <button 
                     onClick={handlePdfAction} 
                     disabled={pdfLoading}
-                    className="w-full p-6 bg-white border-2 border-slate-200 rounded-lg font-bold flex items-center justify-center gap-4 active:scale-95 transition-all shadow-md disabled:opacity-50"
+                    className="w-full p-5 bg-white border border-slate-200 rounded-2xl font-bold flex items-center justify-center gap-3 active:scale-95 transition-all shadow-md disabled:opacity-50"
                 >
-                    {pdfLoading ? <Loader2 className="animate-spin text-primary" size={20}/> : isSaved ? <Printer size={20} /> : <FileSearch size={20} />}
+                    {pdfLoading ? <Loader2 className="animate-spin text-primary" size={18}/> : isSaved ? <Printer size={18} /> : <FileSearch size={18} />}
                     {pdfLoading ? 'GENERANDO...' : isSaved ? 'IMPRIMIR PDF FINAL' : 'VISTA PREVIA'}
                 </button>
                 <button 
                     onClick={handleSave} 
                     disabled={saving || isSaved} 
-                    className="w-full p-6 bg-slate-900 text-white rounded-lg font-black flex items-center justify-center gap-4 active:scale-95 transition-all shadow-xl disabled:opacity-50 disabled:bg-slate-700"
+                    className="w-full p-5 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-3 active:scale-95 transition-all shadow-xl disabled:opacity-50 disabled:bg-slate-700"
                 >
-                    {saving ? <Loader2 className="animate-spin text-primary" /> : isSaved ? <CheckCircle2 className="text-primary" /> : <Save className="text-primary" />}
+                    {saving ? <Loader2 className="animate-spin text-primary" size={18} /> : isSaved ? <CheckCircle2 className="text-primary" size={18} /> : <Save className="text-primary" size={18} />}
                     {saving ? 'GUARDANDO DATOS...' : isSaved ? 'GUARDADO' : 'CERRAR INFORME'}
                 </button>
             </div>
