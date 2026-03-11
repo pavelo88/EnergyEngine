@@ -199,7 +199,6 @@ const InspectionPageContent = () => {
     if (activeTab === TABS.MENU) {
       const name = user?.displayName || user?.email?.split('@')[0] || 'Técnico';
       
-      // Contenedor centrado para Desktop/Tablet simulado
       return (
         <div className="w-full max-w-4xl mx-auto px-4">
           {(screenSize === 'desktop' || screenSize === 'tablet') ? (
@@ -255,7 +254,6 @@ const InspectionPageContent = () => {
         canInstall={!!installPrompt}
       />
       
-      {/* EL ESPACIADO CRÍTICO: pt-16 para el header, pb-32/40 para el footer */}
       <main className="flex-grow w-full pt-20 pb-32 md:pb-40 lg:pb-48 px-2 md:px-0">
          {renderContent()}
       </main>

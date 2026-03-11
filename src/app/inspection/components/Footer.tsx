@@ -11,16 +11,12 @@ interface FooterProps {
 }
 
 export default function Footer({ activeTab, onNavigate }: FooterProps) {
-  if (activeTab === TABS.MENU) {
-    // En el menú principal, el footer es parte de la navegación persistente
-  }
-
   const navItems = [
-    { id: TABS.TASKS, icon: Compass, label: 'Tareas' },
-    { id: 'placeholder1', icon: Receipt, label: 'Gastos' },
+    { id: TABS.TASKS, icon: ClipboardList, label: 'Historial' },
+    { id: TABS.EXPENSES, icon: Receipt, label: 'Jornada' },
     { id: 'fab', icon: Plus, label: 'Nuevo', isFab: true },
-    { id: TABS.EXPENSES, icon: ClipboardList, label: 'Jornada' },
     { id: TABS.PROFILE, icon: User, label: 'Perfil' },
+    { id: TABS.MENU, icon: Compass, label: 'Panel' },
   ];
 
   return (
@@ -45,7 +41,7 @@ export default function Footer({ activeTab, onNavigate }: FooterProps) {
             return (
               <button
                 key={item.id}
-                onClick={() => item.id !== 'placeholder1' && onNavigate(item.id)}
+                onClick={() => onNavigate(item.id)}
                 className={cn(
                     "flex flex-col items-center justify-center gap-1 w-14 transition-all duration-300",
                     isActive ? 'text-primary' : 'text-slate-400 hover:text-primary'

@@ -15,7 +15,7 @@ const menuItems = [
   {
     id: TABS.NEW_INSPECTION,
     label: 'Inspección',
-    desc: 'NUEVA REVISIÓN',
+    desc: 'INICIA REVISIÓN',
     icon: <ClipboardList size={28} />, 
     classes: 'bg-slate-900 text-white border-slate-800 shadow-slate-900/20',
     labelColor: 'text-white',
