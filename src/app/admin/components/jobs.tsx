@@ -222,7 +222,7 @@ export default function JobsPage() {
                     </td>
                     <td className="py-4 text-right">
                         <div className="flex justify-end gap-1">
-                          <button onClick={() => setEditingJob(job) || setIsModalOpen(true)} className="p-2 text-slate-300 hover:text-primary transition-colors disabled:opacity-30" disabled={job.formType !== 'job'}><Pencil size={18}/></button>
+                          <button onClick={() => {setEditingJob(job);setIsModalOpen(true);}} className="p-2 text-slate-300 hover:text-primary transition-colors disabled:opacity-30" disabled={job.formType !== 'job'}><Pencil size={18}/></button>
                           <button onClick={() => handleDeleteJob(job.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
                         </div>
                     </td>
