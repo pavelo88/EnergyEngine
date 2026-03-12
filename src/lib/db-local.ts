@@ -1,20 +1,26 @@
 import Dexie, { type Table } from 'dexie';
 
-// Define la estructura de los datos que guardaremos en cada tabla.
-// Esto nos da autocompletado y seguridad de tipos.
+/**
+ * @fileOverview Arquitectura de base de datos local (IndexedDB) para Energy Engine.
+ * Utiliza Dexie.js para gestionar el almacenamiento persistente en el dispositivo del técnico,
+ * permitiendo el funcionamiento offline-first y la sincronización posterior con Firebase.
+ */
+
+// --- INTERFACES DE DATOS LOCALES ---
+
 export interface HojaTrabajoLocal {
-  id?: number; // Clave primaria autoincremental
-  firebaseId?: string; // El ID que tendrá en Firebase una vez sincronizado
-  synced: boolean; // Flag para el motor de sincronización
-  data: any; // Aquí irá el objeto completo del formulario
-  createdAt: Date;
+  id?: number;           // Clave primaria autoincremental local
+  firebaseId?: string;   // ID del documento en Firestore (una vez sincronizado)
+  synced: boolean;       // Estado de sincronización
+  data: any;             // El objeto completo del informe (Hoja, Revisión o Técnico)
+  createdAt: Date;       // Fecha de creación local para ordenamiento
 }
 
 export interface RegistroJornadaLocal {
   id?: number;
   firebaseId?: string;
   synced: boolean;
-  data: any;
+  data: any;             // Datos de la jornada + firma del técnico
   createdAt: Date;
 }
 
@@ -22,31 +28,37 @@ export interface GastoLocal {
   id?: number;
   firebaseId?: string;
   synced: boolean;
-  data: any;
+  data: any;             // Datos del gasto + referencia a la imagen/ticket
   createdAt: Date;
 }
 
+// --- CLASE DE BASE DE DATOS ---
 
-// Creamos nuestra clase de base de datos que extiende de Dexie
 export class LocalDB extends Dexie {
-  // Las '!' indican a TypeScript que estas propiedades serán inicializadas en el constructor.
+  // Definición de las tablas (stores)
   hojas_trabajo!: Table<HojaTrabajoLocal>;
   registros_jornada!: Table<RegistroJornadaLocal>;
   gastos!: Table<GastoLocal>;
 
   constructor() {
-    // El nombre 'EnergyEngineDB' es como se llamará el archivo de IndexedDB en el navegador.
+    // Nombre de la base de datos en el almacenamiento del navegador
     super('EnergyEngineDB');
+
+    /**
+     * Definición de esquemas e índices.
+     * Indices:
+     * - ++id: Clave primaria autoincremental.
+     * - firebaseId: Para buscar registros vinculados a la nube.
+     * - synced: Crucial para el motor de sincronización (filtra pendientes).
+     * - createdAt: Para ordenar el historial cronológicamente en el dispositivo.
+     */
     this.version(1).stores({
-      // Definimos los 'índices' para búsquedas eficientes.
-      // '++id' es la clave primaria autoincremental.
-      // '*synced' nos permite buscar rápidamente todos los registros no sincronizados.
-      hojas_trabajo: '++id, firebaseId, *synced',
-      registros_jornada: '++id, firebaseId, *synced',
-      gastos: '++id, firebaseId, *synced'
+      hojas_trabajo: '++id, firebaseId, synced, createdAt',
+      registros_jornada: '++id, firebaseId, synced, createdAt',
+      gastos: '++id, firebaseId, synced, createdAt'
     });
   }
 }
 
-// Exportamos una única instancia de nuestra base de datos para usarla en toda la app.
+// Exportamos una única instancia singleton para toda la aplicación
 export const db = new LocalDB();
