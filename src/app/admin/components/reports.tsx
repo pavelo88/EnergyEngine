@@ -39,20 +39,30 @@ export default function ReportsPage() {
   const db = useFirestore();
 
   const handleExport = () => {
-    const dataToExport = reports.map(report => ({
-      ID: report.id,
-      Tipo: report.formType,
-      Cliente: report.cliente || report.clienteNombre,
-      Fecha: report.fecha_creacion?.toDate()?.toLocaleDateString() || 'N/A',
-    }));
+    const dataToExport = reports.map(report => {
+      let fecha: string = 'N/A';
+      if (report.fecha_creacion?.toDate) {
+        fecha = format(report.fecha_creacion.toDate(), 'dd/MM/yyyy HH:mm');
+      }
+      
+      return {
+        ID: report.id,
+        Tipo: report.formType?.toUpperCase() || 'GENERAL',
+        Cliente: report.cliente || report.clienteNombre,
+        Ubicación: report.instalacion || '-',
+        Técnico: report.tecnicoNombre || report.inspectorNombres?.join(', '),
+        Fecha: fecha,
+      };
+    });
+    
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Informes");
-    XLSX.writeFile(workbook, `Reporte_Informes_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Historial Informes");
+    XLSX.writeFile(workbook, `EnergyEngine_Informes_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
-  useAdminHeader('Historial de Informes', (
-    <Button onClick={handleExport} variant="outline" className="rounded-xl font-bold uppercase text-xs tracking-widest border-slate-200">
+  useAdminHeader('Historial Maestro de Informes', (
+    <Button onClick={handleExport} variant="outline" className="rounded-xl font-bold uppercase text-xs tracking-widest border-slate-200 shadow-sm active:scale-95 transition-all">
         <Download className="mr-2" size={16} />
         Exportar Historial
     </Button>
@@ -69,8 +79,8 @@ export default function ReportsPage() {
         setReports(allDocs);
         setError(null);
       } catch (err) {
-        console.error("Error fetching reports: ", err);
-        setError('Error en la carga de informes.');
+        console.error("Error al cargar informes maestros:", err);
+        setError('Error en la carga de informes desde Firestore.');
       } finally {
         setLoading(false);
       }
@@ -80,18 +90,18 @@ export default function ReportsPage() {
 
   const handleReprintPDF = (report: Report) => {
     let doc: jsPDF | null = null;
-    const inspectorName = report.tecnicoNombre || report.inspectorNombres?.join(', ') || 'Técnico Externo';
+    const inspectorName = report.tecnicoNombre || report.inspectorNombres?.join(', ') || 'Técnico Energy Engine';
     try {
         switch(report.formType) {
             case 'hoja-trabajo': doc = generateHojaTrabajoPDF(report, inspectorName, report.id); break;
             case 'informe-revision': doc = generateInformeRevisionPDF(report, inspectorName, report.id); break;
             case 'informe-tecnico': doc = generateInformeTecnicoPDF(report, inspectorName, report.id); break;
             case 'informe-simplificado': doc = generateInformeSimplificadoPDF(report, inspectorName, report.id); break;
-            default: alert('Formato no compatible para reimpresión.'); return;
+            default: alert('El formato de este documento no soporta reimpresión automática.'); return;
         }
-        if (doc) doc.save(`Reimpresion_${report.id}.pdf`);
+        if (doc) doc.save(`Informe_${report.id}.pdf`);
     } catch (e) {
-        console.error("Error al reimprimir PDF:", e);
+        console.error("Error al reimprimir PDF maestro:", e);
     }
   };
   
@@ -101,7 +111,7 @@ export default function ReportsPage() {
         case 'informe-revision': return 'Informe de Revisión';
         case 'informe-tecnico': return 'Informe Técnico';
         case 'informe-simplificado': return 'Informe Simplificado';
-        default: return 'Registro de Trabajo';
+        default: return 'Registro Técnico';
     }
   };
 
@@ -109,43 +119,56 @@ export default function ReportsPage() {
     <div className="animate-in fade-in duration-500">
       <div className="bg-white rounded-[2rem] border border-slate-100 p-8 shadow-sm overflow-x-auto">
         {loading ? (
-          <div className="flex justify-center py-10"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>
+          <div className="flex flex-col justify-center items-center py-20 gap-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary opacity-20" />
+            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Sincronizando Archivo Maestro...</span>
+          </div>
         ) : error ? (
-          <p className='text-center text-red-500 font-bold uppercase text-xs'>{error}</p>
+          <div className="p-10 text-center space-y-2">
+            <AlertTriangle className="mx-auto text-red-500" size={40}/>
+            <p className='text-red-500 font-bold uppercase text-xs'>{error}</p>
+          </div>
         ) : reports.length === 0 ? (
-            <p className='text-center text-slate-400 font-bold uppercase text-xs'>No hay documentos registrados.</p>
+            <p className='text-center text-slate-400 font-bold uppercase text-xs py-20'>No hay documentos registrados en el sistema.</p>
         ) : (
           <table className="w-full text-left">
             <thead>
-              <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
-                <th className="pb-4">Documento</th>
+              <tr className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50">
+                <th className="pb-4">Documento / ID</th>
                 <th className="pb-4">Cliente / Instalación</th>
-                <th className="pb-4">Equipo</th>
-                <th className="pb-4">Técnico</th>
-                <th className="pb-4">Fecha</th>
+                <th className="pb-4">Equipo / Modelo</th>
+                <th className="pb-4">Inspector</th>
+                <th className="pb-4">Fecha Registro</th>
                 <th className="pb-4 text-right">Acción</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-50">
               {reports.map((report) => (
-                <tr key={report.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                <tr key={report.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="py-4">
-                      <div className="font-black text-slate-700 text-sm">{getReportTitle(report.formType)}</div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase">{report.id}</div>
+                      <div className="font-black text-slate-700 text-sm uppercase tracking-tight">{getReportTitle(report.formType)}</div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{report.id}</div>
                   </td>
                   <td className="py-4">
-                    <div className="text-sm font-bold text-slate-600">{report.cliente || report.clienteNombre}</div>
-                    <div className="text-[10px] font-medium text-slate-400 uppercase">{report.instalacion || '-'}</div>
+                    <div className="text-sm font-bold text-slate-600 uppercase">{report.cliente || report.clienteNombre}</div>
+                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{report.instalacion || '-'}</div>
                   </td>
-                  <td className="py-4 text-[10px] font-black text-slate-400 uppercase">
+                  <td className="py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                       {report.modelo && <div>MOD: {report.modelo}</div>}
-                      {report.n_motor && <div>S/N: {report.n_motor}</div>}
+                      {report.n_motor && <div className="text-primary/60">S/N: {report.n_motor}</div>}
                   </td>
-                  <td className="py-4 text-xs font-bold text-slate-500">{report.tecnicoNombre || report.inspectorNombres?.join(', ')}</td>
-                  <td className="py-4 text-xs font-bold text-slate-500 uppercase">{report.fecha_creacion?.toDate().toLocaleDateString() || 'N/A'}</td>
+                  <td className="py-4">
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">{report.tecnicoNombre || report.inspectorNombres?.join(', ')}</div>
+                  </td>
+                  <td className="py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                    {report.fecha_creacion?.toDate ? format(report.fecha_creacion.toDate(), 'dd/MM/yyyy') : 'N/A'}
+                  </td>
                   <td className="py-4 text-right">
-                    <button onClick={() => handleReprintPDF(report)} className="bg-slate-900 hover:bg-slate-800 text-white font-black py-2 px-4 rounded-xl transition-all flex items-center gap-2 text-[10px] uppercase tracking-widest ml-auto shadow-lg shadow-slate-200">
-                      <Printer size={14} className="text-primary"/>
+                    <button 
+                      onClick={() => handleReprintPDF(report)} 
+                      className="bg-slate-900 hover:bg-primary text-white font-black py-2 px-4 rounded-xl transition-all flex items-center gap-2 text-[9px] uppercase tracking-[0.1em] ml-auto shadow-lg shadow-slate-200 active:scale-95"
+                    >
+                      <Printer size={14} />
                       PDF
                     </button>
                   </td>

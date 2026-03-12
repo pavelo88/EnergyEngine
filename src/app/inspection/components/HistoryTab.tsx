@@ -31,8 +31,17 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
   const [filter, setFilter] = useState<'pending' | 'completed'>('pending');
   const [searchTerm, setSearchTerm] = useState('');
   const { user } = useUser();
-  const db = useFirestore(); // Firestore instance
+  const db = useFirestore();
   const isOnline = useOnlineStatus();
+
+  // Función de normalización de fechas para asegurar un ordenamiento impecable
+  const normalizeDate = (task: any): number => {
+    if (task.createdAt instanceof Date) return task.createdAt.getTime();
+    if (task.fecha_creacion?.toDate) return task.fecha_creacion.toDate().getTime();
+    if (task.fecha_creacion?.seconds) return task.fecha_creacion.seconds * 1000;
+    if (typeof task.fecha_creacion === 'string') return new Date(task.fecha_creacion).getTime();
+    return 0;
+  };
 
   useEffect(() => {
     if (!user || !db || !user.email) return;
@@ -41,11 +50,10 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
       setLoading(true);
       try {
         const firestoreTaskMap = new Map<string, Task>();
-        // 1. Fetch from Firestore if online to get the most up-to-date list
+        
+        // 1. Fetch de la nube si hay red
         if (isOnline) {
-          // Query for jobs assigned via inspectorIds array (by email)
           const qAssigned = query(collection(db, "trabajos"), where("inspectorIds", "array-contains", user.email));
-          // Query for reports created directly by the technician (by email)
           const qCreated = query(collection(db, "trabajos"), where("tecnicoId", "==", user.email));
           
           const [assignedSnap, createdSnap] = await Promise.all([getDocs(qAssigned), getDocs(qCreated)]);
@@ -54,7 +62,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
           createdSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true } as Task));
         }
 
-        // 2. Fetch all from LocalDB (Dexie)
+        // 2. Fetch de la DB local (Dexie)
         const localTasksRaw = await localDb.hojas_trabajo.toArray();
         const localTaskMap = new Map<string, Task>();
         localTasksRaw.forEach(t => {
@@ -63,7 +71,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
           localTaskMap.set(key, taskData);
         });
 
-        // 3. Merge: Start with local, overwrite/add with Firestore data
+        // 3. Mezclado: Datos locales mandan si no están sincronizados, la nube manda si existe el ID
         const finalTaskMap = new Map<string, Task>(localTaskMap);
         firestoreTaskMap.forEach((task, id) => {
           finalTaskMap.set(id, task);
@@ -71,17 +79,13 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
         
         let combinedTasks = Array.from(finalTaskMap.values());
         
-        // 4. Sort
-        combinedTasks.sort((a, b) => {
-          const dateA = a.createdAt || a.fecha_creacion?.toDate();
-          const dateB = b.createdAt || b.fecha_creacion?.toDate();
-          return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
-        });
+        // 4. Ordenamiento cronológico impecable usando milisegundos
+        combinedTasks.sort((a, b) => normalizeDate(b) - normalizeDate(a));
 
         setTasks(combinedTasks);
 
       } catch (error) {
-        console.error("Error fetching tasks:", error);
+        console.error("Error al cargar el historial:", error);
       } finally {
         setLoading(false);
       }
@@ -129,10 +133,10 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
     <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500 w-full max-w-4xl mx-auto">
       
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-        <h2 className="text-3xl font-black text-slate-800">Mis Trabajos</h2>
+        <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Bandeja de Trabajos</h2>
         <div className="w-full md:w-auto flex items-center gap-2 bg-slate-200 p-1 rounded-full">
-            <Button onClick={() => setFilter('pending')} variant={filter === 'pending' ? 'default' : 'ghost'} className="rounded-full px-4 py-1 h-auto text-sm font-bold flex-1">Pendientes</Button>
-            <Button onClick={() => setFilter('completed')} variant={filter === 'completed' ? 'default' : 'ghost'} className="rounded-full px-4 py-1 h-auto text-sm font-bold flex-1">Completados</Button>
+            <Button onClick={() => setFilter('pending')} variant={filter === 'pending' ? 'default' : 'ghost'} className="rounded-full px-4 py-1 h-auto text-[10px] font-black uppercase flex-1 tracking-widest">Pendientes</Button>
+            <Button onClick={() => setFilter('completed')} variant={filter === 'completed' ? 'default' : 'ghost'} className="rounded-full px-4 py-1 h-auto text-[10px] font-black uppercase flex-1 tracking-widest">Finalizados</Button>
         </div>
       </div>
       
@@ -140,7 +144,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
           <Input 
             type="text"
-            placeholder="Buscar por cliente, instalación o ID..."
+            placeholder="Buscar por cliente, sede o ID de informe..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full p-6 pl-12 rounded-2xl bg-white shadow-sm border-slate-100 text-lg font-bold"
@@ -162,44 +166,44 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase
                     ${task.synced ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}`}>
-                    {task.firebaseId || `Local #${task.id}`}
+                    {task.id || task.firebaseId || `Borrador #${task.id}`}
                   </span>
-                  <span className="flex items-center gap-1 text-[9px] font-bold text-slate-400">
+                  <span className="flex items-center gap-1 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
                     {task.synced 
                       ? <SyncedIcon size={12} className="text-green-500"/> 
                       : <Clock size={10} className="text-orange-500"/>}
-                    {task.synced ? 'En la Nube' : 'Pendiente'}
+                    {task.synced ? 'Sincronizado' : 'Solo Local'}
                   </span>
                 </div>
                 
-                <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">
-                  {getReportTitle(task.formType)}: {task.clienteNombre || task.cliente || 'Cliente no asignado'}
+                <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none uppercase">
+                  {getReportTitle(task.formType)}: {task.clienteNombre || task.cliente || 'Cliente Varios'}
                 </h3>
                 
                 <div className="flex items-center gap-2 text-slate-400">
                   <MapPin size={14} className="text-primary/70" />
-                  <span className="text-xs font-medium">{task.instalacion || 'Ubicación no especificada'}</span>
+                  <span className="text-xs font-bold uppercase tracking-widest">{task.instalacion || 'Sin Ubicación'}</span>
                 </div>
               </div>
 
               {filter === 'pending' && (
-                <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors text-slate-300">
+                <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors text-slate-300 shadow-inner">
                   <ArrowRight size={20} />
                 </div>
               )}
             </button>
           ))
         ) : (
-          <div className="bg-white p-12 rounded-[3rem] border-2 border-dashed border-slate-100 text-center space-y-4">
+          <div className="bg-white p-12 rounded-[3rem] border-2 border-dashed border-slate-100 text-center space-y-4 shadow-inner">
             <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto text-slate-300">
               <Search size={32} />
             </div>
             <div>
-              <p className="text-slate-900 font-black uppercase text-sm">
-                No se encontraron trabajos
+              <p className="text-slate-900 font-black uppercase text-sm tracking-widest">
+                Sin resultados
               </p>
-              <p className="text-slate-400 text-xs font-bold leading-relaxed px-4 mt-1">
-                {searchTerm ? 'Prueba con otro término de búsqueda.' : `No tienes trabajos ${filter === 'pending' ? 'pendientes' : 'completados'}.`}
+              <p className="text-slate-400 text-[10px] font-bold leading-relaxed px-4 mt-1 uppercase tracking-widest">
+                {searchTerm ? 'Prueba con otro término de búsqueda.' : `No hay informes registrados en esta sección.`}
               </p>
             </div>
           </div>

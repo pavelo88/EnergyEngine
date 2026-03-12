@@ -5,7 +5,7 @@ import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { Loader2, Calendar, Download } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
-import { addDays, format } from 'date-fns';
+import { addDays, format, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 import * as XLSX from 'xlsx';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,18 +29,35 @@ export default function ExpensesPage() {
 
   const gastosFiltrados = useMemo(() => {
     return gastos.filter(gasto => {
-      if (!gasto.fecha?.toDate) return false;
-      const fechaGasto = gasto.fecha.toDate();
-      const enRangoFecha = filtroFecha?.from && filtroFecha?.to ? (fechaGasto >= filtroFecha.from && fechaGasto <= filtroFecha.to) : true;
+      let fechaGasto: Date;
+      
+      // Normalización robusta de la fecha del gasto
+      if (gasto.fecha?.toDate) {
+        fechaGasto = gasto.fecha.toDate();
+      } else if (gasto.fecha instanceof Date) {
+        fechaGasto = gasto.fecha;
+      } else {
+        fechaGasto = new Date(gasto.fecha);
+      }
+
+      // Filtro de fecha con normalización de inicio y fin de día
+      const enRangoFecha = filtroFecha?.from && filtroFecha?.to 
+        ? isWithinInterval(fechaGasto, { 
+            start: startOfDay(filtroFecha.from), 
+            end: endOfDay(filtroFecha.to) 
+          })
+        : true;
+
       const matchInspector = filtroInspector === 'all' || gasto.inspectorId === filtroInspector;
       const matchCliente = filtroCliente === 'all' || gasto.clienteNombre === filtroCliente;
+      
       return enRangoFecha && matchInspector && matchCliente;
     });
   }, [gastos, filtroInspector, filtroCliente, filtroFecha]);
 
   const handleExport = useCallback(() => {
     const dataToExport = gastosFiltrados.map(g => ({
-        Fecha: g.fecha.toDate().toLocaleDateString(),
+        Fecha: format(g.fecha?.toDate ? g.fecha.toDate() : new Date(g.fecha), 'dd/MM/yyyy'),
         Inspector: g.inspectorNombre,
         Cliente: g.clienteNombre,
         Concepto: g.descripcion,
@@ -53,7 +70,6 @@ export default function ExpensesPage() {
     XLSX.writeFile(workbook, `Reporte_Gastos_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   }, [gastosFiltrados]);
 
-  // Memorizamos la acción del encabezado para evitar bucles infinitos
   const headerAction = useMemo(() => (
     <Button onClick={handleExport} className="rounded-xl font-bold uppercase text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 shadow-lg active:scale-95 transition-all">
         <Download className="mr-2" size={16} />
@@ -150,7 +166,9 @@ export default function ExpensesPage() {
               <tbody>
                 {gastosFiltrados.map((gasto) => (
                   <tr key={gasto.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                    <td className="py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">{gasto.fecha.toDate().toLocaleDateString()}</td>
+                    <td className="py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                      {format(gasto.fecha?.toDate ? gasto.fecha.toDate() : new Date(gasto.fecha), 'dd/MM/yyyy')}
+                    </td>
                     <td className="py-4 font-black text-slate-700">{gasto.inspectorNombre}</td>
                     <td className="py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">{gasto.clienteNombre}</td>
                     <td className="py-4 text-sm text-slate-600 font-medium">{gasto.descripcion}</td>
