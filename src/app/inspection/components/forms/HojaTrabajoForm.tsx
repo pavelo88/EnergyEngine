@@ -13,6 +13,7 @@ import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db as dbLocal } from '@/lib/db-local';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
   <div className="space-y-1 w-full text-left">
@@ -70,7 +71,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     autoTable(doc, {
         startY: currentY,
         body: [
-            [{content: 'CLIENTE:', styles: {fontStyle: 'bold'}}, report.cliente, {content: 'FECHA:', styles: {fontStyle: 'bold'}}, report.fecha],
+            [{content: 'CLIENTE:', styles: {fontStyle: 'bold'}}, report.clienteNombre || report.cliente, {content: 'FECHA:', styles: {fontStyle: 'bold'}}, report.fecha],
             [{content: 'INSTALACIÓN:', styles: {fontStyle: 'bold'}}, report.instalacion, {content: 'TÉCNICOS:', styles: {fontStyle: 'bold'}}, report.tecnicos],
             [{content: 'UBICACIÓN (LAT/LON):', styles: {fontStyle: 'bold'}}, {content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3}],
             [{content: 'MOTOR:', styles: {fontStyle: 'bold'}}, report.motor, {content: 'H. ASISTENCIA:', styles: {fontStyle: 'bold'}}, report.h_asistencia],
@@ -219,10 +220,14 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
+  const [inspectorInitials, setInspectorInitials] = useState('EE');
+  const [clients, setClients] = useState<any[]>([]);
   const [images, setImages] = useState<File[]>([]);
   
   const [formData, setFormData] = useState({
     formType: 'hoja-trabajo',
+    clienteId: '',
+    clienteNombre: '',
     cliente: '',
     instalacion: '',
     motor: '',
@@ -278,34 +283,46 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
+  // Cargar Clientes y Datos de Usuario
   useEffect(() => {
-    const fetchUserName = async () => {
-        if (user && user.email && firestore) {
-            try {
-                const userDocRef = doc(firestore, 'usuarios', user.email);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                    const userName = userDocSnap.data().nombre;
-                    setInspectorName(userName);
-                    setFormData((prev: any) => ({...prev, tecnicos: userName}));
-                } else {
-                     const name = user.displayName || user.email || 'Técnico';
-                     setInspectorName(name);
-                     setFormData((prev: any) => ({...prev, tecnicos: name }));
-                }
-            } catch(e: any) {
-                setInspectorName(user.displayName || user.email || 'Técnico');
-                setFormData((prev: any) => ({...prev, tecnicos: user.displayName || user.email || 'Técnico' }));
+    const fetchData = async () => {
+        if (!firestore) return;
+        
+        // 1. Cargar Clientes
+        try {
+            const snap = await getDocs(collection(firestore, 'clientes'));
+            const clientList = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setClients(clientList);
+            await dbLocal.clientes_cache.bulkPut(clientList as any);
+        } catch (e) {
+            const cached = await dbLocal.clientes_cache.toArray();
+            setClients(cached);
+        }
+
+        // 2. Datos de Usuario e Iniciales
+        if (user && user.email) {
+            const userDocSnap = await getDoc(doc(firestore, 'usuarios', user.email));
+            if (userDocSnap.exists()) {
+                const userData = userDocSnap.data();
+                setInspectorName(userData.nombre);
+                setFormData(p => ({ ...p, tecnicos: userData.nombre }));
+                
+                // Generar iniciales
+                const names = userData.nombre.split(' ');
+                const initials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
+                setInspectorInitials(initials);
             }
         }
     };
-    fetchUserName();
+    fetchData();
   }, [user, firestore]);
 
   useEffect(() => {
     if (initialData) {
       setFormData((prev: any) => ({
         ...prev,
+        clienteId: initialData.clienteId || prev.clienteId,
+        clienteNombre: initialData.clienteNombre || initialData.cliente || prev.clienteNombre,
         cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
         instalacion: initialData.instalacion || prev.instalacion,
         motor: initialData.modelo || prev.motor,
@@ -315,44 +332,23 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     }
   }, [initialData]);
 
-  useEffect(() => {
-    if (aiData) {
-      setFormData((prev: any) => ({
-        ...prev,
-        cliente: aiData.identidad?.cliente || prev.cliente,
-        instalacion: aiData.identidad?.instalacion || prev.instalacion,
-        motor: aiData.identidad?.modelo || prev.motor,
-        n_motor: aiData.identidad?.sn || prev.n_motor,
-        grupo: aiData.identidad?.n_grupo || prev.grupo,
-        recibidoPor: aiData.identidad?.recibe || prev.recibidoPor,
-        trabajos_realizados: aiData.observations_summary || prev.trabajos_realizados,
-        parametrosTecnicos: {
-          horas: aiData.mediciones_generales?.horas || prev.parametrosTecnicos.horas,
-          presionAceite: aiData.mediciones_generales?.presion || prev.parametrosTecnicos.presionAceite,
-          tension: aiData.mediciones_generales?.tensionAlt || prev.parametrosTecnicos.tension,
-          temperatura: aiData.mediciones_generales?.temp || prev.parametrosTecnicos.temperatura,
-          nivelCombustible: aiData.mediciones_generales?.combustible || prev.parametrosTecnicos.nivelCombustible,
-          frecuencia: aiData.mediciones_generales?.frecuencia || prev.parametrosTecnicos.frecuencia,
-          tensionBaterias: aiData.mediciones_generales?.cargaBat || prev.parametrosTecnicos.tensionBaterias,
-        },
-        potenciaConCarga: {
-          ...prev.potenciaConCarga,
-          tensionRS: aiData.pruebas_carga?.rs || prev.potenciaConCarga.tensionRS,
-          tensionST: aiData.pruebas_carga?.st || prev.potenciaConCarga.tensionST,
-          tensionRT: aiData.pruebas_carga?.rt || prev.potenciaConCarga.tensionRT,
-          intensidadR: aiData.pruebas_carga?.r || prev.potenciaConCarga.intensidadR,
-          intensidadS: aiData.pruebas_carga?.s || prev.potenciaConCarga.intensidadS,
-          intensidadT: aiData.pruebas_carga?.t || prev.potenciaConCarga.intensidadT,
-          potenciaKW: aiData.pruebas_carga?.kw || prev.potenciaConCarga.potenciaKW,
-        }
-      }));
-    }
-  }, [aiData]);
-
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev: any) => ({...prev, [field]: value }));
   };
   
+  const handleClientSelect = (clientId: string) => {
+    const selected = clients.find(c => c.id === clientId);
+    if (selected) {
+        setFormData(p => ({ 
+            ...p, 
+            clienteId: clientId, 
+            clienteNombre: selected.nombre,
+            cliente: selected.nombre,
+            instalacion: selected.direccion || p.instalacion 
+        }));
+    }
+  };
+
   const handleNestedInputChange = (section: 'parametrosTecnicos' | 'potenciaConCarga', field: string, value: string) => {
     setFormData((prev: any) => ({
         ...prev,
@@ -402,8 +398,8 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
   };
 
   const handlePdfAction = () => {
-    if (!formData.cliente || !formData.instalacion) {
-        toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Complete Cliente e Instalación para previsualizar.' });
+    if (!formData.clienteId) {
+        toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Seleccione un Cliente para previsualizar.' });
         return;
     }
     
@@ -433,58 +429,42 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
   };
 
   const handleSave = async () => {
-    if (!user || !firestore || !user.email) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Usuario no autenticado.' });
-        return;
-    }
+    if (!user || !user.email) return;
     
-    const missingFields = [];
-    if (!formData.cliente) missingFields.push('Cliente');
-    if (!formData.instalacion) missingFields.push('Instalación');
-    if (!formData.location) missingFields.push('Ubicación GPS');
-    if (!inspectorSignature) missingFields.push('Firma Inspector');
-    if (!clientSignature) missingFields.push('Firma Cliente');
-
-    if (missingFields.length > 0) {
-      toast({ 
-        variant: 'destructive', 
-        title: 'Datos Incompletos', 
-        description: `Faltan campos críticos: ${missingFields.join(', ')}` 
-      });
+    if (!formData.clienteId || !formData.location || !inspectorSignature || !clientSignature) {
+      toast({ variant: 'destructive', title: 'Datos Incompletos', description: 'Cliente, Ubicación GPS y ambas firmas son obligatorias.' });
       return;
     }
 
     setSaving(true);
 
-    const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
+    // 1. Generar ID Secuencial por Usuario (YYYY-CODE-XXX)
+    const sequence = await dbLocal.getNextSequence('hoja-trabajo');
+    const year = new Date().getFullYear();
+    const docId = `HT-${year}-${inspectorInitials}-${sequence.toString().padStart(3, '0')}`;
+
+    const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
         const localData = { ...formData, originalJobId: initialData?.id || null };
         if (!synced) {
             (localData as any).inspectorSignature = inspectorSignature;
             (localData as any).clientSignature = clientSignature;
         }
         await dbLocal.hojas_trabajo.add({ 
-            firebaseId: firebaseId || '', 
+            firebaseId, 
             synced, 
             data: localData, 
             createdAt: new Date() 
         });
         
-        if (synced) {
-            toast({ title: '¡Sincronizado!', description: `Informe guardado con ID: ${firebaseId}` });
-        } else {
-            toast({ title: 'Guardado Localmente', description: 'Error de red. Se sincronizará automáticamente al detectar conexión.' });
-        }
+        setSavedDocId(firebaseId);
+        setIsSaved(true);
+        if (synced) toast({ title: '¡Sincronizado!', description: `Informe guardado con ID: ${firebaseId}` });
+        else toast({ title: 'Guardado Localmente', description: `Informe registrado como ${firebaseId}. Se subirá al recuperar conexión.` });
     };
 
-    if (isOnline) {
+    if (isOnline && firestore) {
         try {
-            const formType = 'hoja-trabajo';
-            const trabajosRef = collection(firestore, 'trabajos');
-            const qCount = query(trabajosRef, where('formType', '==', formType));
-            const trabajosSnap = await getDocs(qCount);
-            const docId = `HT-${new Date().getFullYear()}-${(trabajosSnap.size + 1).toString().padStart(3, '0')}`;
             const storage = getStorage();
-
             const imageUrls = await Promise.all(images.map(async (image) => {
                 const imgRef = ref(storage, `informes/${docId}/${image.name}`);
                 await uploadBytes(imgRef, image);
@@ -502,21 +482,19 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
             const docData = {
                 ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl,
                 tecnicoId: user.email, tecnicoNombre: inspectorName,
-                fecha_creacion: Timestamp.now(), id: docId, formType, estado: 'Completado',
+                fecha_creacion: Timestamp.now(), id: docId, estado: 'Completado',
             };
             
             await setDoc(doc(firestore, 'trabajos', docId), docData);
             if (initialData?.id) await updateDoc(doc(firestore, 'trabajos', initialData.id), { estado: 'Completado' });
             
             await saveDataToLocal(true, docId);
-            setSavedDocId(docId);
-            setIsSaved(true);
         } catch (error: any) {
             console.error("Error al guardar en la nube:", error);
-            await saveDataToLocal(false);
+            await saveDataToLocal(false, docId);
         }
     } else {
-        await saveDataToLocal(false);
+        await saveDataToLocal(false, docId);
     }
     setSaving(false);
   };
@@ -540,21 +518,30 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
       
         <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-4 border border-slate-100">
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="lg:col-span-2 space-y-2">
-                <StableInput label="Cliente" icon={Users} value={formData.cliente} onChange={(v: any) => handleInputChange('cliente', v)}/>
-                <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={(v: any) => handleInputChange('instalacion', v)}/>
-                <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: any) => handleInputChange('motor', v)}/>
+              <div className="lg:col-span-2 space-y-2 text-left">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Cliente Base</label>
+                <Select value={formData.clienteId} onValueChange={handleClientSelect}>
+                    <SelectTrigger className="w-full bg-slate-50 border border-slate-200 rounded-xl p-6 font-bold h-12">
+                        <SelectValue placeholder="SELECCIONAR CLIENTE..." />
+                    </SelectTrigger>
+                    <SelectContent className='rounded-xl'>
+                        {clients.map(c => <SelectItem key={c.id} value={c.id} className='font-bold uppercase text-xs'>{c.nombre}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                
+                <StableInput label="Instalación / Sede" icon={MapPin} value={formData.instalacion} onChange={(v: any) => handleInputChange('instalacion', v)}/>
+                <StableInput label="Motor / Equipo" icon={Settings} value={formData.motor} onChange={(v: any) => handleInputChange('motor', v)}/>
                 <StableInput label="N' Motor" icon={Hash} value={formData.n_motor} onChange={(v: any) => handleInputChange('n_motor', v)}/>
-                <StableInput label="Grupo" icon={Settings} value={formData.grupo} onChange={(v: any) => handleInputChange('grupo', v)}/>
+                <StableInput label="Grupo Electrógeno" icon={Settings} value={formData.grupo} onChange={(v: any) => handleInputChange('grupo', v)}/>
                 <StableInput label="N' Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: any) => handleInputChange('n_grupo', v)}/>
-                <StableInput label="N' de Pedido" icon={Hash} value={formData.n_pedido} onChange={(v: any) => handleInputChange('n_pedido', v)}/>
+                <StableInput label="N' de Pedido / OC" icon={Hash} value={formData.n_pedido} onChange={(v: any) => handleInputChange('n_pedido', v)}/>
               </div>
               <div className="lg:col-span-2 space-y-2">
                  <StableInput label="Fecha" icon={Calendar} type="date" value={formData.fecha} onChange={(v: any) => handleInputChange('fecha', v)}/>
-                 <StableInput label="Técnicos" icon={User} value={formData.tecnicos} onChange={(v: any) => handleInputChange('tecnicos', v)}/>
+                 <StableInput label="Técnicos Intervinientes" icon={User} value={formData.tecnicos} onChange={(v: any) => handleInputChange('tecnicos', v)}/>
                  <StableInput label="H. Asistencia" icon={Clock} value={formData.h_asistencia} onChange={(v: any) => handleInputChange('h_asistencia', v)}/>
                  <StableInput label="Tipo de Servicio" icon={Type} value={formData.tipo_servicio} onChange={(v: any) => handleInputChange('tipo_servicio', v)}/>
-                 <StableInput label="KMs." icon={Car} type="number" value={formData.kms} onChange={(v: any) => handleInputChange('kms', v)}/>
+                 <StableInput label="Kilómetros" icon={Car} type="number" value={formData.kms} onChange={(v: any) => handleInputChange('kms', v)}/>
                  <StableInput label="Dieta (€)" icon={Euro} type="number" value={formData.dieta} onChange={(v: any) => handleInputChange('dieta', v)}/>
                  <div className="flex items-center gap-2 pt-1.5">
                    <label className="flex items-center gap-2 text-xs font-black text-slate-600 cursor-pointer">
@@ -571,7 +558,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                   className={`w-full p-3 border border-slate-200 rounded-xl font-black transition-all flex items-center justify-center gap-2 active:scale-95 text-xs ${formData.location ? 'border-green-500 text-green-600 bg-green-50' : 'border-slate-100 hover:border-primary text-slate-400'}`}
                 >
                     {locationStatus === 'loading' ? <Loader2 className="animate-spin" size={14} /> : formData.location ? <CheckCircle2 size={14} /> : <MapPin size={14}/>}
-                    {formData.location ? `UBICACIÓN GPS REGISTRADA` : 'CAPTURAR UBICACIÓN GPS (OBLIGATORIO)'}
+                    {formData.location ? `COORDENADAS: ${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'VINCULAR UBICACIÓN GPS (REQUERIDO)'}
                 </button>
               </div>
            </div>

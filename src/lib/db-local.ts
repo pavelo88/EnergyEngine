@@ -10,17 +10,17 @@ import Dexie, { type Table } from 'dexie';
 
 export interface HojaTrabajoLocal {
   id?: number;           // Clave primaria autoincremental local
-  firebaseId?: string;   // ID del documento en Firestore (una vez sincronizado)
+  firebaseId?: string;   // ID del documento en Firestore (ej: 2026-AG-001)
   synced: boolean;       // Estado de sincronización
-  data: any;             // El objeto completo del informe (Hoja, Revisión o Técnico)
-  createdAt: Date;       // Fecha de creación local para ordenamiento
+  data: any;             // El objeto completo del informe
+  createdAt: Date;       // Fecha de creación local
 }
 
 export interface RegistroJornadaLocal {
   id?: number;
   firebaseId?: string;
   synced: boolean;
-  data: any;             // Datos de la jornada + firma del técnico
+  data: any;
   createdAt: Date;
 }
 
@@ -28,37 +28,52 @@ export interface GastoLocal {
   id?: number;
   firebaseId?: string;
   synced: boolean;
-  data: any;             // Datos del gasto + referencia a la imagen/ticket
+  data: any;
   createdAt: Date;
+}
+
+export interface LocalConfig {
+  key: string;           // Ej: 'contador_hoja-trabajo', 'contador_informe-tecnico'
+  value: any;            // El valor del contador
+}
+
+export interface ClienteCache {
+  id: string;            // ID de Firestore
+  nombre: string;        // Nombre comercial
+  direccion?: string;
 }
 
 // --- CLASE DE BASE DE DATOS ---
 
 export class LocalDB extends Dexie {
-  // Definición de las tablas (stores)
   hojas_trabajo!: Table<HojaTrabajoLocal>;
   registros_jornada!: Table<RegistroJornadaLocal>;
   gastos!: Table<GastoLocal>;
+  configuracion!: Table<LocalConfig>;
+  clientes_cache!: Table<ClienteCache>;
 
   constructor() {
-    // Nombre de la base de datos en el almacenamiento del navegador
     super('EnergyEngineDB');
 
-    /**
-     * Definición de esquemas e índices.
-     * Indices:
-     * - ++id: Clave primaria autoincremental.
-     * - firebaseId: Para buscar registros vinculados a la nube.
-     * - synced: Crucial para el motor de sincronización (filtra pendientes).
-     * - createdAt: Para ordenar el historial cronológicamente en el dispositivo.
-     */
-    this.version(1).stores({
+    this.version(2).stores({
       hojas_trabajo: '++id, firebaseId, synced, createdAt',
       registros_jornada: '++id, firebaseId, synced, createdAt',
-      gastos: '++id, firebaseId, synced, createdAt'
+      gastos: '++id, firebaseId, synced, createdAt',
+      configuracion: 'key',
+      clientes_cache: 'id, nombre'
     });
+  }
+
+  /**
+   * Obtiene y aumenta el contador para un tipo de documento
+   */
+  async getNextSequence(type: string): Promise<number> {
+    const key = `contador_${type}`;
+    const config = await this.configuracion.get(key);
+    const nextValue = (config?.value || 0) + 1;
+    await this.configuracion.put({ key, value: nextValue });
+    return nextValue;
   }
 }
 
-// Exportamos una única instancia singleton para toda la aplicación
 export const db = new LocalDB();
