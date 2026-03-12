@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, Suspense, useRef, useCallback } from 'react';
@@ -55,7 +56,6 @@ const InspectionPageContent = () => {
   useEffect(() => {
     setHasMounted(true);
     
-    // Registro del Service Worker
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').then(
@@ -93,14 +93,14 @@ const InspectionPageContent = () => {
             const { images, inspectorSignature, clientSignature, originalJobId, ...formDataForFirebase } = record.data;
             const docId = record.firebaseId || `SYNC-${Date.now()}`;
 
-            let inspectorSignatureUrl = null;
+            let inspectorSignatureUrl = record.data.inspectorSignatureUrl;
             if (inspectorSignature && inspectorSignature.startsWith('data:')) {
                 const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
                 await uploadString(inspRef, inspectorSignature, 'data_url');
                 inspectorSignatureUrl = await getDownloadURL(inspRef);
             }
 
-            let clientSignatureUrl = null;
+            let clientSignatureUrl = record.data.clientSignatureUrl;
             if (clientSignature && clientSignature.startsWith('data:')) {
                 const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
                 await uploadString(cliRef, clientSignature, 'data_url');
@@ -154,6 +154,13 @@ const InspectionPageContent = () => {
     if (activeInspectionForm) setActiveInspectionForm(null);
     else setActiveTab(TABS.MENU);
   }
+
+  const handleFormSuccess = () => {
+    setActiveInspectionForm(null);
+    setSelectedTask(null);
+    setAiData(null);
+    setActiveTab(TABS.TASKS);
+  };
 
   const handleInstallClick = () => {
     if (!installPrompt) return;
@@ -239,7 +246,7 @@ const InspectionPageContent = () => {
             case 'revision-basica': Component = RevisionBasicaFormLazy; break;
             default: Component = InformeTecnicoFormLazy;
         }
-        props = { initialData: selectedTask, aiData: aiData };
+        props = { initialData: selectedTask, aiData: aiData, onSuccess: handleFormSuccess };
     } else {
         switch (activeTab) {
             case TABS.TASKS: Component = TasksTabLazy; props = { onStartInspection: handleStartInspectionFromTask }; break;

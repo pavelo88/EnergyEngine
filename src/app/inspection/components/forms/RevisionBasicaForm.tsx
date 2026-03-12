@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc, updateDoc } from 'firebase/firestore';
@@ -11,11 +12,10 @@ import SignaturePad from '../SignaturePad';
 import { INITIAL_FORM_DATA } from '../../lib/form-constants';
 import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import { useOnlineStatus } from '@/hooks/use-online-status';
-import { db as dbLocal } from '@/lib/db-local'; // Corregido: alias para evitar colisión con useFirestore
+import { db as dbLocal } from '@/lib/db-local'; 
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
 
-// 1. Checklist específico y reducido para "Revisión Básica" (Sin filtros ni correas)
 const BASIC_REVISION_CHECKLIST = {
   "INSPECCIÓN EN EL MOTOR": ["Nivel de lubricante", "Indicador nivel refrigerante", "Correa del ventilador", "Filtro de combustible y prefiltro", "Filtro de aire", "Filtro de aceite y prefiltro de aceite", "Tubo de escape", "Circuito de refrigeración", "Circuito de lubricación", "Baterías", "Motor de arranque"],
   "INSPECCION EN EL ALTERNADOR": ["Placas de los bornes", "Regulador eléctrico", "Colector", "Rodamiento", "Ventilación", "Escobillas", "Maniobra"],
@@ -52,7 +52,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
 
-    // Márgenes Globales estrictos
     const leftMargin = 15;
     const rightMargin = 15;
     const topMargin = 40;
@@ -62,14 +61,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     let currentY = topMargin;
 
-    // 1. Título Principal
     doc.setTextColor(darkColor);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.text(`REVISIÓN BÁSICA - Nº: ${finalID}`, leftMargin, currentY);
     currentY += 6;
 
-    // 2. Tabla de Datos Generales
     autoTable(doc, {
         startY: currentY,
         body: [
@@ -88,7 +85,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     currentY = (doc as any).lastAutoTable.finalY + 6;
 
-    // 3. Tabla Checklist (Reducida)
     const colWidth = 28; 
     autoTable(doc, {
         startY: currentY,
@@ -110,10 +106,10 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
           const item = (data.row.raw as any[])[0];
           const status = report.checklist?.[item as string];
           if (status === 'DEFECTUOSO') {
-            data.cell.styles.fillColor = '#fee2e2'; // red-100
+            data.cell.styles.fillColor = '#fee2e2'; 
           }
           if (status === 'CAMBIO') {
-            data.cell.styles.fillColor = '#dcfce7'; // green-100
+            data.cell.styles.fillColor = '#dcfce7'; 
           }
         }, 
         styles: { fontSize: 7, cellPadding: 1.5, halign: 'center' },
@@ -134,7 +130,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         currentY = topMargin;
     }
 
-    // 4. Tabla de Recambios (Nueva)
     autoTable(doc, {
         startY: currentY,
         head: [['RECAMBIOS Y MATERIALES', 'REFERENCIA / CANTIDAD']],
@@ -162,7 +157,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         currentY = topMargin;
     }
 
-    // 5. Tabla de Pruebas
     autoTable(doc, {
         startY: currentY,
         body: [
@@ -186,7 +180,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     currentY = (doc as any).lastAutoTable.finalY + 8;
 
-    // 6. OBSERVACIONES
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(darkColor);
@@ -233,7 +226,6 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     currentY += 8;
 
-    // 7. FIRMAS
     const signatureBlockHeight = 45;
     if (currentY + signatureBlockHeight > pageHeight - bottomMargin) {
         doc.addPage();
@@ -267,15 +259,14 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     return doc;
 };
 
-export default function RevisionBasicaForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
+export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: { initialData?: any, aiData?: ProcessDictationOutput | null, onSuccess?: () => void }) {
   const { user } = useUser();
-  const firestore = useFirestore(); // Renombrado para evitar conflicto con local db
+  const firestore = useFirestore(); 
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
   const [images, setImages] = useState<File[]>([]);
   
-  // Extendemos INITIAL_FORM_DATA para incluir los recambios
   const [formData, setFormData] = useState<any>({
     ...INITIAL_FORM_DATA,
     formType: 'revision-basica',
@@ -431,19 +422,17 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
     }
   };
 
-  const handlePdfAction = () => {
-    if (!saving) {
-        const reportData = {
-          ...formData,
-          inspectorSignatureUrl: inspectorSignature,
-          clientSignatureUrl: clientSignature,
-        };
-        const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
-        if (isSaved) {
-            doc.save(`Revision_Basica_${savedDocId}.pdf`);
-        } else {
-            setPreviewPdfUrl(doc.output('datauristring'));
-        }
+  const handlePdfAction = (forceDownload = false) => {
+    const reportData = {
+      ...formData,
+      inspectorSignatureUrl: inspectorSignature,
+      clientSignatureUrl: clientSignature,
+    };
+    const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
+    if (isSaved || forceDownload) {
+        doc.save(`Revision_Basica_${savedDocId || 'Borrador'}.pdf`);
+    } else {
+        setPreviewPdfUrl(doc.output('datauristring'));
     }
   };
 
@@ -461,22 +450,6 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
 
     setSaving(true);
     
-    const updateOriginalJobStatus = async (jobId: string) => {
-      if (isOnline && firestore) {
-          try {
-              const jobRef = doc(firestore, 'trabajos', jobId);
-              await updateDoc(jobRef, { estado: 'Completado' });
-          } catch (updateError) {
-              console.error(`Failed to update job ${jobId} status:`, updateError);
-              toast({
-                  variant: "destructive",
-                  title: "Error de Actualización",
-                  description: `No se pudo marcar el trabajo ${jobId} como completado.`,
-              });
-          }
-      }
-    };
-
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
         const localData = { 
           ...formData, 
@@ -495,11 +468,23 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
             data: localData,
             createdAt: new Date(),
         });
+        
+        setSaving(false);
+        setSavedDocId(firebaseId || '');
+        setIsSaved(true);
+
         if (!synced) {
             toast({ title: 'Guardado localmente (sin conexión)', description: 'El informe se sincronizará cuando vuelvas a tener conexión.' });
         } else {
             toast({ title: '¡Guardado y Sincronizado!', description: `La revisión básica ha sido guardada con el ID: ${firebaseId}` });
         }
+
+        const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora?");
+        if (shouldDownload) {
+            handlePdfAction(true);
+        }
+        
+        if (onSuccess) onSuccess();
     };
 
     if (isOnline) {
@@ -521,7 +506,6 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
               })
           );
           
-          // Corrección Firmas Firebase Storage
           const inspectorRef = ref(storage, `firmas/${docId}/inspector.png`);
           await uploadString(inspectorRef, inspectorSignature!, 'data_url');
           const inspectorSignatureUrl = await getDownloadURL(inspectorRef);
@@ -545,12 +529,10 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
           await setDoc(doc(firestore, 'trabajos', docId), docData);
 
           if (initialData?.id) {
-            await updateOriginalJobStatus(initialData.id);
+            await updateDoc(doc(firestore, 'trabajos', initialData.id), { estado: 'Completado' });
           }
 
           await saveDataToLocal(true, docId);
-          setSavedDocId(docId);
-          setIsSaved(true);
 
       } catch (e: any) { 
         console.error("Error saving document:", e); 
@@ -559,7 +541,6 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
     } else {
       await saveDataToLocal(false);
     }
-    setSaving(false);
   };
   
   return (
@@ -704,7 +685,7 @@ export default function RevisionBasicaForm({ initialData, aiData }: { initialDat
 
             {/* --- ACCIONES --- */}
             <div className="flex flex-col md:flex-row gap-4">
-                <button onClick={handlePdfAction} disabled={saving} className="w-full p-6 bg-white text-slate-900 border-2 border-slate-200 rounded-lg font-bold text-base shadow-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
+                <button onClick={() => handlePdfAction(false)} disabled={saving} className="w-full p-6 bg-white text-slate-900 border-2 border-slate-200 rounded-lg font-bold text-base shadow-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
                     {isSaved ? <Printer size={20} /> : <FileSearch size={20} />}
                     {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
                 </button>

@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
@@ -138,7 +139,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 };
 
 
-export default function InformeTecnicoForm({ initialData, aiData }: { initialData?: any, aiData?: any }) {
+export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: { initialData?: any, aiData?: any, onSuccess?: () => void }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const isOnline = useOnlineStatus();
@@ -257,7 +258,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     } finally { setAiLoading(false); }
   };
 
-  const handlePdfAction = useCallback(() => {
+  const handlePdfAction = useCallback((forceDownload = false) => {
     if (!formData.cliente || !formData.instalacion) {
         toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Cliente e Instalación son obligatorios para generar PDF.' });
         return;
@@ -267,8 +268,13 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         try {
             const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature };
             const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
-            const uri = docPdf.output('datauristring');
-            setPreviewPdfUrl(uri);
+            
+            if (isSaved || forceDownload) {
+                docPdf.save(`Informe_Tecnico_${savedDocId || 'Borrador'}.pdf`);
+            } else {
+                const uri = docPdf.output('datauristring');
+                setPreviewPdfUrl(uri);
+            }
         } catch (e) {
             console.error("PDF preview error:", e);
             toast({ variant: 'destructive', title: 'Error PDF', description: 'No se pudo generar el documento.' });
@@ -303,6 +309,10 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
         if (!synced) (localData as any).inspectorSignature = inspectorSignature;
         await dbLocal.hojas_trabajo.add({ firebaseId: firebaseId || '', synced, data: localData, createdAt: new Date() });
         
+        setSaving(false);
+        setSavedDocId(firebaseId || '');
+        setIsSaved(true);
+
         if (synced) {
             toast({ title: '¡Informe Sincronizado!', description: `Guardado con éxito. ID: ${firebaseId}` });
         } else {
@@ -311,6 +321,13 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
               description: 'Error de red. Se sincronizará automáticamente después.' 
             });
         }
+
+        const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora?");
+        if (shouldDownload) {
+            handlePdfAction(true);
+        }
+        
+        if (onSuccess) onSuccess();
     };
     
     if (isOnline) {
@@ -345,8 +362,6 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
             if (initialData?.id) await updateDoc(doc(firestore, 'trabajos', initialData.id), { estado: 'Completado' });
 
             await saveDataToLocal(true, docId);
-            setSavedDocId(docId);
-            setIsSaved(true);
         } catch (e: any) { 
             console.error("Cloud save failed:", e);
             await saveDataToLocal(false);
@@ -354,7 +369,6 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
     } else {
       await saveDataToLocal(false);
     }
-    setSaving(false);
   };
 
   return (
@@ -421,7 +435,7 @@ export default function InformeTecnicoForm({ initialData, aiData }: { initialDat
       
       <div className="flex flex-col md:flex-row gap-3 pt-4">
         <button 
-            onClick={handlePdfAction} 
+            onClick={() => handlePdfAction(false)} 
             disabled={pdfLoading}
             className="w-full p-5 bg-white text-slate-900 border border-slate-200 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 active:scale-95 transition-all hover:border-primary shadow-md disabled:opacity-50"
         >

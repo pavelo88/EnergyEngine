@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
@@ -214,7 +215,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   return doc;
 };
 
-export default function HojaTrabajoForm({ initialData, aiData }: { initialData?: any, aiData?: any }) {
+export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { initialData?: any, aiData?: any, onSuccess?: () => void }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const isOnline = useOnlineStatus();
@@ -283,12 +284,10 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
-  // Cargar Clientes y Datos de Usuario
   useEffect(() => {
     const fetchData = async () => {
         if (!firestore) return;
         
-        // 1. Cargar Clientes
         try {
             const snap = await getDocs(collection(firestore, 'clientes'));
             const clientList = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -299,7 +298,6 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
             setClients(cached);
         }
 
-        // 2. Datos de Usuario e Iniciales
         if (user && user.email) {
             const userDocSnap = await getDoc(doc(firestore, 'usuarios', user.email));
             if (userDocSnap.exists()) {
@@ -307,7 +305,6 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
                 setInspectorName(userData.nombre);
                 setFormData(p => ({ ...p, tecnicos: userData.nombre }));
                 
-                // Generar iniciales
                 const names = userData.nombre.split(' ');
                 const initials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
                 setInspectorInitials(initials);
@@ -397,7 +394,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     }
   };
 
-  const handlePdfAction = () => {
+  const handlePdfAction = (forceDownload = false) => {
     if (!formData.clienteId) {
         toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Seleccione un Cliente para previsualizar.' });
         return;
@@ -409,15 +406,15 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: clientSignature };
         const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
         
-        if (isSaved) {
-            docPdf.save(`Hoja_Trabajo_${savedDocId}.pdf`);
+        if (isSaved || forceDownload) {
+            docPdf.save(`Hoja_Trabajo_${savedDocId || 'Borrador'}.pdf`);
         } else {
             const uri = docPdf.output('datauristring');
             setPreviewPdfUrl(uri);
         }
       } catch (e) {
         console.error("Fallo al generar PDF:", e);
-        toast({ variant: "destructive", title: "Error de PDF", description: "No se pudo generar la vista previa." });
+        toast({ variant: "destructive", title: "Error de PDF", description: "No se pudo generar el documento." });
       } finally {
         setPdfLoading(false);
       }
@@ -438,7 +435,6 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
 
     setSaving(true);
 
-    // 1. Generar ID Secuencial por Usuario (YYYY-CODE-XXX)
     const sequence = await dbLocal.getNextSequence('hoja-trabajo');
     const year = new Date().getFullYear();
     const docId = `HT-${year}-${inspectorInitials}-${sequence.toString().padStart(3, '0')}`;
@@ -458,8 +454,17 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
         
         setSavedDocId(firebaseId);
         setIsSaved(true);
+        setSaving(false);
+
         if (synced) toast({ title: '¡Sincronizado!', description: `Informe guardado con ID: ${firebaseId}` });
         else toast({ title: 'Guardado Localmente', description: `Informe registrado como ${firebaseId}. Se subirá al recuperar conexión.` });
+
+        const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora?");
+        if (shouldDownload) {
+            handlePdfAction(true);
+        }
+        
+        if (onSuccess) onSuccess();
     };
 
     if (isOnline && firestore) {
@@ -496,7 +501,6 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
     } else {
         await saveDataToLocal(false, docId);
     }
-    setSaving(false);
   };
 
   return (
@@ -662,7 +666,7 @@ export default function HojaTrabajoForm({ initialData, aiData }: { initialData?:
 
       <div className="flex flex-col md:flex-row gap-3 pt-4">
           <button 
-            onClick={handlePdfAction} 
+            onClick={() => handlePdfAction(false)} 
             disabled={pdfLoading}
             className="w-full p-5 bg-white border border-slate-200 rounded-2xl font-bold flex items-center justify-center gap-3 hover:border-primary transition-all text-slate-700 shadow-md active:scale-95 disabled:opacity-50 text-sm"
           >

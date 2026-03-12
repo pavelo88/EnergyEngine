@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
@@ -198,7 +199,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 };
 
 
-export default function InformeSimplificadoForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
+export default function InformeSimplificadoForm({ initialData, aiData, onSuccess }: { initialData?: any, aiData?: ProcessDictationOutput | null, onSuccess?: () => void }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const isOnline = useOnlineStatus();
@@ -316,7 +317,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
   
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files) setImages(p => [...p, ...Array.from(e.target.files!)]); };
 
-  const handlePdfAction = () => {
+  const handlePdfAction = (forceDownload = false) => {
     if (!formData.cliente || !formData.instalacion) {
         toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Complete campos principales para previsualizar.' });
         return;
@@ -326,7 +327,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
         try {
             const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: clientSignature };
             const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
-            if (isSaved) docPdf.save(`Informe_Simplificado_${savedDocId}.pdf`); 
+            if (isSaved || forceDownload) docPdf.save(`Informe_Simplificado_${savedDocId || 'Borrador'}.pdf`); 
             else setPreviewPdfUrl(docPdf.output('datauristring'));
         } catch (e) {
             console.error("Fallo PDF:", e);
@@ -363,8 +364,20 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
         const localData = { ...formData, formType: 'informe-simplificado', originalJobId: initialData?.id || null };
         if (!synced) { (localData as any).images = images; (localData as any).inspectorSignature = inspectorSignature; (localData as any).clientSignature = clientSignature; }
         await dbLocal.hojas_trabajo.add({ firebaseId: firebaseId || '', synced, data: localData, createdAt: new Date() });
+        
+        setSaving(false);
+        setSavedDocId(firebaseId || '');
+        setIsSaved(true);
+
         if (synced) toast({ title: '¡Guardado!', description: `Documento ID: ${firebaseId}` });
         else toast({ title: 'Guardado Local', description: 'Se sincronizará al recuperar red.' });
+
+        const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora?");
+        if (shouldDownload) {
+            handlePdfAction(true);
+        }
+        
+        if (onSuccess) onSuccess();
     };
 
     if (isOnline) {
@@ -392,10 +405,8 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
             if (initialData?.id) await updateOriginalJobStatus(initialData.id);
 
             await saveDataToLocal(true, docId);
-            setSavedDocId(docId); setIsSaved(true);
         } catch (error) { console.error("Error Firebase:", error); await saveDataToLocal(false); }
     } else { await saveDataToLocal(false); }
-    setSaving(false);
   };
   
   return (
@@ -494,7 +505,7 @@ export default function InformeSimplificadoForm({ initialData, aiData }: { initi
 
             <div className="flex flex-col md:flex-row gap-3 pt-4">
                 <button 
-                    onClick={handlePdfAction} 
+                    onClick={() => handlePdfAction(false)} 
                     disabled={pdfLoading}
                     className="w-full p-5 bg-white border border-slate-200 rounded-2xl font-bold flex items-center justify-center gap-3 active:scale-95 transition-all shadow-md disabled:opacity-50"
                 >

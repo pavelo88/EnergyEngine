@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
@@ -231,7 +232,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   return doc;
 };
 
-export default function InformeRevisionForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
+export default function InformeRevisionForm({ initialData, aiData, onSuccess }: { initialData?: any, aiData?: ProcessDictationOutput | null, onSuccess?: () => void }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const isOnline = useOnlineStatus();
@@ -365,7 +366,7 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
     );
   };
   
-  const handlePdfAction = () => {
+  const handlePdfAction = (forceDownload = false) => {
     if (!formData.cliente || !formData.instalacion) {
         toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Complete Cliente e Instalación para ver la vista previa.' });
         return;
@@ -380,8 +381,8 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
               clientSignatureUrl: clientSignature,
             };
             const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
-            if (isSaved) {
-                doc.save(`Informe_Revision_${savedDocId}.pdf`);
+            if (isSaved || forceDownload) {
+                doc.save(`Informe_Revision_${savedDocId || 'Borrador'}.pdf`);
             } else {
                 setPreviewPdfUrl(doc.output('datauristring'));
             }
@@ -424,17 +425,6 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
     }
     setSaving(true);
 
-    const updateOriginalJobStatus = async (jobId: string) => {
-      if (isOnline && firestore) {
-          try {
-              const jobRef = doc(firestore, 'trabajos', jobId);
-              await updateDoc(jobRef, { estado: 'Completado' });
-          } catch (updateError) {
-              console.error(`Error al actualizar trabajo original:`, updateError);
-          }
-      }
-    };
-
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
         const localData = { 
           ...formData, 
@@ -452,11 +442,23 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
             data: localData,
             createdAt: new Date(),
         });
+        
+        setSaving(false);
+        setSavedDocId(firebaseId || '');
+        setIsSaved(true);
+
         if (!synced) {
             toast({ title: 'Guardado Local', description: 'Error de red. El informe se sincronizará automáticamente después.' });
         } else {
             toast({ title: '¡Informe Guardado!', description: `Documento sincronizado con ID: ${firebaseId}` });
         }
+
+        const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora?");
+        if (shouldDownload) {
+            handlePdfAction(true);
+        }
+        
+        if (onSuccess) onSuccess();
     };
 
     if (isOnline) {
@@ -471,13 +473,6 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
 
             const storage = getStorage();
 
-            const safeInspectorSignature = inspectorSignature;
-            const safeClientSignature = clientSignature;
-
-            if (!safeInspectorSignature || !safeClientSignature) {
-                throw new Error("Las firmas han desaparecido antes de la subida.");
-            }
-
             const imageUrls = await Promise.all(images.map(async (image) => {
                 const imageRef = ref(storage, `informes/${docId}/${image.name}`);
                 await uploadBytes(imageRef, image);
@@ -485,11 +480,11 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
             }));
             
             const inspectorSignatureRef = ref(storage, `firmas/${docId}/inspector.png`);
-            await uploadString(inspectorSignatureRef, safeInspectorSignature, 'data_url');
+            await uploadString(inspectorSignatureRef, inspectorSignature!, 'data_url');
             const inspectorSignatureUrl = await getDownloadURL(inspectorSignatureRef);
 
             const clientSignatureRef = ref(storage, `firmas/${docId}/cliente.png`);
-            await uploadString(clientSignatureRef, safeClientSignature, 'data_url');
+            await uploadString(clientSignatureRef, clientSignature!, 'data_url');
             const clientSignatureUrl = await getDownloadURL(clientSignatureRef);
 
             const docData = {
@@ -501,12 +496,10 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
             await setDoc(doc(firestore, 'trabajos', docId), docData);
 
             if (initialData?.id) {
-              await updateOriginalJobStatus(initialData.id);
+              await updateDoc(doc(firestore, 'trabajos', initialData.id), { estado: 'Completado' });
             }
 
             await saveDataToLocal(true, docId);
-            setSavedDocId(docId);
-            setIsSaved(true);
 
         } catch (error) {
             console.error("Fallo al guardar en la nube:", error);
@@ -515,7 +508,6 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
     } else {
         await saveDataToLocal(false);
     }
-    setSaving(false);
   };
 
   return (
@@ -648,7 +640,7 @@ export default function InformeRevisionForm({ initialData, aiData }: { initialDa
             {/* --- ACCIONES --- */}
             <div className="flex flex-col md:flex-row gap-3 pt-4">
                 <button 
-                    onClick={handlePdfAction} 
+                    onClick={() => handlePdfAction(false)} 
                     disabled={pdfLoading} 
                     className="w-full p-5 bg-white text-slate-900 border border-slate-200 rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-3 active:scale-95 transition-all hover:border-primary disabled:opacity-50"
                 >
