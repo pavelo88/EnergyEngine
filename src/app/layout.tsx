@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
@@ -12,6 +12,22 @@ export const metadata: Metadata = {
   description:
     'Especialistas en mantenimiento industrial para infraestructuras de alta exigencia.',
   manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Energy Engine',
+  },
+  icons: {
+    apple: '/icon-192x192.png',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#10b981',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -25,10 +41,8 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
-        <meta name="theme-color" content="#10b981" />
-        <link rel="apple-touch-icon" href="/icon.svg" />
-        {/* Ajuste para evitar errores de CORS en el manifiesto durante desarrollo */}
-        <link rel="manifest" href="/manifest.json" crossOrigin="use-credentials" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className={cn('min-h-screen font-body antialiased')}>
         <ThemeProvider

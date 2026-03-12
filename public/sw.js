@@ -1,71 +1,42 @@
-// Service Worker robusto para Energy Engine
-const CACHE_NAME = 'energy-engine-v2';
-const assetsToCache = [
+const CACHE_NAME = 'energy-engine-v1';
+const ASSETS_TO_CACHE = [
   '/',
+  '/inspection',
   '/manifest.json',
-  '/icon.svg'
+  '/logo.png',
+  '/logo2.png',
+  '/icon-192x192.png',
+  '/icon-512x512.png'
 ];
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(assetsToCache).catch(() => {
-        console.log('Fallo al cachear algunos recursos iniciales, se intentará luego.');
-      });
+      return cache.addAll(ASSETS_TO_CACHE);
+    })
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request).then((response) => {
+      // Devuelve caché si existe, si no, busca en la red
+      return response || fetch(event.request);
     })
   );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim());
-});
-
-self.addEventListener('fetch', (event) => {
-  // NO interceptar peticiones de Firebase, APIs externas o Workstations internos
-  const url = new URL(event.request.url);
-  if (
-    event.request.method !== 'GET' ||
-    url.origin !== self.location.origin ||
-    url.pathname.includes('_workstation') ||
-    url.pathname.includes('firebase') ||
-    url.hostname.includes('googleapis')
-  ) {
-    return;
-  }
-
-  event.respondWith(
-    (async () => {
-      try {
-        const cachedResponse = await caches.match(event.request);
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        
-        const networkResponse = await fetch(event.request);
-        
-        // Solo cachear respuestas válidas del mismo origen
-        if (networkResponse && networkResponse.status === 200) {
-          const cache = await caches.open(CACHE_NAME);
-          cache.put(event.request, networkResponse.clone());
-        }
-        
-        return networkResponse;
-      } catch (error) {
-        // Fallback para navegación offline
-        if (event.request.mode === 'navigate') {
-          const cache = await caches.open(CACHE_NAME);
-          const offlinePage = await cache.match('/');
-          if (offlinePage) return offlinePage;
-        }
-        
-        // Devolver una respuesta vacía válida en lugar de fallar
-        return new Response('No disponible sin conexión', {
-          status: 503,
-          statusText: 'Service Unavailable',
-          headers: new Headers({ 'Content-Type': 'text/plain' })
-        });
-      }
-    })()
+  const cacheWhitelist = [CACHE_NAME];
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheWhitelist.indexOf(cacheName) === -1) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
   );
 });

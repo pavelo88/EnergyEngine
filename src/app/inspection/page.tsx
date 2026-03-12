@@ -54,6 +54,21 @@ const InspectionPageContent = () => {
 
   useEffect(() => {
     setHasMounted(true);
+    
+    // Registro del Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then(
+          (registration) => {
+            console.log('SW registrado con éxito:', registration.scope);
+          },
+          (err) => {
+            console.log('Fallo en registro de SW:', err);
+          }
+        );
+      });
+    }
+
     if (typeof window !== "undefined") {
       const handleInstallPrompt = (e: any) => {
           e.preventDefault();
