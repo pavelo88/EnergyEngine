@@ -1,9 +1,11 @@
+
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { User, PenTool, Trash2, Save, CheckCircle2, LogOut } from 'lucide-react';
+import { User, PenTool, Trash2, Save, CheckCircle2, LogOut, WifiOff } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 
 export default function ProfileTab() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -11,6 +13,7 @@ export default function ProfileTab() {
   const [hasSignature, setHasSignature] = useState(false);
   const [savedSignature, setSavedSignature] = useState<string | null>(null);
   const auth = useAuth();
+  const isOnline = useOnlineStatus();
 
   // Cargar firma previa si existe
   useEffect(() => {
@@ -28,7 +31,6 @@ export default function ProfileTab() {
     const scale = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     
-    // Solo ajustar si el canvas no ha sido escalado aún
     if (canvas.width !== rect.width * scale) {
         canvas.width = rect.width * scale;
         canvas.height = rect.height * scale;
@@ -36,11 +38,10 @@ export default function ProfileTab() {
         
         ctx.lineWidth = 3;
         ctx.lineCap = 'round';
-        ctx.strokeStyle = '#0f172a'; // Slate-900
+        ctx.strokeStyle = '#0f172a';
     }
   }, []);
 
-  // --- LÓGICA DE DIBUJO (MOUSE Y TOUCH MEJORADA) ---
   const getPos = (e: any) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -55,7 +56,7 @@ export default function ProfileTab() {
   };
 
   const startDrawing = (e: any) => {
-    e.preventDefault(); // Prevenir scroll en móviles
+    e.preventDefault();
     setIsDrawing(true);
     const pos = getPos(e);
     const ctx = canvasRef.current?.getContext('2d');
@@ -74,7 +75,7 @@ export default function ProfileTab() {
 
   const draw = (e: any) => {
     if (!isDrawing || !canvasRef.current) return;
-    e.preventDefault(); // Prevenir scroll en móviles
+    e.preventDefault();
     
     const pos = getPos(e);
     const ctx = canvasRef.current.getContext('2d');
@@ -91,7 +92,6 @@ export default function ProfileTab() {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (canvas && ctx) {
-      // Limpiar considerando el escalado de alta resolución
       ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
       setHasSignature(false);
     }
@@ -109,15 +109,24 @@ export default function ProfileTab() {
     alert("Firma guardada correctamente en el dispositivo.");
   };
 
+  const handleLogout = async () => {
+    if (!isOnline) {
+      alert("AVISO CRÍTICO: No puedes cerrar sesión mientras estás sin conexión. Si sales ahora, no podrás volver a entrar hasta recuperar el internet.");
+      return;
+    }
+    if (confirm("¿Estás seguro de que deseas cerrar sesión? Asegúrate de haber guardado todos tus trabajos.")) {
+      await signOut(auth);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* TARJETA DE USUARIO */}
       <section className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-4">
         <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
           <User size={32} />
         </div>
         <div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inspector RTS Conectado</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Técnico RTS Registrado</p>
           <h2 className="text-xl font-black text-slate-900 tracking-tight">
             {auth.currentUser?.displayName?.toUpperCase() || auth.currentUser?.email?.split('@')[0].toUpperCase() || 'TÉCNICO ENERGY'}
           </h2>
@@ -125,11 +134,10 @@ export default function ProfileTab() {
         </div>
       </section>
 
-      {/* SECCIÓN DE FIRMA BIOMÉTRICA */}
       <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
         <div className="flex justify-between items-center">
           <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">
-            <PenTool size={18} className="text-primary" /> Firma del Inspector
+            <PenTool size={18} className="text-primary" /> Firma Digital
           </h3>
           {savedSignature && (
             <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full">
@@ -152,7 +160,7 @@ export default function ProfileTab() {
           />
           {!hasSignature && !savedSignature && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-300 text-xs font-bold uppercase tracking-widest">
-              Dibuje su firma aquí
+              Firme aquí para reportes
             </div>
           )}
         </div>
@@ -168,24 +176,21 @@ export default function ProfileTab() {
             onClick={saveSignature}
             className="flex-1 flex items-center justify-center gap-2 p-4 rounded-2xl font-black text-white bg-slate-900 shadow-lg active:scale-95 transition-all text-xs"
           >
-            <Save size={16} className="text-primary" /> GUARDAR FIRMA
+            <Save size={16} className="text-primary" /> GUARDAR
           </button>
         </div>
-
-        {savedSignature && (
-          <div className="pt-4 border-t border-slate-50 text-center">
-            <p className="text-[10px] font-bold text-slate-400 uppercase mb-3">Vista previa guardada:</p>
-            <img src={savedSignature} alt="Firma Guardada" className="h-16 mx-auto opacity-70 grayscale" />
-          </div>
-        )}
       </section>
 
-      {/* BOTÓN DE CIERRE DE SESIÓN */}
       <button 
-        onClick={() => signOut(auth)}
-        className="w-full p-6 flex items-center justify-center gap-3 text-red-500 font-black text-xs uppercase tracking-widest bg-red-50 rounded-[2rem] border border-red-100 hover:bg-red-100 transition-colors"
+        onClick={handleLogout}
+        className={`w-full p-6 flex items-center justify-center gap-3 font-black text-xs uppercase tracking-widest rounded-[2rem] border transition-all ${
+          isOnline 
+          ? 'text-red-500 bg-red-50 border-red-100 hover:bg-red-100' 
+          : 'text-slate-400 bg-slate-50 border-slate-100 opacity-70 cursor-not-allowed'
+        }`}
       >
-        <LogOut size={18} /> Finalizar Jornada / Salir
+        {isOnline ? <LogOut size={18} /> : <WifiOff size={18} />}
+        {isOnline ? 'Cerrar Sesión' : 'Logout Bloqueado (Sin Red)'}
       </button>
     </div>
   );

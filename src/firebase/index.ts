@@ -1,41 +1,33 @@
+
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
+// IMPORTANT: DO NOT MODIFY THIS FUNCTION LOGIC UNLESS FOR PERSISTENCE
 export function initializeFirebase() {
   let firebaseApp: FirebaseApp;
 
   if (!getApps().length) {
-    // Always initialize with the config object.
-    // The automatic detection was failing in the development environment.
     firebaseApp = initializeApp(firebaseConfig);
   } else {
     firebaseApp = getApp();
   }
 
-  const firestore = getFirestore(firebaseApp);
+  const auth = getAuth(firebaseApp);
   
-  // enableMultiTabIndexedDbPersistence(firestore).catch((err) => {
-  //   if (err.code == 'failed-precondition') {
-  //       // Multiple tabs open, persistence can only be enabled
-  //       // in one tab at a a time.
-  //       // ...
-  //   } else if (err.code == 'unimplemented') {
-  //       // The current browser does not support all of the
-  //       // features required to enable persistence
-  //       // ...
-  //   }
-  // });
+  // Set Auth persistence to LOCAL to allow offline access
+  setPersistence(auth, browserLocalPersistence).catch((error) => {
+    console.error("Auth persistence error:", error);
+  });
 
   return {
     firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore,
+    auth,
+    firestore: getFirestore(firebaseApp),
     storage: getStorage(firebaseApp),
   };
 }
