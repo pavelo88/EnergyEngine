@@ -53,13 +53,19 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
         
         // 1. Fetch de la nube si hay red
         if (isOnline) {
-          const qAssigned = query(collection(db, "trabajos"), where("inspectorIds", "array-contains", user.email));
-          const qCreated = query(collection(db, "trabajos"), where("tecnicoId", "==", user.email));
+          const qAssigned = query(collection(db, "ordenes_trabajo"), where("inspectorIds", "array-contains", user.email));
+          const qCreated = query(collection(db, "ordenes_trabajo"), where("tecnicoId", "==", user.email));
+          const qInformes = query(collection(db, "informes"), where("inspectorId", "==", user.email));
           
-          const [assignedSnap, createdSnap] = await Promise.all([getDocs(qAssigned), getDocs(qCreated)]);
+          const [assignedSnap, createdSnap, informesSnap] = await Promise.all([
+            getDocs(qAssigned), 
+            getDocs(qCreated),
+            getDocs(qInformes)
+          ]);
           
           assignedSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true } as Task));
           createdSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true } as Task));
+          informesSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true } as Task));
         }
 
         // 2. Fetch de la DB local (Dexie)

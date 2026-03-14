@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
@@ -15,22 +14,8 @@ import { db as dbLocal } from '@/lib/db-local';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
-  <div className="space-y-1 w-full text-left">
-    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
-    <div className="relative group">
-      {Icon && <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={14}/>}
-      <input 
-        type={type}
-        value={value || ''}
-        onChange={(e: any) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={`w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 ${Icon ? 'pl-10' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-xs`}
-      />
-    </div>
-  </div>
-));
+import ClientSelector from '../ClientSelector';
+import StableInput from '../StableInput';
 
 const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
     <div className="flex flex-col items-center gap-1">
@@ -39,7 +24,7 @@ const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
             type="text" 
             value={value || ''} 
             onChange={(e: any) => onChange(e.target.value)}
-            className="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-xs text-center"
+            className="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 outline-none focus:border-primary focus:bg-white transition-all font-bold text-black shadow-sm text-xs text-center"
         />
     </div>
 ));
@@ -222,7 +207,6 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
   const [inspectorInitials, setInspectorInitials] = useState('EE');
-  const [clients, setClients] = useState<any[]>([]);
   const [images, setImages] = useState<File[]>([]);
   
   const [formData, setFormData] = useState({
@@ -287,16 +271,6 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
   useEffect(() => {
     const fetchData = async () => {
         if (!firestore) return;
-        
-        try {
-            const snap = await getDocs(collection(firestore, 'clientes'));
-            const clientList = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setClients(clientList);
-            await dbLocal.clientes_cache.bulkPut(clientList as any);
-        } catch (e) {
-            const cached = await dbLocal.clientes_cache.toArray();
-            setClients(cached);
-        }
 
         if (user && user.email) {
             const userDocSnap = await getDoc(doc(firestore, 'usuarios', user.email));
@@ -329,21 +303,31 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
     }
   }, [initialData]);
 
+  useEffect(() => {
+    if (aiData) {
+      setFormData(prev => ({
+        ...prev,
+        cliente: aiData.identidad?.cliente || prev.cliente,
+        motor: aiData.identidad?.marca || prev.motor,
+        n_motor: aiData.identidad?.sn || prev.n_motor,
+        instalacion: aiData.identidad?.instalacion || prev.instalacion,
+        trabajos_realizados: aiData.observations_summary || prev.trabajos_realizados,
+      }));
+    }
+  }, [aiData]);
+
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev: any) => ({...prev, [field]: value }));
   };
   
-  const handleClientSelect = (clientId: string) => {
-    const selected = clients.find(c => c.id === clientId);
-    if (selected) {
-        setFormData(p => ({ 
-            ...p, 
-            clienteId: clientId, 
-            clienteNombre: selected.nombre,
-            cliente: selected.nombre,
-            instalacion: selected.direccion || p.instalacion 
-        }));
-    }
+  const handleClientSelect = (client: any) => {
+    setFormData(p => ({ 
+        ...p, 
+        clienteId: client.id, 
+        clienteNombre: client.nombre,
+        cliente: client.nombre,
+        instalacion: client.direccion || p.instalacion 
+    }));
   };
 
   const handleNestedInputChange = (section: 'parametrosTecnicos' | 'potenciaConCarga', field: string, value: string) => {
@@ -394,7 +378,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
     }
   };
 
-  const handlePdfAction = (forceDownload = false) => {
+  const handlePdfAction = (forceDownload = false, docIdOverride?: string) => {
     if (!formData.clienteId) {
         toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Seleccione un Cliente para previsualizar.' });
         return;
@@ -404,13 +388,15 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
     setTimeout(() => {
       try {
         const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: clientSignature };
-        const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
+        const finalId = docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
+        const docPdf = generatePDF(reportData, inspectorName, finalId);
         
         if (isSaved || forceDownload) {
-            docPdf.save(`Hoja_Trabajo_${savedDocId || 'Borrador'}.pdf`);
+            docPdf.save(`Hoja_Trabajo_${finalId}.pdf`);
         } else {
-            const uri = docPdf.output('datauristring');
-            setPreviewPdfUrl(uri);
+            const blob = docPdf.output('blob');
+            const url = URL.createObjectURL(blob);
+            setPreviewPdfUrl(url);
         }
       } catch (e) {
         console.error("Fallo al generar PDF:", e);
@@ -436,8 +422,8 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
     setSaving(true);
 
     const sequence = await dbLocal.getNextSequence('hoja-trabajo');
-    const year = new Date().getFullYear();
-    const docId = `HT-${year}-${inspectorInitials}-${sequence.toString().padStart(3, '0')}`;
+    // Generar ID con la Inicial del Inspector y 4 dígitos secuenciales (reseteados anualmente según dbLocal)
+    const docId = `HT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
 
     const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
         const localData = { ...formData, originalJobId: initialData?.id || null };
@@ -461,7 +447,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
 
         const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora?");
         if (shouldDownload) {
-            handlePdfAction(true);
+            handlePdfAction(true, firebaseId);
         }
         
         if (onSuccess) onSuccess();
@@ -486,12 +472,14 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
             
             const docData = {
                 ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl,
-                tecnicoId: user.email, tecnicoNombre: inspectorName,
+                inspectorId: user.email, inspectorNombre: inspectorName,
+                inspectorIds: initialData?.inspectorIds || [user.email],
+                inspectorNombres: initialData?.inspectorNombres || [inspectorName],
                 fecha_creacion: Timestamp.now(), id: docId, estado: 'Completado',
             };
             
-            await setDoc(doc(firestore, 'trabajos', docId), docData);
-            if (initialData?.id) await updateDoc(doc(firestore, 'trabajos', initialData.id), { estado: 'Completado' });
+            await setDoc(doc(firestore, 'informes', docId), docData);
+            if (initialData?.id) await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
             
             await saveDataToLocal(true, docId);
         } catch (error: any) {
@@ -504,34 +492,34 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full bg-slate-50">
-      <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
-        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden">
-          <DialogHeader className="p-4 border-b bg-white">
-            <DialogTitle className="font-black uppercase tracking-tighter">Borrador de Informe Técnico</DialogTitle>
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full bg-white">
+      <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => {
+        if (!isOpen && previewPdfUrl) {
+          URL.revokeObjectURL(previewPdfUrl);
+          setPreviewPdfUrl(null);
+        }
+      }}>
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border-slate-100 bg-white">
+          <DialogHeader className="p-6 border-b border-slate-100 bg-white">
+            <DialogTitle className="font-black uppercase tracking-tighter text-black">Borrador de Informe Técnico</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">Previsualice el documento antes de realizar el guardado final.</DialogDescription>
           </DialogHeader>
-          <div className="flex-1 bg-slate-200">
-            {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full border-none" title="PDF Preview" />}
+          <div className="flex-1 bg-slate-100">
+            {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full object-contain border-none" title="PDF Preview" />}
           </div>
         </DialogContent>
       </Dialog>
       
-      <main className="space-y-6">
-        <h2 className="text-xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Hoja de Trabajo</h2>
+      <main className="space-y-6 pb-20">
+        <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Hoja de Trabajo</h2>
       
         <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-4 border border-slate-100">
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="lg:col-span-2 space-y-2 text-left">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Cliente Base</label>
-                <Select value={formData.clienteId} onValueChange={handleClientSelect}>
-                    <SelectTrigger className="w-full bg-slate-50 border border-slate-200 rounded-xl p-6 font-bold h-12">
-                        <SelectValue placeholder="SELECCIONAR CLIENTE..." />
-                    </SelectTrigger>
-                    <SelectContent className='rounded-xl'>
-                        {clients.map(c => <SelectItem key={c.id} value={c.id} className='font-bold uppercase text-xs'>{c.nombre}</SelectItem>)}
-                    </SelectContent>
-                </Select>
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Cliente Base</label>
+                <div className="bg-white border border-slate-100 rounded-2xl">
+                    <ClientSelector onSelect={handleClientSelect} selectedClientId={formData.clienteId} />
+                </div>
                 
                 <StableInput label="Instalación / Sede" icon={MapPin} value={formData.instalacion} onChange={(v: any) => handleInputChange('instalacion', v)}/>
                 <StableInput label="Motor / Equipo" icon={Settings} value={formData.motor} onChange={(v: any) => handleInputChange('motor', v)}/>
@@ -549,7 +537,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
                  <StableInput label="Dieta (€)" icon={Euro} type="number" value={formData.dieta} onChange={(v: any) => handleInputChange('dieta', v)}/>
                  <div className="flex items-center gap-2 pt-1.5">
                    <label className="flex items-center gap-2 text-xs font-black text-slate-600 cursor-pointer">
-                      <input type="checkbox" checked={formData.media_dieta} onChange={(e: any) => handleInputChange('media_dieta', e.target.checked)} className="form-checkbox h-4 w-4 text-primary rounded border-2" />
+                      <input type="checkbox" checked={formData.media_dieta} onChange={(e: any) => handleInputChange('media_dieta', e.target.checked)} className="form-checkbox h-4 w-4 text-primary rounded border border-slate-200" />
                       1/2 DIETA
                    </label>
                    {formData.media_dieta && <StableInput label="Cantidad" type="number" value={formData.media_dieta_cantidad} onChange={(v: any) => handleInputChange('media_dieta_cantidad', v)}/>}
@@ -559,9 +547,9 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
                 <button 
                   onClick={handleCaptureLocation} 
                   disabled={locationStatus === 'loading'}
-                  className={`w-full p-3 border border-slate-200 rounded-xl font-black transition-all flex items-center justify-center gap-2 active:scale-95 text-xs ${formData.location ? 'border-green-500 text-green-600 bg-green-50' : 'border-slate-100 hover:border-primary text-slate-400'}`}
+                  className={`w-full p-4 border rounded-xl font-black transition-all flex items-center justify-center gap-2 active:scale-95 text-xs ${formData.location ? 'border-emerald-500/50 text-emerald-500 bg-emerald-500/10' : 'border-slate-100 hover:border-primary text-slate-400'}`}
                 >
-                    {locationStatus === 'loading' ? <Loader2 className="animate-spin" size={14} /> : formData.location ? <CheckCircle2 size={14} /> : <MapPin size={14}/>}
+                    {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={14} /> : formData.location ? <CheckCircle2 size={14} className="text-emerald-500"/> : <MapPin size={14}/>}
                     {formData.location ? `COORDENADAS: ${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'VINCULAR UBICACIÓN GPS (REQUERIDO)'}
                 </button>
               </div>
@@ -569,7 +557,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
         </section>
         
         <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-4 border border-slate-100">
-            <h2 className="text-lg font-black flex items-center gap-2 uppercase tracking-tighter"><Settings className="text-primary" size={18}/> Parámetros Técnicos</h2>
+            <h2 className="text-lg font-black flex items-center gap-2 uppercase tracking-tighter text-black"><Settings className="text-primary" size={18}/> Parámetros Técnicos</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 <StableInput icon={Clock} label="Horas" value={formData.parametrosTecnicos.horas} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'horas', v)} />
                 <StableInput icon={Gauge} label="Presión Aceite" value={formData.parametrosTecnicos.presionAceite} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'presionAceite', v)} />
@@ -584,7 +572,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
         </section>
 
         <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-4 border border-slate-100">
-          <h2 className="text-lg font-black flex items-center gap-2 uppercase tracking-tighter"><Zap className="text-primary" size={18}/> Potencia con carga</h2>
+          <h2 className="text-lg font-black flex items-center gap-2 uppercase tracking-tighter text-black"><Zap className="text-primary" size={18}/> Potencia con carga</h2>
           <div className="grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-3 items-end">
               <div className="md:col-span-3">
                 <StableInput label="Potencia con carga" value={formData.potenciaConCarga.potencia} onChange={(v: any) => handleNestedInputChange('potenciaConCarga', 'potencia', v)} />
@@ -614,7 +602,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
 
         <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-4 border border-slate-100">
           <div className="flex justify-between items-center">
-              <h2 className="text-lg font-black uppercase tracking-tighter">Trabajos Realizados</h2>
+              <h2 className="text-lg font-black uppercase tracking-tighter text-black">Trabajos Realizados</h2>
               <button 
                 onClick={improveReport} 
                 disabled={aiLoading} 
@@ -625,18 +613,18 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
               </button>
           </div>
           <textarea 
-            className="w-full h-40 bg-slate-50 border border-slate-200 rounded-xl p-4 resize-none font-medium text-slate-600 outline-none focus:border-primary transition-all shadow-inner text-sm" 
+            className="w-full h-40 bg-slate-50 border border-slate-200 rounded-xl p-4 resize-none font-medium text-black outline-none focus:border-primary focus:bg-white transition-all shadow-inner text-sm" 
             value={formData.trabajos_realizados} 
             onChange={(e: any) => handleInputChange('trabajos_realizados', e.target.value)} 
             placeholder="Describa aquí detalladamente las intervenciones realizadas..."
           />
        </section>
        
-      <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-4 border border-slate-100">
-          <h2 className="text-lg font-black flex items-center gap-2 uppercase tracking-tighter"><Camera className="text-primary" size={18}/> Evidencia Fotográfica</h2>
+       <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-4 border border-slate-100">
+          <h2 className="text-lg font-black flex items-center gap-2 uppercase tracking-tighter text-black"><Camera className="text-primary" size={18}/> Evidencia Fotográfica</h2>
           <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-50 border border-dashed border-slate-200 rounded-[2rem] p-8 flex flex-col items-center justify-center hover:bg-white hover:border-primary transition-all group active:scale-[0.99]">
               <Camera size={32} className="text-slate-300 mb-1.5 group-hover:text-primary transition-colors"/>
-              <span className="font-black text-slate-400 group-hover:text-slate-600 uppercase tracking-widest text-[10px]">Adjuntar Imágenes del Trabajo</span>
+              <span className="font-black text-slate-400 group-hover:text-slate-300 uppercase tracking-widest text-[10px]">Adjuntar Imágenes del Trabajo</span>
           </label>
           <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange}/>
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
@@ -649,26 +637,26 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
       </section>
 
       <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
-          <h2 className="text-lg font-black uppercase tracking-tighter">Validación y Firmas</h2>
-          <div className="grid md:grid-cols-2 gap-6 items-start">
-              <div>
+          <h2 className="text-lg font-black uppercase tracking-tighter text-black">Validación y Firmas</h2>
+          <div className="grid md:grid-cols-2 gap-8 items-start">
+              <div className="space-y-4">
                 <SignaturePad title="Firma del Técnico Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
-                <p className="text-center font-black mt-2 text-slate-400 text-[8px] uppercase tracking-widest">{inspectorName}</p>
+                <p className="text-center font-black text-slate-400 text-[8px] uppercase tracking-widest">{inspectorName}</p>
               </div>
-              <div>
+              <div className="space-y-4">
                 <SignaturePad title="Conforme Cliente / Receptor" signature={clientSignature} onSignatureEnd={setClientSignature} />
-                <div className="mt-3">
+                <div className="mt-4">
                   <StableInput label="Nombre de la persona que recibe" icon={User} value={formData.recibidoPor} onChange={(v: any) => handleInputChange('recibidoPor', v)} placeholder="Nombre completo"/>
                 </div>
               </div>
           </div>
       </section>
 
-      <div className="flex flex-col md:flex-row gap-3 pt-4">
+      <div className="flex flex-col md:flex-row gap-4 pt-4">
           <button 
             onClick={() => handlePdfAction(false)} 
             disabled={pdfLoading}
-            className="w-full p-5 bg-white border border-slate-200 rounded-2xl font-bold flex items-center justify-center gap-3 hover:border-primary transition-all text-slate-700 shadow-md active:scale-95 disabled:opacity-50 text-sm"
+            className="w-full p-5 bg-white border border-slate-200 rounded-[1.5rem] font-bold flex items-center justify-center gap-3 hover:border-primary transition-all text-black shadow-md active:scale-95 disabled:opacity-50 text-sm"
           >
               {pdfLoading ? <Loader2 className="animate-spin text-primary" size={18}/> : isSaved ? <Printer size={18} className="text-primary"/> : <FileSearch size={18} className="text-primary"/>}
               {pdfLoading ? 'GENERANDO...' : isSaved ? 'IMPRIMIR HOJA FINAL' : 'VISTA PREVIA PDF'}
@@ -676,9 +664,9 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
           <button 
             onClick={handleSave} 
             disabled={saving || isSaved} 
-            className="w-full p-5 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-3 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
+            className="w-full p-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-sm flex items-center justify-center gap-3 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
           >
-            {saving ? <Loader2 className="animate-spin text-primary" size={18} /> : isSaved ? <CheckCircle2 className="text-primary" size={18} /> : <Save className="text-primary" size={18} />}
+            {saving ? <Loader2 className="animate-spin text-white" size={18} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={18} /> : <Save className="text-white" size={18} />}
             {saving ? 'GUARDANDO DATOS...' : isSaved ? 'HOJA GUARDADA' : 'FINALIZAR Y GUARDAR'}
           </button>
       </div>

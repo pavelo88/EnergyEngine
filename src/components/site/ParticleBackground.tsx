@@ -13,23 +13,21 @@ const ParticleBackground = () => {
     await loadFull(engine);
   }, []);
 
-  const particlesLoaded = useCallback(async (container: Container | undefined) => {
-    // console.log(container);
-  }, []);
-
   const particleOptions = useMemo(() => {
     const currentTheme = theme === 'system' ? systemTheme : theme;
+    // Debounce/Stable values for colors
     const particleColor = currentTheme === 'dark' ? '#ffffff' : '#555555';
     const linkColor = currentTheme === 'dark' ? '#ffffff' : '#555555';
 
     return {
+      autoPlay: true,
       fullScreen: { enable: true, zIndex: -1 },
       background: {
         color: {
           value: 'transparent',
         },
       },
-      fpsLimit: 60,
+      fpsLimit: 30, // Reducir FPS para ahorrar recursos y reducir updates
       interactivity: {
         events: {
           onHover: {
@@ -44,10 +42,6 @@ const ParticleBackground = () => {
             links: {
               opacity: 1,
             },
-          },
-          repulse: {
-            distance: 80,
-            duration: 0.4,
           },
         },
       },
@@ -77,7 +71,7 @@ const ParticleBackground = () => {
             enable: true,
             area: 800,
           },
-          value: 80,
+          value: 40, // Reducir cantidad para estabilidad
         },
         opacity: {
           value: 0.3,
@@ -89,15 +83,14 @@ const ParticleBackground = () => {
           value: { min: 1, max: 3 },
         },
       },
-      detectRetina: true,
+      detectRetina: false, // Desactivar detección de retina para evitar re-calculos
     };
-  }, [theme, systemTheme]);
+  }, [theme === 'dark' || systemTheme === 'dark']); // Solo re-memoizar si cambia el modo dark real
 
   return (
     <Particles
       id="tsparticles"
       init={particlesInit}
-      loaded={particlesLoaded}
       options={particleOptions}
     />
   );

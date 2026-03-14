@@ -66,6 +66,8 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     return () => clearTimeout(timer);
   }, [isFullScreen, signature]);
 
+  const pointsRef = useRef<{ x: number, y: number }[]>([]);
+ 
   const getPos = (e: React.PointerEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
@@ -74,27 +76,65 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       y: e.clientY - rect.top
     };
   };
-
+ 
   const startDrawing = (e: React.PointerEvent) => {
     if (!contextRef.current) return;
     const pos = getPos(e);
+    
     contextRef.current.beginPath();
     contextRef.current.moveTo(pos.x, pos.y);
+    pointsRef.current = [pos];
+    
     setIsDrawing(true);
     setHasContent(true);
   };
-
+ 
+  const drawLine = () => {
+    if (!contextRef.current || pointsRef.current.length < 3) return;
+    
+    const ctx = contextRef.current;
+    const points = pointsRef.current;
+    
+    // Limpiar canvas y redibujar con suavizado si fuera necesario, 
+    // pero para evitar lag dibujamos el último segmento curvo
+    const lastTwo = points.slice(-3);
+    const xc = (lastTwo[1].x + lastTwo[2].x) / 2;
+    const yc = (lastTwo[1].y + lastTwo[2].y) / 2;
+    
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#0f172a';
+    
+    ctx.beginPath();
+    ctx.moveTo(lastTwo[0].x, lastTwo[0].y);
+    ctx.quadraticCurveTo(lastTwo[1].x, lastTwo[1].y, xc, yc);
+    ctx.stroke();
+  };
+ 
   const draw = (e: React.PointerEvent) => {
     if (!isDrawing || !contextRef.current) return;
+    
     const pos = getPos(e);
-    contextRef.current.lineTo(pos.x, pos.y);
-    contextRef.current.stroke();
+    pointsRef.current.push(pos);
+ 
+    if (pointsRef.current.length >= 3) {
+      drawLine();
+    }
   };
-
+ 
   const stopDrawing = () => {
     if (isDrawing) {
       setIsDrawing(false);
-      contextRef.current?.closePath();
+      // Draw a clean dot if user tapped (no movement)
+      if (contextRef.current && pointsRef.current.length === 1) {
+        const p = pointsRef.current[0];
+        contextRef.current.beginPath();
+        contextRef.current.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+        contextRef.current.fillStyle = '#0f172a';
+        contextRef.current.fill();
+      }
+      pointsRef.current = [];
     }
   };
 
@@ -123,15 +163,15 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       <div 
         onClick={() => setIsFullScreen(true)}
         className={cn(
-          "w-full h-32 bg-slate-50 border border-dashed border-slate-200 rounded-2xl flex items-center justify-center cursor-pointer hover:border-primary transition-all overflow-hidden relative group",
-          signature ? "bg-white border-solid border-primary/20 shadow-inner" : ""
+          "w-full h-32 bg-slate-50 dark:bg-slate-900/50 border border-dashed border-slate-200 dark:border-white/10 rounded-2xl flex items-center justify-center cursor-pointer hover:border-primary transition-all overflow-hidden relative group",
+          signature ? "bg-white dark:bg-white border-solid border-primary/20 shadow-inner" : ""
         )}
         style={{ touchAction: 'none' }}
       >
         {signature ? (
           <img src={signature} alt="Firma guardada" className="max-h-full max-w-full object-contain p-3 transition-transform group-hover:scale-105" />
         ) : (
-          <div className="text-center text-slate-400">
+          <div className="text-center text-slate-400 dark:text-slate-600">
             <Pen size={20} className="mx-auto mb-1.5 opacity-20" />
             <span className="text-[8px] font-black uppercase tracking-tighter">PULSAR PARA FIRMAR</span>
           </div>

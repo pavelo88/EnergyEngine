@@ -14,22 +14,10 @@ import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db as dbLocal } from '@/lib/db-local';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
+import ClientSelector from '../ClientSelector';
+import StableInput from '../StableInput';
 
-const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
-  <div className="space-y-1 w-full text-left">
-    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
-    <div className="relative group">
-      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={18}/>}
-      <input
-        type={type}
-        value={value || ''}
-        onChange={(e: any) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 ${Icon ? 'pl-12' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm`}
-      />
-    </div>
-  </div>
-));
+
 
 export const generatePDF = (report: any, inspectorName: string, reportId: string | null) => {
     const doc = new jsPDF();
@@ -57,7 +45,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         startY: currentY,
         body: [
             ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
-            [{ content: 'Cliente:', styles: { fontStyle: 'bold' } }, { content: report.cliente, colSpan: 3 }],
+            [{ content: 'Cliente:', styles: { fontStyle: 'bold' } }, { content: report.clienteNombre || report.cliente || '-', colSpan: 3 }],
             [{ content: 'Instalación:', styles: { fontStyle: 'bold' } }, { content: report.instalacion, colSpan: 3 }],
             [{ content: 'UBICACIÓN (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
             ['Motor:', report.motor, 'Modelo:', report.modelo],
@@ -143,6 +131,8 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
   
   const [formData, setFormData] = useState({
     formType: 'informe-tecnico',
+    clienteId: '',
+    clienteNombre: '',
     cliente: '',
     motor: '',
     modelo: '',
@@ -213,6 +203,16 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
   }, [aiData]);
 
 
+  const handleClientSelect = (client: any) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      clienteId: client.id,
+      cliente: client.nombre,
+      clienteNombre: client.nombre,
+      instalacion: client.direccion || prev.instalacion
+    }));
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
@@ -273,7 +273,7 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
     const updateOriginalJobStatus = async (jobId: string) => {
         if (isOnline && firestore) {
             try {
-                await updateDoc(doc(firestore, 'trabajos', jobId), { estado: 'Completado' });
+                await updateDoc(doc(firestore, 'ordenes_trabajo', jobId), { estado: 'Completado' });
             } catch (updateError) {
                 console.error(`Failed to update job status:`, updateError);
             }
@@ -306,28 +306,25 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
     if (isOnline) {
         try {
             const formType = 'informe-tecnico';
-            const q = query(collection(firestore, 'trabajos'), where('formType', '==', formType));
-            const snapshot = await getDocs(q);
-            const sequential = (snapshot.size + 1).toString().padStart(3, '0');
-            const docId = `IT-${new Date().getFullYear()}-${sequential}`;
+            const sequence = await dbLocal.getNextSequence('informe-tecnico');
+            const names = inspectorName.split(' ');
+            const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
+            const docId = `IT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
 
             const storage = getStorage();
             const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
             await uploadString(signatureRef, inspectorSignature, 'data_url');
             const inspectorSignatureUrl = await getDownloadURL(signatureRef);
 
-            const docData = { 
-                ...formData, 
-                inspectorSignatureUrl,
-                tecnicoId: user.email, 
-                tecnicoNombre: inspectorName,
-                fecha_creacion: Timestamp.now(), 
-                formType,
-                id: docId,
-                estado: 'Completado',
+            const docData = {
+                ...formData, imageUrls: [], inspectorSignatureUrl, clientSignatureUrl: null,
+                inspectorId: user.email, inspectorNombre: inspectorName,
+                inspectorIds: initialData?.inspectorIds || [user.email],
+                inspectorNombres: initialData?.inspectorNombres || [inspectorName],
+                fecha_creacion: Timestamp.now(), formType: formData.formType || 'informe-trabajo', id: docId, estado: 'Completado' 
             };
             
-            await setDoc(doc(firestore, 'trabajos', docId), docData);
+            await setDoc(doc(firestore, 'informes', docId), docData);
 
             if (initialData?.id) {
               await updateOriginalJobStatus(initialData.id);
@@ -347,25 +344,30 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
   };
 
   return (
-    <main className="max-w-4xl mx-auto p-4 md:p-6 space-y-8 animate-in fade-in bg-slate-50 min-h-screen">
+    <main className="max-w-4xl mx-auto md:p-6 space-y-6 animate-in fade-in bg-white min-h-screen pb-20">
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
-          <DialogHeader className="p-4 border-b">
-            <DialogTitle>Vista Previa del Informe Técnico</DialogTitle>
-            <DialogDescription>Revisa el borrador antes de guardarlo.</DialogDescription>
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border-slate-100 bg-white">
+          <DialogHeader className="p-6 border-b border-slate-100 bg-white">
+            <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa del Informe Técnico</DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">Revisa el borrador antes de guardarlo.</DialogDescription>
           </DialogHeader>
-          <div className="flex-1 bg-slate-200 p-4">
+          <div className="flex-1 bg-slate-100">
             {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full shadow-lg" title="PDF Preview" />}
           </div>
         </DialogContent>
       </Dialog>
 
-      <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Técnico</h2>
+      <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Técnico</h2>
       
-      <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-         <h3 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Datos de Identificación</h3>
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <StableInput label="Cliente" icon={User} value={formData.cliente} onChange={(v: string) => handleInputChange('cliente', v)}/>
+      <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+         <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Datos de Identificación</h3>
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="md:col-span-2 space-y-2">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Cliente Base</label>
+                <div className="bg-white border border-slate-100 rounded-2xl">
+                  <ClientSelector onSelect={handleClientSelect} selectedClientId={formData.clienteId} />
+                </div>
+            </div>
             <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: string) => handleInputChange('motor', v)}/>
             <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={(v: string) => handleInputChange('modelo', v)}/>
             <StableInput label="Nº de motor" icon={Type} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>
@@ -377,48 +379,56 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
               <button 
                   onClick={handleCaptureLocation} 
                   disabled={locationStatus === 'loading'} 
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 flex items-center justify-center gap-3 font-bold text-slate-700 shadow-sm hover:border-primary transition-colors disabled:opacity-50"
+                  className={`w-full bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-center gap-2 font-black shadow-sm text-xs transition-all active:scale-95 disabled:opacity-50 ${formData.location ? 'border-emerald-500/50 text-emerald-500 bg-emerald-500/10' : 'border-slate-100 text-slate-400 hover:border-primary'}`}
               >
-                  {locationStatus === 'loading' && <Loader2 className="animate-spin text-primary" size={18}/>}
-                  {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 className="text-primary" size={18}/> : <MapPin className="text-slate-400" size={18}/>)}
-                  <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación'}</span>
+                  {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={14}/> : formData.location ? <CheckCircle2 size={14} className="text-emerald-500"/> : <MapPin size={14}/>}
+                  <span>{formData.location ? `UBICACIÓN CAPTURADA` : 'CAPTURAR GPS'}</span>
               </button>
             </div>
           </div>
       </section>
 
-      <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-8 border border-slate-100">
-         <div className="flex justify-between items-center">
-            <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">
-                <Type size={18} className="text-primary" /> Descripción de la incidencia
+      <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+         <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+            <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <Type size={14} className="text-primary" /> Descripción de la incidencia
             </h3>
-            <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors active:scale-95">
-                {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14} />}
-                Pulir y Estructurar con IA
+            <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-[10px] font-black bg-primary/10 text-primary px-4 py-2 rounded-xl hover:bg-primary/20 transition-all active:scale-95 uppercase tracking-widest">
+                {aiLoading ? <Loader2 size={12} className="animate-spin"/> : <Wand2 size={12} />}
+                Pulir con IA
             </button>
         </div>
         <textarea 
-            className="w-full h-64 bg-slate-50 border-2 border-slate-100 rounded-2xl p-6 outline-none focus:border-primary focus:bg-white font-medium text-slate-600 shadow-inner resize-y leading-relaxed" 
+            className="w-full h-64 bg-slate-50 border border-slate-200 rounded-xl p-4 outline-none focus:border-primary focus:bg-white font-medium text-black shadow-inner resize-y leading-relaxed text-sm" 
             placeholder="Dicte o escriba aquí el informe completo. La IA lo estructurará en Antecedentes, Intervención y Resumen."
             value={formData.reportContent} 
             onChange={(e: any) => handleInputChange('reportContent', e.target.value)}
         />
       </section>
       
-      <section className="bg-white p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-        <h2 className="font-black text-slate-400 text-xs uppercase tracking-[0.2em]">Validación</h2>
+      <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+        <h2 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Validación</h2>
         <div>
             <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
-            <p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p>
+            <p className="text-center font-black mt-2 text-slate-400 text-[8px] uppercase">{inspectorName}</p>
         </div>
       </section>
       
-      <div className="flex flex-col md:flex-row gap-4">
-        <button onClick={handlePdfAction} className="w-full p-8 bg-white text-slate-900 border-2 border-slate-200 rounded-[2.5rem] font-bold text-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
-            {isSaved ? <Printer/> : <FileSearch/>} {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
+      <div className="flex flex-col md:flex-row gap-3 pt-4">
+        <button 
+            onClick={handlePdfAction} 
+            className="w-full p-5 bg-white text-black border border-slate-200 rounded-2xl font-black text-sm flex items-center justify-center gap-3 active:scale-95 transition-all shadow-md hover:border-primary disabled:opacity-50"
+        >
+            {isSaved ? <Printer className="text-primary" size={18} /> : <FileSearch className="text-primary" size={18} />} 
+            {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
         </button>
-        <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
-          {saving ? <Loader2 className="animate-spin text-primary"/> : isSaved ? <CheckCircle2 className="text-primary"/> : <Save className="text-primary"/>} {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR INFORME'}
+        <button 
+            onClick={handleSave} 
+            disabled={saving || isSaved} 
+            className="w-full p-5 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-3 active:scale-95 transition-all shadow-xl disabled:opacity-50 disabled:bg-slate-700"
+        >
+          {saving ? <Loader2 className="animate-spin text-white" size={18}/> : isSaved ? <CheckCircle2 className="text-emerald-400" size={18}/> : <Save className="text-white" size={18}/>} 
+          {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR INFORME'}
         </button>
       </div>
     </main>

@@ -20,6 +20,7 @@ import TABS from './constants';
 import { useScreenSize } from '@/hooks/use-screen-size';
 import { processDictation, ProcessDictationOutput } from '@/ai/flows/process-dictation-flow';
 import { useOnlineStatus } from '@/hooks/use-online-status';
+import { useSearchParams } from 'next/navigation';
 
 import { 
   TasksTabLazy, 
@@ -36,9 +37,18 @@ type FormType = 'hoja-trabajo' | 'informe-tecnico' | 'informe-revision' | 'infor
 
 const InspectionPageContent = () => {
   const { user, firestore, isUserLoading } = useFirebase();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>(TABS.MENU);
   const [activeInspectionForm, setActiveInspectionForm] = useState<FormType | null>(null);
+
+  useEffect(() => {
+    const formParam = searchParams.get('form') as FormType;
+    if (formParam && ['hoja-trabajo', 'informe-tecnico', 'informe-revision', 'informe-simplificado', 'revision-basica'].includes(formParam)) {
+        setActiveInspectionForm(formParam);
+        setActiveTab(TABS.NEW_INSPECTION);
+    }
+  }, [searchParams]);
   const isOnline = useOnlineStatus();
   const screenSize = useScreenSize();
   const [hasMounted, setHasMounted] = useState(false);
@@ -138,7 +148,7 @@ const InspectionPageContent = () => {
     if (tab !== TABS.NEW_INSPECTION) setActiveInspectionForm(null);
   };
 
-  const handleSelectInspectionType = (formType: FormType, data?: any) => {
+  const handleSelectInspectionType = (formType: any, data?: any) => {
     setSelectedTask(data);
     setActiveInspectionForm(formType);
     setActiveTab(TABS.NEW_INSPECTION);
@@ -151,15 +161,15 @@ const InspectionPageContent = () => {
   };
 
   const handleBackToHub = () => {
-    if (activeInspectionForm) setActiveInspectionForm(null);
-    else setActiveTab(TABS.MENU);
+    setActiveInspectionForm(null);
+    setActiveTab(TABS.MENU);
   }
 
   const handleFormSuccess = () => {
     setActiveInspectionForm(null);
     setSelectedTask(null);
     setAiData(null);
-    setActiveTab(TABS.TASKS);
+    setActiveTab(TABS.MENU);
   };
 
   const handleInstallClick = () => {
@@ -168,48 +178,107 @@ const InspectionPageContent = () => {
     installPrompt.userChoice.then(() => setInstallPrompt(null));
   };
 
+  const isDictatingRef = useRef(false);
+
   const toggleDictation = () => {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (!SpeechRecognition) {
           toast({ variant: "destructive", title: "Función no compatible", description: "El dictado por voz no está disponible en este navegador." });
           return;
       }
+
       if (isDictating) {
-          recognitionRef.current?.stop();
+          // 1. Disable auto-restart ref FIRST
+          isDictatingRef.current = false;
           setIsDictating(false);
+          // 2. Stop recognition — last words arrive in onresult before onend fires
+          recognitionRef.current?.stop();
+          // 3. Give 400ms for last onresult to fire, then process
+          setTimeout(() => {
+              processFinalDictation();
+          }, 400);
       } else {
           dictationBufferRef.current = '';
-          const recognition = new SpeechRecognition();
-          recognition.lang = 'es-ES';
-          recognition.continuous = true;
-          recognition.onresult = (event: any) => {
-              for (let i = event.resultIndex; i < event.results.length; ++i) {
-                  if (event.results[i].isFinal) dictationBufferRef.current += event.results[i][0].transcript + ' ';
-              }
-          };
-          recognition.onend = async () => {
-              if (dictationBufferRef.current.trim()) {
-                  setAiLoading(true);
-                  try {
-                      const res = await processDictation({ dictation: dictationBufferRef.current });
-                      setAiData(res);
-                      toast({ title: "Voz Procesada", description: "La IA ha rellenado el formulario con tu dictado." });
-                  } catch (e) {
-                      console.error("Fallo IA:", e);
-                      setAiData({
-                          observations_summary: dictationBufferRef.current,
-                          identidad: {}, all_ok: false, checklist_updates: {}, mediciones_generales: {}, pruebas_carga: {}
-                      } as any);
-                      toast({ variant: "destructive", title: "IA Fuera de Servicio", description: "Usando dictado plano. Por favor, revise los campos." });
-                  } finally {
-                      setAiLoading(false);
-                  }
-              }
-          };
-          recognitionRef.current = recognition;
-          recognition.start();
+          isDictatingRef.current = true;
           setIsDictating(true);
-          toast({ title: "Escuchando...", description: "Hable con claridad sobre el estado del equipo." });
+          startRecognition();
+          toast({ title: "Escuchando...", description: "Hable con claridad. Se mantendrá activo hasta que pulse parar." });
+      }
+  };
+
+  const startRecognition = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-ES';
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onresult = (event: any) => {
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+                dictationBufferRef.current += event.results[i][0].transcript + ' ';
+            }
+        }
+    };
+
+    recognition.onend = () => {
+        // Only restart if user hasn't pressed STOP
+        if (isDictatingRef.current) {
+            setTimeout(() => {
+              if (isDictatingRef.current) {
+                try { recognition.start(); } catch(err) {}
+              }
+            }, 100);
+        }
+    };
+
+    recognition.onerror = (e: any) => {
+        // Ignore aborted errors (from stop()), restart on network errors
+        if (e.error === 'aborted' || e.error === 'not-allowed') return;
+        if (isDictatingRef.current) {
+            setTimeout(() => {
+              if (isDictatingRef.current) {
+                try { recognition.start(); } catch(err) {}
+              }
+            }, 500);
+        }
+    };
+
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch(e) {
+      console.error("Start failed:", e);
+    }
+  };
+
+  const processFinalDictation = async () => {
+      const text = dictationBufferRef.current.trim();
+      console.log('[DICTATION] processFinalDictation fired. Buffer length:', text.length, '| Text:', text.substring(0, 100));
+      
+      if (!text) {
+          console.warn('[DICTATION] Buffer is EMPTY — speech was not captured. Check mic permissions.');
+          toast({ variant: "destructive", title: "Sin texto", description: "No se capturó ningún audio. Verifique permisos del micrófono." });
+          return;
+      }
+
+      setAiLoading(true);
+      console.log('[DICTATION] Calling AI server action...');
+      try {
+          const res = await processDictation({ dictation: text });
+          console.log('[DICTATION] AI response received:', res);
+          setAiData(res);
+          toast({ title: "Voz Procesada ✓", description: "La IA ha rellenado el formulario con tu dictado." });
+      } catch (e) {
+          console.error("[DICTATION] AI call failed:", e);
+          // Fallback: use raw text so user doesn't lose dictation
+          setAiData({
+              observations_summary: text,
+              identidad: {}, all_ok: false, checklist_updates: {}, mediciones_generales: {}, pruebas_carga: {}
+          } as any);
+          toast({ variant: "destructive", title: "IA Fuera de Servicio", description: "Texto volcado manualmente al formulario." });
+      } finally {
+          setAiLoading(false);
       }
   };
 
@@ -224,9 +293,9 @@ const InspectionPageContent = () => {
       return (
         <div className="w-full max-w-4xl mx-auto px-4">
           {(screenSize === 'desktop' || screenSize === 'tablet') ? (
-            <MainMenuDesktop onNavigate={handleNavigate} userName={name} />
+            <MainMenuDesktop onNavigate={handleNavigate} onSelectInspection={handleSelectInspectionType} userName={name} />
           ) : (
-            <MainMenuMobile onNavigate={handleNavigate} userName={name} />
+            <MainMenuMobile onNavigate={handleNavigate} onSelectInspection={handleSelectInspectionType} userName={name} />
           )}
         </div>
       );
@@ -266,7 +335,7 @@ const InspectionPageContent = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 overflow-x-hidden">
+    <div className="flex flex-col min-h-screen bg-white overflow-x-hidden">
       <Header 
         activeTab={activeTab}
         isSubNavActive={!!activeInspectionForm}
@@ -297,5 +366,9 @@ const InspectionPageContent = () => {
 }
 
 export default function InspectionPage() {
-    return <InspectionPageContent />;
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center bg-slate-100"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+            <InspectionPageContent />
+        </Suspense>
+    );
 }

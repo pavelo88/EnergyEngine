@@ -2,83 +2,122 @@
 
 import React from 'react';
 import { 
-  ClipboardList, Activity, Receipt, User, ArrowUpRight 
+  ClipboardList, Activity, Receipt, User, ArrowUpRight, 
+  FileText, Settings, ClipboardCheck, Wrench, Zap, Clock, Plus
 } from 'lucide-react';
 import TABS from '../constants';
 
 interface MainMenuProps {
   onNavigate: (tab: string) => void;
+  onSelectInspection?: (type: string) => void;
   userName: string;
 }
 
-const menuItems = [
-  {
-    id: TABS.NEW_INSPECTION,
-    label: 'Inspección',
-    desc: 'INICIA REVISIÓN',
-    icon: <ClipboardList size={28} />, 
-    classes: 'bg-slate-900 text-white border-slate-800 shadow-slate-900/20',
-    labelColor: 'text-white',
-    descColor: 'text-white/50',
-  },
+const navigationItems = [
   {
     id: TABS.TASKS,
     label: 'Historial',
-    desc: 'VER PASADAS',
-    icon: <Activity size={28} />,
-    classes: 'bg-primary text-white border-primary shadow-primary/20',
-    labelColor: 'text-white',
-    descColor: 'text-white/70',
+    desc: 'REPORTES',
+    icon: <ClipboardList size={22} />,
+    color: 'bg-indigo-500',
   },
   {
     id: TABS.EXPENSES,
     label: 'Jornada',
-    desc: 'HORAS Y GASTOS',
-    icon: <Receipt size={28} />,
-    classes: 'bg-green-50 border-green-100 text-primary shadow-green-100',
-    labelColor: 'text-slate-900',
-    descColor: 'text-primary/60',
+    desc: 'GASTOS',
+    icon: <Clock size={22} />,
+    color: 'bg-emerald-500',
   },
   {
     id: TABS.PROFILE,
-    label: 'Mi Perfil',
-    desc: 'IDENTIDAD',
-    icon: <User size={28} />,
-    classes: 'bg-white border-slate-100 text-slate-400 shadow-slate-100',
-    labelColor: 'text-slate-900',
-    descColor: 'text-slate-400',
+    label: 'Perfil',
+    desc: 'AJUSTES',
+    icon: <User size={22} />,
+    color: 'bg-slate-500',
   },
 ];
 
-export default function MainMenuMobile({ onNavigate, userName }: MainMenuProps) {
+const quickInspections = [
+  { id: 'hoja-trabajo', label: 'Hoja Trabajo', icon: <FileText size={28} />, color: 'from-blue-600 to-blue-400' },
+  { id: 'informe-tecnico', label: 'Inf. Técnico', icon: <Settings size={28} />, color: 'from-indigo-600 to-indigo-400' },
+  { id: 'informe-revision', label: 'Inf. Revisión', icon: <ClipboardCheck size={28} />, color: 'from-violet-600 to-violet-400' },
+  { id: 'informe-simplificado', label: 'Simplificado', icon: <Wrench size={28} />, color: 'from-amber-600 to-amber-400' },
+  // { id: 'revision-basica', label: 'Rev. Básica', icon: <Activity size={24} />, color: 'from-emerald-600 to-emerald-400' },
+];
+
+export default function MainMenuMobile({ onNavigate, onSelectInspection, userName }: MainMenuProps) {
   return (
-    <div className="w-full font-sans">
-      <header className="mb-8 text-left px-2">
-          <h2 className="text-slate-400 text-[10px] font-black tracking-[0.2em] uppercase">Bienvenido de nuevo</h2>
-          <h1 className="text-slate-900 text-4xl font-black mt-1 tracking-tighter font-headline">Hola, {userName}</h1>
+    <div className="w-full font-sans space-y-8 pb-32">
+      <header className="px-2 pt-4">
+          <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                  <User size={24} />
+              </div>
+              <div>
+                  <h2 className="text-slate-400 dark:text-slate-500 text-[10px] font-black tracking-[0.2em] uppercase">Panel de Control</h2>
+                  <h1 className="text-slate-900 dark:text-white text-2xl font-black tracking-tighter">Hola, {userName}</h1>
+              </div>
+          </div>
       </header>
 
-      <main className="flex flex-col gap-4"> 
-        {menuItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onNavigate(item.id)}
-            className={`group relative flex items-center p-6 rounded-[2.5rem] border shadow-xl transition-all duration-200 active:scale-[0.97] ${item.classes}`}>
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-2">
+            <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <Zap size={12} className="text-primary"/> Nueva Inspección
+            </h3>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-6 pb-4">
+            {quickInspections.map((item) => (
+                <button
+                    key={item.id}
+                    onClick={() => onSelectInspection?.(item.id)}
+                    className="group relative flex flex-col items-center justify-center p-6 bg-white dark:bg-[#0b101b]/60 dark:backdrop-blur-xl border border-slate-100 dark:border-white/5 rounded-[2rem] shadow-sm transition-all duration-300 active:scale-[0.95] hover:border-primary/50 overflow-hidden"
+                >
+                    <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center text-white shadow-lg mb-4 transition-transform group-hover:scale-110 group-hover:rotate-3`}>
+                        {item.icon}
+                    </div>
+                    <span className="text-[12px] font-black text-slate-800 dark:text-white uppercase tracking-tighter text-center leading-tight">
+                        {item.label}
+                    </span>
+                    <div className="absolute -right-4 -bottom-4 w-12 h-12 bg-primary/5 rounded-full blur-xl group-hover:bg-primary/10 transition-colors" />
+                </button>
+            ))}
+            {/* 
+            <button
+                onClick={() => onNavigate(TABS.NEW_INSPECTION)}
+                className="group flex flex-col items-center justify-center p-6 bg-slate-900 dark:bg-primary/20 border border-slate-800 dark:border-primary/20 rounded-[2rem] shadow-xl transition-all duration-300 active:scale-[0.95]"
+            >
+                <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-white mb-3">
+                    <Plus size={24} />
+                </div>
+                <span className="text-[11px] font-black text-white uppercase tracking-tighter">Más Opciones</span>
+            </button> 
+            */}
+        </div>
+      </section>
 
-            <div className="p-3 rounded-2xl mr-5 transition-transform group-active:scale-110">
-                {item.icon}
-            </div>
-            <div className="text-left">
-                <h3 className={`text-xl font-black tracking-tight font-headline ${item.labelColor}`}>
-                  {item.label}
-                </h3>
-                <p className={`text-[9px] font-black tracking-[0.2em] mt-0.5 ${item.descColor}`}>{item.desc}</p>
-            </div>
-
-            <ArrowUpRight className="absolute top-6 right-6 opacity-20" size={20} />
-          </button>
-        ))}
-      </main>
+      <section className="space-y-4 pt-2">
+        <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2">Gestión y Reportes</h3>
+        <div className="flex flex-col gap-3">
+            {navigationItems.map((item) => (
+                <button
+                    key={item.id}
+                    onClick={() => onNavigate(item.id)}
+                    className="flex items-center gap-4 p-4 bg-white dark:bg-[#0b101b]/40 border border-slate-100 dark:border-white/5 rounded-2xl shadow-sm transition-all active:scale-[0.98] hover:bg-slate-50 dark:hover:bg-white/5"
+                >
+                    <div className={`w-10 h-10 rounded-xl ${item.color} text-white flex items-center justify-center shadow-lg shadow-indigo-500/10`}>
+                        {item.icon}
+                    </div>
+                    <div className="flex-grow text-left">
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{item.label}</h4>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.desc}</p>
+                    </div>
+                    <ArrowUpRight size={16} className="text-slate-300" />
+                </button>
+            ))}
+        </div>
+      </section>
     </div>
   );
 }

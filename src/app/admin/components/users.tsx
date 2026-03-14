@@ -39,7 +39,7 @@ export default function UsersPage() {
   };
 
   const headerAction = useMemo(() => (
-    <Button onClick={openModalForCreate} className="rounded-xl font-bold uppercase text-xs tracking-widest">
+    <Button onClick={openModalForCreate} className="rounded-xl font-bold uppercase text-xs tracking-widest bg-slate-900 text-white hover:bg-slate-800">
       <UserPlus className="h-4 w-4 mr-2"/>
       <span>Añadir Usuario</span>
     </Button>

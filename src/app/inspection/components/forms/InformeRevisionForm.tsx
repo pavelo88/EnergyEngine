@@ -15,27 +15,18 @@ import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db as dbLocal } from '@/lib/db-local';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
+import ClientSelector from '../ClientSelector';
+import StableInput from '../StableInput';
 
 
-const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
-  <div className="space-y-1 w-full text-left">
-    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
-    <div className="relative group">
-      {Icon && <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={14}/>}
-      <input 
-        type={type} value={value || ''} onChange={(e: any) => onChange(e.target.value)} placeholder={placeholder}
-        className={`w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 ${Icon ? 'pl-10' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-xs`}
-      />
-    </div>
-  </div>
-));
+
 
 const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
     <div className="flex flex-col items-center gap-1">
         <label className="text-[8px] font-black text-slate-500 w-full text-center">{label}</label>
         <input 
             type="text" value={value || ''} onChange={(e: any) => onChange(e.target.value)}
-            className="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-xs text-center"
+            className="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 outline-none focus:border-primary focus:bg-white transition-all font-bold text-black shadow-sm text-xs text-center"
         />
     </div>
 ));
@@ -67,7 +58,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     autoTable(doc, {
         startY: currentY,
         body: [
-            [{ content: 'CLIENTE:', styles: { fontStyle: 'bold', cellWidth: 35 } }, { content: report.cliente || '', colSpan: 3 }],
+            [{ content: 'CLIENTE:', styles: { fontStyle: 'bold', cellWidth: 35 } }, { content: report.clienteNombre || report.cliente || '', colSpan: 3 }],
             [{ content: 'INSTALACIÓN:', styles: { fontStyle: 'bold' } }, { content: report.instalacion || '', colSpan: 3 }],
             [{ content: 'DIRECCIÓN:', styles: { fontStyle: 'bold' } }, { content: report.direccion || '', colSpan: 3 }],
             [{ content: 'UBICACIÓN (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
@@ -289,6 +280,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
     if (aiData) {
       setFormData((prev: any) => {
           const newChecklist = { ...prev.checklist, ...aiData.checklist_updates };
+          
           if (aiData.all_ok) {
             Object.values(CHECKLIST_SECTIONS).flat().forEach(item => {
               if (!newChecklist[item]) {
@@ -299,35 +291,23 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
 
           return {
             ...prev,
-            cliente: aiData.identidad.cliente || prev.cliente,
-            instalacion: aiData.identidad.instalacion || prev.instalacion,
-            direccion: aiData.identidad.direccion || prev.direccion,
-            motor: aiData.identidad.modelo || prev.motor,
-            modelo: aiData.identidad.marca || prev.modelo,
-            n_motor: aiData.identidad.sn || prev.n_motor,
-            n_grupo: aiData.identidad.n_grupo || prev.n_grupo,
-            potencia: aiData.identidad.potencia_kva || prev.potencia,
-            recibidoPor: aiData.identidad.recibe || prev.recibidoPor,
-            observaciones: aiData.observations_summary || prev.observaciones,
+            cliente: aiData.identidad?.cliente || prev.cliente,
+            instalacion: aiData.identidad?.instalacion || prev.instalacion,
+            direccion: aiData.identidad?.direccion || prev.direccion,
+            motor: aiData.identidad?.modelo || prev.motor,
+            modelo: aiData.identidad?.marca || prev.modelo,
+            n_motor: aiData.identidad?.sn || prev.n_motor,
+            n_grupo: aiData.identidad?.n_grupo || prev.n_grupo,
             checklist: newChecklist,
             datos_pruebas: {
-              horas: aiData.mediciones_generales.horas || prev.datos_pruebas.horas,
-              presion: aiData.mediciones_generales.presion || prev.datos_pruebas.presion,
-              temperatura: aiData.mediciones_generales.temp || prev.datos_pruebas.temperatura,
-              nivel_combustible: aiData.mediciones_generales.combustible || prev.datos_pruebas.nivel_combustible,
-              tension_alternador: aiData.mediciones_generales.tensionAlt || prev.datos_pruebas.tension_alternador,
-              frecuencia: aiData.mediciones_generales.frecuencia || prev.datos_pruebas.frecuencia,
-              carga_baterias: aiData.mediciones_generales.cargaBat || prev.datos_pruebas.carga_baterias,
+                ...prev.datos_pruebas,
+                ...(aiData.mediciones_generales || {})
             },
             pruebas_carga: {
-              tension_rs: aiData.pruebas_carga.rs || prev.pruebas_carga.tension_rs,
-              tension_st: aiData.pruebas_carga.st || prev.pruebas_carga.tension_st,
-              tension_rt: aiData.pruebas_carga.rt || prev.pruebas_carga.tension_rt,
-              intensidad_r: aiData.pruebas_carga.r || prev.pruebas_carga.intensidad_r,
-              intensidad_s: aiData.pruebas_carga.s || prev.pruebas_carga.intensidad_s,
-              intensidad_t: aiData.pruebas_carga.t || prev.pruebas_carga.intensidad_t,
-              potencia_kw: aiData.pruebas_carga.kw || prev.pruebas_carga.potencia_kw,
-            }
+                ...prev.pruebas_carga,
+                ...(aiData.pruebas_carga || {})
+            },
+            observaciones: aiData.observations_summary || prev.observaciones
           };
       });
     }
@@ -345,7 +325,18 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
     setFormData((prev: any) => ({ ...prev, checklist: { ...prev.checklist, [item]: status } }));
   };
 
-    const handleCaptureLocation = () => {
+  const handleClientSelect = (client: any) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      clienteId: client.id,
+      cliente: client.nombre,
+      clienteNombre: client.nombre,
+      direccion: client.direccion || prev.direccion,
+      instalacion: client.direccion || prev.instalacion
+    }));
+  };
+
+  const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
       toast({ variant: 'destructive', title: 'Error de GPS', description: 'Tu dispositivo no soporta geolocalización.' });
       setLocationStatus('error');
@@ -366,7 +357,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
     );
   };
   
-  const handlePdfAction = (forceDownload = false) => {
+  const handlePdfAction = (forceDownload = false, docIdOverride?: string) => {
     if (!formData.cliente || !formData.instalacion) {
         toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Complete Cliente e Instalación para ver la vista previa.' });
         return;
@@ -380,11 +371,14 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
               inspectorSignatureUrl: inspectorSignature,
               clientSignatureUrl: clientSignature,
             };
-            const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
+            const finalId = docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
+            const doc = generatePDF(reportData, inspectorName, finalId);
             if (isSaved || forceDownload) {
-                doc.save(`Informe_Revision_${savedDocId || 'Borrador'}.pdf`);
+                doc.save(`Informe_Revision_${finalId}.pdf`);
             } else {
-                setPreviewPdfUrl(doc.output('datauristring'));
+                const blob = doc.output('blob');
+                const url = URL.createObjectURL(blob);
+                setPreviewPdfUrl(url);
             }
         } catch (e) {
             console.error("Error al generar vista previa:", e);
@@ -455,7 +449,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
 
         const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora?");
         if (shouldDownload) {
-            handlePdfAction(true);
+            handlePdfAction(true, firebaseId);
         }
         
         if (onSuccess) onSuccess();
@@ -464,12 +458,10 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
     if (isOnline) {
         try {
             const formType = 'informe-revision';
-            const trabajosRef = collection(firestore, 'trabajos');
-            const qTrabajos = query(trabajosRef, where('formType', '==', formType));
-            const trabajosSnapshot = await getDocs(qTrabajos);
-            const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
-            const year = new Date().getFullYear();
-            const docId = `IR-${year}-${sequentialNumber}`;
+            const sequence = await dbLocal.getNextSequence('informe-revision');
+            const names = inspectorName.split(' ');
+            const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
+            const docId = `IR-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
 
             const storage = getStorage();
 
@@ -488,15 +480,17 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
             const clientSignatureUrl = await getDownloadURL(clientSignatureRef);
 
             const docData = {
-                ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl,
-                tecnicoId: user.email, tecnicoNombre: inspectorName,
-                fecha_creacion: Timestamp.now(), formType, id: docId, estado: 'Completado',
+                 ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl,
+                 inspectorId: user.email, inspectorNombre: inspectorName,
+                 inspectorIds: initialData?.inspectorIds || [user.email],
+                 inspectorNombres: initialData?.inspectorNombres || [inspectorName],
+                 fecha_creacion: Timestamp.now(), formType: 'informe-revision', id: docId, estado: 'Completado' 
             };
             
-            await setDoc(doc(firestore, 'trabajos', docId), docData);
+            await setDoc(doc(firestore, 'informes', docId), docData);
 
             if (initialData?.id) {
-              await updateDoc(doc(firestore, 'trabajos', initialData.id), { estado: 'Completado' });
+              await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
             }
 
             await saveDataToLocal(true, docId);
@@ -511,26 +505,36 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full bg-slate-50 min-h-screen">
-       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
-            <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden">
-                <DialogHeader className="p-4 border-b bg-white">
-                    <DialogTitle className="font-black uppercase tracking-tighter">Vista Previa Informe de Revisión</DialogTitle>
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full bg-white min-h-screen pb-20">
+       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => {
+            if (!isOpen && previewPdfUrl) {
+                URL.revokeObjectURL(previewPdfUrl);
+                setPreviewPdfUrl(null);
+            }
+        }}>
+            <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border-slate-100 bg-white">
+                <DialogHeader className="p-6 border-b border-slate-100 bg-white">
+                    <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa Informe de Revisión</DialogTitle>
                     <DialogDescription className="text-xs text-slate-500">Documento temporal generado para verificación de datos.</DialogDescription>
                 </DialogHeader>
-                <div className="flex-1 bg-slate-200">
+                <div className="flex-1 bg-slate-100">
                     {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full border-none" title="PDF Preview" />}
                 </div>
             </DialogContent>
         </Dialog>
         
         <main className="space-y-6">
-            <h2 className="text-xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe de Revisión Anual/Semestral</h2>
+            <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe de Revisión Anual/Semestral</h2>
 
             {/* --- DATOS GENERALES --- */}
             <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <StableInput label="Cliente" icon={Users} value={formData.cliente} onChange={(v: any) => handleInputChange('cliente', v)}/>
+                    <div className="md:col-span-2 space-y-2">
+                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Cliente Base</label>
+                        <div className="bg-white border border-slate-100 rounded-2xl">
+                          <ClientSelector onSelect={handleClientSelect} selectedClientId={formData.clienteId} />
+                        </div>
+                    </div>
                     <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={(v: any) => handleInputChange('instalacion', v)}/>
                     <StableInput label="Dirección" icon={MapPin} value={formData.direccion} onChange={(v: any) => handleInputChange('direccion', v)}/>
                     <StableInput label="Fecha Revisión" icon={Calendar} type="date" value={formData.fecha_revision} onChange={(v: any) => handleInputChange('fecha_revision', v)}/>
@@ -543,10 +547,10 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
                     <button 
                         onClick={handleCaptureLocation} 
                         disabled={locationStatus === 'loading'} 
-                        className={`w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center justify-center gap-2 font-bold shadow-sm text-xs transition-all active:scale-95 disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600 bg-green-50' : 'border-slate-100 text-slate-700 hover:border-primary'}`}
+                        className={`w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center justify-center gap-2 font-black shadow-sm text-xs transition-all active:scale-95 disabled:opacity-50 ${formData.location ? 'border-emerald-500/50 text-emerald-500 bg-emerald-500/10' : 'border-slate-100 text-slate-400 hover:border-primary'}`}
                     >
-                        {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={14}/> : formData.location ? <CheckCircle2 size={14}/> : <MapPin size={14}/>}
-                        <span>{formData.location ? `UBICACIÓN CAPTURADA` : 'CAPTURAR GPS'}</span>
+                        {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={14}/> : formData.location ? <CheckCircle2 size={14} className="text-emerald-500"/> : <MapPin size={14}/>}
+                        <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'CAPTURAR GPS'}</span>
                     </button>
                 </div>
             </section>
@@ -554,7 +558,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
             {/* --- CHECKLISTS --- */}
             {Object.entries(CHECKLIST_SECTIONS).map(([section, items]) => (
                 <section key={section} className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-3 border border-slate-100">
-                    <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b pb-1.5">{section}</h3>
+                    <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">{section}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
                         {(items as string[]).map(it => (
                         <div key={it} className={`p-3 rounded-xl flex justify-between items-center transition-all border ${formData.checklist[it] ? 'bg-primary/5 border-primary/20' : 'bg-slate-50/50 border-slate-100'}`}>
@@ -578,7 +582,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
 
             {/* --- PRUEBAS --- */}
             <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
-                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b pb-1.5">Datos de Pruebas Dinámicas</h3>
+                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1.5">Datos de Pruebas Dinámicas</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <StableInput icon={Clock} label="Horas" value={formData.datos_pruebas.horas} onChange={(v: any) => handleNestedChange('datos_pruebas', 'horas', v)} />
                     <StableInput icon={Gauge} label="Presión Aceite" value={formData.datos_pruebas.presion} onChange={(v: any) => handleNestedChange('datos_pruebas', 'presion', v)} />
@@ -588,7 +592,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
                     <StableInput icon={Wind} label="Frecuencia" value={formData.datos_pruebas.frecuencia} onChange={(v: any) => handleNestedChange('datos_pruebas', 'frecuencia', v)} />
                     <StableInput icon={Battery} label="Carga Baterías" value={formData.datos_pruebas.carga_baterias} onChange={(v: any) => handleNestedChange('datos_pruebas', 'carga_baterias', v)} />
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t mt-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-slate-100 mt-3">
                     <LoadTestInput label="Tensión RS" value={formData.pruebas_carga.tension_rs} onChange={(v: any) => handleNestedChange('pruebas_carga', 'tension_rs', v)} />
                     <LoadTestInput label="Tensión ST" value={formData.pruebas_carga.tension_st} onChange={(v: any) => handleNestedChange('pruebas_carga', 'tension_st', v)} />
                     <LoadTestInput label="Tensión RT" value={formData.pruebas_carga.tension_rt} onChange={(v: any) => handleNestedChange('pruebas_carga', 'tension_rt', v)} />
@@ -600,18 +604,18 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
             </section>
             
             <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
-                <h2 className="text-lg font-black text-slate-900 flex items-center gap-2"><Camera className="text-primary" size={18}/> Registro Fotográfico</h2>
+                <h2 className="text-lg font-black text-black flex items-center gap-2 uppercase tracking-tighter"><Camera className="text-primary" size={18}/> Registro Fotográfico</h2>
                 <div>
                     <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:bg-white hover:border-primary transition-all group active:scale-[0.99]">
                         <Camera size={28} className="text-slate-300 mb-1.5 group-hover:text-primary transition-colors"/>
-                        <span className="font-bold text-slate-600 uppercase text-[10px] tracking-widest">Añadir Fotos de Evidencia</span>
+                        <span className="font-black text-slate-400 uppercase text-[10px] tracking-widest">Añadir Fotos de Evidencia</span>
                     </label>
                     <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange}/>
                 </div>
                 {images.length > 0 && (
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
                         {images.map((img, i) => (
-                            <div key={i} className="relative aspect-square shadow-sm rounded-lg overflow-hidden border">
+                            <div key={i} className="relative aspect-square shadow-sm rounded-lg overflow-hidden border border-slate-100">
                                 <img src={URL.createObjectURL(img)} alt={`preview ${i}`} className="w-full h-full object-cover transition-transform hover:scale-110"/>
                             </div>
                         ))}
@@ -621,8 +625,8 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
 
             {/* --- OBSERVACIONES Y FIRMAS --- */}
             <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
-                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b pb-1.5">Hallazgos y Comentarios</h3>
-                <textarea className="w-full h-28 bg-slate-50 border border-slate-200 rounded-xl p-3 resize-none outline-none focus:border-primary focus:bg-white transition-all shadow-inner text-sm" placeholder="Escriba aquí cualquier anomalía o trabajo adicional recomendado..." value={formData.observaciones} onChange={(e: any) => handleInputChange('observaciones', e.target.value)}/>
+                <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Hallazgos y Comentarios</h3>
+                <textarea className="w-full h-28 bg-slate-50 border border-slate-200 rounded-xl p-3 resize-none outline-none focus:border-primary focus:bg-white transition-all shadow-inner text-sm font-medium text-black" placeholder="Escriba aquí cualquier anomalía o trabajo adicional recomendado..." value={formData.observaciones} onChange={(e: any) => handleInputChange('observaciones', e.target.value)}/>
                 <div className="grid md:grid-cols-2 gap-6 items-start pt-4">
                     <div>
                         <SignaturePad title="Firma del Inspector Técnico" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
@@ -642,9 +646,9 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
                 <button 
                     onClick={() => handlePdfAction(false)} 
                     disabled={pdfLoading} 
-                    className="w-full p-5 bg-white text-slate-900 border border-slate-200 rounded-2xl font-bold text-sm shadow-md flex items-center justify-center gap-3 active:scale-95 transition-all hover:border-primary disabled:opacity-50"
+                    className="w-full p-5 bg-white text-black border border-slate-200 rounded-2xl font-black text-sm shadow-md flex items-center justify-center gap-3 active:scale-95 transition-all hover:border-primary disabled:opacity-50"
                 >
-                    {pdfLoading ? <Loader2 className="animate-spin text-primary" size={18} /> : isSaved ? <Printer size={18} /> : <FileSearch size={18} />}
+                    {pdfLoading ? <Loader2 className="animate-spin text-primary" size={18} /> : isSaved ? <Printer className="text-primary" size={18} /> : <FileSearch className="text-primary" size={18} />}
                     {pdfLoading ? 'GENERANDO...' : isSaved ? 'IMPRIMIR PDF FINAL' : 'VISTA PREVIA PDF'}
                 </button>
                 <button 
@@ -652,7 +656,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
                     disabled={saving || isSaved} 
                     className="w-full p-5 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700"
                 >
-                    {saving ? <Loader2 className="animate-spin text-primary" size={18} /> : isSaved ? <CheckCircle2 className="text-primary" size={18} /> : <Save className="text-primary" size={18} />}
+                    {saving ? <Loader2 className="animate-spin text-white" size={18} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={18} /> : <Save className="text-white" size={18} />}
                     {saving ? 'GUARDANDO INFORME...' : isSaved ? 'INFORME GUARDADO' : 'FINALIZAR REVISIÓN'}
                 </button>
             </div>

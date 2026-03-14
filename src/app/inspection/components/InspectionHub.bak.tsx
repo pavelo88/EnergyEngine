@@ -84,23 +84,23 @@ export default function InspectionHub({ onSelectInspectionType }: { onSelectInsp
       </section>
 
       {/* Sección para crear un nuevo informe */}
-      <section className="space-y-6">
-        <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 text-center">Selecciona tipo de informe</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+      <section className="space-y-4">
+        <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">O crea un nuevo documento</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {reportTypes.map(type => (
             <button 
               key={type.id}
               onClick={() => handleLoadInspection(type.id)}
-              className="relative bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 flex flex-col text-center justify-center items-center gap-6 group active:scale-[0.98] transition-all hover:border-primary/50 hover:shadow-2xl h-72 md:h-80"
+              className="relative bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col text-center justify-center items-center gap-4 group active:scale-[0.98] transition-all hover:border-primary/50 hover:shadow-lg md:h-64"
             >
-              <div className="w-20 h-20 bg-primary/10 text-primary rounded-[2rem] flex-shrink-0 flex items-center justify-center transition-transform group-hover:scale-110">
-                <type.icon size={40} />
+              <div className="w-16 h-16 bg-primary/10 text-primary rounded-3xl flex-shrink-0 flex items-center justify-center transition-transform group-hover:scale-110">
+                <type.icon size={32} />
               </div>
-              <div className="space-y-2">
-                <h3 className="font-black text-slate-900 tracking-tight text-2xl">{type.title}</h3>
-                <p className="text-sm text-slate-500 max-w-[200px] mx-auto leading-relaxed">{type.desc}</p>
+              <div>
+                <h3 className="font-black text-slate-900 tracking-tight text-xl">{type.title}</h3>
+                <p className="text-sm text-slate-500 mt-1 max-w-[250px] mx-auto">{type.desc}</p>
               </div>
-              <ArrowRight className="text-slate-200 group-hover:text-primary transition-colors absolute top-8 right-8" size={28}/>
+              <ArrowRight className="text-slate-300 group-hover:text-primary transition-colors absolute top-6 right-6" size={24}/>
             </button>
           ))}
         </div>

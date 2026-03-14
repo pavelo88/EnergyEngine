@@ -15,6 +15,8 @@ import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db as dbLocal } from '@/lib/db-local'; 
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
+import ClientSelector from '../ClientSelector';
+import StableInput from '../StableInput';
 
 const BASIC_REVISION_CHECKLIST = {
   "INSPECCIÓN EN EL MOTOR": ["Nivel de lubricante", "Indicador nivel refrigerante", "Correa del ventilador", "Filtro de combustible y prefiltro", "Filtro de aire", "Filtro de aceite y prefiltro de aceite", "Tubo de escape", "Circuito de refrigeración", "Circuito de lubricación", "Baterías", "Motor de arranque"],
@@ -22,25 +24,14 @@ const BASIC_REVISION_CHECKLIST = {
   "INSPECCION EQUIPO ELECTRICO": ["Aparatos de medida", "Pilotos", "Mantenedor de baterías", "Interruptor general", "Resistencia de caldeo", "Contactores", "Reles auxiliares", "Apriete bornes", "Cableado"]
 };
 
-const StableInput = React.memo(({ label, value, onChange, icon: Icon, type = "text", placeholder = '' }: any) => (
-  <div className="space-y-1 w-full text-left">
-    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
-    <div className="relative group">
-      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={16}/>}
-      <input 
-        type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-lg p-3 ${Icon ? 'pl-11' : ''} outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm`}
-      />
-    </div>
-  </div>
-));
+
 
 const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
     <div className="flex flex-col items-center gap-1">
-        <label className="text-[9px] font-black text-slate-500 w-full text-center">{label}</label>
+        <label className="text-[8px] font-black text-slate-500 w-full text-center tracking-tighter">{label}</label>
         <input 
             type="text" value={value || ''} onChange={e => onChange(e.target.value)}
-            className="w-full bg-slate-100 border-2 border-slate-200 rounded-lg p-2 outline-none focus:border-primary focus:bg-white transition-all font-bold text-slate-700 shadow-sm text-sm text-center"
+            className="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 outline-none focus:border-primary focus:bg-white transition-all font-bold text-black shadow-sm text-xs text-center"
         />
     </div>
 ));
@@ -70,7 +61,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     autoTable(doc, {
         startY: currentY,
         body: [
-            [{ content: 'CLIENTE:', styles: { fontStyle: 'bold', cellWidth: 35 } }, { content: report.cliente || '', colSpan: 3 }],
+            [{ content: 'CLIENTE:', styles: { fontStyle: 'bold', cellWidth: 35 } }, { content: report.clienteNombre || report.cliente || '', colSpan: 3 }],
             [{ content: 'INSTALACIÓN:', styles: { fontStyle: 'bold' } }, { content: report.instalacion || '', colSpan: 3 }],
             [{ content: 'DIRECCIÓN:', styles: { fontStyle: 'bold' } }, { content: report.direccion || '', colSpan: 3 }],
             [{ content: 'UBICACIÓN (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
@@ -396,6 +387,17 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
     setFormData((prev: any) => ({ ...prev, checklist: { ...prev.checklist, [item]: status } }));
   };
 
+  const handleClientSelect = (client: any) => {
+    setFormData((p: any) => ({
+      ...p,
+      clienteId: client.id,
+      cliente: client.nombre,
+      clienteNombre: client.nombre,
+      direccion: client.direccion || p.direccion,
+      instalacion: client.direccion || p.instalacion
+    }));
+  };
+
   const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
       toast({ variant: 'destructive', title: 'Error de Geolocalización', description: 'Tu navegador no soporta esta función.' });
@@ -422,17 +424,20 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
     }
   };
 
-  const handlePdfAction = (forceDownload = false) => {
+  const handlePdfAction = (forceDownload = false, docIdOverride?: string) => {
     const reportData = {
       ...formData,
       inspectorSignatureUrl: inspectorSignature,
       clientSignatureUrl: clientSignature,
     };
-    const doc = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
+    const finalId = docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
+    const doc = generatePDF(reportData, inspectorName, finalId);
     if (isSaved || forceDownload) {
-        doc.save(`Revision_Basica_${savedDocId || 'Borrador'}.pdf`);
+        doc.save(`Revision_Basica_${finalId}.pdf`);
     } else {
-        setPreviewPdfUrl(doc.output('datauristring'));
+        const blob = doc.output('blob');
+        const url = URL.createObjectURL(blob);
+        setPreviewPdfUrl(url);
     }
   };
 
@@ -481,7 +486,7 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
 
         const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora?");
         if (shouldDownload) {
-            handlePdfAction(true);
+            handlePdfAction(true, firebaseId);
         }
         
         if (onSuccess) onSuccess();
@@ -490,12 +495,10 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
     if (isOnline) {
       try {
           const formType = 'revision-basica';
-          const trabajosRef = collection(firestore, 'trabajos');
-          const qTrabajos = query(trabajosRef, where('formType', '==', formType));
-          const trabajosSnapshot = await getDocs(qTrabajos);
-          const sequentialNumber = (trabajosSnapshot.size + 1).toString().padStart(3, '0');
-          const year = new Date().getFullYear();
-          const docId = `BAS-${year}-${sequentialNumber}`;
+          const sequence = await dbLocal.getNextSequence('revision-basica');
+          const names = inspectorName.split(' ');
+          const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
+          const docId = `BAS-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
 
           const storage = getStorage();
           const imageUrls = await Promise.all(
@@ -519,17 +522,19 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
               imageUrls,
               inspectorSignatureUrl, 
               clientSignatureUrl, 
-              tecnicoId: user.email, 
-              tecnicoNombre: inspectorName, 
+              inspectorId: user.email, 
+              inspectorNombre: inspectorName, 
+              inspectorIds: initialData?.inspectorIds || [user.email],
+              inspectorNombres: initialData?.inspectorNombres || [inspectorName],
               fecha_creacion: Timestamp.now(), 
               formType,
               id: docId,
               estado: 'Completado',
           };
-          await setDoc(doc(firestore, 'trabajos', docId), docData);
+          await setDoc(doc(firestore, 'informes', docId), docData);
 
           if (initialData?.id) {
-            await updateDoc(doc(firestore, 'trabajos', initialData.id), { estado: 'Completado' });
+            await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
           }
 
           await saveDataToLocal(true, docId);
@@ -544,14 +549,19 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
   };
   
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full bg-slate-50 min-h-screen">
-       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
-            <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
-                <DialogHeader className="p-4 border-b">
-                    <DialogTitle>Vista Previa de Revisión Básica</DialogTitle>
-                    <DialogDescription>Revisa el borrador. Este NO es el documento final.</DialogDescription>
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full bg-white min-h-screen pb-20">
+       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => {
+            if (!isOpen && previewPdfUrl) {
+                URL.revokeObjectURL(previewPdfUrl);
+                setPreviewPdfUrl(null);
+            }
+        }}>
+            <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border-slate-100 bg-white">
+                <DialogHeader className="p-6 border-b border-slate-100 bg-white">
+                    <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa de Revisión Básica</DialogTitle>
+                    <DialogDescription className="text-xs text-slate-500">Revisa el borrador. Este NO es el documento final.</DialogDescription>
                 </DialogHeader>
-                <div className="flex-1 bg-slate-200 p-4">
+                <div className="flex-1 bg-slate-100">
                     {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full shadow-lg" title="PDF Preview" />}
                 </div>
             </DialogContent>
@@ -559,14 +569,18 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
         
         <main className="p-4 md:p-6 space-y-8 pb-40">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-black text-slate-800 border-l-4 border-primary pl-4 uppercase tracking-tighter">Revisión Básica</h2>
+              <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Revisión Básica</h2>
             </div>
 
             {/* --- DATOS GENERALES --- */}
-            <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-                <h3 className="font-bold text-slate-500">Datos Generales</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <StableInput label="Cliente" icon={Users} value={formData.cliente} onChange={(v: string) => handleInputChange('cliente', v)}/>
+            <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="md:col-span-2 space-y-2">
+                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Cliente Base</label>
+                        <div className="bg-white border border-slate-100 rounded-2xl">
+                          <ClientSelector onSelect={handleClientSelect} selectedClientId={formData.clienteId} />
+                        </div>
+                    </div>
                     <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={(v: string) => handleInputChange('instalacion', v)}/>
                     <StableInput label="Dirección" icon={MapPin} value={formData.direccion} onChange={(v: string) => handleInputChange('direccion', v)}/>
                     <StableInput label="Fecha Revisión" icon={Calendar} type="date" value={formData.fecha_revision} onChange={(v: string) => handleInputChange('fecha_revision', v)}/>
@@ -578,26 +592,25 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
                     <button 
                         onClick={handleCaptureLocation} 
                         disabled={locationStatus === 'loading'} 
-                        className={`w-full bg-slate-50 border-2 rounded-lg p-3 flex items-center justify-center gap-3 font-bold shadow-sm text-sm transition-colors disabled:opacity-50 ${formData.location ? 'border-green-500 text-green-600' : 'border-slate-100 text-slate-700 hover:border-primary'}`}
+                        className={`w-full bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-center gap-2 font-black shadow-sm text-xs transition-all active:scale-95 disabled:opacity-50 ${formData.location ? 'border-emerald-500/50 text-emerald-500 bg-emerald-500/10' : 'border-slate-100 text-slate-400 hover:border-primary'}`}
                     >
-                        {locationStatus === 'loading' && <Loader2 className="animate-spin text-primary" size={16}/>}
-                        {locationStatus !== 'loading' && (formData.location ? <CheckCircle2 size={16}/> : <MapPin size={16}/>)}
-                        <span>{formData.location ? `Ubicación Capturada: ${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'Capturar Ubicación (Obligatorio)'}</span>
+                        {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={14}/> : formData.location ? <CheckCircle2 size={14} className="text-emerald-500"/> : <MapPin size={14}/>}
+                        <span>{formData.location ? `UBICACIÓN CAPTURADA` : 'CAPTURAR GPS'}</span>
                     </button>
                 </div>
             </section>
             
             {/* --- CHECKLISTS --- */}
             {Object.entries(BASIC_REVISION_CHECKLIST).map(([section, items]) => (
-                <section key={section} className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-4 border border-slate-100">
-                    <h3 className="font-bold text-slate-500">{section}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                <section key={section} className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-3 border border-slate-100">
+                    <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">{section}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
                         {(items as string[]).map(it => (
-                        <div key={it} className={`p-4 rounded-lg flex justify-between items-center transition-all border ${formData.checklist[it] ? 'bg-primary/10 border-primary/20' : 'bg-slate-50/50 border-slate-100'}`}>
-                            <span className="text-lg font-bold text-slate-700">{it}</span>
+                        <div key={it} className={`p-3 rounded-xl flex justify-between items-center transition-all border ${formData.checklist[it] ? 'bg-primary/5 border-primary/20' : 'bg-slate-50/50 border-slate-100'}`}>
+                            <span className="text-[11px] font-bold text-black leading-tight pr-2">{it}</span>
                             <div className="flex gap-1">
                             {["OK", "DEFECTUOSO", "CAMBIO"].map(st => (
-                                <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-20 h-8 rounded-lg text-[10px] font-black border-2 transition-all ${formData.checklist[it] === st ? 'bg-primary border-primary text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-primary/50'}`}>{st}</button>
+                                <button key={st} onClick={() => handleChecklistChange(it, st)} className={`w-14 h-7 rounded-lg text-[8px] font-black border transition-all active:scale-90 ${formData.checklist[it] === st ? 'bg-primary border-primary text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-primary/50'}`}>{st}</button>
                             ))}
                             </div>
                         </div>
@@ -607,9 +620,9 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
             ))}
 
             {/* --- RECAMBIOS Y MATERIALES --- */}
-            <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-                <h3 className="font-bold text-slate-500">Recambios y Materiales</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+                <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Recambios y Materiales</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <StableInput icon={Wrench} label="F.A. (Filtro Aceite)" value={formData.recambios.fa} onChange={(v: string) => handleNestedChange('recambios', 'fa', v)} />
                     <StableInput icon={Wrench} label="F.C. (Filtro Combustible)" value={formData.recambios.fc} onChange={(v: string) => handleNestedChange('recambios', 'fc', v)} />
                     <StableInput icon={Wrench} label="F.AR. (Filtro Aire)" value={formData.recambios.far} onChange={(v: string) => handleNestedChange('recambios', 'far', v)} />
@@ -622,9 +635,9 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
             </section>
 
             {/* --- PRUEBAS --- */}
-            <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-                <h3 className="font-bold text-slate-500">Datos de Pruebas y Carga</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+                <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Datos de Pruebas y Carga</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <StableInput icon={Clock} label="Horas" value={formData.datos_pruebas.horas} onChange={(v: string) => handleNestedChange('datos_pruebas', 'horas', v)} />
                     <StableInput icon={Gauge} label="Presión Aceite" value={formData.datos_pruebas.presion} onChange={(v: string) => handleNestedChange('datos_pruebas', 'presion', v)} />
                     <StableInput icon={Thermometer} label="Temperatura" value={formData.datos_pruebas.temperatura} onChange={(v: string) => handleNestedChange('datos_pruebas', 'temperatura', v)} />
@@ -633,7 +646,7 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
                     <StableInput icon={Wind} label="Frecuencia" value={formData.datos_pruebas.frecuencia} onChange={(v: string) => handleNestedChange('datos_pruebas', 'frecuencia', v)} />
                     <StableInput icon={Battery} label="Carga Baterías" value={formData.datos_pruebas.carga_baterias} onChange={(v: string) => handleNestedChange('datos_pruebas', 'carga_baterias', v)} />
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t mt-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-slate-100 mt-3">
                     <LoadTestInput label="Tensión RS" value={formData.pruebas_carga.tension_rs} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_rs', v)} />
                     <LoadTestInput label="Tensión ST" value={formData.pruebas_carga.tension_st} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_st', v)} />
                     <LoadTestInput label="Tensión RT" value={formData.pruebas_carga.tension_rt} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_rt', v)} />
@@ -644,18 +657,17 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
                 </div>
             </section>
 
-             <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-                <h2 className="text-xl font-black text-slate-900 flex items-center gap-3"><Camera className="text-primary"/> Evidencia Fotográfica</h2>
+            <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+                <h2 className="text-lg font-black text-black flex items-center gap-2 uppercase tracking-tighter"><Camera className="text-primary" size={18}/> Evidencia Fotográfica</h2>
                 <div>
-                    <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-100 border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center text-center hover:bg-slate-200 transition-colors">
-                        <Camera size={32} className="text-slate-400 mb-2"/>
-                        <span className="font-bold text-slate-600">Adjuntar Imágenes</span>
-                        <span className="text-xs text-slate-500">Toma una foto o selecciona archivos</span>
+                    <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:bg-white hover:border-primary transition-all group active:scale-[0.99]">
+                        <Camera size={28} className="text-slate-300 mb-1.5 group-hover:text-primary transition-colors"/>
+                        <span className="font-black text-slate-400 uppercase text-[10px] tracking-widest">Adjuntar Imágenes</span>
                     </label>
                     <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange}/>
                 </div>
                 {images.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
                         {images.map((img, i) => (
                             <div key={i} className="relative aspect-square">
                                 <img src={URL.createObjectURL(img)} alt={`preview ${i}`} className="w-full h-full object-cover rounded-lg"/>
@@ -666,13 +678,13 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
             </section>
 
             {/* --- OBSERVACIONES Y FIRMAS --- */}
-            <section className="bg-white p-6 md:p-10 rounded-lg shadow-sm space-y-6 border border-slate-100">
-                <h3 className="font-bold text-slate-500">Observaciones</h3>
-                <textarea className="w-full h-24 bg-slate-50 border-2 border-slate-100 rounded-lg p-4 resize-none" placeholder="Añade tus observaciones aquí..." value={formData.observaciones} onChange={e => handleInputChange('observaciones', e.target.value)}/>
+            <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+                <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Observaciones</h3>
+                <textarea className="w-full h-24 bg-slate-50 border border-slate-200 rounded-xl p-3 resize-none outline-none focus:border-primary focus:bg-white transition-all shadow-inner text-sm font-medium text-black" placeholder="Añade tus observaciones aquí..." value={formData.observaciones} onChange={e => handleInputChange('observaciones', e.target.value)}/>
                 <div className="grid md:grid-cols-2 gap-8 items-start pt-6">
                     <div>
                         <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
-                        <p className="text-center font-bold mt-2 text-slate-700">{inspectorName}</p>
+                        <p className="text-center font-bold mt-2 text-black">{inspectorName}</p>
                     </div>
                     <div>
                         <SignaturePad title="Firma del Cliente" signature={clientSignature} onSignatureEnd={setClientSignature} />
@@ -684,13 +696,20 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
             </section>
 
             {/* --- ACCIONES --- */}
-            <div className="flex flex-col md:flex-row gap-4">
-                <button onClick={() => handlePdfAction(false)} disabled={saving} className="w-full p-6 bg-white text-slate-900 border-2 border-slate-200 rounded-lg font-bold text-base shadow-lg flex items-center justify-center gap-4 active:scale-95 transition-all hover:border-slate-400 disabled:opacity-50">
-                    {isSaved ? <Printer size={20} /> : <FileSearch size={20} />}
+            <div className="flex flex-col md:flex-row gap-3 pt-4">
+                <button 
+                    onClick={() => handlePdfAction(false)} 
+                    className="w-full p-5 bg-white text-black border border-slate-200 rounded-2xl font-black text-sm shadow-md flex items-center justify-center gap-3 active:scale-95 transition-all hover:border-primary disabled:opacity-50"
+                >
+                    {isSaved ? <Printer className="text-primary" size={18} /> : <FileSearch className="text-primary" size={18} />}
                     {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
                 </button>
-                <button onClick={handleSave} disabled={saving || isSaved} className="w-full p-6 bg-slate-900 text-white rounded-lg font-black text-base shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700">
-                    {saving ? <Loader2 className="animate-spin text-primary" /> : isSaved ? <CheckCircle2 className="text-primary" /> : <Save className="text-primary" />}
+                <button 
+                    onClick={handleSave} 
+                    disabled={saving || isSaved} 
+                    className="w-full p-5 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700"
+                >
+                    {saving ? <Loader2 className="animate-spin text-white" size={18} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={18} /> : <Save className="text-white" size={18} />}
                     {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR REVISIÓN'}
                 </button>
             </div>

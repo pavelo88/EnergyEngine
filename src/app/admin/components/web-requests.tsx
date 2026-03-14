@@ -56,7 +56,7 @@ export default function WebRequests() {
   }, [requests]);
 
   const headerAction = useMemo(() => (
-    <Button onClick={handleExport} variant="outline" className="rounded-xl font-bold uppercase text-xs tracking-widest border-slate-200 hover:bg-slate-50">
+    <Button onClick={handleExport} variant="outline" className="rounded-xl font-bold uppercase text-xs tracking-widest border-slate-200 hover:bg-slate-50 text-slate-800 dark:text-white">
         <Download className="mr-2" size={16} />
         Exportar Historial
     </Button>
@@ -253,7 +253,7 @@ export default function WebRequests() {
 
                 <div className="flex gap-4 pt-4">
                   <Button type="button" variant="ghost" onClick={() => setEditingRequest(null)} className="flex-1 h-14 rounded-2xl font-bold uppercase text-xs tracking-widest">Descartar</Button>
-                  <Button type="submit" className="flex-1 h-14 rounded-2xl font-black uppercase text-xs tracking-widest bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 active:scale-95 transition-all">Guardar Bitácora</Button>
+                  <Button type="submit" className="flex-1 h-14 rounded-2xl font-black uppercase text-xs tracking-widest bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 active:scale-95 transition-all">Guardar Bitácora</Button>
                 </div>
               </form>
             </div>

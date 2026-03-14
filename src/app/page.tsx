@@ -14,7 +14,7 @@ export default function Home() {
       Esto hace que el fondo cambie al azul oscuro que tienes en globals.css 
       cuando el modo oscuro está activo.
     */
-    <div className="bg-background text-foreground min-h-screen transition-colors duration-300">
+    <div className="bg-transparent text-foreground min-h-screen transition-colors duration-300">
       <Navbar />
       <main className="overflow-x-hidden">
         <section className="flex flex-col justify-center px-6 py-16 sm:py-20 min-h-screen overflow-hidden">

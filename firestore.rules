@@ -1,53 +1,42 @@
-
-rules_version = '2'; 
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ------------------------------------------------------------------------
-    // Helper Functions
-    // ------------------------------------------------------------------------
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isAdmin() {
-      return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
-             'admin' in get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.roles;
-    }
-
-    function isInspector() {
-       return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
-             'inspector' in get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.roles;
-    }
-
-    // ------------------------------------------------------------------------
-    // Application Collections
-    // ------------------------------------------------------------------------
-    
-    match /clientes/{clienteId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /usuarios/{usuarioId} {
+    // Permitir lectura a cualquiera para ver si el usuario existe (necesario para login/layout)
+    match /usuarios/{userId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if request.auth != null;
+    }
+
+    // El resto de colecciones requieren estar autenticado
+    match /clientes/{clienteId} {
+      allow read, write: if request.auth != null;
     }
 
     match /trabajos/{trabajoId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if request.auth != null;
+    }
+
+    match /ordenes_trabajo/{ordenId} {
+      allow read, write: if request.auth != null;
     }
 
     match /gastos/{gastoId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if request.auth != null;
+    }
+
+    match /informes/{informeId} {
+      allow read, write: if request.auth != null;
     }
 
     match /contactos/{contactoId} {
       // Permitir creación pública desde el formulario web
       allow create: if true;
       // Lectura y gestión solo para administradores
-      allow read, write: if isSignedIn() && isAdmin();
+      allow read, write: if request.auth != null && 
+                         exists(/databases/$(database)/documents/usuarios/$(request.auth.token.email)) &&
+                         'admin' in get(/databases/$(database)/documents/usuarios/$(request.auth.token.email)).data.roles;
     }
   }
 }

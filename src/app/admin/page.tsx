@@ -1,146 +1,363 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react'; // Importamos useMemo
-import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
+import { useEffect, useState, useMemo } from 'react';
+import { collection, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
-import { Users, Briefcase, Clock, Loader2, TrendingUp } from 'lucide-react';
+import { 
+  Users, 
+  Briefcase, 
+  Activity, 
+  TrendingUp, 
+  Zap,
+  ShieldCheck,
+  Clock,
+  ArrowRight,
+  FileText,
+  Settings,
+  ClipboardCheck,
+  Wrench,
+  Search,
+  MoreHorizontal,
+  AlertCircle
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useAdminHeader } from './components/AdminHeaderContext';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell
+} from 'recharts';
 
-type StatCardProps = {
-  title: string;
-  value: number | string;
-  icon: React.ElementType;
-  color: string;
-  loading: boolean;
-};
+// --- Dashboard Sub-Components ---
 
-type Job = { 
-  id: string; 
-  clienteNombre: string; 
-  estado: string; 
-  inspectorNombres: string[]; 
-};
-
-const StatCard = ({ title, value, icon: Icon, color, loading }: StatCardProps) => (
-  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
-    <div>
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{title}</p>
-      {loading ? (
-        <Loader2 className="h-8 w-8 animate-spin text-slate-200" />
-      ) : (
-        <p className="text-3xl font-black text-slate-800 tracking-tight">{value}</p>
-      )}
+const PremiumGlassCard = ({ title, children, className = "", icon: Icon }: any) => (
+  <div className={`glass-card p-6 md:p-8 rounded-[2.5rem] relative overflow-hidden group ${className}`}>
+    <div className="flex justify-between items-start mb-6 border-b border-white/5 pb-4">
+        <div className="flex items-center gap-3">
+            {Icon && <div className="p-2 bg-primary/20 rounded-xl text-primary"><Icon size={18}/></div>}
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{title}</h3>
+        </div>
+        <button className="text-slate-600 hover:text-white transition-colors transition-transform active:scale-95">
+           <MoreHorizontal size={20} />
+        </button>
     </div>
-    <div className={`rounded-2xl p-4 ${color}`}>
-      <Icon className="h-6 w-6 text-white" />
-    </div>
+    <div className="relative z-10">{children}</div>
+    <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-primary/5 blur-[80px] rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
   </div>
 );
 
+const StatMiniCard = ({ label, value, colorClass = "text-primary" }: any) => (
+    <div className="flex flex-col gap-1 p-4 bg-white/5 border border-white/5 rounded-3xl group-hover:bg-white/10 transition-colors">
+        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</span>
+        <span className={`text-2xl font-black tracking-tight ${colorClass}`}>{value}</span>
+    </div>
+);
+
+const InspectionProgressRow = ({ site, progress, status }: any) => (
+    <div className="flex flex-col gap-2 p-4 bg-white/5 border border-white/5 rounded-3xl hover:bg-white/10 transition-all cursor-pointer">
+        <div className="flex justify-between items-center text-xs uppercase tracking-tight">
+            <span className="font-black text-white">{site}</span>
+            <span className="font-bold text-slate-400">{progress}%</span>
+        </div>
+        <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
+            <div 
+                className={`h-full transition-all duration-1000 rounded-full ${status === 'Critical' ? 'bg-red-500' : 'bg-primary glow-green'}`} 
+                style={{ width: `${progress}%` }}
+            />
+        </div>
+        <div className="flex justify-between items-center mt-1">
+            <span className={`text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest
+                ${status === 'Active' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                {status}
+            </span>
+            <div className="flex -space-x-2">
+                {[1, 2].map(i => (
+                    <div key={i} className="w-5 h-5 rounded-full border-2 border-[#0b101b] bg-slate-800 flex items-center justify-center text-[8px] font-bold">T</div>
+                ))}
+            </div>
+        </div>
+    </div>
+);
+
+// --- Main Dashboard Page ---
+
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState({ clients: 0, pendingJobs: 0, inProgressJobs: 0, inspectors: 0 });
+  const [stats, setStats] = useState({ 
+    clients: 0, 
+    pendingJobs: 0, 
+    inProgressJobs: 0, 
+    inspectors: 0, 
+    totalJobs: 0, 
+    completedJobs: 0,
+    operationalInspectors: 0
+  });
   const [recentJobs, setRecentJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const db = useFirestore();
+  const router = useRouter();
 
-  // --- CORRECCIÓN AQUÍ ---
-  // Memoizamos el icono para que la referencia sea estable y no dispare el loop
   const headerAction = useMemo(() => (
-    <TrendingUp className="text-primary h-6 w-6" />
+    <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 px-6 py-2 bg-white/5 border border-white/10 rounded-2xl shadow-xl">
+            <div className="w-2 h-2 rounded-full bg-primary animate-ping"></div>
+            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none">Terminal Activa</span>
+        </div>
+    </div>
   ), []);
 
-  // Seteamos el título y la acción usando la referencia estable
-  useAdminHeader('Panel de Control', headerAction);
-  // -----------------------
+  useAdminHeader('Engineering Hub', headerAction);
 
   useEffect(() => {
-    if (!db) {
-        setLoading(false);
-        return;
-    }
+    if (!db) return;
 
+    // Conteo de Clientes
     const unsubClients = onSnapshot(collection(db, 'clientes'), snapshot => {
       setStats(prev => ({ ...prev, clients: snapshot.size }));
     });
 
-    const qInspectors = query(collection(db, 'usuarios'), where("roles", "array-contains", "inspector"));
-    const unsubInspectors = onSnapshot(qInspectors, snapshot => {
+    // Conteo y Estatus de Inspectores
+    const unsubInspectors = onSnapshot(query(collection(db, 'usuarios'), where("roles", "array-contains", "inspector")), snapshot => {
         setStats(prev => ({ ...prev, inspectors: snapshot.size }));
     });
 
-    const qJobs = query(collection(db, 'trabajos'), orderBy('fecha_creacion', 'desc'));
-    const unsubJobs = onSnapshot(qJobs, snapshot => {
-      let pending = 0;
-      let inProgress = 0;
-      const jobs: Job[] = [];
-      
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        if (data.estado === 'Pendiente') pending++;
-        if (data.estado === 'En Progreso') inProgress++;
-        
-        if (jobs.length < 5) {
-            jobs.push({ id: doc.id, ...data } as Job); 
-        }
-      });
+    // Métricas de Trabajos e Informes
+    // 1. Trabajos Pendientes/En Progreso (de ordenes_trabajo)
+    const unsubOrders = onSnapshot(collection(db, 'ordenes_trabajo'), snapshot => {
+        let pending = 0;
+        let inProgress = 0;
+        const activeInspectorIds = new Set<string>();
 
-      setStats(prev => ({ ...prev, pendingJobs: pending, inProgressJobs: inProgress }));
-      setRecentJobs(jobs);
-      if (loading) setLoading(false);
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.estado === 'Pendiente') pending++;
+            if (data.estado === 'En Progreso') {
+                inProgress++;
+                // Rastrear inspectores ocupados
+                if (data.inspectorIds) {
+                    data.inspectorIds.forEach((id: string) => activeInspectorIds.add(id));
+                }
+            }
+        });
+
+        setStats(prev => ({ 
+            ...prev, 
+            pendingJobs: pending, 
+            inProgressJobs: inProgress,
+            // Personal operativo = los que tienen trabajos en progreso
+            operationalInspectors: activeInspectorIds.size
+        }));
+    });
+
+    // 2. Trabajos Completados (de informes)
+    const unsubReports = onSnapshot(collection(db, 'informes'), snapshot => {
+        setStats(prev => ({ ...prev, completedJobs: snapshot.size, totalJobs: prev.pendingJobs + prev.inProgressJobs + snapshot.size }));
+        
+        // Cargar los últimos 5 para la tabla de actividad
+        const latest = snapshot.docs
+            .slice(0, 5)
+            .map(doc => ({ id: doc.id, ...doc.data() } as any));
+        setRecentJobs(latest);
+    });
+
+    // 3. Gastos por Inspector
+    const unsubExpenses = onSnapshot(collection(db, 'gastos'), snapshot => {
+        const byInspector: Record<string, { nombre: string, total: number, count: number }> = {};
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const name = data.inspectorNombre || 'Desconocido';
+            if (!byInspector[name]) byInspector[name] = { nombre: name, total: 0, count: 0 };
+            byInspector[name].total += (data.monto || 0);
+            byInspector[name].count += 1;
+        });
+        setExpensesByInspector(Object.values(byInspector).sort((a, b) => b.total - a.total));
     });
 
     return () => {
       unsubClients();
       unsubInspectors();
-      unsubJobs();
+      unsubOrders();
+      unsubReports();
+      unsubExpenses();
     };
-  }, [db, loading]);
+  }, [db]);
+
+  const [expensesByInspector, setExpensesByInspector] = useState<any[]>([]);
+
+  // Calculate Personal Status
+  const freeInspectors = Math.max(0, stats.inspectors - (stats.operationalInspectors || 0));
+
+  const launchActions = [
+    { title: 'Hoja de Trabajo', icon: FileText, desc: 'Instalaciones y Materiales', color: 'text-emerald-500', bg: 'bg-emerald-500/10', type: 'hoja-trabajo' },
+    { title: 'Informe Técnico', icon: Settings, desc: 'Análisis de Intervención', color: 'text-blue-500', bg: 'bg-blue-500/10', type: 'informe-tecnico' },
+    { title: 'De Revisión', icon: ClipboardCheck, desc: 'Checklist de Mantenimiento', color: 'text-amber-500', bg: 'bg-amber-500/10', type: 'informe-revision' },
+    { title: 'Simplificado', icon: Wrench, desc: 'Equipos sin parámetros', color: 'text-purple-500', bg: 'bg-purple-500/10', type: 'informe-simplificado' },
+  ];
+
+  const handleLaunch = (type: string) => {
+    router.push(`/inspection?form=${type}`);
+  };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Clientes Registrados" value={stats.clients} icon={Users} color="bg-blue-500" loading={loading} />
-        <StatCard title="Trabajos Pendientes" value={stats.pendingJobs} icon={Clock} color="bg-amber-500" loading={loading} />
-        <StatCard title="En Progreso" value={stats.inProgressJobs} icon={Briefcase} color="bg-indigo-500" loading={loading} />
-        <StatCard title="Inspectores Activos" value={stats.inspectors} icon={Users} color="bg-emerald-500" loading={loading} />
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-10 duration-1000 pb-20">
+      
+      {/* Consola de Lanzamiento Rápido */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {launchActions.map((action, idx) => (
+            <button 
+                key={idx}
+                onClick={() => handleLaunch(action.type)}
+                className="group relative flex flex-col items-center justify-center p-6 glass-card rounded-[2.5rem] border border-white/5 hover:border-primary/50 transition-all active:scale-95 h-48 overflow-hidden"
+            >
+                <div className={`absolute inset-0 ${action.bg} opacity-0 group-hover:opacity-20 transition-opacity blur-3xl`} />
+                <div className={`w-14 h-14 ${action.bg} ${action.color} rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 group-hover:rotate-3 border border-white/5`}>
+                    <action.icon size={28} />
+                </div>
+                <h3 className="text-white font-black text-xs uppercase tracking-tighter mb-1">{action.title}</h3>
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{action.desc}</p>
+                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Zap size={14} className="text-primary animate-pulse" />
+                </div>
+            </button>
+        ))}
+      </section>
+
+      {/* Row 1: Personal y Operatividad */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* Personal Status */}
+        <PremiumGlassCard title="Estatus de Personal" className="lg:col-span-4" icon={Users}>
+            <div className="space-y-6">
+                <div className="flex flex-col gap-2 p-4 bg-white/5 border border-white/5 rounded-3xl group">
+                    <div className="flex justify-between items-center text-xs uppercase tracking-tight">
+                        <span className="font-black text-emerald-500">Personal Operativo</span>
+                        <span className="font-bold text-white">{stats.operationalInspectors || 0}</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 glow-green transition-all duration-1000" style={{ width: `${(stats.operationalInspectors || 0) / stats.inspectors * 100}%` }} />
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-2 p-4 bg-white/5 border border-white/5 rounded-3xl group">
+                    <div className="flex justify-between items-center text-xs uppercase tracking-tight">
+                        <span className="font-black text-blue-400">Personal Libre</span>
+                        <span className="font-bold text-white text-glow-green">{freeInspectors}</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-400 transition-all duration-1000" style={{ width: `${freeInspectors / stats.inspectors * 100}%` }} />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <StatMiniCard label="Total Técnicos" value={stats.inspectors} colorClass="text-slate-200" />
+                    <StatMiniCard label="Clientes Activos" value={stats.clients} colorClass="text-primary" />
+                </div>
+            </div>
+        </PremiumGlassCard>
+
+        {/* Carga de Trabajo (Gráfico) */}
+        <PremiumGlassCard title="Rendimiento de Inspecciones" className="lg:col-span-8" icon={Activity}>
+            <div className="h-[280px] w-full mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={[
+                        { name: 'Pendientes', value: stats.pendingJobs },
+                        { name: 'En Curso', value: stats.inProgressJobs },
+                        { name: 'Completadas', value: stats.completedJobs }
+                    ]}>
+                        <defs>
+                            <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                        <XAxis dataKey="name" stroke="#64748b" fontSize={10} axisLine={false} tickLine={false} dy={10} />
+                        <YAxis stroke="#64748b" fontSize={10} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={{ backgroundColor: '#0b101b', border: '1px solid #ffffff10', borderRadius: '12px' }} />
+                        <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
+                    </AreaChart>
+                </ResponsiveContainer>
+            </div>
+            <div className="flex justify-between items-center mt-6">
+                <div className="flex items-center gap-6">
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-slate-500 uppercase">Capacidad Utilizada</span>
+                        <span className="text-xl font-black text-white">{Math.round((stats.operationalInspectors || 0) / stats.inspectors * 100)}%</span>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-slate-500 uppercase">Pendientes</span>
+                        <span className="text-xl font-black text-amber-500">{stats.pendingJobs}</span>
+                    </div>
+                </div>
+            </div>
+        </PremiumGlassCard>
       </div>
 
-      <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm">
-            <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">Actividad Reciente en Terreno</h2>
-            <div className="overflow-x-auto">
-            {loading ? <div className="h-40 flex items-center justify-center"><Loader2 className="animate-spin text-primary"/></div> : (
-                <table className="w-full text-left">
-                <thead>
-                    <tr className="border-b border-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      <th className="pb-4">Cliente</th>
-                      <th className="pb-4">Inspectores</th>
-                      <th className="pb-4">Estado</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {recentJobs.length > 0 ? (
-                    recentJobs.map(job => (
-                        <tr key={job.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
-                        <td className="py-4 font-bold text-slate-700">{job.clienteNombre}</td>
-                        <td className="py-4 text-sm text-slate-500 font-medium">{job.inspectorNombres?.join(', ') || 'Sin asignar'}</td>
-                        <td className="py-4">
-                            <span className={`px-3 py-1 text-[10px] font-black rounded-full uppercase tracking-tighter
-                            ${job.estado === 'Pendiente' ? 'bg-amber-50 text-amber-600' : ''}
-                            ${job.estado === 'En Progreso' ? 'bg-indigo-50 text-indigo-600' : ''}
-                            ${job.estado === 'Completado' ? 'bg-emerald-50 text-emerald-600' : ''}`}>
-                            {job.estado}
-                            </span>
-                        </td>
-                        </tr>
-                    ))
-                    ) : (
-                    <tr><td colSpan={3} className="py-10 text-center text-slate-400 font-bold uppercase text-xs">No se registra actividad reciente.</td></tr>
-                    )}
-                </tbody>
-                </table>
-            )}
+      {/* Row 2: Gastos por Inspector + Última Actividad */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        {/* Gastos por Inspector */}
+        <PremiumGlassCard title="Control de Gastos por Inspector" icon={ShieldCheck}>
+            <div className="space-y-4 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
+                {expensesByInspector.length > 0 ? expensesByInspector.map((exp, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-3xl hover:bg-white/10 transition-all group">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-2xl bg-slate-800 flex items-center justify-center font-black text-slate-400 group-hover:text-primary transition-colors border border-white/5">
+                                {exp.nombre.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-sm font-black text-white">{exp.nombre}</span>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{exp.count} reportes realizados</span>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-lg font-black text-primary text-glow-green">{exp.total.toFixed(2)}€</div>
+                            <div className="text-[8px] font-black text-slate-600 uppercase">Total Acumulado</div>
+                        </div>
+                    </div>
+                )) : (
+                    <div className="py-20 flex flex-col items-center gap-3 opacity-20">
+                        <Zap size={32} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Calculando balances...</span>
+                    </div>
+                )}
             </div>
-        </div>
+        </PremiumGlassCard>
+
+        {/* Últimas Inspecciones Realizadas */}
+        <PremiumGlassCard title="Últimos Informes Generados" icon={Clock}>
+            <div className="space-y-4">
+                {recentJobs.length > 0 ? recentJobs.map(job => (
+                    <div key={job.id} className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-3xl hover:bg-white/10 transition-all group">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-black text-white uppercase group-hover:text-primary transition-colors">{job.clienteNombre || job.cliente || 'S/N'}</span>
+                            <span className="text-[9px] font-bold text-slate-500 mt-0.5">
+                                {job.inspectorNombre || 'Inspector Central'} • 
+                                {job.fecha_creacion?.toDate ? job.fecha_creacion.toDate().toLocaleDateString() : 'Hoy'}
+                            </span>
+                        </div>
+                        <div className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[10px] font-black uppercase tracking-tighter border border-emerald-500/20">
+                            PASS
+                        </div>
+                    </div>
+                )) : (
+                    <div className="py-20 flex flex-col items-center gap-3 opacity-20">
+                        <Activity size={32} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Monitorizando actividad...</span>
+                    </div>
+                )}
+            </div>
+        </PremiumGlassCard>
+
+      </div>
     </div>
   );
 }
+
+type Job = { 
+  id: string; 
+  clienteNombre?: string; 
+  cliente?: string;
+  estado: string; 
+  inspectorNombres?: string[];
+  inspectorNombre?: string;
+  fecha_creacion?: any;
+};

@@ -2,67 +2,61 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 
-interface AdminHeaderContextType {
+interface AdminHeaderState {
   title: string;
-  setTitle: (title: string) => void;
   action: ReactNode | null;
+}
+
+interface AdminHeaderSetters {
+  setTitle: (title: string) => void;
   setAction: (action: ReactNode | null) => void;
 }
 
-const AdminHeaderContext = createContext<AdminHeaderContextType | undefined>(undefined);
+const AdminHeaderStateContext = createContext<AdminHeaderState | undefined>(undefined);
+const AdminHeaderSettersContext = createContext<AdminHeaderSetters | undefined>(undefined);
 
 export function AdminHeaderProvider({ children }: { children: ReactNode }) {
   const [title, setTitle] = useState('Administración');
   const [action, setAction] = useState<ReactNode | null>(null);
 
-  // Memoizamos el valor del contexto para que las funciones setTitle/setAction sean estables
-  const value = useMemo(() => ({
-    title,
-    setTitle,
-    action,
-    setAction
-  }), [title, action]);
+  const stateValue = useMemo(() => ({ title, action }), [title, action]);
+  const settersValue = useMemo(() => ({ setTitle, setAction }), []);
 
   return (
-    <AdminHeaderContext.Provider value={value}>
-      {children}
-    </AdminHeaderContext.Provider>
+    <AdminHeaderSettersContext.Provider value={settersValue}>
+      <AdminHeaderStateContext.Provider value={stateValue}>
+        {children}
+      </AdminHeaderStateContext.Provider>
+    </AdminHeaderSettersContext.Provider>
   );
 }
 
-/**
- * Hook básico para acceder al contexto sin lógica adicional
- */
-export function useAdminHeaderRaw() {
-  const context = useContext(AdminHeaderContext);
-  if (!context) throw new Error('useAdminHeaderRaw must be used within AdminHeaderProvider');
+export function useAdminHeaderState() {
+  const context = useContext(AdminHeaderStateContext);
+  if (!context) throw new Error('useAdminHeaderState must be used within AdminHeaderProvider');
   return context;
 }
 
-/**
- * Hook declarativo para actualizar el Header desde cualquier página
- */
+export function useAdminHeaderSetters() {
+  const context = useContext(AdminHeaderSettersContext);
+  if (!context) throw new Error('useAdminHeaderSetters must be used within AdminHeaderProvider');
+  return context;
+}
+
+export function useAdminHeaderRaw() {
+  const state = useAdminHeaderState();
+  const setters = useAdminHeaderSetters();
+  return { ...state, ...setters };
+}
+
 export function useAdminHeader(newTitle: string, newAction: ReactNode | null = null) {
-  const { setTitle, setAction, title, action } = useAdminHeaderRaw();
+  const { setTitle, setAction } = useAdminHeaderSetters();
 
-  // 1. Sincronizar el título solo si es diferente al actual
   useEffect(() => {
-    if (newTitle !== title) {
-      setTitle(newTitle);
-    }
-  }, [newTitle, title, setTitle]);
+    setTitle(newTitle);
+  }, [newTitle, setTitle]);
 
-  // 2. Sincronizar la acción solo si la referencia ha cambiado
   useEffect(() => {
-    if (newAction !== action) {
-      setAction(newAction);
-    }
-  }, [newAction, action, setAction]);
-
-  /**
-   * NOTA IMPORTANTE: Se ha eliminado la limpieza (setAction(null)) 
-   * de este hook porque en Next.js, al navegar rápidamente, 
-   * el desmontaje de una página chocaba con el montaje de la siguiente,
-   * provocando el error de profundidad máxima de actualización.
-   */
+    setAction(newAction);
+  }, [newAction, setAction]);
 }

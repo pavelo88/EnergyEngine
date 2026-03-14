@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, query, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { Loader2, FileText, AlertTriangle, Printer, Download, MapPin } from 'lucide-react';
 import { jsPDF } from 'jspdf';
@@ -10,6 +10,7 @@ import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { useAdminHeader } from './AdminHeaderContext';
+import { formatSafeDate } from '@/lib/utils';
 
 // Importar las funciones de generación de PDF de cada formulario
 import { generatePDF as generateHojaTrabajoPDF } from '@/app/inspection/components/forms/HojaTrabajoForm';
@@ -39,11 +40,8 @@ export default function ReportsPage() {
   const db = useFirestore();
 
   const handleExport = () => {
-    const dataToExport = reports.map(report => {
-      let fecha: string = 'N/A';
-      if (report.fecha_creacion?.toDate) {
-        fecha = format(report.fecha_creacion.toDate(), 'dd/MM/yyyy HH:mm');
-      }
+    const dataToExport = reports.map((report: Report) => {
+      let fecha: string = formatSafeDate(report.fecha_creacion);
       
       return {
         ID: report.id,
@@ -73,9 +71,9 @@ export default function ReportsPage() {
     const fetchAllReports = async () => {
       try {
         setLoading(true);
-        const q = query(collection(db, 'trabajos'), orderBy('fecha_creacion', 'desc'));
+        const q = query(collection(db, 'informes'), orderBy('fecha_creacion', 'desc'), limit(100));
         const querySnapshot = await getDocs(q);
-        const allDocs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Report[];
+        const allDocs = querySnapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() })) as Report[];
         setReports(allDocs);
         setError(null);
       } catch (err) {
@@ -143,7 +141,7 @@ export default function ReportsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {reports.map((report) => (
+              {reports.map((report: Report) => (
                 <tr key={report.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="py-4">
                       <div className="font-black text-slate-700 text-sm uppercase tracking-tight">{getReportTitle(report.formType)}</div>
@@ -161,7 +159,7 @@ export default function ReportsPage() {
                     <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">{report.tecnicoNombre || report.inspectorNombres?.join(', ')}</div>
                   </td>
                   <td className="py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
-                    {report.fecha_creacion?.toDate ? format(report.fecha_creacion.toDate(), 'dd/MM/yyyy') : 'N/A'}
+                    {formatSafeDate(report.fecha_creacion, 'dd/MM/yyyy')}
                   </td>
                   <td className="py-4 text-right">
                     <button 

@@ -71,7 +71,7 @@ export default function ExpensesPage() {
   }, [gastosFiltrados]);
 
   const headerAction = useMemo(() => (
-    <Button onClick={handleExport} className="rounded-xl font-bold uppercase text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 shadow-lg active:scale-95 transition-all">
+    <Button onClick={handleExport} className="rounded-xl font-bold uppercase text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg active:scale-95 transition-all">
         <Download className="mr-2" size={16} />
         Exportar Reporte
     </Button>

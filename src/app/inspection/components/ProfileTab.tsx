@@ -2,24 +2,33 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { User, PenTool, Trash2, Save, CheckCircle2, LogOut, WifiOff } from 'lucide-react';
-import { useAuth } from '@/firebase';
+import { User, PenTool, Trash2, Save, CheckCircle2, LogOut, WifiOff, FileText } from 'lucide-react';
+import { useAuth, useFirestore as useFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useOnlineStatus } from '@/hooks/use-online-status';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export default function ProfileTab() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const [savedSignature, setSavedSignature] = useState<string | null>(null);
+  const [jobCount, setJobCount] = useState(0);
+  
   const auth = useAuth();
+  const db = useFirebase();
   const isOnline = useOnlineStatus();
 
-  // Cargar firma previa si existe
+  // Cargar firma previa y estadísticas si existe
   useEffect(() => {
     const stored = localStorage.getItem('energy_engine_signature');
     if (stored) setSavedSignature(stored);
-  }, []);
+
+    if (auth.currentUser?.email && db) {
+      const q = query(collection(db, "informes"), where("inspectorId", "==", auth.currentUser.email));
+      getDocs(q).then(snap => setJobCount(snap.size)).catch(console.error);
+    }
+  }, [auth.currentUser, db]);
 
   // --- CONFIGURACIÓN DE ALTA RESOLUCIÓN PARA EL CANVAS ---
   useEffect(() => {
@@ -121,18 +130,31 @@ export default function ProfileTab() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <section className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-4">
-        <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
-          <User size={32} />
-        </div>
-        <div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Técnico RTS Registrado</p>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">
-            {auth.currentUser?.displayName?.toUpperCase() || auth.currentUser?.email?.split('@')[0].toUpperCase() || 'TÉCNICO ENERGY'}
-          </h2>
-          <p className="text-sm font-medium text-slate-500">{auth.currentUser?.email}</p>
-        </div>
-      </section>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <section className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-4">
+            <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
+            <User size={32} />
+            </div>
+            <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Técnico RTS Registrado</p>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                {auth.currentUser?.displayName?.toUpperCase() || auth.currentUser?.email?.split('@')[0].toUpperCase() || 'TÉCNICO ENERGY'}
+            </h2>
+            <p className="text-sm font-medium text-slate-500">{auth.currentUser?.email}</p>
+            </div>
+        </section>
+
+        <section className="bg-slate-900 p-6 rounded-[2rem] shadow-lg flex items-center gap-4 text-white">
+            <div className="w-16 h-16 bg-white/10 text-primary rounded-2xl flex items-center justify-center">
+                <FileText size={32} />
+            </div>
+            <div>
+                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Trabajos Completados</p>
+                <h2 className="text-4xl font-black tracking-tight leading-none">{jobCount}</h2>
+                <p className="text-[9px] font-bold text-primary uppercase mt-1">Informes Sincronizados</p>
+            </div>
+        </section>
+      </div>
 
       <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
         <div className="flex justify-between items-center">

@@ -65,10 +65,11 @@ export class LocalDB extends Dexie {
   }
 
   /**
-   * Obtiene y aumenta el contador para un tipo de documento
+   * Obtiene y aumenta el contador para un tipo de documento, reiniciándose cada año
    */
   async getNextSequence(type: string): Promise<number> {
-    const key = `contador_${type}`;
+    const year = new Date().getFullYear();
+    const key = `contador_${type}_${year}`;
     const config = await this.configuracion.get(key);
     const nextValue = (config?.value || 0) + 1;
     await this.configuracion.put({ key, value: nextValue });

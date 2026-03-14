@@ -8,6 +8,8 @@ export const CHECKLIST_SECTIONS = {
   export const ALL_CHECKLIST_ITEMS = Object.values(CHECKLIST_SECTIONS).flat();
   
   export const INITIAL_FORM_DATA = {
+    clienteId: '',
+    clienteNombre: '',
     cliente: '',
     instalacion: '',
     direccion: '',

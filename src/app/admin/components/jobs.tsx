@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query, orderBy, limit } from "firebase/firestore";
 import { useFirestore } from '@/firebase';
 import { PlusCircle, Loader2, Pencil, Trash2, Download, MapPin } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { useAdminHeader } from './AdminHeaderContext';
+import { formatSafeDate } from '@/lib/utils';
 
 type Inspector = { id: string; nombre: string; };
 type Cliente = { id: string; nombre: string; };
@@ -53,12 +54,12 @@ export default function JobsPage() {
   }, []);
 
   const handleExport = useCallback(() => {
-    const dataToExport = jobs.map(job => ({
+    const dataToExport = jobs.map((job: Job) => ({
       ID: job.id,
       Descripción: job.descripcion,
       Cliente: job.clienteNombre || job.cliente,
       Estado: job.estado,
-      Fecha: job.fecha_creacion?.toDate()?.toLocaleDateString() || 'N/A',
+      Fecha: formatSafeDate(job.fecha_creacion, 'dd/MM/yyyy'),
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
@@ -68,11 +69,11 @@ export default function JobsPage() {
 
   const headerAction = useMemo(() => (
     <div className="flex gap-2">
-        <Button onClick={handleExport} variant="outline" className="rounded-xl font-bold uppercase text-xs tracking-widest hidden md:flex border-slate-200">
+        <Button onClick={handleExport} variant="outline" className="rounded-xl font-bold uppercase text-xs tracking-widest hidden md:flex border-slate-200 text-slate-800 dark:text-white">
             <Download className="mr-2" size={16} />
             Exportar Excel
         </Button>
-        <Button onClick={openModalForAdd} className="rounded-xl font-black uppercase text-xs tracking-widest bg-primary">
+        <Button onClick={openModalForAdd} className="rounded-xl font-black uppercase text-xs tracking-widest bg-primary text-white">
             <PlusCircle className="mr-2" size={16} />
             Nuevo Trabajo
         </Button>
@@ -84,31 +85,47 @@ export default function JobsPage() {
   useEffect(() => {
     if (!db) return;
     const qInspectors = query(collection(db, 'usuarios'));
-    const unsubInspectors = onSnapshot(qInspectors, snapshot => {
+    const unsubInspectors = onSnapshot(qInspectors, (snapshot: any) => {
       const inspectorList = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .map((doc: any) => ({ id: doc.id, ...doc.data() }))
         .filter((user: any) => user.roles && user.roles.includes('inspector'));
       setInspectors(inspectorList.map((user: any) => ({ id: user.id, nombre: user.nombre })));
     });
 
-    const unsubClients = onSnapshot(collection(db, 'clientes'), snapshot => {
-      setClients(snapshot.docs.map(doc => ({ id: doc.id, nombre: doc.data().nombre })));
+    const unsubClients = onSnapshot(collection(db, 'clientes'), (snapshot: any) => {
+      setClients(snapshot.docs.map((doc: any) => ({ id: doc.id, nombre: doc.data().nombre })));
     });
     
-    const qJobs = query(collection(db, 'trabajos'), orderBy('fecha_creacion', 'desc'));
-    const unsubJobs = onSnapshot(qJobs, snapshot => {
-      const jobList = snapshot.docs.map(doc => ({
+    const qJobs = query(collection(db, 'ordenes_trabajo'), orderBy('fecha_creacion', 'desc'), limit(100));
+    const unsubJobs = onSnapshot(qJobs, (snapshot: any) => {
+      const jobList = snapshot.docs.map((doc: any) => ({
         id: doc.id,
         ...(doc.data() as Omit<Job, 'id'>)
       }));
-      setJobs(jobList);
+      setJobs(prev => {
+          const others = prev.filter(j => j.formType !== 'job' && !j.id.startsWith('HT-') && !j.id.startsWith('IT-') && !j.id.startsWith('IR-'));
+          return [...jobList, ...others].sort((a,b) => (b.fecha_creacion?.seconds || 0) - (a.fecha_creacion?.seconds || 0));
+      });
       setLoading(false);
+    });
+
+    const qInformes = query(collection(db, 'informes'), orderBy('fecha_creacion', 'desc'), limit(50));
+    const unsubInformes = onSnapshot(qInformes, (snapshot: any) => {
+        const informeList = snapshot.docs.map((doc: any) => ({
+            id: doc.id,
+            ...(doc.data() as any)
+        }));
+        setJobs(prev => {
+            const onlyJobs = prev.filter(j => j.formType === 'job' || (!j.id.startsWith('HT-') && !j.id.startsWith('IT-') && !j.id.startsWith('IR-')));
+            return [...onlyJobs, ...informeList].sort((a,b) => (b.fecha_creacion?.seconds || 0) - (a.fecha_creacion?.seconds || 0));
+        });
     });
 
     return () => {
       unsubInspectors();
       unsubClients();
       unsubJobs();
+      unsubInformes();
     };
   }, [db]);
   
@@ -128,24 +145,24 @@ export default function JobsPage() {
     e.preventDefault();
     setFormLoading(true);
     const formData = new FormData(e.currentTarget);
-    const selectedClient = clients.find(c => c.id === selectedClientId);
-    const selectedInspectors = inspectors.filter(i => selectedInspectorIds.includes(i.id));
+    const selectedClient = clients.find((c: Cliente) => c.id === selectedClientId);
+    const selectedInspectors = inspectors.filter((i: Inspector) => selectedInspectorIds.includes(i.id));
 
     const jobData = {
       descripcion: formData.get('descripcion') as string,
       clienteId: selectedClientId,
       clienteNombre: selectedClient?.nombre || 'N/A',
       inspectorIds: selectedInspectorIds,
-      inspectorNombres: selectedInspectors.map(i => i.nombre),
+      inspectorNombres: selectedInspectors.map((i: Inspector) => i.nombre),
       estado: selectedStatus,
       formType: 'job',
     };
 
     try {
       if (editingJob) {
-        await updateDoc(doc(db, 'trabajos', editingJob.id), jobData);
+        await updateDoc(doc(db, 'ordenes_trabajo', editingJob.id), jobData);
       } else {
-        await addDoc(collection(db, "trabajos"), { ...jobData, fecha_creacion: serverTimestamp() });
+        await addDoc(collection(db, "ordenes_trabajo"), { ...jobData, fecha_creacion: serverTimestamp() });
       }
       closeModal();
     } catch (error) {
@@ -155,13 +172,13 @@ export default function JobsPage() {
   };
   
   const handleInspectorSelection = (inspectorId: string) => {
-    setSelectedInspectorIds(prev => prev.includes(inspectorId) ? prev.filter(id => id !== inspectorId) : [...prev, inspectorId]);
+    setSelectedInspectorIds((prev: string[]) => prev.includes(inspectorId) ? prev.filter((id: string) => id !== inspectorId) : [...prev, inspectorId]);
   };
 
   const handleDeleteJob = async (jobId: string) => {
     if (window.confirm("¿Seguro que quieres eliminar este trabajo?")) {
       try {
-        await deleteDoc(doc(db, 'trabajos', jobId));
+        await deleteDoc(doc(db, 'ordenes_trabajo', jobId));
       } catch (error) {
         console.error("Error al eliminar el trabajo: ", error);
       }
@@ -278,7 +295,7 @@ export default function JobsPage() {
 
               <div className="flex justify-end gap-3 mt-4">
                 <button type="button" onClick={closeModal} className="px-6 py-2 text-xs font-black text-slate-400 uppercase tracking-widest">Cancelar</button>
-                <Button type="submit" disabled={formLoading} className="rounded-xl font-black uppercase text-xs tracking-widest bg-primary px-8">
+                <Button type="submit" disabled={formLoading} className="rounded-xl font-black uppercase text-xs tracking-widest bg-primary px-8 text-white">
                   {formLoading ? 'Procesando...' : 'Confirmar Orden'}
                 </Button>
               </div>

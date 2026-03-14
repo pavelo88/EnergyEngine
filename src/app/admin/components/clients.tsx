@@ -16,6 +16,7 @@ type Client = {
   direccion: string;
   email: string;
   telefono: string;
+  status: 'approved' | 'preaprobado';
 };
 
 export default function ClientsPage() {
@@ -31,7 +32,7 @@ export default function ClientsPage() {
   }, []);
 
   const headerAction = useMemo(() => (
-    <Button onClick={openModalForAdd} className="rounded-xl font-bold uppercase text-xs tracking-widest">
+    <Button onClick={openModalForAdd} className="rounded-xl font-bold uppercase text-xs tracking-widest bg-slate-900 text-white hover:bg-slate-800">
         <PlusCircle className="mr-2" size={16}/>
         Añadir Cliente
     </Button>
@@ -58,6 +59,7 @@ export default function ClientsPage() {
         direccion: formData.get('direccion') as string,
         email: formData.get('email') as string,
         telefono: formData.get('telefono') as string,
+        status: 'approved' as const,
     };
 
     try {
@@ -72,7 +74,6 @@ export default function ClientsPage() {
       console.error("Error al guardar cliente: ", error);
     }
   };
-
   const handleDeleteClient = useCallback(async (client: Client) => {
     if (window.confirm(`¿Seguro que quieres eliminar a ${client.nombre}?`)) {
       try {
@@ -80,6 +81,14 @@ export default function ClientsPage() {
       } catch (error) {
         console.error("Error al eliminar cliente: ", error);
       }
+    }
+  }, [db]);
+
+  const handleApproveClient = useCallback(async (client: Client) => {
+    try {
+      await updateDoc(doc(db, 'clientes', client.id), { status: 'approved' });
+    } catch (error) {
+      console.error("Error al aprobar cliente: ", error);
     }
   }, [db]);
 
@@ -111,9 +120,17 @@ export default function ClientsPage() {
                         {client.direccion && <p className="flex items-center gap-2 uppercase tracking-widest"><MapPin size={14} className="text-primary" /> {client.direccion}</p>}
                         {client.email && <p className="flex items-center gap-2 uppercase tracking-widest"><Mail size={14} className="text-primary" /> {client.email}</p>}
                         {client.telefono && <p className="flex items-center gap-2 uppercase tracking-widest"><Phone size={14} className="text-primary" /> {client.telefono}</p>}
+                        {client.status === 'preaprobado' && (
+                          <div className="pt-2">
+                             <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-200">Pre-aprobado</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+                        {client.status === 'preaprobado' && (
+                          <Button variant="default" size="sm" onClick={() => handleApproveClient(client)} className="bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest h-8 px-4">Aprobar</Button>
+                        )}
                         <Button variant="ghost" size="icon" onClick={() => openModalForEdit(client)} className="hover:bg-white"><Pencil size={18}/></Button>
                         <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleDeleteClient(client)}><Trash2 size={18}/></Button>
                     </div>
@@ -128,6 +145,7 @@ export default function ClientsPage() {
                       <th className="pb-4">Nombre Comercial</th>
                       <th className="pb-4">Ubicación</th>
                       <th className="pb-4">Contacto</th>
+                      <th className="pb-4">Estado</th>
                       <th className="pb-4 text-right">Gestión</th>
                     </tr>
                   </thead>
@@ -142,8 +160,18 @@ export default function ClientsPage() {
                               <span>{client.telefono || '-'}</span>
                             </div>
                           </td>
+                          <td className="py-4">
+                             {client.status === 'preaprobado' ? (
+                               <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-200">Pendiente</span>
+                             ) : (
+                               <span className="bg-slate-100 text-slate-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-200">Aprobado</span>
+                             )}
+                          </td>
                           <td className="py-4 text-right">
-                              <div className="flex justify-end gap-2">
+                              <div className="flex justify-end gap-2 items-center">
+                                {client.status === 'preaprobado' && (
+                                  <button onClick={() => handleApproveClient(client)} className="bg-green-50 text-green-600 hover:bg-green-100 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-green-100 mr-2">Aprobar</button>
+                                )}
                                 <button onClick={() => openModalForEdit(client)} className="p-2 text-slate-300 hover:text-primary transition-colors"><Pencil size={18}/></button>
                                 <button onClick={() => handleDeleteClient(client)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
                               </div>

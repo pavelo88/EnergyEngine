@@ -62,26 +62,28 @@ export default function MainMenuTablet({ onNavigate, userName }: MainMenuProps) 
           <h1 className="text-slate-800 text-6xl font-black mt-1 tracking-tighter">Panel de Control</h1>
       </header>
 
-      <main className="w-full max-w-none mx-auto flex-grow">
-        <div className="grid grid-cols-4 gap-6">
+      <main className="w-full max-w-4xl mx-auto flex-grow flex items-center justify-center">
+        <div className="grid grid-cols-2 gap-12 w-full">
           {menuItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`group relative aspect-square flex flex-col justify-center items-center p-6 rounded-3xl border-4 shadow-xl transition-all duration-200 transform hover:-translate-y-2 active:scale-[0.98] active:shadow-inner ${item.classes} ${item.shadow}`}>
+                className={`group relative aspect-video flex flex-col justify-center items-center p-10 rounded-[3rem] border-4 shadow-2xl transition-all duration-300 transform hover:-translate-y-2 active:scale-[0.98] active:shadow-inner ${item.classes} ${item.shadow}`}>
                 
-                <div className="mb-6 transition-transform duration-200 group-active:scale-110">
-                  {item.icon}
+                <div className="mb-8 transition-transform duration-300 group-active:scale-110">
+                  <div className="transform scale-150">
+                    {item.icon}
+                  </div>
                 </div>
-
+ 
                 <div className="text-center">
-                  <h3 className={`text-2xl font-bold tracking-tight ${item.labelColor}`}>
+                  <h3 className={`text-4xl font-black tracking-tighter ${item.labelColor}`}>
                     {item.label}
                   </h3>
-                  <p className={`mt-2 text-sm font-medium ${item.descColor}`}>{item.desc}</p>
+                  <p className={`mt-3 text-sm font-black uppercase tracking-widest ${item.descColor}`}>{item.desc}</p>
                 </div>
-
-                <ArrowUpRight className="absolute top-6 right-6 text-slate-400 opacity-50 group-hover:opacity-100 transition-opacity" />
+ 
+                <ArrowUpRight className="absolute top-10 right-10 text-slate-400 opacity-50 group-hover:opacity-100 transition-opacity" size={32} />
               </button>
             )
           )}

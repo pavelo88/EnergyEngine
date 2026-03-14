@@ -77,26 +77,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <AdminHeaderProvider>
-      <div className="flex h-screen bg-[#04060b] text-slate-200 overflow-hidden noise-bg">
+      <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar 
           isOpen={isSidebarOpen} 
           onClose={() => setIsSidebarOpen(false)} 
           user={user as any} 
         />
         
-        <div className="flex flex-1 flex-col overflow-hidden relative z-10">
+        <div className="flex flex-1 flex-col overflow-hidden">
           <Header onMenuClick={() => setIsSidebarOpen(true)} />
           
-          <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
-            <div className="max-w-[1600px] mx-auto">
+          <main className="flex-1 overflow-y-auto p-4 md:p-8">
+            <div className="max-w-7xl mx-auto">
               {children}
             </div>
           </main>
         </div>
-        
-        {/* Background decorative glows */}
-        <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 blur-[120px] rounded-full pointer-events-none -z-10 animate-pulse"></div>
-        <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full pointer-events-none -z-10"></div>
       </div>
     </AdminHeaderProvider>
   );

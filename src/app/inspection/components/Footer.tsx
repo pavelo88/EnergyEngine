@@ -21,7 +21,7 @@ export default function Footer({ activeTab, onNavigate }: FooterProps) {
 
   return (
     <footer className="fixed bottom-0 left-0 w-full z-40 pb-[env(safe-area-inset-bottom)]">
-      <div className="bg-white/80 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 shadow-[0_-10px_40px_-5px_rgba(0,0,0,0.1)]">
+      <div className="bg-white/80 backdrop-blur-xl border-t border-slate-200 shadow-[0_-10px_40px_-5px_rgba(0,0,0,0.1)]">
         <div className="max-w-md md:max-w-2xl mx-auto flex justify-around items-center h-20 px-4 relative">
           {navItems.map((item) => {
             if (item.isFab) {
@@ -29,7 +29,7 @@ export default function Footer({ activeTab, onNavigate }: FooterProps) {
                 <button
                   key={item.id}
                   onClick={() => onNavigate(TABS.NEW_INSPECTION)}
-                  className="relative -top-8 w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-xl shadow-primary/40 border-4 border-white dark:border-slate-900 transition-transform active:scale-90 hover:scale-105 z-50"
+                  className="relative -top-8 w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-xl shadow-primary/40 border-4 border-white transition-transform active:scale-90 hover:scale-105 z-50"
                 >
                   <Plus size={32} strokeWidth={3} />
                 </button>
