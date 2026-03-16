@@ -4,8 +4,8 @@ import React from 'react';
 export const TasksTabLazy = React.lazy(() => 
   import('./components/HistoryTab').then(module => ({ default: module.default }))
 );
-export const RegistroJornadaForm = React.lazy(() => 
-  import('./components/RegistroJornadaForm').then(module => ({ default: module.default }))
+export const RegistroGastoForm = React.lazy(() => 
+  import('./components/RegistroGastoForm').then(module => ({ default: module.default }))
 );
 export const ProfileTabLazy = React.lazy(() => 
   import('./components/ProfileTab').then(module => ({ default: module.default }))

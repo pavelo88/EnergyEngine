@@ -72,11 +72,30 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
     return () => unsubscribe();
   }, [db]);
 
+  const selectedClient = useMemo(() => {
+    return clients.find(c => c.id === selectedClientId);
+  }, [clients, selectedClientId]);
+
+  // Si hay un cliente seleccionado, usamos su nombre como valor inicial del buscador si está vacío
+  useEffect(() => {
+    if (selectedClient && searchTerm === '') {
+      setSearchTerm(selectedClient.nombre);
+    }
+  }, [selectedClient]);
+
+  const handleSelect = (client: Client) => {
+    onSelect(client);
+    setSearchTerm(client.nombre);
+  };
+
   const filteredClients = useMemo(() => {
+    // Si el término de búsqueda coincide exactamente con el nombre del cliente seleccionado, no mostramos la lista (ya se seleccionó)
+    if (selectedClient && searchTerm === selectedClient.nombre) return [];
+    
     return clients.filter(c => 
       c.nombre.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [clients, searchTerm]);
+  }, [clients, searchTerm, selectedClient]);
 
   const handleCreateClient = async () => {
     if (!db) return;
@@ -100,6 +119,7 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
       
       const createdClient = { id: docId, ...clientData };
       onSelect(createdClient);
+      setSearchTerm(createdClient.nombre);
       setIsDialogOpen(false);
       setNewClient({ nombre: '', direccion: '', email: '', telefono: '' });
       toast({ title: 'Cliente registrado', description: 'Registrado como preaprobado.' });
@@ -118,9 +138,9 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
           <Input 
             placeholder="BUSCAR CLIENTE..." 
-            value={searchTerm}
+            value={searchTerm || selectedClient?.nombre}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 h-10 rounded-xl border-slate-200 bg-slate-50 focus:bg-white transition-all font-bold text-xs !text-black"
+            className={`pl-10 h-10 rounded-xl border-slate-200 bg-slate-50 focus:bg-white transition-all font-bold text-xs !text-black ${selectedClient ? 'border-primary ring-1 ring-primary/10' : ''}`}
           />
         </div>
         
@@ -137,19 +157,19 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
             <div className="space-y-4 py-4">
               <div className="space-y-1">
                 <Label htmlFor="name" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre Comercial</Label>
-                <Input id="name" value={newClient.nombre} onChange={e => setNewClient({...newClient, nombre: e.target.value})} placeholder="Empresa S.L." className="rounded-xl font-bold" />
+                <Input id="name" value={newClient.nombre} onChange={e => setNewClient({...newClient, nombre: e.target.value})} placeholder="Empresa S.L." className="rounded-xl font-bold text-slate-900" />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="address" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dirección</Label>
-                <Input id="address" value={newClient.direccion} onChange={e => setNewClient({...newClient, direccion: e.target.value})} placeholder="Calle Falsa 123" className="rounded-xl font-bold" />
+                <Input id="address" value={newClient.direccion} onChange={e => setNewClient({...newClient, direccion: e.target.value})} placeholder="Calle Falsa 123" className="rounded-xl font-bold text-slate-900" />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="email" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email (Usado como ID)</Label>
-                <Input id="email" type="email" value={newClient.email} onChange={e => setNewClient({...newClient, email: e.target.value})} placeholder="cliente@correo.com" className="rounded-xl font-bold" />
+                <Input id="email" type="email" value={newClient.email} onChange={e => setNewClient({...newClient, email: e.target.value})} placeholder="cliente@correo.com" className="rounded-xl font-bold text-slate-900" />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="phone" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Teléfono</Label>
-                <Input id="phone" value={newClient.telefono} onChange={e => setNewClient({...newClient, telefono: e.target.value})} placeholder="+34..." className="rounded-xl font-bold" />
+                <Input id="phone" value={newClient.telefono} onChange={e => setNewClient({...newClient, telefono: e.target.value})} placeholder="+34..." className="rounded-xl font-bold text-slate-900" />
               </div>
             </div>
             <DialogFooter>
@@ -162,7 +182,7 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
         </Dialog>
       </div>
 
-      {searchTerm.trim() !== '' && (
+      {(loading || filteredClients.length > 0) && (
         <div className="max-h-60 overflow-y-auto rounded-2xl border border-slate-100 bg-white shadow-inner divide-y divide-slate-50">
           {loading ? (
                <div className="p-10 flex flex-col items-center justify-center text-slate-400 italic text-xs gap-2">
@@ -174,7 +194,7 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
               <button
                 key={client.id}
                 type="button"
-                onClick={() => onSelect(client)}
+                onClick={() => handleSelect(client)}
                 className={`w-full text-left p-4 hover:bg-slate-50 transition-colors flex items-center justify-between group ${selectedClientId === client.id ? 'bg-primary/5' : ''}`}
               >
                 <div className="space-y-1">

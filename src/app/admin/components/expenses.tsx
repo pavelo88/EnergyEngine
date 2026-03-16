@@ -71,7 +71,7 @@ export default function ExpensesPage() {
   }, [gastosFiltrados]);
 
   const headerAction = useMemo(() => (
-    <Button onClick={handleExport} className="rounded-xl font-bold uppercase text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg active:scale-95 transition-all">
+    <Button onClick={handleExport} className="rounded-xl font-bold uppercase text-xs tracking-widest bg-white text-slate-900 border border-slate-200 shadow-sm active:scale-95 transition-all hover:bg-slate-50">
         <Download className="mr-2" size={16} />
         Exportar Reporte
     </Button>
@@ -109,7 +109,7 @@ export default function ExpensesPage() {
           <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Inspector Técnico</label>
               <Select value={filtroInspector} onValueChange={setFiltroInspector}>
-                  <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50 font-bold h-12"><SelectValue/></SelectTrigger>
+                  <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50 font-bold h-12 text-slate-900"><SelectValue/></SelectTrigger>
                   <SelectContent className="rounded-xl shadow-xl">
                       <SelectItem value="all">Todos los técnicos</SelectItem>
                       {inspectores.map(i => <SelectItem key={i.id} value={i.id}>{i.nombre}</SelectItem>)}
@@ -119,7 +119,7 @@ export default function ExpensesPage() {
           <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Lugar / Destino</label>
               <Select value={filtroCliente} onValueChange={setFiltroCliente}>
-                  <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50 font-bold h-12"><SelectValue/></SelectTrigger>
+                  <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50 font-bold h-12 text-slate-900"><SelectValue/></SelectTrigger>
                   <SelectContent className="rounded-xl shadow-xl">
                       <SelectItem value="all">Todos los lugares</SelectItem>
                       {[...new Set(gastos.map(g => g.clienteNombre))].map(c => c && <SelectItem key={c} value={c}>{c}</SelectItem>)}
@@ -130,7 +130,7 @@ export default function ExpensesPage() {
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Periodo Temporal</label>
               <Popover>
                   <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-bold rounded-xl h-12 bg-slate-50 border-slate-100">
+                      <Button variant="outline" className="w-full justify-start text-left font-bold rounded-xl h-12 bg-slate-50 border-slate-100 text-slate-900">
                           <Calendar className="mr-2 h-4 w-4 text-primary"/>
                           <span className="text-xs uppercase truncate">
                             {filtroFecha?.from ? `${format(filtroFecha.from, 'dd/MM/yy')} - ${filtroFecha.to ? format(filtroFecha.to, 'dd/MM/yy') : ''}`: 'Rango de fechas'}

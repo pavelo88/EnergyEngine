@@ -273,15 +273,29 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
         if (!firestore) return;
 
         if (user && user.email) {
-            const userDocSnap = await getDoc(doc(firestore, 'usuarios', user.email));
-            if (userDocSnap.exists()) {
-                const userData = userDocSnap.data();
-                setInspectorName(userData.nombre);
-                setFormData(p => ({ ...p, tecnicos: userData.nombre }));
+            // Primero intentamos local (offline-first)
+            const cachedSecurity = await dbLocal.table('seguridad').get(user.email);
+            if (cachedSecurity?.nombre) {
+                setInspectorName(cachedSecurity.nombre);
+                setFormData(p => ({ ...p, tecnicos: cachedSecurity.nombre }));
                 
-                const names = userData.nombre.split(' ');
+                const names = cachedSecurity.nombre.split(' ');
                 const initials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
                 setInspectorInitials(initials);
+            }
+
+            // Luego intentamos Firebase si está online para refrescar
+            if (isOnline) {
+              const userDocSnap = await getDoc(doc(firestore, 'usuarios', user.email));
+              if (userDocSnap.exists()) {
+                  const userData = userDocSnap.data();
+                  setInspectorName(userData.nombre);
+                  setFormData(p => ({ ...p, tecnicos: userData.nombre }));
+                  
+                  const names = userData.nombre.split(' ');
+                  const initials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
+                  setInspectorInitials(initials);
+              }
             }
         }
     };
@@ -391,8 +405,18 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
         const finalId = docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
         const docPdf = generatePDF(reportData, inspectorName, finalId);
         
+        const rawClientName = formData.clienteNombre || formData.cliente || '';
+        const sanitizedClientName = rawClientName
+          .trim()
+          .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
+          .replace(/_+/g, '_')
+          .replace(/^_+|_+$/g, '');
+        const fileNameBase = sanitizedClientName
+          ? `Hoja_Trabajo_${finalId}_${sanitizedClientName}`
+          : `Hoja_Trabajo_${finalId}`;
+
         if (isSaved || forceDownload) {
-            docPdf.save(`Hoja_Trabajo_${finalId}.pdf`);
+            docPdf.save(`${fileNameBase}.pdf`);
         } else {
             const blob = docPdf.output('blob');
             const url = URL.createObjectURL(blob);
@@ -517,7 +541,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="lg:col-span-2 space-y-2 text-left">
                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Cliente Base</label>
-                <div className="bg-white border border-slate-100 rounded-2xl">
+                <div className="bg-white border border-slate-100 rounded-2xl text-slate-900">
                     <ClientSelector onSelect={handleClientSelect} selectedClientId={formData.clienteId} />
                 </div>
                 

@@ -5,10 +5,17 @@ import {
   ClipboardList, Activity, Receipt, User, ArrowUpRight
 } from 'lucide-react';
 import TABS from '../constants';
+import InstallPwaCard from './InstallPwaCard';
 
 interface MainMenuProps {
   onNavigate: (tab: string) => void;
+  onSelectInspection?: (type: string) => void;
   userName: string;
+  onInstall?: () => void;
+  onConfigure?: () => void;
+  canInstall?: boolean;
+  configStatus?: { hasSignature: boolean, hasPin: boolean };
+  isOnline?: boolean;
 }
 
 const menuItems = [
@@ -34,7 +41,7 @@ const menuItems = [
   },
   {
     id: TABS.EXPENSES,
-    label: 'Jornada',
+    label: 'Gastos',
     desc: 'Horas y gastos.',
     icon: <Receipt className="w-12 h-12" />,
     classes: 'bg-slate-900 border-slate-700 text-primary',
@@ -54,38 +61,58 @@ const menuItems = [
   },
 ];
 
-export default function MainMenuTablet({ onNavigate, userName }: MainMenuProps) {
+export default function MainMenuTablet({ 
+  onNavigate, 
+  userName,
+  onInstall,
+  onConfigure,
+  canInstall,
+  configStatus,
+  isOnline
+}: MainMenuProps) {
   return (
     <div className="h-full w-full bg-slate-100 flex flex-col p-6 pb-32 font-sans">
       <header className="w-full mb-12 text-center flex-shrink-0">
-          <h2 className="text-slate-500 text-lg font-bold tracking-wider uppercase">Hola, {userName}</h2>
-          <h1 className="text-slate-800 text-6xl font-black mt-1 tracking-tighter">Panel de Control</h1>
+        <h2 className="text-slate-500 text-lg font-bold tracking-wider uppercase">Hola, {userName}</h2>
+        <h1 className="text-slate-800 text-6xl font-black mt-1 tracking-tighter">Panel de Control</h1>
       </header>
+
+      {canInstall && onInstall && onConfigure && configStatus && (
+        <section className="max-w-4xl mx-auto w-full mb-8">
+          <InstallPwaCard 
+            onInstall={onInstall}
+            onConfigure={onConfigure}
+            hasPin={configStatus.hasPin}
+            hasSignature={configStatus.hasSignature}
+            isOnline={!!isOnline}
+          />
+        </section>
+      )}
 
       <main className="w-full max-w-4xl mx-auto flex-grow flex items-center justify-center">
         <div className="grid grid-cols-2 gap-12 w-full">
           {menuItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => onNavigate(item.id)}
-                className={`group relative aspect-video flex flex-col justify-center items-center p-10 rounded-[3rem] border-4 shadow-2xl transition-all duration-300 transform hover:-translate-y-2 active:scale-[0.98] active:shadow-inner ${item.classes} ${item.shadow}`}>
-                
-                <div className="mb-8 transition-transform duration-300 group-active:scale-110">
-                  <div className="transform scale-150">
-                    {item.icon}
-                  </div>
+            <button
+              key={item.id}
+              onClick={() => onNavigate(item.id)}
+              className={`group relative aspect-video flex flex-col justify-center items-center p-10 rounded-[3rem] border-4 shadow-2xl transition-all duration-300 transform hover:-translate-y-2 active:scale-[0.98] active:shadow-inner ${item.classes} ${item.shadow}`}>
+
+              <div className="mb-8 transition-transform duration-300 group-active:scale-110">
+                <div className="transform scale-150">
+                  {item.icon}
                 </div>
- 
-                <div className="text-center">
-                  <h3 className={`text-4xl font-black tracking-tighter ${item.labelColor}`}>
-                    {item.label}
-                  </h3>
-                  <p className={`mt-3 text-sm font-black uppercase tracking-widest ${item.descColor}`}>{item.desc}</p>
-                </div>
- 
-                <ArrowUpRight className="absolute top-10 right-10 text-slate-400 opacity-50 group-hover:opacity-100 transition-opacity" size={32} />
-              </button>
-            )
+              </div>
+
+              <div className="text-center">
+                <h3 className={`text-4xl font-black tracking-tighter ${item.labelColor}`}>
+                  {item.label}
+                </h3>
+                <p className={`mt-3 text-sm font-black uppercase tracking-widest ${item.descColor}`}>{item.desc}</p>
+              </div>
+
+              <ArrowUpRight className="absolute top-10 right-10 text-slate-400 opacity-50 group-hover:opacity-100 transition-opacity" size={32} />
+            </button>
+          )
           )}
         </div>
       </main>

@@ -83,58 +83,27 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     
     contextRef.current.beginPath();
     contextRef.current.moveTo(pos.x, pos.y);
-    pointsRef.current = [pos];
-    
     setIsDrawing(true);
     setHasContent(true);
-  };
- 
-  const drawLine = () => {
-    if (!contextRef.current || pointsRef.current.length < 3) return;
-    
-    const ctx = contextRef.current;
-    const points = pointsRef.current;
-    
-    // Limpiar canvas y redibujar con suavizado si fuera necesario, 
-    // pero para evitar lag dibujamos el último segmento curvo
-    const lastTwo = points.slice(-3);
-    const xc = (lastTwo[1].x + lastTwo[2].x) / 2;
-    const yc = (lastTwo[1].y + lastTwo[2].y) / 2;
-    
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#0f172a';
-    
-    ctx.beginPath();
-    ctx.moveTo(lastTwo[0].x, lastTwo[0].y);
-    ctx.quadraticCurveTo(lastTwo[1].x, lastTwo[1].y, xc, yc);
-    ctx.stroke();
   };
  
   const draw = (e: React.PointerEvent) => {
     if (!isDrawing || !contextRef.current) return;
     
     const pos = getPos(e);
-    pointsRef.current.push(pos);
- 
-    if (pointsRef.current.length >= 3) {
-      drawLine();
-    }
+    const ctx = contextRef.current;
+
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    
+    // We keep move to for next segment but don't need point history for simple lines
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
   };
  
   const stopDrawing = () => {
     if (isDrawing) {
       setIsDrawing(false);
-      // Draw a clean dot if user tapped (no movement)
-      if (contextRef.current && pointsRef.current.length === 1) {
-        const p = pointsRef.current[0];
-        contextRef.current.beginPath();
-        contextRef.current.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
-        contextRef.current.fillStyle = '#0f172a';
-        contextRef.current.fill();
-      }
-      pointsRef.current = [];
     }
   };
 

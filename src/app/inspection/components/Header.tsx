@@ -42,6 +42,7 @@ export default function Header({ activeTab, isOnline, onBack, isSubNavActive, on
             <button 
               onClick={onInstall} 
               className="w-8 h-8 bg-white/5 rounded-xl flex items-center justify-center text-white border border-white/10 hover:bg-white/10 transition-all" 
+              title="Instalar App en Dispositivo"
             >
                 <Download size={14} />
             </button>

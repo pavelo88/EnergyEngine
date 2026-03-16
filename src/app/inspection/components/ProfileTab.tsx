@@ -14,7 +14,7 @@ export default function ProfileTab() {
   const [hasSignature, setHasSignature] = useState(false);
   const [savedSignature, setSavedSignature] = useState<string | null>(null);
   const [jobCount, setJobCount] = useState(0);
-  
+
   const auth = useAuth();
   const db = useFirebase();
   const isOnline = useOnlineStatus();
@@ -39,15 +39,15 @@ export default function ProfileTab() {
 
     const scale = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    
+
     if (canvas.width !== rect.width * scale) {
-        canvas.width = rect.width * scale;
-        canvas.height = rect.height * scale;
-        ctx.scale(scale, scale);
-        
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = '#0f172a';
+      canvas.width = rect.width * scale;
+      canvas.height = rect.height * scale;
+      ctx.scale(scale, scale);
+
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#0f172a';
     }
   }, []);
 
@@ -57,7 +57,7 @@ export default function ProfileTab() {
     const rect = canvas.getBoundingClientRect();
     const clientX = e.clientX || (e.touches && e.touches[0].clientX);
     const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-    
+
     return {
       x: clientX - rect.left,
       y: clientY - rect.top
@@ -70,8 +70,8 @@ export default function ProfileTab() {
     const pos = getPos(e);
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) {
-        ctx.beginPath();
-        ctx.moveTo(pos.x, pos.y);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
     }
   };
 
@@ -85,7 +85,7 @@ export default function ProfileTab() {
   const draw = (e: any) => {
     if (!isDrawing || !canvasRef.current) return;
     e.preventDefault();
-    
+
     const pos = getPos(e);
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
@@ -109,8 +109,8 @@ export default function ProfileTab() {
   const saveSignature = () => {
     if (!canvasRef.current) return;
     if (!hasSignature) {
-        alert("Por favor, dibuja una firma antes de guardar.");
-        return;
+      alert("Por favor, dibuja una firma antes de guardar.");
+      return;
     }
     const base64 = canvasRef.current.toDataURL('image/png');
     localStorage.setItem('energy_engine_signature', base64);
@@ -132,27 +132,27 @@ export default function ProfileTab() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <section className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-4">
-            <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
+          <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
             <User size={32} />
-            </div>
-            <div>
+          </div>
+          <div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Técnico RTS Registrado</p>
             <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                {auth.currentUser?.displayName?.toUpperCase() || auth.currentUser?.email?.split('@')[0].toUpperCase() || 'TÉCNICO ENERGY'}
+              {auth.currentUser?.displayName?.toUpperCase() || auth.currentUser?.email?.split('@')[0].toUpperCase() || 'TÉCNICO ENERGY'}
             </h2>
             <p className="text-sm font-medium text-slate-500">{auth.currentUser?.email}</p>
-            </div>
+          </div>
         </section>
 
         <section className="bg-slate-900 p-6 rounded-[2rem] shadow-lg flex items-center gap-4 text-white">
-            <div className="w-16 h-16 bg-white/10 text-primary rounded-2xl flex items-center justify-center">
-                <FileText size={32} />
-            </div>
-            <div>
-                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Trabajos Completados</p>
-                <h2 className="text-4xl font-black tracking-tight leading-none">{jobCount}</h2>
-                <p className="text-[9px] font-bold text-primary uppercase mt-1">Informes Sincronizados</p>
-            </div>
+          <div className="w-16 h-16 bg-white/10 text-primary rounded-2xl flex items-center justify-center">
+            <FileText size={32} />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Trabajos Completados</p>
+            <h2 className="text-4xl font-black tracking-tight leading-none">{jobCount}</h2>
+            <p className="text-[9px] font-bold text-primary uppercase mt-1">Informes Sincronizados</p>
+          </div>
         </section>
       </div>
 
@@ -203,17 +203,10 @@ export default function ProfileTab() {
         </div>
       </section>
 
-      <button 
-        onClick={handleLogout}
-        className={`w-full p-6 flex items-center justify-center gap-3 font-black text-xs uppercase tracking-widest rounded-[2rem] border transition-all ${
-          isOnline 
-          ? 'text-red-500 bg-red-50 border-red-100 hover:bg-red-100' 
-          : 'text-slate-400 bg-slate-50 border-slate-100 opacity-70 cursor-not-allowed'
-        }`}
-      >
-        {isOnline ? <LogOut size={18} /> : <WifiOff size={18} />}
-        {isOnline ? 'Cerrar Sesión' : 'Logout Bloqueado (Sin Red)'}
-      </button>
+      <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 flex flex-col items-center gap-2">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Energy Engine Security Protocol</p>
+        <p className="text-[9px] font-bold text-slate-300 uppercase">Dispositivo Autorizado por {auth.currentUser?.email}</p>
+      </div>
     </div>
   );
 }

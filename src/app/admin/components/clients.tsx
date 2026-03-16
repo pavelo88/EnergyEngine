@@ -32,7 +32,7 @@ export default function ClientsPage() {
   }, []);
 
   const headerAction = useMemo(() => (
-    <Button onClick={openModalForAdd} className="rounded-xl font-bold uppercase text-xs tracking-widest bg-slate-900 text-white hover:bg-slate-800">
+    <Button onClick={openModalForAdd} className="rounded-xl font-bold uppercase text-xs tracking-widest bg-primary text-white">
         <PlusCircle className="mr-2" size={16}/>
         Añadir Cliente
     </Button>
@@ -192,20 +192,20 @@ export default function ClientsPage() {
                     <form onSubmit={handleFormSubmit} className="grid grid-cols-1 gap-6">
                         <div className="space-y-2">
                             <Label htmlFor="nombre" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre o Razón Social</Label>
-                            <Input required id="nombre" name="nombre" placeholder="Nombre completo..." defaultValue={editingClient?.nombre || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold" />
+                            <Input required id="nombre" name="nombre" placeholder="Nombre completo..." defaultValue={editingClient?.nombre || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-slate-900" />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="direccion" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dirección / Instalación</Label>
-                            <Input id="direccion" name="direccion" placeholder="Calle, Ciudad..." defaultValue={editingClient?.direccion || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold" />
+                            <Input id="direccion" name="direccion" placeholder="Calle, Ciudad..." defaultValue={editingClient?.direccion || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-slate-900" />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
                               <Label htmlFor="email" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</Label>
-                              <Input id="email" name="email" type="email" placeholder="correo@empresa.com" defaultValue={editingClient?.email || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold" />
+                              <Input id="email" name="email" type="email" placeholder="correo@empresa.com" defaultValue={editingClient?.email || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-slate-900" />
                           </div>
                           <div className="space-y-2">
                                <Label htmlFor="telefono" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Teléfono</Label>
-                              <Input id="telefono" name="telefono" placeholder="+34..." defaultValue={editingClient?.telefono || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold" />
+                              <Input id="telefono" name="telefono" placeholder="+34..." defaultValue={editingClient?.telefono || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-slate-900" />
                           </div>
                         </div>
 

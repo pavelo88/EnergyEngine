@@ -5,7 +5,7 @@ import React, { useState, useEffect, Suspense, useRef, useCallback } from 'react
 import { useFirebase } from '@/firebase';
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { collection, query, where, getDocs, setDoc, doc, Timestamp, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, setDoc, doc, Timestamp, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { getStorage, ref, getDownloadURL, uploadString } from 'firebase/storage';
 import { db as dbLocal } from '@/lib/db-local';
 
@@ -15,6 +15,7 @@ import Footer from './components/Footer';
 import MainMenuDesktop from './components/MainMenuDesktop';
 import MainMenuMobile from './components/MainMenuMobile';
 import InspectionHub from './components/InspectionHub';
+import PinGate from './components/security/PinGate';
 
 import TABS from './constants';
 import { useScreenSize } from '@/hooks/use-screen-size';
@@ -22,9 +23,9 @@ import { processDictation, ProcessDictationOutput } from '@/ai/flows/process-dic
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { useSearchParams } from 'next/navigation';
 
-import { 
-  TasksTabLazy, 
-  RegistroJornadaForm, 
+import {
+  TasksTabLazy,
+  RegistroGastoForm,
   ProfileTabLazy,
   HojaTrabajoFormLazy,
   InformeTecnicoFormLazy,
@@ -45,8 +46,8 @@ const InspectionPageContent = () => {
   useEffect(() => {
     const formParam = searchParams.get('form') as FormType;
     if (formParam && ['hoja-trabajo', 'informe-tecnico', 'informe-revision', 'informe-simplificado', 'revision-basica'].includes(formParam)) {
-        setActiveInspectionForm(formParam);
-        setActiveTab(TABS.NEW_INSPECTION);
+      setActiveInspectionForm(formParam);
+      setActiveTab(TABS.NEW_INSPECTION);
     }
   }, [searchParams]);
   const isOnline = useOnlineStatus();
@@ -54,18 +55,37 @@ const InspectionPageContent = () => {
   const [hasMounted, setHasMounted] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isPinVerified, setIsPinVerified] = useState(false);
+  const [offlineEmail, setOfflineEmail] = useState<string | null>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [requiresStandalonePin, setRequiresStandalonePin] = useState(false);
 
   const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isSettingUpPinForInstall, setIsSettingUpPinForInstall] = useState(false);
 
   const [isDictating, setIsDictating] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiData, setAiData] = useState<ProcessDictationOutput | null>(null);
+  const [dictationNotebook, setDictationNotebook] = useState<string>('');
+  const [configStatus, setConfigStatus] = useState({ hasSignature: false, hasPin: false });
   const recognitionRef = useRef<any>(null);
   const dictationBufferRef = useRef<string>('');
 
   useEffect(() => {
     setHasMounted(true);
+
+    // Detectar si está corriendo como PWA instalada
+    const checkStandalone = () => {
+      const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+      setIsStandalone(isStandaloneMode);
+    };
+    checkStandalone();
     
+    // Cargar email guardado offline (para PinGate sin sesión Firebase)
+    dbLocal.table('seguridad').toArray().then(rows => {
+      if (rows.length > 0) setOfflineEmail(rows[0].email);
+    }).catch(() => {});
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').then(
@@ -81,21 +101,93 @@ const InspectionPageContent = () => {
 
     if (typeof window !== "undefined") {
       const handleInstallPrompt = (e: any) => {
-          e.preventDefault();
-          setInstallPrompt(e);
+        e.preventDefault();
+        setInstallPrompt(e);
       };
       window.addEventListener('beforeinstallprompt', handleInstallPrompt);
+
+      // Chequeo de configuración para PWA
+      const checkConfig = async () => {
+        const signature = !!localStorage.getItem('energy_engine_signature');
+        let pin = false;
+        if (user?.email) {
+          const security = await dbLocal.table('seguridad').get(user.email);
+          pin = !!security?.pinHash;
+        }
+        setConfigStatus({ hasSignature: signature, hasPin: pin });
+      };
+      const checkStandalonePin = async () => {
+        if (user?.email) {
+          const security = await dbLocal.table('seguridad').get(user.email);
+          if (!security || !security.pinHash) {
+            setRequiresStandalonePin(true);
+          }
+        }
+      };
+
+      checkConfig();
+      checkStandalonePin();
       return () => window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
     }
-  }, []);
+  }, [user, isOnline]);
+
+  // Sincronización de Clientes (Background Sync)
+  useEffect(() => {
+    if (!isOnline || !firestore || !user) return;
+
+    console.log("Iniciando sincronización de clientes...");
+    const q = query(collection(firestore, 'clientes'), where('status', 'in', ['approved', 'preaprobado']));
+    
+    // Usamos onSnapshot para mantener la caché siempre al día mientras esté online
+    const unsubscribe = onSnapshot(q, (snapshot: any) => {
+      const clientList = snapshot.docs.map((doc: any) => ({ 
+        id: doc.id, 
+        nombre: doc.data().nombre,
+        direccion: doc.data().direccion
+      }));
+      
+      dbLocal.clientes_cache.clear().then(() => {
+        dbLocal.clientes_cache.bulkPut(clientList);
+        console.log(`Caché de clientes actualizada: ${clientList.length} registros.`);
+      });
+    }, (error: any) => {
+      console.error("Error en sincronización de clientes:", error);
+    });
+
+    return () => unsubscribe();
+  }, [isOnline, firestore, user]);
+
+  // Sincronización del Perfil de Usuario (Nombre del Técnico)
+  useEffect(() => {
+    if (!isOnline || !firestore || !user?.email) return;
+
+    const syncProfile = async () => {
+      try {
+        const userDocSnap = await getDoc(doc(firestore, 'usuarios', user.email!));
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          // Guardamos el nombre en la tabla de seguridad para uso offline
+          await dbLocal.table('seguridad').update(user.email!, { 
+            nombre: userData.nombre 
+          });
+          console.log("Perfil de usuario sincronizado localmente.");
+        }
+      } catch (err) {
+        console.error("Error al sincronizar perfil:", err);
+      }
+    };
+
+    syncProfile();
+  }, [isOnline, firestore, user]);
 
   const syncOfflineData = useCallback(async () => {
     if (!isOnline || isSyncing || !user || !firestore) return;
-    
+
     setIsSyncing(true);
     const storage = getStorage();
 
     try {
+      // 1. Sincronizar Hojas de Trabajo
       const pendingHojas = await dbLocal.hojas_trabajo.filter(record => !record.synced).toArray();
       if (pendingHojas.length > 0) {
         for (const record of pendingHojas) {
@@ -105,28 +197,66 @@ const InspectionPageContent = () => {
 
             let inspectorSignatureUrl = record.data.inspectorSignatureUrl;
             if (inspectorSignature && inspectorSignature.startsWith('data:')) {
-                const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
-                await uploadString(inspRef, inspectorSignature, 'data_url');
-                inspectorSignatureUrl = await getDownloadURL(inspRef);
+              const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
+              await uploadString(inspRef, inspectorSignature, 'data_url');
+              inspectorSignatureUrl = await getDownloadURL(inspRef);
             }
 
             let clientSignatureUrl = record.data.clientSignatureUrl;
             if (clientSignature && clientSignature.startsWith('data:')) {
-                const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
-                await uploadString(cliRef, clientSignature, 'data_url');
-                clientSignatureUrl = await getDownloadURL(cliRef);
+              const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
+              await uploadString(cliRef, clientSignature, 'data_url');
+              clientSignatureUrl = await getDownloadURL(cliRef);
             }
-            
+
             const docData = { ...formDataForFirebase, inspectorSignatureUrl, clientSignatureUrl, id: docId, fecha_creacion: Timestamp.now() };
             await setDoc(doc(firestore, 'trabajos', docId), docData);
 
             if (originalJobId) {
               await updateDoc(doc(firestore, 'trabajos', originalJobId), { estado: 'Completado' });
             }
-            
+
             await dbLocal.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
           } catch (itemError) {
             console.error('Sincronización de registro fallida:', record.id, itemError);
+          }
+        }
+      }
+
+      // 2. Sincronizar Reportes de Gastos
+      const pendingGastos = await dbLocal.gastos_report.filter(r => !r.synced).toArray();
+      if (pendingGastos.length > 0) {
+        for (const record of pendingGastos) {
+          try {
+            const reportId = record.firebaseId || `GR-SYNC-${Date.now()}`;
+            const { signature, stops, gastos, ...restData } = record.data;
+
+            // Subir Firma
+            const sigRef = ref(storage, `firmas_gastos/${reportId}.png`);
+            await uploadString(sigRef, signature, 'data_url');
+            const firmaUrl = await getDownloadURL(sigRef);
+
+            // Subir tickets de gastos (si existen archivos locales)
+            const formattedGastos = [];
+            for (const g of gastos) {
+              let cUrl = g.comprobanteUrl || '';
+              // Nota: Si el archivo se perdió por sesión (blob), intentamos usar lo que haya. 
+              // En un flujo real, guardaríamos el blob en IndexedDB. 
+              formattedGastos.push({ ...g, clienteNombre: stops.find((s: any) => s.id === g.stopId)?.clienteNombre || 'Gasto General' });
+            }
+
+            await setDoc(doc(firestore, "hojas_gastos", reportId), {
+              ...restData,
+              id: reportId,
+              itinerario: stops,
+              gastos: formattedGastos,
+              firmaUrl,
+              fecha_creacion: Timestamp.now(),
+            });
+
+            await dbLocal.gastos_report.update(record.id!, { synced: true, firebaseId: reportId });
+          } catch (gastoError) {
+            console.error('Error sincronizando gasto offline:', gastoError);
           }
         }
       }
@@ -153,10 +283,10 @@ const InspectionPageContent = () => {
     setActiveInspectionForm(formType);
     setActiveTab(TABS.NEW_INSPECTION);
   };
-  
+
   const handleStartInspectionFromTask = (task: any) => {
     setSelectedTask(task);
-    setActiveInspectionForm(task.formType || 'informe-tecnico'); 
+    setActiveInspectionForm(task.formType || 'informe-tecnico');
     setActiveTab(TABS.NEW_INSPECTION);
   };
 
@@ -172,39 +302,23 @@ const InspectionPageContent = () => {
     setActiveTab(TABS.MENU);
   };
 
-  const handleInstallClick = () => {
+  const handleInstallClick = async () => {
     if (!installPrompt) return;
+    
+    // Validar si requiere setup de PIN antes de instalar
+    if (user?.email) {
+      const security = await dbLocal.table('seguridad').get(user.email);
+      if (!security || !security.pinHash) {
+        setIsSettingUpPinForInstall(true);
+        return;
+      }
+    }
+
     installPrompt.prompt();
     installPrompt.userChoice.then(() => setInstallPrompt(null));
   };
 
   const isDictatingRef = useRef(false);
-
-  const toggleDictation = () => {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-          toast({ variant: "destructive", title: "Función no compatible", description: "El dictado por voz no está disponible en este navegador." });
-          return;
-      }
-
-      if (isDictating) {
-          // 1. Disable auto-restart ref FIRST
-          isDictatingRef.current = false;
-          setIsDictating(false);
-          // 2. Stop recognition — last words arrive in onresult before onend fires
-          recognitionRef.current?.stop();
-          // 3. Give 400ms for last onresult to fire, then process
-          setTimeout(() => {
-              processFinalDictation();
-          }, 400);
-      } else {
-          dictationBufferRef.current = '';
-          isDictatingRef.current = true;
-          setIsDictating(true);
-          startRecognition();
-          toast({ title: "Escuchando...", description: "Hable con claridad. Se mantendrá activo hasta que pulse parar." });
-      }
-  };
 
   const startRecognition = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -214,72 +328,94 @@ const InspectionPageContent = () => {
     recognition.interimResults = false;
 
     recognition.onresult = (event: any) => {
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-                dictationBufferRef.current += event.results[i][0].transcript + ' ';
-            }
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          dictationBufferRef.current += event.results[i][0].transcript + ' ';
         }
+      }
     };
 
     recognition.onend = () => {
-        // Only restart if user hasn't pressed STOP
-        if (isDictatingRef.current) {
-            setTimeout(() => {
-              if (isDictatingRef.current) {
-                try { recognition.start(); } catch(err) {}
-              }
-            }, 100);
-        }
+      if (isDictatingRef.current) {
+        setTimeout(() => {
+          if (isDictatingRef.current) {
+            try { recognition.start(); } catch (err) { }
+          }
+        }, 100);
+      }
     };
 
     recognition.onerror = (e: any) => {
-        // Ignore aborted errors (from stop()), restart on network errors
-        if (e.error === 'aborted' || e.error === 'not-allowed') return;
-        if (isDictatingRef.current) {
-            setTimeout(() => {
-              if (isDictatingRef.current) {
-                try { recognition.start(); } catch(err) {}
-              }
-            }, 500);
-        }
+      if (e.error === 'aborted' || e.error === 'not-allowed') return;
+      if (isDictatingRef.current) {
+        setTimeout(() => {
+          if (isDictatingRef.current) {
+            try { recognition.start(); } catch (err) { }
+          }
+        }, 500);
+      }
     };
 
     recognitionRef.current = recognition;
     try {
       recognition.start();
-    } catch(e) {
+    } catch (e) {
       console.error("Start failed:", e);
     }
   };
 
   const processFinalDictation = async () => {
-      const text = dictationBufferRef.current.trim();
-      console.log('[DICTATION] processFinalDictation fired. Buffer length:', text.length, '| Text:', text.substring(0, 100));
-      
-      if (!text) {
-          console.warn('[DICTATION] Buffer is EMPTY — speech was not captured. Check mic permissions.');
-          toast({ variant: "destructive", title: "Sin texto", description: "No se capturó ningún audio. Verifique permisos del micrófono." });
-          return;
-      }
+    const text = dictationBufferRef.current.trim();
+    if (!text) return;
 
-      setAiLoading(true);
-      console.log('[DICTATION] Calling AI server action...');
-      try {
-          const res = await processDictation({ dictation: text });
-          console.log('[DICTATION] AI response received:', res);
-          setAiData(res);
-          toast({ title: "Voz Procesada ✓", description: "La IA ha rellenado el formulario con tu dictado." });
-      } catch (e) {
-          console.error("[DICTATION] AI call failed:", e);
-          // Fallback: use raw text so user doesn't lose dictation
-          setAiData({
-              observations_summary: text,
-              identidad: {}, all_ok: false, checklist_updates: {}, mediciones_generales: {}, pruebas_carga: {}
-          } as any);
-          toast({ variant: "destructive", title: "IA Fuera de Servicio", description: "Texto volcado manualmente al formulario." });
-      } finally {
-          setAiLoading(false);
-      }
+    setAiLoading(true);
+    try {
+      const res = await processDictation({ dictation: text });
+      setAiData(res);
+      toast({ title: "Voz Procesada ✓", description: "Formulario completado." });
+    } catch (e) {
+      setAiData({ observations_summary: text } as any);
+      toast({ variant: "destructive", title: "Error IA", description: "Texto volcado manual." });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+
+  const toggleDictation = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast({ variant: "destructive", title: "Error", description: "No soportado." });
+      return;
+    }
+
+    if (isDictating) {
+      isDictatingRef.current = false;
+      setIsDictating(false);
+      recognitionRef.current?.stop();
+      setTimeout(() => {
+        processFinalDictation();
+      }, 400);
+    } else {
+      dictationBufferRef.current = '';
+      isDictatingRef.current = true;
+      setIsDictating(true);
+      startRecognition();
+      toast({ title: "Escuchando...", description: "Hable ahora." });
+    }
+  };
+
+  const handleAiAnalyze = async () => {
+    if (!dictationNotebook.trim()) { toast({ variant: "destructive", title: "Vacío", description: "Dicta algo primero." }); return; }
+    setAiLoading(true);
+    try {
+      const res = await processDictation({ dictation: dictationNotebook });
+      setAiData(res);
+      toast({ title: "Procesado ✓", description: "Formulario completado." });
+    } catch (e) {
+      setAiData({ observations_summary: dictationNotebook } as any);
+      toast({ variant: "destructive", title: "Error IA", description: "Texto volcado manual." });
+    } finally { setAiLoading(false); }
   };
 
   if (isUserLoading) return <div className="flex h-screen items-center justify-center bg-slate-100"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -287,15 +423,53 @@ const InspectionPageContent = () => {
   const renderContent = () => {
     if (!hasMounted) return <div className="flex-grow flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
+    // SETUP DE PIN FORZADO ANTES DE INSTALAR o PWA INSTALADA
+    if ((isSettingUpPinForInstall || (isStandalone && requiresStandalonePin)) && user?.email) {
+      return (
+        <PinGate 
+          userEmail={user.email} 
+          onVerified={() => {
+             setIsSettingUpPinForInstall(false);
+             setRequiresStandalonePin(false);
+             if (installPrompt && isSettingUpPinForInstall) {
+               installPrompt.prompt();
+               installPrompt.userChoice.then(() => setInstallPrompt(null));
+             }
+          }} 
+        />
+      );
+    }
+
+    // BLOQUEO POR PIN (offline — usa email de Firebase o de sesión guardada)
+    const emailForPin = user?.email || offlineEmail;
+    if (!isOnline && !isPinVerified && emailForPin) {
+      return <PinGate userEmail={emailForPin} onVerified={() => setIsPinVerified(true)} />;
+    }
+    // Offline sin email guardado: redirigir a auth
+    if (!isOnline && !isPinVerified && !emailForPin) {
+      if (typeof window !== 'undefined') window.location.href = '/auth/inspection';
+      return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+    }
+
     if (activeTab === TABS.MENU) {
       const name = user?.displayName || user?.email?.split('@')[0] || 'Técnico';
-      
+      const menuProps = {
+        onNavigate: handleNavigate,
+        onSelectInspection: handleSelectInspectionType,
+        userName: name,
+        onInstall: handleInstallClick,
+        onConfigure: () => handleNavigate(TABS.PROFILE),
+        canInstall: !!installPrompt,
+        configStatus,
+        isOnline
+      };
+
       return (
         <div className="w-full max-w-4xl mx-auto px-4">
           {(screenSize === 'desktop' || screenSize === 'tablet') ? (
-            <MainMenuDesktop onNavigate={handleNavigate} onSelectInspection={handleSelectInspectionType} userName={name} />
+            <MainMenuDesktop {...menuProps} />
           ) : (
-            <MainMenuMobile onNavigate={handleNavigate} onSelectInspection={handleSelectInspectionType} userName={name} />
+            <MainMenuMobile {...menuProps} />
           )}
         </div>
       );
@@ -305,29 +479,43 @@ const InspectionPageContent = () => {
     let props: any = {};
 
     if (activeTab === TABS.NEW_INSPECTION) {
-        if (!activeInspectionForm) return <div className="w-full h-full max-w-4xl mx-auto"><InspectionHub onSelectInspectionType={handleSelectInspectionType} /></div>;
-        
-        switch (activeInspectionForm) {
-            case 'hoja-trabajo': Component = HojaTrabajoFormLazy; break;
-            case 'informe-tecnico': Component = InformeTecnicoFormLazy; break;
-            case 'informe-revision': Component = InformeRevisionFormLazy; break;
-            case 'informe-simplificado': Component = InformeSimplificadoFormLazy; break;
-            case 'revision-basica': Component = RevisionBasicaFormLazy; break;
-            default: Component = InformeTecnicoFormLazy;
-        }
-        props = { initialData: selectedTask, aiData: aiData, onSuccess: handleFormSuccess };
+      if (!activeInspectionForm) return <div className="w-full h-full max-w-4xl mx-auto"><InspectionHub onSelectInspectionType={handleSelectInspectionType} onInstall={handleInstallClick} canInstall={!!installPrompt} /></div>;
+
+      switch (activeInspectionForm) {
+        case 'hoja-trabajo': Component = HojaTrabajoFormLazy; break;
+        case 'informe-tecnico': Component = InformeTecnicoFormLazy; break;
+        case 'informe-revision': Component = InformeRevisionFormLazy; break;
+        case 'informe-simplificado': Component = InformeSimplificadoFormLazy; break;
+        case 'revision-basica': Component = RevisionBasicaFormLazy; break;
+        default: Component = InformeTecnicoFormLazy;
+      }
+      props = { initialData: selectedTask, aiData: aiData, onSuccess: handleFormSuccess };
     } else {
-        switch (activeTab) {
-            case TABS.TASKS: Component = TasksTabLazy; props = { onStartInspection: handleStartInspectionFromTask }; break;
-            case TABS.EXPENSES: Component = RegistroJornadaForm; break;
-            case TABS.PROFILE: Component = ProfileTabLazy; break;
-            default: return <p className="text-center py-20 text-slate-400">Componente no encontrado</p>;
-        }
+      switch (activeTab) {
+        case TABS.TASKS: Component = TasksTabLazy; props = { onStartInspection: handleStartInspectionFromTask }; break;
+        case TABS.EXPENSES: Component = RegistroGastoForm; break;
+        case TABS.PROFILE: Component = ProfileTabLazy; break;
+        default: return <p className="text-center py-20 text-slate-400">Componente no encontrado</p>;
+      }
     }
 
     return (
-      <Suspense fallback={<div className="py-40 flex flex-col items-center justify-center gap-4 text-slate-400 font-bold"><Loader2 className="animate-spin text-primary" size={40} /> CARGANDO MÓDULO...</div>}>
+      <Suspense fallback={<div className="py-20 flex flex-col items-center justify-center gap-4 text-slate-400 font-bold"><Loader2 className="animate-spin text-primary" size={40} /> CARGANDO...</div>}>
         <div className="w-full h-full max-w-4xl mx-auto">
+          {activeInspectionForm && dictationNotebook && (
+            <div className="mb-4 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex justify-between items-center shadow-sm">
+              <div className="flex-1">
+                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">CUADERNO DE NOTAS</p>
+                <p className="text-xs text-indigo-800 line-clamp-1 italic text-ellipsis">"{dictationNotebook.substring(0, 100)}..."</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setDictationNotebook('')} className="px-3 py-1.5 bg-white text-indigo-400 rounded-lg text-[9px] font-black uppercase shadow-sm active:scale-95 transition-all">Borrar</button>
+                <button onClick={handleAiAnalyze} disabled={aiLoading} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase shadow-md flex items-center gap-2 active:scale-95 transition-all disabled:opacity-50">
+                  {aiLoading ? <Loader2 size={10} className="animate-spin" /> : <span>Analizar con IA</span>}
+                </button>
+              </div>
+            </div>
+          )}
           <Component {...props} />
         </div>
       </Suspense>
@@ -336,7 +524,7 @@ const InspectionPageContent = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-white overflow-x-hidden">
-      <Header 
+      <Header
         activeTab={activeTab}
         isSubNavActive={!!activeInspectionForm}
         onBack={handleBackToHub}
@@ -344,31 +532,31 @@ const InspectionPageContent = () => {
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
       />
-      
+
       <main className="flex-grow w-full pt-20 pb-32 md:pb-40 lg:pb-48 px-2 md:px-0">
-         {renderContent()}
+        {renderContent()}
       </main>
-      
+
       {activeInspectionForm && (
-          <button
-              onClick={toggleDictation}
-              className={`fixed bottom-24 right-6 w-16 h-16 rounded-full text-white shadow-2xl flex items-center justify-center z-50 transition-all transform active:scale-90 hover:scale-105
+        <button
+          onClick={toggleDictation}
+          className={`fixed bottom-24 right-6 w-16 h-16 rounded-full text-white shadow-2xl flex items-center justify-center z-50 transition-all transform active:scale-90 hover:scale-105
               ${isDictating ? 'bg-red-600 animate-pulse' : 'bg-primary'} ${aiLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={aiLoading}
-          >
-              {aiLoading ? <Loader2 className="animate-spin" size={28}/> : isDictating ? <Square size={24}/> : <Mic size={28}/>}
-          </button>
+          disabled={aiLoading}
+        >
+          {aiLoading ? <Loader2 className="animate-spin" size={28} /> : isDictating ? <Square size={24} /> : <Mic size={28} />}
+        </button>
       )}
-      
+
       <Footer activeTab={activeTab} onNavigate={handleNavigate} />
     </div>
   );
 }
 
 export default function InspectionPage() {
-    return (
-        <Suspense fallback={<div className="flex h-screen items-center justify-center bg-slate-100"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
-            <InspectionPageContent />
-        </Suspense>
-    );
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-slate-100"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+      <InspectionPageContent />
+    </Suspense>
+  );
 }

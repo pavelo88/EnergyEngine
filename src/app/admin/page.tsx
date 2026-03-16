@@ -5,20 +5,11 @@ import { collection, onSnapshot, query, where, orderBy, limit } from 'firebase/f
 import { useFirestore } from '@/firebase';
 import { 
   Users, 
-  Briefcase, 
   Activity, 
-  TrendingUp, 
   Zap,
   ShieldCheck,
   Clock,
-  ArrowRight,
-  FileText,
-  Settings,
-  ClipboardCheck,
-  Wrench,
-  Search,
-  MoreHorizontal,
-  AlertCircle
+  MoreHorizontal
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAdminHeader } from './components/AdminHeaderContext';
@@ -184,42 +175,9 @@ export default function AdminDashboardPage() {
 
   // Calculate Personal Status
   const freeInspectors = Math.max(0, stats.inspectors - (stats.operationalInspectors || 0));
-
-  const launchActions = [
-    { title: 'Hoja de Trabajo', icon: FileText, desc: 'Instalaciones y Materiales', color: 'text-emerald-500', bg: 'bg-emerald-500/10', type: 'hoja-trabajo' },
-    { title: 'Informe Técnico', icon: Settings, desc: 'Análisis de Intervención', color: 'text-blue-500', bg: 'bg-blue-500/10', type: 'informe-tecnico' },
-    { title: 'De Revisión', icon: ClipboardCheck, desc: 'Checklist de Mantenimiento', color: 'text-amber-500', bg: 'bg-amber-500/10', type: 'informe-revision' },
-    { title: 'Simplificado', icon: Wrench, desc: 'Equipos sin parámetros', color: 'text-purple-500', bg: 'bg-purple-500/10', type: 'informe-simplificado' },
-  ];
-
-  const handleLaunch = (type: string) => {
-    router.push(`/inspection?form=${type}`);
-  };
-
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-10 duration-1000 pb-20">
       
-      {/* Consola de Lanzamiento Rápido */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {launchActions.map((action, idx) => (
-            <button 
-                key={idx}
-                onClick={() => handleLaunch(action.type)}
-                className="group relative flex flex-col items-center justify-center p-6 glass-card rounded-[2.5rem] border border-white/5 hover:border-primary/50 transition-all active:scale-95 h-48 overflow-hidden"
-            >
-                <div className={`absolute inset-0 ${action.bg} opacity-0 group-hover:opacity-20 transition-opacity blur-3xl`} />
-                <div className={`w-14 h-14 ${action.bg} ${action.color} rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 group-hover:rotate-3 border border-white/5`}>
-                    <action.icon size={28} />
-                </div>
-                <h3 className="text-white font-black text-xs uppercase tracking-tighter mb-1">{action.title}</h3>
-                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{action.desc}</p>
-                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Zap size={14} className="text-primary animate-pulse" />
-                </div>
-            </button>
-        ))}
-      </section>
-
       {/* Row 1: Personal y Operatividad */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         

@@ -39,7 +39,7 @@ export default function UsersPage() {
   };
 
   const headerAction = useMemo(() => (
-    <Button onClick={openModalForCreate} className="rounded-xl font-bold uppercase text-xs tracking-widest bg-slate-900 text-white hover:bg-slate-800">
+    <Button onClick={openModalForCreate} className="rounded-xl font-bold uppercase text-xs tracking-widest bg-primary text-white">
       <UserPlus className="h-4 w-4 mr-2"/>
       <span>Añadir Usuario</span>
     </Button>
@@ -198,7 +198,7 @@ const InputField = ({ id, label, type = 'text', register, error, icon: Icon, ...
         <Label htmlFor={id} className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</Label>
         <div className="relative">
             {Icon && <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4"><Icon className="h-4 w-4 text-slate-300" /></div>}
-            <Input id={id} type={type} {...register} {...props} className={cn("rounded-xl border-slate-100 bg-slate-50 focus:bg-white font-bold h-12", Icon ? 'pl-11' : 'pl-4')} />
+            <Input id={id} type={type} {...register} {...props} className={cn("rounded-xl border-slate-100 bg-slate-50 focus:bg-white font-bold h-12 text-slate-900", Icon ? 'pl-11' : 'pl-4')} />
         </div>
         {error && <p className="mt-1 text-xs text-red-600 font-bold uppercase">{error.message}</p>}
     </div>

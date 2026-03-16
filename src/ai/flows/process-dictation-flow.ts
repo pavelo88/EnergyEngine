@@ -100,7 +100,12 @@ const processDictationPrompt = ai.definePrompt({
     1. IDENTIDAD: Extrae "Cliente", "Instalación", "Dirección", "Nº Grupo", "Potencia" (en KVA), "Marca", "Modelo", "SN/Serie", "Persona que recibe".
     2. MEDICIONES GENERALES: Extrae valores para "Horas", "Presión de aceite", "Temperatura", "Nivel de combustible", "Tensión del alternador", "Frecuencia", "Carga de batería".
     3. PRUEBAS CON CARGA: Extrae valores para tensiones (RS, ST, RT), intensidades (R, S, T) y potencia con carga (kW).
-    4. OBSERVACIONES: Basado en TODO el dictado, redacta un informe técnico y profesional. Este texto DEBE estar estructurado en tres secciones claras con los siguientes títulos en mayúsculas: "ANTECEDENTES:", "INTERVENCIÓN:", y "RESUMEN Y SITUACIÓN ACTUAL:". Describe los trabajos realizados, las piezas cambiadas y cualquier anomalía detectada. Debe ser un texto cohesionado y válido para un informe final.
+    4. OBSERVACIONES: Basado en TODO el dictado, redacta un informe técnico y profesional. 
+    REGLAS DE FORMATO PARA OBSERVACIONES:
+    - Usa títulos en MAYÚSCULAS Y NEGRITA (ej: **ANTECEDENTES**).
+    - Cada título solo en su línea, con DOBLE SALTO DE LÍNEA antes y después.
+    - Estructura: **ANTECEDENTES**, **INTERVENCIÓN**, **RESUMEN Y SITUACIÓN ACTUAL**.
+    - Lenguaje técnico y formal.
 
     Devuelve estrictamente un JSON con el schema definido.`,
 });

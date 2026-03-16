@@ -32,9 +32,17 @@ export interface GastoLocal {
   createdAt: Date;
 }
 
+export interface GastoReportLocal {
+  id?: number;
+  firebaseId?: string;
+  synced: boolean;
+  data: any;
+  createdAt: Date;
+}
+
 export interface LocalConfig {
-  key: string;           // Ej: 'contador_hoja-trabajo', 'contador_informe-tecnico'
-  value: any;            // El valor del contador
+  key: string;           // Ej: 'contador_hoja-trabajo', 'pin_hash', 'user_id'
+  value: any;            // El valor del contador o el hash
 }
 
 export interface ClienteCache {
@@ -49,18 +57,22 @@ export class LocalDB extends Dexie {
   hojas_trabajo!: Table<HojaTrabajoLocal>;
   registros_jornada!: Table<RegistroJornadaLocal>;
   gastos!: Table<GastoLocal>;
+  gastos_report!: Table<GastoReportLocal>;
   configuracion!: Table<LocalConfig>;
   clientes_cache!: Table<ClienteCache>;
+  seguridad!: Table<any>;
 
   constructor() {
     super('EnergyEngineDB');
 
-    this.version(2).stores({
+    this.version(4).stores({
       hojas_trabajo: '++id, firebaseId, synced, createdAt',
       registros_jornada: '++id, firebaseId, synced, createdAt',
-      gastos: '++id, firebaseId, synced, createdAt',
+      gastos: '++id, firebaseId, synced, createdAt, [data.stopId]', 
+      gastos_report: '++id, firebaseId, synced, createdAt',
       configuracion: 'key',
-      clientes_cache: 'id, nombre'
+      clientes_cache: 'id, nombre',
+      seguridad: 'email'
     });
   }
 
