@@ -124,6 +124,7 @@ export default function ProfileTab() {
       return;
     }
     if (confirm("¿Estás seguro de que deseas cerrar sesión? Asegúrate de haber guardado todos tus trabajos.")) {
+      localStorage.removeItem('energy_engine_session_id');
       await signOut(auth);
     }
   };

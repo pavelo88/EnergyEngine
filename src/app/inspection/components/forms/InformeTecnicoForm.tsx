@@ -306,6 +306,11 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
     }
 
     setSaving(true);
+
+    const sequence = await dbLocal.getNextSequence('informe-tecnico');
+    const names = inspectorName.split(' ');
+    const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
+    const docId = `IT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
     
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
         const localData = { ...formData, originalJobId: initialData?.id || null };
@@ -335,11 +340,6 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
     
     if (isOnline) {
         try {
-            const formType = 'informe-tecnico';
-            const sequence = await dbLocal.getNextSequence('informe-tecnico');
-            const names = inspectorName.split(' ');
-            const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
-            const docId = `IT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
             const storage = getStorage();
             
             let inspectorSignatureUrl = null;
@@ -366,10 +366,10 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
             await saveDataToLocal(true, docId);
         } catch (e: any) { 
             console.error("Cloud save failed:", e);
-            await saveDataToLocal(false);
+            await saveDataToLocal(false, docId);
         }
     } else {
-      await saveDataToLocal(false);
+      await saveDataToLocal(false, docId);
     }
   };
 

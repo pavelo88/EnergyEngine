@@ -46,31 +46,56 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
   });
 
   useEffect(() => {
-    if (!db) return;
+    if (!db) {
+      setLoading(false);
+      return;
+    }
 
-    // Load from cache first
-    dbLocal.clientes_cache.toArray().then(cached => {
-      if (cached.length > 0) {
-        setClients(cached as Client[]);
+    // Load from cache (incluye posibles clientes creados offline)
+    Promise.all([
+      dbLocal.clientes_cache.toArray(),
+      dbLocal.clientes_pendientes.filter(c => !c.synced).toArray()
+    ]).then(([cached, pending]) => {
+      // Crear mapa para deduplicar y evitar claves duplicadas
+      const clientMap = new Map<string, Client>();
+      
+      // Primero: cached clients
+      cached.forEach(c => {
+        clientMap.set(c.id, c as Client);
+      });
+      
+      // Segundo: pending clients (sobrescriben si existen)
+      pending.forEach(p => {
+        const uniqueId = p.firebaseId ? p.firebaseId : `offline-${p.id}`;
+        clientMap.set(uniqueId, { 
+          id: uniqueId, 
+          ...p.data 
+        } as Client);
+      });
+      
+      const merged = Array.from(clientMap.values());
+      if (merged.length > 0) {
+        setClients(merged);
         setLoading(false);
       }
     });
 
-    // Subscribe to both approved and pre-approved clients
+    // Cuando hay conexión, mantenemos la lista actualizada desde Firestore
+    if (!isOnline) return;
+
     const q = query(collection(db, 'clientes'), where('status', 'in', ['approved', 'preaprobado']));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const clientList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Client));
       setClients(clientList);
       setLoading(false);
-      // Update cache
       dbLocal.clientes_cache.bulkPut(clientList);
     }, (error) => {
-        console.error("Error fetching clients:", error);
-        setLoading(false);
+      console.error("Error fetching clients:", error);
+      setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [db]);
+  }, [db, isOnline]);
 
   const selectedClient = useMemo(() => {
     return clients.find(c => c.id === selectedClientId);
@@ -105,27 +130,63 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
     }
 
     setIsSaving(true);
-    try {
-      const clientData = {
-        ...newClient,
-        status: 'preaprobado',
-        createdAt: new Date()
-      };
 
-      // Use email as ID if present, otherwise generate one
-      const docId = newClient.email ? newClient.email : doc(collection(db, 'clientes')).id;
-      
-      await setDoc(doc(db, 'clientes', docId), clientData);
-      
-      const createdClient = { id: docId, ...clientData };
+    const clientData = {
+      ...newClient,
+      status: 'preaprobado',
+      createdAt: new Date()
+    };
+
+    // Use email as ID if present, otherwise generate one
+    const docId = newClient.email ? newClient.email : doc(collection(db, 'clientes')).id;
+    const createdClient = { id: docId, ...clientData };
+
+    const persistLocally = async () => {
+      await dbLocal.clientes_cache.put(createdClient);
+      await dbLocal.clientes_pendientes.add({
+        firebaseId: docId,
+        synced: false,
+        data: clientData,
+        createdAt: new Date(),
+      });
+    };
+
+    try {
+      if (isOnline) {
+        await setDoc(doc(db, 'clientes', docId), clientData);
+        await dbLocal.clientes_cache.put(createdClient);
+        toast({ title: 'Cliente registrado', description: 'Registrado como preaprobado.' });
+      } else {
+        await persistLocally();
+        toast({ title: 'Cliente guardado offline', description: 'Se sincronizará al reconectar.' });
+      }
+
+      // Actualizamos la lista local para que el cliente aparezca inmediatamente en el selector
+      setClients((prev) => {
+        const exists = prev.some(c => c.id === createdClient.id);
+        if (exists) return prev;
+        return [...prev, createdClient];
+      });
+
       onSelect(createdClient);
       setSearchTerm(createdClient.nombre);
       setIsDialogOpen(false);
       setNewClient({ nombre: '', direccion: '', email: '', telefono: '' });
-      toast({ title: 'Cliente registrado', description: 'Registrado como preaprobado.' });
     } catch (error) {
       console.error("Error creating client:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'No se pudo registrar el cliente.' });
+      await persistLocally();
+      toast({ variant: 'destructive', title: 'Offline', description: 'Se guardó localmente. Se sincronizará al reconectar.' });
+
+      setClients((prev) => {
+        const exists = prev.some(c => c.id === createdClient.id);
+        if (exists) return prev;
+        return [...prev, createdClient];
+      });
+
+      onSelect(createdClient);
+      setSearchTerm(createdClient.nombre);
+      setIsDialogOpen(false);
+      setNewClient({ nombre: '', direccion: '', email: '', telefono: '' });
     } finally {
       setIsSaving(false);
     }

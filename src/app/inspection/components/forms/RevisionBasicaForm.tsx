@@ -454,6 +454,11 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
     }
 
     setSaving(true);
+
+    const sequence = await dbLocal.getNextSequence('revision-basica');
+    const names = inspectorName.split(' ');
+    const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
+    const docId = `BAS-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
     
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
         const localData = { 
@@ -495,10 +500,6 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
     if (isOnline) {
       try {
           const formType = 'revision-basica';
-          const sequence = await dbLocal.getNextSequence('revision-basica');
-          const names = inspectorName.split(' ');
-          const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
-          const docId = `BAS-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
 
           const storage = getStorage();
           const imageUrls = await Promise.all(
@@ -541,10 +542,10 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
 
       } catch (e: any) { 
         console.error("Error saving document:", e); 
-        await saveDataToLocal(false);
+        await saveDataToLocal(false, docId);
       }
     } else {
-      await saveDataToLocal(false);
+      await saveDataToLocal(false, docId);
     }
   };
   

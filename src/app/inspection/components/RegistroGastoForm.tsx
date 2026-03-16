@@ -22,6 +22,7 @@ import { db as dbLocal } from '@/lib/db-local';
 import { useToast } from '@/hooks/use-toast';
 import SignaturePad from './SignaturePad';
 import PinGate from './security/PinGate';
+import { fileToBase64, generateReportId } from '@/lib/offline-utils';
 
 // --- TIPOS DE DATOS ---
 type GastoItem = {
@@ -32,6 +33,9 @@ type GastoItem = {
   stopId: string; // ID de la parada o 'general'
   comprobanteUrl?: string;
   comprobanteFile?: File;
+  comprobanteBase64?: string;  // Para almacenamiento offline
+  comprobanteFileName?: string;
+  comprobanteMimeType?: string;
 };
 
 type Stop = {
@@ -112,12 +116,27 @@ export default function RegistroGastoForm() {
     }
   };
 
-  const handleAddGasto = () => {
+  const handleAddGasto = async () => {
     if (!currentGasto.monto || !currentGasto.descripcion) {
       toast({ variant: 'destructive', title: 'Faltan datos en el gasto' });
       return;
     }
-    setGastos([...gastos, { ...currentGasto, monto: parseFloat(currentGasto.monto) }]);
+
+    // Serializar el archivo si existe
+    let gastoToAdd: any = { ...currentGasto, monto: parseFloat(currentGasto.monto) };
+    if (currentGasto.comprobanteFile) {
+      try {
+        const base64 = await fileToBase64(currentGasto.comprobanteFile);
+        gastoToAdd.comprobanteBase64 = base64;
+        gastoToAdd.comprobanteFileName = currentGasto.comprobanteFile.name;
+        gastoToAdd.comprobanteMimeType = currentGasto.comprobanteFile.type;
+        delete gastoToAdd.comprobanteFile; // No guardar el File object
+      } catch (err) {
+        console.error('Error serializing file:', err);
+      }
+    }
+
+    setGastos([...gastos, gastoToAdd]);
     setCurrentGasto(initialGastoState);
   };
 
@@ -125,6 +144,7 @@ export default function RegistroGastoForm() {
 
   const handleSaveReport = async () => {
     if (!user || !user.email) return;
+    const userEmail = user.email;
     if (!signature) {
       toast({ variant: 'destructive', title: 'Firma requerida', description: 'Debes firmar para validar el registro.' });
       return;
@@ -132,15 +152,28 @@ export default function RegistroGastoForm() {
 
     setLoading(true);
 
-    const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
+    // ID único para el reporte
+    const reportId = generateReportId('GR');
+
+    const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
       const dataToSave = {
         reportDate, stops, gastos, observacionesDiarias,
-        inspectorId: user.email, inspectorNombre: user.displayName || user.email,
+        inspectorId: user.email, 
+        inspectorNombre: user.displayName || user.email,
         signature
       };
 
+      // Guardar firma en IndexedDB como backup
+      if (signature && !synced) {
+        await dbLocal.firmas.put({
+          userEmail,
+          base64Data: signature,
+          createdAt: new Date(),
+        });
+      }
+
       await dbLocal.table('gastos_report' as any).add({
-        firebaseId: firebaseId || `GR-${Date.now()}`,
+        firebaseId,
         synced,
         data: dataToSave,
         createdAt: new Date(),
@@ -151,23 +184,37 @@ export default function RegistroGastoForm() {
 
     if (isOnline && firestore && storage) {
       try {
-        const reportId = `GR-${Date.now()}-${user.uid.slice(0, 4)}`;
+        console.log(`🟢 MODO ONLINE - Sincronizando gasto ${reportId}...`);
         
         // Subir Firma
         const signatureRef = ref(storage, `firmas_gastos/${reportId}.png`);
         await uploadString(signatureRef, signature!, 'data_url');
         const firmaUrl = await getDownloadURL(signatureRef);
+        console.log(`   ✅ Firma subida`);
 
-        const batch = writeBatch(firestore);
-        
         // Procesar Gastos con sus comprobantes
         const formattedGastos = [];
         for (const g of gastos) {
           let cUrl = '';
-          if (g.comprobanteFile) {
-            const fRef = ref(storage, `comprobantes_gastos/${reportId}/${Date.now()}_${g.comprobanteFile.name}`);
-            await uploadBytes(fRef, g.comprobanteFile);
-            cUrl = await getDownloadURL(fRef);
+          
+          // Si hay base64 (offline que se carga), convertir a Blob y subir
+          if (g.comprobanteBase64 && g.comprobanteFileName) {
+            try {
+              const base64Data = g.comprobanteBase64;
+              const byteString = atob(base64Data.split(',')[1] || base64Data);
+              const byteNumbers = new Array(byteString.length);
+              for (let i = 0; i < byteString.length; i++) {
+                byteNumbers[i] = byteString.charCodeAt(i);
+              }
+              const byteArray = new Uint8Array(byteNumbers);
+              const blob = new Blob([byteArray], { type: g.comprobanteMimeType || 'application/octet-stream' });
+              
+              const fRef = ref(storage, `comprobantes_gastos/${reportId}/${Date.now()}_${g.comprobanteFileName}`);
+              await uploadBytes(fRef, blob);
+              cUrl = await getDownloadURL(fRef);
+            } catch (err) {
+              console.error('Error procesando comprobante base64:', err);
+            }
           }
           
           const stopInfo = stops.find(s => s.id === g.stopId);
@@ -175,30 +222,38 @@ export default function RegistroGastoForm() {
             ...g,
             comprobanteUrl: cUrl,
             clienteNombre: stopInfo?.clienteNombre || 'Gasto General',
-            fecha: reportDate
+            fecha: reportDate,
+            // No incluir campos internos en Firestore
+            comprobanteBase64: undefined,
+            comprobanteFileName: undefined,
+            comprobanteMimeType: undefined,
+            comprobanteFile: undefined,
           });
         }
 
         await setDoc(doc(firestore, "hojas_gastos", reportId), {
-          id: reportId,
-          inspectorId: user.email,
+          id: reportId,  // ID único - clave principal
+          inspectorId: user.email, 
           inspectorNombre: user.displayName || user.email,
           fecha: reportDate,
           itinerario: stops,
-          gastos: formattedGastos.map(({comprobanteFile, ...rest}) => rest),
+          gastos: formattedGastos.map(({comprobanteFile, comprobanteBase64, comprobanteFileName, comprobanteMimeType, ...rest}) => rest),
           observaciones: observacionesDiarias,
           firmaUrl,
           total: totalGastos,
           fecha_creacion: serverTimestamp(),
         });
+        console.log(`   💾 Guardado en Firestore con docId=${reportId}`);
 
         await saveDataToLocal(true, reportId);
       } catch (e: any) {
         console.error("Cloud Save Failed:", e);
-        await saveDataToLocal(false);
+        // Guardar localmente como fallback
+        await saveDataToLocal(false, reportId);
       }
     } else {
-      await saveDataToLocal(false);
+      // Offline: guardar todo localmente
+      await saveDataToLocal(false, reportId);
     }
 
     setLoading(false);

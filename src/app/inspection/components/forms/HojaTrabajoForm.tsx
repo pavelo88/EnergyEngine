@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ClientSelector from '../ClientSelector';
 import StableInput from '../StableInput';
+import { generateReportId, fileToBase64 } from '@/lib/offline-utils';
 
 const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
     <div className="flex flex-col items-center gap-1">
@@ -443,35 +444,85 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
       return;
     }
 
+    console.log('📝 handleSave iniciado, isOnline:', isOnline);
     setSaving(true);
 
+    // Mantener numeración secuencial para PDF (visible)
     const sequence = await dbLocal.getNextSequence('hoja-trabajo');
-    // Generar ID con la Inicial del Inspector y 4 dígitos secuenciales (reseteados anualmente según dbLocal)
-    const docId = `HT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
+    const sequentialId = `HT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
+    console.log(`📌 IDs generados: displayId=${sequentialId}`);
+    
+    // UUID interno para garantizar unicidad en Firestore (evita colisiones)
+    const internalFirebaseId = generateReportId('HT');
+    console.log(`   internalId=${internalFirebaseId}`);
 
-    const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
-        const localData = { ...formData, originalJobId: initialData?.id || null };
-        if (!synced) {
-            (localData as any).inspectorSignature = inspectorSignature;
-            (localData as any).clientSignature = clientSignature;
+    const saveDataToLocal = async (synced: boolean, firebaseId: string, displayId: string) => {
+        console.log(`💾 saveDataToLocal: synced=${synced}, firebaseId=${firebaseId}, displayId=${displayId}`);
+        
+        const localData = { 
+            ...formData, 
+            originalJobId: initialData?.id || null,
+            displayId // Guardamos el ID visible para referencia
+        };
+        
+        // SIEMPRE guardar imágenes, firmas en IndexedDB offline
+        const imageIds: number[] = [];
+        if (images.length > 0) {
+          console.log(`   📸 Guardando ${images.length} imágenes a IndexedDB...`);
+          for (let i = 0; i < images.length; i++) {
+            const image = images[i];
+            const base64 = await fileToBase64(image);
+            const imgId = await dbLocal.imagenes.add({
+              reportId: displayId,
+              base64Data: base64,
+              fileName: image.name,
+              mimeType: image.type,
+              synced: false,
+              createdAt: new Date(),
+            });
+            imageIds.push(imgId);
+            console.log(`     ✅ Imagen guardada: ${image.name} (id=${imgId})`);
+          }
         }
-        await dbLocal.hojas_trabajo.add({ 
+        (localData as any).imageIds = imageIds;
+
+        // Guardar firmas en IndexedDB como backup
+        if (inspectorSignature && !synced) {
+          await dbLocal.firmas.put({
+            userEmail: user.email!,
+            base64Data: inspectorSignature,
+            createdAt: new Date(),
+          });
+          console.log(`   ✅ Firma inspector guardada`);
+        }
+        if (clientSignature && !synced) {
+          await dbLocal.firmas.put({
+            userEmail: `${user.email}_client`,
+            base64Data: clientSignature,
+            createdAt: new Date(),
+          });
+          console.log(`   ✅ Firma cliente guardada`);
+        }
+
+        console.log(`   📥 Guardando a hojas_trabajo: firebaseId=${firebaseId}, synced=${synced}, dataKeys=${Object.keys(localData).join(',')}`);
+        const recordId = await dbLocal.hojas_trabajo.add({ 
             firebaseId, 
             synced, 
             data: localData, 
             createdAt: new Date() 
         });
+        console.log(`   ✅ Guardado en hojas_trabajo con id=${recordId}`);
         
         setSavedDocId(firebaseId);
         setIsSaved(true);
         setSaving(false);
 
-        if (synced) toast({ title: '¡Sincronizado!', description: `Informe guardado con ID: ${firebaseId}` });
-        else toast({ title: 'Guardado Localmente', description: `Informe registrado como ${firebaseId}. Se subirá al recuperar conexión.` });
+        if (synced) toast({ title: '¡Sincronizado!', description: `Informe guardado con ID: ${displayId}` });
+        else toast({ title: 'Guardado Localmente', description: `Informe registrado como ${displayId}. Se subirá al reconectar.` });
 
         const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora?");
         if (shouldDownload) {
-            handlePdfAction(true, firebaseId);
+            handlePdfAction(true, displayId);
         }
         
         if (onSuccess) onSuccess();
@@ -479,39 +530,76 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
 
     if (isOnline && firestore) {
         try {
+            console.log('🟢 MODO ONLINE - Sincronizando a Firestore...');
             const storage = getStorage();
+            
+            // Subir imágenes
+            console.log(`   📤 Subiendo ${images.length}imágenes a Storage...`);
             const imageUrls = await Promise.all(images.map(async (image) => {
-                const imgRef = ref(storage, `informes/${docId}/${image.name}`);
+                const imgRef = ref(storage, `informes/${internalFirebaseId}/${image.name}`);
                 await uploadBytes(imgRef, image);
-                return getDownloadURL(imgRef);
+                const url = await getDownloadURL(imgRef);
+                console.log(`     ✅ Imagen OK: ${image.name}`);
+                return url;
             }));
 
-            const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
+            // Subir firmas
+            console.log(`   🖋️ Subiendo firmas...`);
+            const inspRef = ref(storage, `firmas/${internalFirebaseId}/inspector.png`);
             await uploadString(inspRef, inspectorSignature!, 'data_url');
             const inspectorSignatureUrl = await getDownloadURL(inspRef);
+            console.log(`     ✅ Firma inspector OK`);
 
-            const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
+            const cliRef = ref(storage, `firmas/${internalFirebaseId}/cliente.png`);
             await uploadString(cliRef, clientSignature!, 'data_url');
             const clientSignatureUrl = await getDownloadURL(cliRef);
+            console.log(`     ✅ Firma cliente OK`);
             
             const docData = {
-                ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl,
-                inspectorId: user.email, inspectorNombre: inspectorName,
+                ...formData, 
+                imageUrls, 
+                inspectorSignatureUrl, 
+                clientSignatureUrl,
+                inspectorId: user.email, 
+                inspectorNombre: inspectorName,
                 inspectorIds: initialData?.inspectorIds || [user.email],
                 inspectorNombres: initialData?.inspectorNombres || [inspectorName],
-                fecha_creacion: Timestamp.now(), id: docId, estado: 'Completado',
+                fecha_creacion: Timestamp.now(), 
+                numero_informe: sequentialId,  // ID visible, clave principal
+                internalId: internalFirebaseId,  // UUID para referencia cruzada
+                estado: 'Completado',
             };
             
-            await setDoc(doc(firestore, 'informes', docId), docData);
-            if (initialData?.id) await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
+            console.log(`   💾 Guardando en Firestore 'informes' con docId=${sequentialId} (clave principal)`);
+            console.log(`      internalId=${internalFirebaseId} (referencia cruzada)`);
+            // SIEMPRE usar sequentialId como clave del documento
+            await setDoc(doc(firestore, 'informes', sequentialId), docData);
+            console.log(`   ✅ Guardado en Firestore exitoso`);
             
-            await saveDataToLocal(true, docId);
+            if (initialData?.id) {
+              await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
+              console.log(`   ✅ Orden de trabajo actualizada`);
+            }
+            
+            // Marcar imágenes como sincronizadas
+            const pendingImages = await dbLocal.imagenes.where('reportId').equals(sequentialId).toArray();
+            for (const img of pendingImages) {
+              await dbLocal.imagenes.update(img.id!, { synced: true });
+            }
+            console.log(`   ✅ Imágenes marcadas como sincronizadas en IndexedDB`);
+            
+            // Guardar con sequentialId como clave (no internalId)
+            await saveDataToLocal(true, sequentialId, sequentialId);
         } catch (error: any) {
-            console.error("Error al guardar en la nube:", error);
-            await saveDataToLocal(false, docId);
+            console.error("❌ Error al guardar en la nube:", error?.message, error?.stack);
+            // Guardar localmente como fallback
+            console.log("   ⚠️ Guardando localmente como fallback...");
+            await saveDataToLocal(false, sequentialId, sequentialId);
         }
     } else {
-        await saveDataToLocal(false, docId);
+        // Offline: guardar todo localmente
+        console.log('🔴 MODO OFFLINE - Guardando a IndexedDB...');
+        await saveDataToLocal(false, sequentialId, sequentialId);
     }
   };
 

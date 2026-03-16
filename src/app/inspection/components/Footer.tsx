@@ -23,6 +23,7 @@ export default function Footer({ activeTab, onNavigate }: FooterProps) {
       return;
     }
     if (confirm("¿Cerrar sesión ahora?")) {
+      localStorage.removeItem('energy_engine_session_id');
       await signOut(auth);
     }
   };

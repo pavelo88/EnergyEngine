@@ -161,44 +161,47 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
         {loading ? (
           <div className="py-20 flex justify-center items-center"><Loader2 className="h-10 w-10 animate-spin text-primary"/></div>
         ) : filteredTasks.length > 0 ? (
-          filteredTasks.map((task) => (
-            <button 
-              key={task.id}
-              onClick={() => onStartInspection(task)}
-              disabled={filter === 'completed'}
-              className="w-full bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center justify-between group active:scale-[0.98] transition-all text-left disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase
-                    ${task.synced ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}`}>
-                    {task.id || task.firebaseId || `Borrador #${task.id}`}
-                  </span>
-                  <span className="flex items-center gap-1 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                    {task.synced 
-                      ? <SyncedIcon size={12} className="text-green-500"/> 
-                      : <Clock size={10} className="text-orange-500"/>}
-                    {task.synced ? 'Sincronizado' : 'Solo Local'}
-                  </span>
+          filteredTasks.map((task) => {
+            const displayId = task.firebaseId || task.id || `Borrador #${task.id}`;
+            return (
+              <button 
+                key={task.id}
+                onClick={() => onStartInspection(task)}
+                disabled={filter === 'completed'}
+                className="w-full bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center justify-between group active:scale-[0.98] transition-all text-left disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase
+                      ${task.synced ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}`}>
+                      {displayId}
+                    </span>
+                    <span className="flex items-center gap-1 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                      {task.synced 
+                        ? <SyncedIcon size={12} className="text-green-500"/> 
+                        : <Clock size={10} className="text-orange-500"/>}
+                      {task.synced ? 'Sincronizado' : 'Solo Local'}
+                    </span>
+                  </div>
+                  
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none uppercase">
+                    {getReportTitle(task.formType)}: {task.clienteNombre || task.cliente || 'Cliente Varios'}
+                  </h3>
+                  
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <MapPin size={14} className="text-primary/70" />
+                    <span className="text-xs font-bold uppercase tracking-widest">{task.instalacion || 'Sin Ubicación'}</span>
+                  </div>
                 </div>
-                
-                <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none uppercase">
-                  {getReportTitle(task.formType)}: {task.clienteNombre || task.cliente || 'Cliente Varios'}
-                </h3>
-                
-                <div className="flex items-center gap-2 text-slate-400">
-                  <MapPin size={14} className="text-primary/70" />
-                  <span className="text-xs font-bold uppercase tracking-widest">{task.instalacion || 'Sin Ubicación'}</span>
-                </div>
-              </div>
 
-              {filter === 'pending' && (
-                <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors text-slate-300 shadow-inner">
-                  <ArrowRight size={20} />
-                </div>
-              )}
-            </button>
-          ))
+                {filter === 'pending' && (
+                  <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors text-slate-300 shadow-inner">
+                    <ArrowRight size={20} />
+                  </div>
+                )}
+              </button>
+            );
+          })
         ) : (
           <div className="bg-white p-12 rounded-[3rem] border-2 border-dashed border-slate-100 text-center space-y-4 shadow-inner">
             <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto text-slate-300">

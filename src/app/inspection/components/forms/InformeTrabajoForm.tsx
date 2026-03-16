@@ -269,6 +269,11 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
     if (isSaved) return;
 
     setSaving(true);
+
+    const sequence = await dbLocal.getNextSequence('informe-tecnico');
+    const names = inspectorName.split(' ');
+    const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
+    const docId = `IT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
     
     const updateOriginalJobStatus = async (jobId: string) => {
         if (isOnline && firestore) {
@@ -306,10 +311,6 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
     if (isOnline) {
         try {
             const formType = 'informe-tecnico';
-            const sequence = await dbLocal.getNextSequence('informe-tecnico');
-            const names = inspectorName.split(' ');
-            const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
-            const docId = `IT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
 
             const storage = getStorage();
             const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
@@ -335,10 +336,10 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
             setIsSaved(true);
         } catch (e: any) { 
             console.error("Error saving document:", e);
-            await saveDataToLocal(false);
+            await saveDataToLocal(false, docId);
         }
     } else {
-      await saveDataToLocal(false);
+      await saveDataToLocal(false, docId);
     }
     setSaving(false);
   };

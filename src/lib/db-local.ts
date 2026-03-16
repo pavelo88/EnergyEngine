@@ -51,6 +51,44 @@ export interface ClienteCache {
   direccion?: string;
 }
 
+export interface ClientePendiente {
+  id?: number;
+  firebaseId?: string;
+  synced: boolean;
+  data: any;
+  createdAt: Date;
+}
+
+export interface ImagenLocal {
+  id?: number;
+  reportId: string;      // ID del informe al que pertenece
+  base64Data: string;    // Imagen codificada en base64
+  fileName: string;
+  mimeType: string;
+  uploadedUrl?: string;  // URL de Firebase después de sincronizar
+  synced: boolean;
+  createdAt: Date;
+}
+
+export interface FirmaLocal {
+  id?: number;
+  userEmail: string;
+  base64Data: string;
+  createdAt: Date;
+  uploadedUrl?: string;
+}
+
+export interface SyncQueue {
+  id?: number;
+  recordId: string;      // ID del registro en hojas_trabajo
+  recordType: 'hoja-trabajo' | 'gasto',
+  status: 'pending' | 'retrying' | 'failed';
+  retryCount: number;
+  lastError?: string;
+  createdAt: Date;
+  lastRetry?: Date;
+}
+
 // --- CLASE DE BASE DE DATOS ---
 
 export class LocalDB extends Dexie {
@@ -60,19 +98,27 @@ export class LocalDB extends Dexie {
   gastos_report!: Table<GastoReportLocal>;
   configuracion!: Table<LocalConfig>;
   clientes_cache!: Table<ClienteCache>;
+  clientes_pendientes!: Table<ClientePendiente>;
   seguridad!: Table<any>;
+  imagenes!: Table<ImagenLocal>;
+  firmas!: Table<FirmaLocal>;
+  sync_queue!: Table<SyncQueue>;
 
   constructor() {
     super('EnergyEngineDB');
 
-    this.version(4).stores({
+    this.version(5).stores({
       hojas_trabajo: '++id, firebaseId, synced, createdAt',
       registros_jornada: '++id, firebaseId, synced, createdAt',
       gastos: '++id, firebaseId, synced, createdAt, [data.stopId]', 
       gastos_report: '++id, firebaseId, synced, createdAt',
       configuracion: 'key',
       clientes_cache: 'id, nombre',
-      seguridad: 'email'
+      clientes_pendientes: '++id, firebaseId, synced, createdAt',
+      seguridad: 'email',
+      imagenes: '++id, reportId, synced, createdAt',
+      firmas: '++id, userEmail, createdAt',
+      sync_queue: '++id, recordId, status, createdAt'
     });
   }
 

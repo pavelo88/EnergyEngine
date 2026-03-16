@@ -360,6 +360,11 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
     }
     setSaving(true);
 
+    const sequence = await dbLocal.getNextSequence('informe-simplificado');
+    const names = inspectorName.split(' ');
+    const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
+    const docId = `IS-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
+
     const updateOriginalJobStatus = async (jobId: string) => {
       if (isOnline && firestore) {
           try { await updateDoc(doc(firestore, 'ordenes_trabajo', jobId), { estado: 'Completado' }); } catch (e) { console.error(e); }
@@ -388,10 +393,6 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
 
     if (isOnline) {
         try {
-            const sequence = await dbLocal.getNextSequence('informe-simplificado');
-            const names = inspectorName.split(' ');
-            const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
-            const docId = `IS-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
             const storage = getStorage();
 
             const imageUrls = await Promise.all(images.map(async (img) => {
@@ -417,8 +418,8 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
             if (initialData?.id) await updateOriginalJobStatus(initialData.id);
 
             await saveDataToLocal(true, docId);
-        } catch (error) { console.error("Error Firebase:", error); await saveDataToLocal(false); }
-    } else { await saveDataToLocal(false); }
+        } catch (error) { console.error("Error Firebase:", error); await saveDataToLocal(false, docId); }
+    } else { await saveDataToLocal(false, docId); }
   };
   
   return (

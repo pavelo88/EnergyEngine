@@ -72,6 +72,7 @@ export default function PinGate({ userEmail, onVerified }: PinGateProps) {
     }
     
     if (confirm("Para cambiar el PIN o si lo has olvidado, debes cerrar sesión y volver a entrar con tu contraseña de correo. ¿Continuar?")) {
+      localStorage.removeItem('energy_engine_session_id');
       await signOut(auth);
       window.location.reload();
     }

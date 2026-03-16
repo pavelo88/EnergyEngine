@@ -106,6 +106,7 @@ type Inspector = { id: string; nombre: string; };
 type Cliente = { id: string; nombre: string; };
 type Job = {
   id: string;
+  numero_informe?: string;
   descripcion: string;
   clienteId: string;
   clienteNombre?: string;
@@ -154,6 +155,7 @@ export default function JobsPage() {
 
   const handleExport = useCallback(() => {
     const dataToExport = jobs.map((job: Job) => ({
+      "N° INFORME": job.numero_informe || '',
       ID: job.id,
       Descripción: job.descripcion,
       Cliente: job.clienteNombre || job.cliente,
@@ -210,10 +212,14 @@ export default function JobsPage() {
 
     const qInformes = query(collection(db, 'informes'), orderBy('fecha_creacion', 'desc'), limit(50));
     const unsubInformes = onSnapshot(qInformes, (snapshot: any) => {
-        const informeList = snapshot.docs.map((doc: any) => ({
-            id: doc.id,
-            ...(doc.data() as any)
-        }));
+        const informeList = snapshot.docs.map((doc: any) => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                numero_informe: data.numero_informe || doc.id,  // Fallback: usar id si falta numero_informe
+                ...(data as any)
+            };
+        });
         setJobs(prev => {
             const onlyJobs = prev.filter(j => j.formType === 'job' || (!j.id.startsWith('HT-') && !j.id.startsWith('IT-') && !j.id.startsWith('IR-')));
             return [...onlyJobs, ...informeList].sort((a,b) => (b.fecha_creacion?.seconds || 0) - (a.fecha_creacion?.seconds || 0));
@@ -309,6 +315,7 @@ export default function JobsPage() {
             <table className="w-full text-left">
               <thead>
                 <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                  <th className="pb-4">N° Informe</th>
                   <th className="pb-4">Descripción / Tipo</th>
                   <th className="pb-4">Cliente / Instalación</th>
                   <th className="pb-4">Especificaciones</th>
@@ -320,6 +327,7 @@ export default function JobsPage() {
               <tbody>
                 {jobs.map(job => (
                   <tr key={job.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                    <td className="py-4 font-black text-slate-700">{job.numero_informe || '—'}</td>
                     <td className="py-4 font-black text-slate-700">{getJobTitle(job)}</td>
                     <td className="py-4">
                       <div className="font-bold text-slate-600 text-sm">{job.clienteNombre || job.cliente}</div>
@@ -347,7 +355,7 @@ export default function JobsPage() {
                   </tr>
                 ))}
                  {jobs.length === 0 && (
-                    <tr><td colSpan={6} className="py-10 text-center text-slate-400 font-bold uppercase text-xs">No se registran trabajos en el sistema.</td></tr>
+                    <tr><td colSpan={7} className="py-10 text-center text-slate-400 font-bold uppercase text-xs">No se registran trabajos en el sistema.</td></tr>
                 )}
               </tbody>
             </table>

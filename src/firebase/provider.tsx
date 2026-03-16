@@ -2,8 +2,8 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged } from 'firebase/auth';
+import { Firestore, doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Auth, User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { FirebaseStorage } from 'firebase/storage';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 
@@ -93,6 +93,51 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     );
     return () => unsubscribe(); // Cleanup
   }, [auth]); // Depends on the auth instance
+
+  // Enforce one active inspector session across devices to protect sequential IDs.
+  useEffect(() => {
+    if (!auth || !firestore || !userAuthState.user?.email) return;
+
+    let sessionId = typeof window !== 'undefined'
+      ? localStorage.getItem('energy_engine_session_id')
+      : null;
+    if (!sessionId) {
+      sessionId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('energy_engine_session_id', sessionId);
+      }
+      void setDoc(
+        doc(firestore, 'usuarios', userAuthState.user.email),
+        {
+          activeSessionId: sessionId,
+          activeSessionAt: serverTimestamp(),
+          activeSessionDevice: 'inspection-web',
+        },
+        { merge: true }
+      );
+    }
+
+    const userDocRef = doc(firestore, 'usuarios', userAuthState.user.email);
+    const unsubscribe = onSnapshot(userDocRef, async (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data() as any;
+      const activeSessionId = data?.activeSessionId as string | undefined;
+      if (activeSessionId && activeSessionId !== sessionId) {
+        try {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('energy_engine_session_id');
+          }
+          await signOut(auth);
+        } catch (err) {
+          console.error('Failed to enforce single active session:', err);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [auth, firestore, userAuthState.user]);
 
   // Memoize the context value
   const contextValue = useMemo((): FirebaseContextState => {

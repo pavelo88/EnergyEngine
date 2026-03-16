@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/icons';
@@ -95,6 +95,23 @@ export default function InspectionLoginPage() {
 
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, password);
+      const sessionId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem('energy_engine_session_id', sessionId);
+
+      if (firestore) {
+        await setDoc(
+          doc(firestore, 'usuarios', cleanEmail),
+          {
+            activeSessionId: sessionId,
+            activeSessionAt: serverTimestamp(),
+            activeSessionDevice: 'inspection-web',
+          },
+          { merge: true }
+        );
+      }
+
       // Guardar email en IndexedDB para uso offline futuro
       try {
         const existing = await dbLocal.table('seguridad').get(cleanEmail);

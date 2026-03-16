@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore"; 
+import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, where, getDocs, writeBatch } from "firebase/firestore"; 
 import { useFirestore } from '@/firebase';
 import { PlusCircle, Trash2, Pencil, Mail, Phone, MapPin, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,8 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [isSavingClient, setIsSavingClient] = useState(false);
+  const [updatingClientId, setUpdatingClientId] = useState<string | null>(null);
   const db = useFirestore();
 
   const openModalForAdd = useCallback(() => {
@@ -50,6 +52,23 @@ export default function ClientsPage() {
     return () => unsubscribe();
   }, [db]);
 
+  const syncClientInInformes = useCallback(async (clientId: string, clientData: { nombre: string; direccion: string }) => {
+    if (!db) return;
+    const informesQuery = query(collection(db, 'informes'), where('clienteId', '==', clientId));
+    const informesSnap = await getDocs(informesQuery);
+    if (informesSnap.empty) return;
+
+    const batch = writeBatch(db);
+    informesSnap.docs.forEach((reportDoc) => {
+      batch.update(reportDoc.ref, {
+        cliente: clientData.nombre,
+        clienteNombre: clientData.nombre,
+        instalacion: clientData.direccion || '',
+      });
+    });
+    await batch.commit();
+  }, [db]);
+
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -62,16 +81,20 @@ export default function ClientsPage() {
         status: 'approved' as const,
     };
 
+    setIsSavingClient(true);
     try {
       if (editingClient) {
         const clientRef = doc(db, 'clientes', editingClient.id);
         await updateDoc(clientRef, clientData);
+        await syncClientInInformes(editingClient.id, clientData);
       } else {
         await addDoc(collection(db, "clientes"), clientData);
       }
       closeModal();
     } catch (error) {
       console.error("Error al guardar cliente: ", error);
+    } finally {
+      setIsSavingClient(false);
     }
   };
   const handleDeleteClient = useCallback(async (client: Client) => {
@@ -86,11 +109,15 @@ export default function ClientsPage() {
 
   const handleApproveClient = useCallback(async (client: Client) => {
     try {
+      setUpdatingClientId(client.id);
       await updateDoc(doc(db, 'clientes', client.id), { status: 'approved' });
+      await syncClientInInformes(client.id, { nombre: client.nombre, direccion: client.direccion });
     } catch (error) {
       console.error("Error al aprobar cliente: ", error);
+    } finally {
+      setUpdatingClientId(null);
     }
-  }, [db]);
+  }, [db, syncClientInInformes]);
 
   const openModalForEdit = useCallback((client: Client) => {
     setEditingClient(client);
@@ -129,7 +156,9 @@ export default function ClientsPage() {
                     </div>
                     <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
                         {client.status === 'preaprobado' && (
-                          <Button variant="default" size="sm" onClick={() => handleApproveClient(client)} className="bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest h-8 px-4">Aprobar</Button>
+                          <Button variant="default" size="sm" onClick={() => handleApproveClient(client)} disabled={updatingClientId === client.id} className="bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest h-8 px-4 disabled:opacity-60">
+                            {updatingClientId === client.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Aprobar'}
+                          </Button>
                         )}
                         <Button variant="ghost" size="icon" onClick={() => openModalForEdit(client)} className="hover:bg-white"><Pencil size={18}/></Button>
                         <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleDeleteClient(client)}><Trash2 size={18}/></Button>
@@ -170,7 +199,9 @@ export default function ClientsPage() {
                           <td className="py-4 text-right">
                               <div className="flex justify-end gap-2 items-center">
                                 {client.status === 'preaprobado' && (
-                                  <button onClick={() => handleApproveClient(client)} className="bg-green-50 text-green-600 hover:bg-green-100 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-green-100 mr-2">Aprobar</button>
+                                  <button onClick={() => handleApproveClient(client)} disabled={updatingClientId === client.id} className="bg-green-50 text-green-600 hover:bg-green-100 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-green-100 mr-2 disabled:opacity-50">
+                                    {updatingClientId === client.id ? <Loader2 size={12} className="animate-spin" /> : 'Aprobar'}
+                                  </button>
                                 )}
                                 <button onClick={() => openModalForEdit(client)} className="p-2 text-slate-300 hover:text-primary transition-colors"><Pencil size={18}/></button>
                                 <button onClick={() => handleDeleteClient(client)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
@@ -211,7 +242,9 @@ export default function ClientsPage() {
 
                         <div className="flex justify-end gap-3 mt-4">
                             <Button type="button" variant="ghost" onClick={closeModal} className="rounded-xl font-bold uppercase text-xs tracking-widest">Cancelar</Button>
-                            <Button type="submit" className="rounded-xl font-black uppercase text-xs tracking-widest bg-primary hover:bg-primary/90 px-8">Guardar Ficha</Button>
+                            <Button type="submit" disabled={isSavingClient} className="rounded-xl font-black uppercase text-xs tracking-widest bg-primary hover:bg-primary/90 px-8">
+                              {isSavingClient ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Guardar Ficha'}
+                            </Button>
                         </div>
                     </form>
                 </div>

@@ -6,8 +6,9 @@ import { useFirebase } from '@/firebase';
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { collection, query, where, getDocs, setDoc, doc, Timestamp, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
-import { getStorage, ref, getDownloadURL, uploadString } from 'firebase/storage';
+import { getStorage, ref, getDownloadURL, uploadString, uploadBytes } from 'firebase/storage';
 import { db as dbLocal } from '@/lib/db-local';
+import { getBackoffDelay, isRetryableError, base64ToBlob } from '@/lib/offline-utils';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -181,73 +182,232 @@ const InspectionPageContent = () => {
   }, [isOnline, firestore, user]);
 
   const syncOfflineData = useCallback(async () => {
-    if (!isOnline || isSyncing || !user || !firestore) return;
+    if (!isOnline || isSyncing || !user || !firestore) {
+      console.log('🔴 syncOfflineData skipped:', { isOnline, isSyncing, user: !!user, firestore: !!firestore });
+      return;
+    }
 
+    console.log('🟢 syncOfflineData INICIADA');
     setIsSyncing(true);
-    const storage = getStorage();
+    const storage = getStorage(firestore.app);
+    const maxRetries = 3;
 
     try {
-      // 1. Sincronizar Hojas de Trabajo
-      const pendingHojas = await dbLocal.hojas_trabajo.filter(record => !record.synced).toArray();
-      if (pendingHojas.length > 0) {
-        for (const record of pendingHojas) {
+      // 0. Sincronizar Clientes creados offline
+      const pendingClientes = await dbLocal.clientes_pendientes.filter(record => !record.synced).toArray();
+      console.log(`📦 Clientes pendientes: ${pendingClientes.length}`);
+      
+      for (const record of pendingClientes) {
+        let retryCount = 0;
+        let synced = false;
+
+        while (retryCount < maxRetries && !synced) {
           try {
-            const { images, inspectorSignature, clientSignature, originalJobId, ...formDataForFirebase } = record.data;
-            const docId = record.firebaseId || `SYNC-${Date.now()}`;
-
-            let inspectorSignatureUrl = record.data.inspectorSignatureUrl;
-            if (inspectorSignature && inspectorSignature.startsWith('data:')) {
-              const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
-              await uploadString(inspRef, inspectorSignature, 'data_url');
-              inspectorSignatureUrl = await getDownloadURL(inspRef);
+            const docId = record.firebaseId || `CLIENT-${Date.now()}`;
+            console.log(`  ↑ Cliente: ${docId}`);
+            await setDoc(doc(firestore, 'clientes', docId), record.data);
+            await dbLocal.clientes_cache.put({ id: docId, ...record.data });
+            await dbLocal.clientes_pendientes.update(record.id!, { synced: true, firebaseId: docId });
+            synced = true;
+            console.log(`  ✅ Cliente OK: ${docId}`);
+          } catch (itemError: any) {
+            retryCount++;
+            console.log(`  ⚠️ Cliente error (intento ${retryCount}): ${itemError?.message}`);
+            if (isRetryableError(itemError) && retryCount < maxRetries) {
+              const delay = getBackoffDelay(retryCount);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+              console.error(`  ❌ Cliente fallido: ${record.id}`);
+              break;
             }
-
-            let clientSignatureUrl = record.data.clientSignatureUrl;
-            if (clientSignature && clientSignature.startsWith('data:')) {
-              const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
-              await uploadString(cliRef, clientSignature, 'data_url');
-              clientSignatureUrl = await getDownloadURL(cliRef);
-            }
-
-            const docData = { ...formDataForFirebase, inspectorSignatureUrl, clientSignatureUrl, id: docId, fecha_creacion: Timestamp.now() };
-            await setDoc(doc(firestore, 'trabajos', docId), docData);
-
-            if (originalJobId) {
-              await updateDoc(doc(firestore, 'trabajos', originalJobId), { estado: 'Completado' });
-            }
-
-            await dbLocal.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
-          } catch (itemError) {
-            console.error('Sincronización de registro fallida:', record.id, itemError);
           }
         }
       }
 
-      // 2. Sincronizar Reportes de Gastos
-      const pendingGastos = await dbLocal.gastos_report.filter(r => !r.synced).toArray();
-      if (pendingGastos.length > 0) {
-        for (const record of pendingGastos) {
+      // 1. Sincronizar Hojas de Trabajo CON IMÁGENES
+      const pendingHojas = await dbLocal.hojas_trabajo.filter(record => !record.synced).toArray();
+      console.log(`📦 Hojas pendientes: ${pendingHojas.length}`);
+      
+      for (const record of pendingHojas) {
+        let retryCount = 0;
+        let synced = false;
+        
+        // record.firebaseId ahora es el sequentialId (HT-XX-0001)
+        const formType = record.data?.formType || 'informe';
+        const localSuffix = (record.id || Date.now()).toString().padStart(4, '0');
+        const fallbackPrefix =
+          formType === 'hoja-trabajo' ? 'HT-REC-' :
+          formType === 'informe-tecnico' ? 'IT-REC-' :
+          formType === 'informe-revision' ? 'IR-REC-' :
+          formType === 'informe-simplificado' ? 'IS-REC-' :
+          formType === 'revision-basica' ? 'BAS-REC-' :
+          'INF-REC-';
+        const docId = record.firebaseId || `${fallbackPrefix}${localSuffix}`;
+        if (!record.firebaseId && record.id) {
+          await dbLocal.hojas_trabajo.update(record.id, { firebaseId: docId });
+        }
+        console.log(`\n🔄 Procesando hoja: ${docId}`);
+        console.log(`   secuentialId/claveFBID: ${docId}`);
+
+        while (retryCount < maxRetries && !synced) {
           try {
-            const reportId = record.firebaseId || `GR-SYNC-${Date.now()}`;
+            const { imageIds, displayId, ...formDataForFirebase } = record.data;
+            const normalizedData: any = { ...formDataForFirebase };
+
+            if (normalizedData.clienteId) {
+              const cachedClient = await dbLocal.clientes_cache.get(normalizedData.clienteId);
+              if (cachedClient) {
+                normalizedData.clienteNombre = cachedClient.nombre || normalizedData.clienteNombre;
+                normalizedData.cliente = cachedClient.nombre || normalizedData.cliente;
+                normalizedData.instalacion = cachedClient.direccion || normalizedData.instalacion;
+              }
+            }
+            console.log(`   📌 Clave documento=${docId}, displayId=${displayId}, imageIds=${imageIds?.length || 0}`);
+
+            let inspectorSignatureUrl = normalizedData.inspectorSignatureUrl;
+            if (normalizedData.inspectorSignature && normalizedData.inspectorSignature.startsWith('data:')) {
+              const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
+              await uploadString(inspRef, normalizedData.inspectorSignature, 'data_url');
+              inspectorSignatureUrl = await getDownloadURL(inspRef);
+              console.log(`   ✅ Firma inspector subida`);
+            }
+
+            let clientSignatureUrl = normalizedData.clientSignatureUrl;
+            if (normalizedData.clientSignature && normalizedData.clientSignature.startsWith('data:')) {
+              const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
+              await uploadString(cliRef, normalizedData.clientSignature, 'data_url');
+              clientSignatureUrl = await getDownloadURL(cliRef);
+              console.log(`   ✅ Firma cliente subida`);
+            }
+
+            // Procesar y subir imágenes desde IndexedDB
+            const imageUrls: string[] = [];
+            if (imageIds && imageIds.length > 0) {
+              console.log(`   📸 Procesando ${imageIds.length} imágenes...`);
+              for (const imgId of imageIds) {
+                const imgRecord = await dbLocal.imagenes.get(imgId);
+                if (imgRecord && imgRecord.base64Data) {
+                  try {
+                    const blob = base64ToBlob(imgRecord.base64Data, imgRecord.mimeType);
+                    const imgRef = ref(storage, `informes/${docId}/${Date.now()}_${imgRecord.fileName}`);
+                    await uploadBytes(imgRef, blob);
+                    const url = await getDownloadURL(imgRef);
+                    imageUrls.push(url);
+                    await dbLocal.imagenes.update(imgId, { synced: true, uploadedUrl: url });
+                    console.log(`     ✅ Imagen ${imgRecord.fileName}`);
+                  } catch (imgErr: any) {
+                    console.error(`     ❌ Error imagen: ${imgErr?.message}`);
+                  }
+                }
+              }
+            }
+
+            if ((!imageIds || imageIds.length === 0) && Array.isArray(record.data?.images) && record.data.images.length > 0) {
+              for (const image of record.data.images) {
+                if (!image) continue;
+                try {
+                  const fileName = (image as any).name || `offline_${Date.now()}.jpg`;
+                  const imgRef = ref(storage, `informes/${docId}/${Date.now()}_${fileName}`);
+                  await uploadBytes(imgRef, image as Blob);
+                  const url = await getDownloadURL(imgRef);
+                  imageUrls.push(url);
+                } catch (imgErr: any) {
+                  console.error(`Error imagen legacy: ${imgErr?.message}`);
+                }
+              }
+            }
+
+            const docData = { 
+              ...normalizedData, 
+              imageUrls, 
+              inspectorSignatureUrl, 
+              clientSignatureUrl, 
+              numero_informe: displayId || docId,  // Usar displayId si existe, sino usar docId
+              fecha_creacion: Timestamp.now() 
+            };
+            
+            console.log(`   💾 Guardando en Firestore con docId=${docId}, numero_informe=${displayId || docId}: clienteId=${docData.clienteId}, clienteNombre=${docData.clienteNombre}`);
+            await setDoc(doc(firestore, 'informes', docId), docData);
+            console.log(`   ✅ Guardado en Firestore OK`);
+
+            if (record.data.originalJobId) {
+              await updateDoc(doc(firestore, 'ordenes_trabajo', record.data.originalJobId), { estado: 'Completado' });
+            }
+
+            await dbLocal.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
+            synced = true;
+            console.log(`✅ Hoja de Trabajo sincronizada: ${docId}`);
+          } catch (itemError: any) {
+            retryCount++;
+            console.error(`⚠️ Error hoja (intento ${retryCount}): ${itemError?.message}\n${itemError?.stack}`);
+            if (isRetryableError(itemError) && retryCount < maxRetries) {
+              const delay = getBackoffDelay(retryCount);
+              console.log(`   ⏳ Reintentando en ${Math.round(delay)}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+              console.error(`❌ Hoja fallida: ${record.id}`);
+              break;
+            }
+          }
+        }
+      }
+
+      // 2. Sincronizar Reportes de Gastos CON COMPROBANTES
+      const pendingGastos = await dbLocal.gastos_report.filter(r => !r.synced).toArray();
+      console.log(`📦 Gastos pendientes: ${pendingGastos.length}`);
+      
+      for (const record of pendingGastos) {
+        let retryCount = 0;
+        let synced = false;
+        
+        console.log(`\n💰 Procesando gasto: ${record.firebaseId}`);
+
+        while (retryCount < maxRetries && !synced) {
+          try {
+            const reportId = record.firebaseId || `GR-REC-${(record.id || Date.now()).toString().padStart(4, '0')}`;
+            if (!record.firebaseId && record.id) {
+              await dbLocal.gastos_report.update(record.id, { firebaseId: reportId });
+            }
             const { signature, stops, gastos, ...restData } = record.data;
 
-            // Subir Firma
-            const sigRef = ref(storage, `firmas_gastos/${reportId}.png`);
-            await uploadString(sigRef, signature, 'data_url');
-            const firmaUrl = await getDownloadURL(sigRef);
+            let firmaUrl = '';
+            if (signature && signature.startsWith('data:')) {
+              const sigRef = ref(storage, `firmas_gastos/${reportId}.png`);
+              await uploadString(sigRef, signature, 'data_url');
+              firmaUrl = await getDownloadURL(sigRef);
+              console.log(`   ✅ Firma gasto subida`);
+            }
 
-            // Subir tickets de gastos (si existen archivos locales)
             const formattedGastos = [];
             for (const g of gastos) {
               let cUrl = g.comprobanteUrl || '';
-              // Nota: Si el archivo se perdió por sesión (blob), intentamos usar lo que haya. 
-              // En un flujo real, guardaríamos el blob en IndexedDB. 
-              formattedGastos.push({ ...g, clienteNombre: stops.find((s: any) => s.id === g.stopId)?.clienteNombre || 'Gasto General' });
+
+              if (g.comprobanteBase64 && g.comprobanteFileName) {
+                try {
+                  const blob = base64ToBlob(g.comprobanteBase64, g.comprobanteMimeType);
+                  const fRef = ref(storage, `comprobantes_gastos/${reportId}/${Date.now()}_${g.comprobanteFileName}`);
+                  await uploadBytes(fRef, blob);
+                  cUrl = await getDownloadURL(fRef);
+                  console.log(`   ✅ Comprobante ${g.comprobanteFileName}`);
+                } catch (fileErr: any) {
+                  console.error(`   ❌ Error comprobante: ${fileErr?.message}`);
+                }
+              }
+
+              const stopInfo = stops.find((s: any) => s.id === g.stopId);
+              const { comprobanteBase64, comprobanteFileName, comprobanteMimeType, ...cleanGasto } = g;
+              
+              formattedGastos.push({
+                ...cleanGasto,
+                comprobanteUrl: cUrl,
+                clienteNombre: stopInfo?.clienteNombre || 'Gasto General'
+              });
             }
 
-            await setDoc(doc(firestore, "hojas_gastos", reportId), {
+            console.log(`   💾 Guardando gasto en Firestore con docId=${reportId}...`);
+            await setDoc(doc(firestore, 'hojas_gastos', reportId), {
               ...restData,
-              id: reportId,
+              id: reportId,  // clave principal
               itinerario: stops,
               gastos: formattedGastos,
               firmaUrl,
@@ -255,17 +415,31 @@ const InspectionPageContent = () => {
             });
 
             await dbLocal.gastos_report.update(record.id!, { synced: true, firebaseId: reportId });
-          } catch (gastoError) {
-            console.error('Error sincronizando gasto offline:', gastoError);
+            synced = true;
+            console.log(`✅ Gasto sincronizado: ${restData.id}`);
+          } catch (gastoError: any) {
+            retryCount++;
+            console.error(`⚠️ Error gasto (intento ${retryCount}): ${gastoError?.message}`);
+            if (isRetryableError(gastoError) && retryCount < maxRetries) {
+              const delay = getBackoffDelay(retryCount);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+              console.error(`❌ Gasto fallido`);
+              break;
+            }
           }
         }
       }
-    } catch (error) {
-      console.error('Error de sincronización:', error);
+
+      console.log(`\n🎉 Sincronización completada`);
+      toast({ title: 'Sincronización completada ✓', description: 'Todos los datos offline han sido subidos.' });
+    } catch (error: any) {
+      console.error('❌ Error general:', error?.message, error?.stack);
+      toast({ variant: 'destructive', title: 'Error en sincronización', description: 'Se reintentará al reconectar.' });
     } finally {
       setIsSyncing(false);
     }
-  }, [isOnline, isSyncing, user, firestore]);
+  }, [isOnline, isSyncing, user, firestore, toast]);
 
   useEffect(() => {
     if (isOnline && hasMounted) {
@@ -536,6 +710,15 @@ const InspectionPageContent = () => {
       <main className="flex-grow w-full pt-20 pb-32 md:pb-40 lg:pb-48 px-2 md:px-0">
         {renderContent()}
       </main>
+
+      {isSyncing && (
+        <div className="fixed inset-0 z-[120] bg-slate-900/20 backdrop-blur-[1px] flex items-center justify-center">
+          <div className="bg-white rounded-2xl px-5 py-4 shadow-xl border border-slate-100 flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <span className="text-xs font-black uppercase tracking-widest text-slate-600">Sincronizando informes...</span>
+          </div>
+        </div>
+      )}
 
       {activeInspectionForm && (
         <button

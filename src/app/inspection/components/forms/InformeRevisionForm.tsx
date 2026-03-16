@@ -419,6 +419,11 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
     }
     setSaving(true);
 
+    const sequence = await dbLocal.getNextSequence('informe-revision');
+    const names = inspectorName.split(' ');
+    const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
+    const docId = `IR-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
+
     const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
         const localData = { 
           ...formData, 
@@ -457,12 +462,6 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
 
     if (isOnline) {
         try {
-            const formType = 'informe-revision';
-            const sequence = await dbLocal.getNextSequence('informe-revision');
-            const names = inspectorName.split(' ');
-            const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
-            const docId = `IR-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
-
             const storage = getStorage();
 
             const imageUrls = await Promise.all(images.map(async (image) => {
@@ -497,10 +496,10 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
 
         } catch (error) {
             console.error("Fallo al guardar en la nube:", error);
-            await saveDataToLocal(false);
+            await saveDataToLocal(false, docId);
         }
     } else {
-        await saveDataToLocal(false);
+        await saveDataToLocal(false, docId);
     }
   };
 
