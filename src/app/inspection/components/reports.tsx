@@ -35,7 +35,7 @@ export default function ReportsPage() {
     const fetchAllReports = async () => {
       try {
         setLoading(true);
-        const q = query(collection(db, 'trabajos'), orderBy('fecha_creacion', 'desc'));
+        const q = query(collection(db, 'informes'), orderBy('fecha_creacion', 'desc'));
         const querySnapshot = await getDocs(q);
         
         const allDocs = querySnapshot.docs.map(doc => ({

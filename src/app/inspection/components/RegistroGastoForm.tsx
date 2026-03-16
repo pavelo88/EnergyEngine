@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import SignaturePad from './SignaturePad';
 import PinGate from './security/PinGate';
 import { fileToBase64, generateReportId } from '@/lib/offline-utils';
+import { getInspectionMode, resolveInspectorEmail } from '@/lib/inspection-mode';
 
 // --- TIPOS DE DATOS ---
 type GastoItem = {
@@ -47,14 +48,16 @@ type Stop = {
   ubicacion: { lat: number, lon: number } | null;
 };
 
-const initialGastoState = { rubro: 'Alimentación', monto: '', descripcion: '', forma_pago: 'Tarjeta Empresa', stopId: 'general', comprobanteFile: undefined };
-const initialStopState = { clienteId: '', clienteNombre: '', actividad: 'Inspección', hora: format(new Date(), 'HH:mm') };
+const initialGastoState = { rubro: 'AlimentaciÃ³n', monto: '', descripcion: '', forma_pago: 'Tarjeta Empresa', stopId: 'general', comprobanteFile: undefined };
+const initialStopState = { clienteId: '', clienteNombre: '', actividad: 'InspecciÃ³n', hora: format(new Date(), 'HH:mm') };
 
 export default function RegistroGastoForm() {
   const { user } = useUser();
   const firestore = useFirestore();
   const storage = firestore ? getStorage(firestore.app) : null;
   const isOnline = useOnlineStatus();
+  const inspectorEmail = resolveInspectorEmail(user?.email);
+  const canUseCloud = isOnline && getInspectionMode() === 'online' && !!firestore && !!storage && !!user?.email;
   const { toast } = useToast();
 
   const [reportDate, setReportDate] = useState<Date>(new Date());
@@ -77,7 +80,10 @@ export default function RegistroGastoForm() {
   // Cargar Clientes
   useEffect(() => {
     const fetchClients = async () => {
-      if (!firestore) return;
+      if (!firestore) {
+        setClients(await dbLocal.clientes_cache.toArray());
+        return;
+      }
       try {
         const snap = await getDocs(collection(firestore, 'clientes'));
         const list = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
@@ -96,7 +102,7 @@ export default function RegistroGastoForm() {
       return;
     }
     
-    // Capturar ubicación en el momento de añadir la parada
+    // Capturar ubicaciÃ³n en el momento de aÃ±adir la parada
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition((pos) => {
         const newStop: Stop = {
@@ -106,12 +112,12 @@ export default function RegistroGastoForm() {
         };
         setStops([...stops, newStop]);
         setCurrentStop(initialStopState);
-        toast({ title: 'PARADA REGISTRADA', description: `Ubicación capturada para ${currentStop.clienteNombre}` });
+        toast({ title: 'PARADA REGISTRADA', description: `UbicaciÃ³n capturada para ${currentStop.clienteNombre}` });
       }, () => {
         const newStop: Stop = { ...currentStop, id: `stop-${Date.now()}`, ubicacion: null };
         setStops([...stops, newStop]);
         setCurrentStop(initialStopState);
-        toast({ title: 'PARADA SIN GPS', description: 'No se pudo obtener la ubicación.' });
+        toast({ title: 'PARADA SIN GPS', description: 'No se pudo obtener la ubicaciÃ³n.' });
       });
     }
   };
@@ -143,8 +149,11 @@ export default function RegistroGastoForm() {
   const totalGastos = useMemo(() => gastos.reduce((acc, curr) => acc + curr.monto, 0), [gastos]);
 
   const handleSaveReport = async () => {
-    if (!user || !user.email) return;
-    const userEmail = user.email;
+    if (!inspectorEmail) {
+      toast({ variant: 'destructive', title: 'Inspector no identificado', description: 'Inicia online una vez para habilitar el modo offline.' });
+      return;
+    }
+    const userEmail = inspectorEmail;
     if (!signature) {
       toast({ variant: 'destructive', title: 'Firma requerida', description: 'Debes firmar para validar el registro.' });
       return;
@@ -152,14 +161,14 @@ export default function RegistroGastoForm() {
 
     setLoading(true);
 
-    // ID único para el reporte
+    // ID Ãºnico para el reporte
     const reportId = generateReportId('GR');
 
     const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
       const dataToSave = {
         reportDate, stops, gastos, observacionesDiarias,
-        inspectorId: user.email, 
-        inspectorNombre: user.displayName || user.email,
+        inspectorId: userEmail,
+        inspectorNombre: user?.displayName || userEmail,
         signature
       };
 
@@ -179,18 +188,18 @@ export default function RegistroGastoForm() {
         createdAt: new Date(),
       });
 
-      toast({ title: synced ? 'REGISTRO ENVIADO' : 'GUARDADO LOCAL', description: 'Los datos están protegidos y listos.' });
+      toast({ title: synced ? 'REGISTRO ENVIADO' : 'GUARDADO LOCAL', description: 'Los datos estÃ¡n protegidos y listos.' });
     };
 
-    if (isOnline && firestore && storage) {
+    if (canUseCloud && firestore && storage && user?.email) {
       try {
-        console.log(`🟢 MODO ONLINE - Sincronizando gasto ${reportId}...`);
+        console.log(`ðŸŸ¢ MODO ONLINE - Sincronizando gasto ${reportId}...`);
         
         // Subir Firma
         const signatureRef = ref(storage, `firmas_gastos/${reportId}.png`);
         await uploadString(signatureRef, signature!, 'data_url');
         const firmaUrl = await getDownloadURL(signatureRef);
-        console.log(`   ✅ Firma subida`);
+        console.log(`   âœ… Firma subida`);
 
         // Procesar Gastos con sus comprobantes
         const formattedGastos = [];
@@ -231,10 +240,10 @@ export default function RegistroGastoForm() {
           });
         }
 
-        await setDoc(doc(firestore, "hojas_gastos", reportId), {
-          id: reportId,  // ID único - clave principal
-          inspectorId: user.email, 
-          inspectorNombre: user.displayName || user.email,
+        await setDoc(doc(firestore, "gastos", reportId), {
+          id: reportId,  // ID Ãºnico - clave principal
+          inspectorId: userEmail, 
+          inspectorNombre: user.displayName || userEmail,
           fecha: reportDate,
           itinerario: stops,
           gastos: formattedGastos.map(({comprobanteFile, comprobanteBase64, comprobanteFileName, comprobanteMimeType, ...rest}) => rest),
@@ -243,7 +252,7 @@ export default function RegistroGastoForm() {
           total: totalGastos,
           fecha_creacion: serverTimestamp(),
         });
-        console.log(`   💾 Guardado en Firestore con docId=${reportId}`);
+        console.log(`   ðŸ’¾ Guardado en Firestore con docId=${reportId}`);
 
         await saveDataToLocal(true, reportId);
       } catch (e: any) {
@@ -291,7 +300,7 @@ export default function RegistroGastoForm() {
           </div>
         </section>
 
-        {/* ITINERARIO DEL DÍA */}
+        {/* ITINERARIO DEL DÃA */}
         <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
           <div className="flex items-center gap-2 mb-2">
             <MapPinned size={20} className="text-primary" />
@@ -300,7 +309,7 @@ export default function RegistroGastoForm() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-5 rounded-3xl border-2 border-slate-100">
             <div className="md:col-span-2 space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cliente / Punto de Intervención</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cliente / Punto de IntervenciÃ³n</label>
               <Select 
                 value={currentStop.clienteId} 
                 onValueChange={(val) => {
@@ -322,7 +331,7 @@ export default function RegistroGastoForm() {
               <Select value={currentStop.actividad} onValueChange={(v) => setCurrentStop({...currentStop, actividad: v})}>
                 <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-white font-bold text-slate-900"><SelectValue /></SelectTrigger>
                 <SelectContent className="rounded-xl font-bold">
-                  {['Inspección', 'Avería', 'Mantenimiento', 'Entrega', 'Obra', 'Otros'].map(a => <SelectItem key={a} value={a}>{a.toUpperCase()}</SelectItem>)}
+                  {['InspecciÃ³n', 'AverÃ­a', 'Mantenimiento', 'Entrega', 'Obra', 'Otros'].map(a => <SelectItem key={a} value={a}>{a.toUpperCase()}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -338,7 +347,7 @@ export default function RegistroGastoForm() {
                    <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center font-black">{i + 1}</div>
                    <div>
                       <p className="font-bold text-slate-800 uppercase">{s.clienteNombre}</p>
-                      <p className="text-[10px] font-black text-slate-400 tracking-widest">{s.actividad} • {s.hora} • {s.ubicacion ? 'GPS OK' : 'SIN GPS'}</p>
+                      <p className="text-[10px] font-black text-slate-400 tracking-widest">{s.actividad} â€¢ {s.hora} â€¢ {s.ubicacion ? 'GPS OK' : 'SIN GPS'}</p>
                    </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setStops(stops.filter(st => st.id !== s.id))} className="text-red-400 hover:text-red-600 rounded-full">
@@ -354,23 +363,23 @@ export default function RegistroGastoForm() {
         <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
            <div className="flex justify-between items-center">
             <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">
-              < Euro size={18} className="text-primary" /> Gastos del Día
+              < Euro size={18} className="text-primary" /> Gastos del DÃ­a
             </h3>
-            {totalGastos > 0 && <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl font-black text-sm">TOTAL: {totalGastos.toFixed(2)} €</div>}
+            {totalGastos > 0 && <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl font-black text-sm">TOTAL: {totalGastos.toFixed(2)} â‚¬</div>}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-5 rounded-3xl border-2 border-slate-100">
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Categoría</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">CategorÃ­a</label>
               <Select value={currentGasto.rubro} onValueChange={v => setCurrentGasto({...currentGasto, rubro: v})}>
                 <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-white font-bold text-slate-900"><SelectValue /></SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  {['Combustible', 'Peajes', 'Parking', 'Manutención', 'Hospedaje', 'Otros'].map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  {['Combustible', 'Peajes', 'Parking', 'ManutenciÃ³n', 'Hospedaje', 'Otros'].map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Monto (€)</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Monto (â‚¬)</label>
               <Input type="number" placeholder="0.00" value={currentGasto.monto} onChange={e => setCurrentGasto({...currentGasto, monto: e.target.value})} className="h-14 rounded-2xl border-slate-200 bg-white font-black text-xl text-slate-900" />
             </div>
             <div className="space-y-1">
@@ -402,7 +411,7 @@ export default function RegistroGastoForm() {
                   <input type="file" ref={fileInputRef} onChange={(e) => e.target.files?.[0] && setCurrentGasto({...currentGasto, comprobanteFile: e.target.files[0]})} accept="image/*" className="hidden" />
                </Button>
                <Button onClick={handleAddGasto} className="flex-[2] h-14 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
-                  AÑADIR GASTO
+                  AÃ‘ADIR GASTO
                </Button>
             </div>
           </div>
@@ -417,7 +426,7 @@ export default function RegistroGastoForm() {
                       <div>
                          <p className="font-bold text-slate-800 text-sm">{g.descripcion}</p>
                          <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase">
-                            {g.rubro} • {g.monto.toFixed(2)}€ • {stops.find(s => s.id === g.stopId)?.clienteNombre || 'GENERAL'}
+                            {g.rubro} â€¢ {g.monto.toFixed(2)}â‚¬ â€¢ {stops.find(s => s.id === g.stopId)?.clienteNombre || 'GENERAL'}
                          </p>
                       </div>
                    </div>
@@ -429,11 +438,11 @@ export default function RegistroGastoForm() {
           </div>
         </section>
 
-        {/* FIRMA Y ENVÍO */}
+        {/* FIRMA Y ENVÃO */}
         <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100 text-center">
           <div className="flex flex-col items-center gap-2">
             <ClipboardSignature size={32} className="text-primary" />
-            <h3 className="font-black text-slate-900 uppercase tracking-tighter">Validación Final</h3>
+            <h3 className="font-black text-slate-900 uppercase tracking-tighter">ValidaciÃ³n Final</h3>
             <p className="text-xs text-slate-400 font-medium max-w-xs">Certifico que los itinerarios y gastos declarados son veraces y corresponden a mi jornada.</p>
           </div>
           <SignaturePad title="Firma del Inspector" signature={signature} onSignatureEnd={setSignature} />
@@ -453,3 +462,4 @@ export default function RegistroGastoForm() {
     </div>
   );
 }
+

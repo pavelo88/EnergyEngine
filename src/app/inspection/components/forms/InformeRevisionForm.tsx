@@ -1,4 +1,4 @@
-
+﻿
 'use client';
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
@@ -15,8 +15,10 @@ import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db as dbLocal } from '@/lib/db-local';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
+import { useGpsRequired } from '@/hooks/use-gps-required';
 import ClientSelector from '../ClientSelector';
 import StableInput from '../StableInput';
+import { getInspectionMode, resolveInspectorEmail } from '@/lib/inspection-mode';
 
 
 
@@ -52,19 +54,19 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.setTextColor(darkColor);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text(`INFORME DE REVISIÓN - Nº: ${finalID}`, leftMargin, currentY);
+    doc.text(`INFORME DE REVISIÃ“N - NÂº: ${finalID}`, leftMargin, currentY);
     currentY += 6;
 
     autoTable(doc, {
         startY: currentY,
         body: [
             [{ content: 'CLIENTE:', styles: { fontStyle: 'bold', cellWidth: 35 } }, { content: report.clienteNombre || report.cliente || '', colSpan: 3 }],
-            [{ content: 'INSTALACIÓN:', styles: { fontStyle: 'bold' } }, { content: report.instalacion || '', colSpan: 3 }],
-            [{ content: 'DIRECCIÓN:', styles: { fontStyle: 'bold' } }, { content: report.direccion || '', colSpan: 3 }],
-            [{ content: 'UBICACIÓN (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
-            [{ content: 'FECHA REVISIÓN:', styles: { fontStyle: 'bold' } }, report.fecha_revision || '', { content: 'POTENCIA:', styles: { fontStyle: 'bold', cellWidth: 30 } }, report.potencia || ''],
-            [{ content: 'MOTOR:', styles: { fontStyle: 'bold' } }, report.motor || '', { content: 'Nº MOTOR:', styles: { fontStyle: 'bold' } }, report.n_motor || ''],
-            [{ content: 'MODELO:', styles: { fontStyle: 'bold' } }, report.modelo || '', { content: 'Nº GRUPO:', styles: { fontStyle: 'bold' } }, report.n_grupo || ''],
+            [{ content: 'INSTALACIÃ“N:', styles: { fontStyle: 'bold' } }, { content: report.instalacion || '', colSpan: 3 }],
+            [{ content: 'DIRECCIÃ“N:', styles: { fontStyle: 'bold' } }, { content: report.direccion || '', colSpan: 3 }],
+            [{ content: 'UBICACIÃ“N (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
+            [{ content: 'FECHA REVISIÃ“N:', styles: { fontStyle: 'bold' } }, report.fecha_revision || '', { content: 'POTENCIA:', styles: { fontStyle: 'bold', cellWidth: 30 } }, report.potencia || ''],
+            [{ content: 'MOTOR:', styles: { fontStyle: 'bold' } }, report.motor || '', { content: 'NÂº MOTOR:', styles: { fontStyle: 'bold' } }, report.n_motor || ''],
+            [{ content: 'MODELO:', styles: { fontStyle: 'bold' } }, report.modelo || '', { content: 'NÂº GRUPO:', styles: { fontStyle: 'bold' } }, report.n_grupo || ''],
         ],
         theme: 'grid', 
         styles: { fontSize: 8, cellPadding: 2 },
@@ -76,7 +78,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const colWidth = 28; 
     autoTable(doc, {
         startY: currentY,
-        head: [['INSPECCIÓN / ESTADO', 'OK', 'DEFECT', 'CAMBIO']],
+        head: [['INSPECCIÃ“N / ESTADO', 'OK', 'DEFECT', 'CAMBIO']],
         body: Object.entries(CHECKLIST_SECTIONS).flatMap(([section, items]) => {
             const sectionRows: any[] = [[{ content: section, colSpan: 4, styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#000', halign: 'left' }}]];
             (items as string[]).forEach(item => {
@@ -123,14 +125,14 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         body: [
             [{ content: 'DATOS DE PRUEBAS', styles: { fontStyle: 'bold', fillColor: darkColor, textColor: '#fff' }}, { content: 'VALORES', styles: { fontStyle: 'bold', fillColor: darkColor, textColor: '#fff' }}],
             ['Horas de funcionamiento', report.datos_pruebas?.horas || ''],
-            ['Presión aceite', report.datos_pruebas?.presion || ''],
+            ['PresiÃ³n aceite', report.datos_pruebas?.presion || ''],
             ['Temperatura en bloque motor', report.datos_pruebas?.temperatura || ''],
             ['Nivel de deposito de combustible', report.datos_pruebas?.nivel_combustible || ''],
-            ['Tensión en el alternador', report.datos_pruebas?.tension_alternador || ''],
+            ['TensiÃ³n en el alternador', report.datos_pruebas?.tension_alternador || ''],
             ['Frecuencia', report.datos_pruebas?.frecuencia || ''],
-            ['Carga de baterías', report.datos_pruebas?.carga_baterias || ''],
+            ['Carga de baterÃ­as', report.datos_pruebas?.carga_baterias || ''],
             [{ content: 'PRUEBAS CON CARGA', colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#f1f5f9' }}],
-            [{ content: `Tensión: RS: ${report.pruebas_carga?.tension_rs || ''}   ST: ${report.pruebas_carga?.tension_st || ''}   RT: ${report.pruebas_carga?.tension_rt || ''}`, colSpan: 2 }],
+            [{ content: `TensiÃ³n: RS: ${report.pruebas_carga?.tension_rs || ''}   ST: ${report.pruebas_carga?.tension_st || ''}   RT: ${report.pruebas_carga?.tension_rt || ''}`, colSpan: 2 }],
             [{ content: `Intensidad: R: ${report.pruebas_carga?.intensidad_r || ''}   S: ${report.pruebas_carga?.intensidad_s || ''}   T: ${report.pruebas_carga?.intensidad_t || ''}`, colSpan: 2 }],
             [{ content: `Potencia: ${report.pruebas_carga?.potencia_kw || ''} kW`, colSpan: 2 }],
         ],
@@ -200,7 +202,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         doc.addImage(report.inspectorSignatureUrl, 'PNG', 25, currentY, 60, 25);
     }
     doc.line(25, currentY + 25, 85, currentY + 25);
-    doc.text("Firma técnico:", 25, currentY + 30);
+    doc.text("Firma tÃ©cnico:", 25, currentY + 30);
     doc.text(inspectorName || '', 25, currentY + 35);
 
     if (report.clientSignatureUrl) {
@@ -217,7 +219,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         drawPdfFooter(doc, i, totalPages);
     }
   } catch (err) {
-    console.error("Fallo al generar PDF de Revisión:", err);
+    console.error("Fallo al generar PDF de RevisiÃ³n:", err);
   }
 
   return doc;
@@ -227,6 +229,8 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
   const { user } = useUser();
   const firestore = useFirestore();
   const isOnline = useOnlineStatus();
+  const inspectorEmail = resolveInspectorEmail(user?.email);
+  const canUseCloud = isOnline && getInspectionMode() === 'online' && !!firestore && !!user?.email;
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
   const [images, setImages] = useState<File[]>([]);
@@ -247,17 +251,24 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
   const [savedDocId, setSavedDocId] = useState('');
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const gpsRequired = useGpsRequired();
 
   useEffect(() => {
-    if (user && user.email && firestore) {
-        getDoc(doc(firestore, 'usuarios', user.email)).then(snap => {
-            if (snap.exists()) setInspectorName(snap.data().nombre);
-            else setInspectorName(user.email || 'Técnico Inspector');
-        }).catch((e: any) => {
-            console.error(e);
+    if (canUseCloud && user?.email && firestore) {
+      getDoc(doc(firestore, 'usuarios', user.email))
+        .then(snap => {
+          if (snap.exists()) setInspectorName(snap.data().nombre);
+          else setInspectorName(user.email || 'Tecnico Inspector');
+        })
+        .catch((e: any) => {
+          console.error(e);
         });
+      return;
     }
-  }, [user, firestore]);
+    if (inspectorEmail) {
+      setInspectorName(inspectorEmail.split('@')[0]);
+    }
+  }, [canUseCloud, inspectorEmail, user, firestore]);
 
   useEffect(() => {
     if (initialData) {
@@ -338,7 +349,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
 
   const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
-      toast({ variant: 'destructive', title: 'Error de GPS', description: 'Tu dispositivo no soporta geolocalización.' });
+      toast({ variant: 'destructive', title: 'Error de GPS', description: 'Tu dispositivo no soporta geolocalizaciÃ³n.' });
       setLocationStatus('error');
       return;
     }
@@ -348,10 +359,10 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
         const { latitude, longitude } = position.coords;
         handleInputChange('location', { lat: latitude, lon: longitude });
         setLocationStatus('success');
-        toast({ title: 'GPS Registrado', description: 'Ubicación capturada con éxito.' });
+        toast({ title: 'GPS Registrado', description: 'UbicaciÃ³n capturada con Ã©xito.' });
       },
       () => {
-        toast({ variant: 'destructive', title: 'Error de GPS', description: 'Por favor active los permisos de ubicación.' });
+        toast({ variant: 'destructive', title: 'Error de GPS', description: 'Por favor active los permisos de ubicaciÃ³n.' });
         setLocationStatus('error');
       }
     );
@@ -359,7 +370,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
   
   const handlePdfAction = (forceDownload = false, docIdOverride?: string) => {
     if (!formData.cliente || !formData.instalacion) {
-        toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Complete Cliente e Instalación para ver la vista previa.' });
+        toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Complete Cliente e InstalaciÃ³n para ver la vista previa.' });
         return;
     }
     
@@ -396,16 +407,16 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
   };
 
   const handleSave = async () => {
-    if (!user || !firestore || !user.email) {
-        toast({ variant: 'destructive', title: 'Error de Sesión', description: 'Por favor, inicie sesión de nuevo.' });
+    if (!inspectorEmail) {
+        toast({ variant: 'destructive', title: 'Inspector no identificado', description: 'Inicia online una vez para habilitar el modo offline.' });
         return;
     }
     if (isSaved) return;
 
     const missing = [];
     if (!formData.cliente) missing.push('Cliente');
-    if (!formData.instalacion) missing.push('Instalación');
-    if (!formData.location) missing.push('Ubicación GPS');
+    if (!formData.instalacion) missing.push('InstalaciÃ³n');
+    if (gpsRequired && !formData.location) missing.push('Ubicacion GPS');
     if (!inspectorSignature) missing.push('Firma Inspector');
     if (!clientSignature) missing.push('Firma Cliente');
 
@@ -447,12 +458,12 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
         setIsSaved(true);
 
         if (!synced) {
-            toast({ title: 'Guardado Local', description: 'Error de red. El informe se sincronizará automáticamente después.' });
+            toast({ title: 'Guardado Local', description: 'Error de red. El informe se sincronizarÃ¡ automÃ¡ticamente despuÃ©s.' });
         } else {
-            toast({ title: '¡Informe Guardado!', description: `Documento sincronizado con ID: ${firebaseId}` });
+            toast({ title: 'Â¡Informe Guardado!', description: `Documento sincronizado con ID: ${firebaseId}` });
         }
 
-        const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora?");
+        const shouldDownload = window.confirm("Â¡Informe guardado con Ã©xito! Â¿Desea descargar el PDF ahora?");
         if (shouldDownload) {
             handlePdfAction(true, firebaseId);
         }
@@ -460,7 +471,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
         if (onSuccess) onSuccess();
     };
 
-    if (isOnline) {
+    if (canUseCloud && firestore && user?.email) {
         try {
             const storage = getStorage();
 
@@ -513,8 +524,8 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
         }}>
             <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border-slate-100 bg-white">
                 <DialogHeader className="p-6 border-b border-slate-100 bg-white">
-                    <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa Informe de Revisión</DialogTitle>
-                    <DialogDescription className="text-xs text-slate-500">Documento temporal generado para verificación de datos.</DialogDescription>
+                    <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa Informe de RevisiÃ³n</DialogTitle>
+                    <DialogDescription className="text-xs text-slate-500">Documento temporal generado para verificaciÃ³n de datos.</DialogDescription>
                 </DialogHeader>
                 <div className="flex-1 bg-slate-100">
                     {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full border-none" title="PDF Preview" />}
@@ -523,7 +534,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
         </Dialog>
         
         <main className="space-y-6">
-            <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe de Revisión Anual/Semestral</h2>
+            <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe de RevisiÃ³n Anual/Semestral</h2>
 
             {/* --- DATOS GENERALES --- */}
             <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
@@ -534,13 +545,13 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
                           <ClientSelector onSelect={handleClientSelect} selectedClientId={formData.clienteId} />
                         </div>
                     </div>
-                    <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={(v: any) => handleInputChange('instalacion', v)}/>
-                    <StableInput label="Dirección" icon={MapPin} value={formData.direccion} onChange={(v: any) => handleInputChange('direccion', v)}/>
-                    <StableInput label="Fecha Revisión" icon={Calendar} type="date" value={formData.fecha_revision} onChange={(v: any) => handleInputChange('fecha_revision', v)}/>
+                    <StableInput label="InstalaciÃ³n" icon={MapPin} value={formData.instalacion} onChange={(v: any) => handleInputChange('instalacion', v)}/>
+                    <StableInput label="DirecciÃ³n" icon={MapPin} value={formData.direccion} onChange={(v: any) => handleInputChange('direccion', v)}/>
+                    <StableInput label="Fecha RevisiÃ³n" icon={Calendar} type="date" value={formData.fecha_revision} onChange={(v: any) => handleInputChange('fecha_revision', v)}/>
                     <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: any) => handleInputChange('motor', v)}/>
                     <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={(v: any) => handleInputChange('modelo', v)}/>
-                    <StableInput label="Nº Motor" icon={Hash} value={formData.n_motor} onChange={(v: any) => handleInputChange('n_motor', v)}/>
-                    <StableInput label="Nº Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: any) => handleInputChange('n_grupo', v)}/>
+                    <StableInput label="NÂº Motor" icon={Hash} value={formData.n_motor} onChange={(v: any) => handleInputChange('n_motor', v)}/>
+                    <StableInput label="NÂº Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: any) => handleInputChange('n_grupo', v)}/>
                     <StableInput label="Potencia" icon={Zap} value={formData.potencia} onChange={(v: any) => handleInputChange('potencia', v)}/>
                     
                     <button 
@@ -549,7 +560,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
                         className={`w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center justify-center gap-2 font-black shadow-sm text-xs transition-all active:scale-95 disabled:opacity-50 ${formData.location ? 'border-emerald-500/50 text-emerald-500 bg-emerald-500/10' : 'border-slate-100 text-slate-400 hover:border-primary'}`}
                     >
                         {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={14}/> : formData.location ? <CheckCircle2 size={14} className="text-emerald-500"/> : <MapPin size={14}/>}
-                        <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'CAPTURAR GPS'}</span>
+                        <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : (gpsRequired ? 'CAPTURAR GPS (REQUERIDO)' : 'CAPTURAR GPS (OPCIONAL)')}</span>
                     </button>
                 </div>
             </section>
@@ -581,20 +592,20 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
 
             {/* --- PRUEBAS --- */}
             <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
-                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1.5">Datos de Pruebas Dinámicas</h3>
+                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1.5">Datos de Pruebas DinÃ¡micas</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <StableInput icon={Clock} label="Horas" value={formData.datos_pruebas.horas} onChange={(v: any) => handleNestedChange('datos_pruebas', 'horas', v)} />
-                    <StableInput icon={Gauge} label="Presión Aceite" value={formData.datos_pruebas.presion} onChange={(v: any) => handleNestedChange('datos_pruebas', 'presion', v)} />
+                    <StableInput icon={Gauge} label="PresiÃ³n Aceite" value={formData.datos_pruebas.presion} onChange={(v: any) => handleNestedChange('datos_pruebas', 'presion', v)} />
                     <StableInput icon={Thermometer} label="Temperatura" value={formData.datos_pruebas.temperatura} onChange={(v: any) => handleNestedChange('datos_pruebas', 'temperatura', v)} />
                     <StableInput icon={Droplets} label="Nivel Combustible" value={formData.datos_pruebas.nivel_combustible} onChange={(v: any) => handleNestedChange('datos_pruebas', 'nivel_combustible', v)} />
-                    <StableInput icon={Zap} label="Tensión Alternador" value={formData.datos_pruebas.tension_alternador} onChange={(v: any) => handleNestedChange('datos_pruebas', 'tension_alternador', v)} />
+                    <StableInput icon={Zap} label="TensiÃ³n Alternador" value={formData.datos_pruebas.tension_alternador} onChange={(v: any) => handleNestedChange('datos_pruebas', 'tension_alternador', v)} />
                     <StableInput icon={Wind} label="Frecuencia" value={formData.datos_pruebas.frecuencia} onChange={(v: any) => handleNestedChange('datos_pruebas', 'frecuencia', v)} />
-                    <StableInput icon={Battery} label="Carga Baterías" value={formData.datos_pruebas.carga_baterias} onChange={(v: any) => handleNestedChange('datos_pruebas', 'carga_baterias', v)} />
+                    <StableInput icon={Battery} label="Carga BaterÃ­as" value={formData.datos_pruebas.carga_baterias} onChange={(v: any) => handleNestedChange('datos_pruebas', 'carga_baterias', v)} />
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-slate-100 mt-3">
-                    <LoadTestInput label="Tensión RS" value={formData.pruebas_carga.tension_rs} onChange={(v: any) => handleNestedChange('pruebas_carga', 'tension_rs', v)} />
-                    <LoadTestInput label="Tensión ST" value={formData.pruebas_carga.tension_st} onChange={(v: any) => handleNestedChange('pruebas_carga', 'tension_st', v)} />
-                    <LoadTestInput label="Tensión RT" value={formData.pruebas_carga.tension_rt} onChange={(v: any) => handleNestedChange('pruebas_carga', 'tension_rt', v)} />
+                    <LoadTestInput label="TensiÃ³n RS" value={formData.pruebas_carga.tension_rs} onChange={(v: any) => handleNestedChange('pruebas_carga', 'tension_rs', v)} />
+                    <LoadTestInput label="TensiÃ³n ST" value={formData.pruebas_carga.tension_st} onChange={(v: any) => handleNestedChange('pruebas_carga', 'tension_st', v)} />
+                    <LoadTestInput label="TensiÃ³n RT" value={formData.pruebas_carga.tension_rt} onChange={(v: any) => handleNestedChange('pruebas_carga', 'tension_rt', v)} />
                     <LoadTestInput label="Intensidad R" value={formData.pruebas_carga.intensidad_r} onChange={(v: any) => handleNestedChange('pruebas_carga', 'intensidad_r', v)} />
                     <LoadTestInput label="Intensidad S" value={formData.pruebas_carga.intensidad_s} onChange={(v: any) => handleNestedChange('pruebas_carga', 'intensidad_s', v)} />
                     <LoadTestInput label="Intensidad T" value={formData.pruebas_carga.intensidad_t} onChange={(v: any) => handleNestedChange('pruebas_carga', 'intensidad_t', v)} />
@@ -603,11 +614,11 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
             </section>
             
             <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
-                <h2 className="text-lg font-black text-black flex items-center gap-2 uppercase tracking-tighter"><Camera className="text-primary" size={18}/> Registro Fotográfico</h2>
+                <h2 className="text-lg font-black text-black flex items-center gap-2 uppercase tracking-tighter"><Camera className="text-primary" size={18}/> Registro FotogrÃ¡fico</h2>
                 <div>
                     <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:bg-white hover:border-primary transition-all group active:scale-[0.99]">
                         <Camera size={28} className="text-slate-300 mb-1.5 group-hover:text-primary transition-colors"/>
-                        <span className="font-black text-slate-400 uppercase text-[10px] tracking-widest">Añadir Fotos de Evidencia</span>
+                        <span className="font-black text-slate-400 uppercase text-[10px] tracking-widest">AÃ±adir Fotos de Evidencia</span>
                     </label>
                     <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange}/>
                 </div>
@@ -625,14 +636,14 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
             {/* --- OBSERVACIONES Y FIRMAS --- */}
             <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
                 <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Hallazgos y Comentarios</h3>
-                <textarea className="w-full h-28 bg-slate-50 border border-slate-200 rounded-xl p-3 resize-none outline-none focus:border-primary focus:bg-white transition-all shadow-inner text-sm font-medium text-black" placeholder="Escriba aquí cualquier anomalía o trabajo adicional recomendado..." value={formData.observaciones} onChange={(e: any) => handleInputChange('observaciones', e.target.value)}/>
+                <textarea className="w-full h-28 bg-slate-50 border border-slate-200 rounded-xl p-3 resize-none outline-none focus:border-primary focus:bg-white transition-all shadow-inner text-sm font-medium text-black" placeholder="Escriba aquÃ­ cualquier anomalÃ­a o trabajo adicional recomendado..." value={formData.observaciones} onChange={(e: any) => handleInputChange('observaciones', e.target.value)}/>
                 <div className="grid md:grid-cols-2 gap-6 items-start pt-4">
                     <div>
-                        <SignaturePad title="Firma del Inspector Técnico" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
+                        <SignaturePad title="Firma del Inspector TÃ©cnico" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
                         <p className="text-center font-black mt-2 text-slate-400 text-[8px] uppercase">{inspectorName}</p>
                     </div>
                     <div>
-                        <SignaturePad title="Validación del Cliente" signature={clientSignature} onSignatureEnd={setClientSignature} />
+                        <SignaturePad title="ValidaciÃ³n del Cliente" signature={clientSignature} onSignatureEnd={setClientSignature} />
                         <div className="mt-3">
                         <StableInput label="Persona que valida" icon={User} value={formData.recibidoPor} onChange={(v: any) => handleInputChange('recibidoPor', v)} placeholder="Nombre completo"/>
                         </div>
@@ -656,10 +667,13 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
                     className="w-full p-5 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700"
                 >
                     {saving ? <Loader2 className="animate-spin text-white" size={18} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={18} /> : <Save className="text-white" size={18} />}
-                    {saving ? 'GUARDANDO INFORME...' : isSaved ? 'INFORME GUARDADO' : 'FINALIZAR REVISIÓN'}
+                    {saving ? 'GUARDANDO INFORME...' : isSaved ? 'INFORME GUARDADO' : 'FINALIZAR REVISIÃ“N'}
                 </button>
             </div>
         </main>
     </div>
   );
 }
+
+
+

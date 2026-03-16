@@ -1,4 +1,4 @@
-
+﻿
 'use client';
 
 import React, { useState, useEffect, Suspense, useRef, useCallback } from 'react';
@@ -9,6 +9,7 @@ import { collection, query, where, getDocs, setDoc, doc, Timestamp, updateDoc, o
 import { getStorage, ref, getDownloadURL, uploadString, uploadBytes } from 'firebase/storage';
 import { db as dbLocal } from '@/lib/db-local';
 import { getBackoffDelay, isRetryableError, base64ToBlob } from '@/lib/offline-utils';
+import { getInspectionMode, getStoredOfflineEmail, type InspectionMode } from '@/lib/inspection-mode';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -52,6 +53,8 @@ const InspectionPageContent = () => {
     }
   }, [searchParams]);
   const isOnline = useOnlineStatus();
+  const [accessMode, setAccessMode] = useState<InspectionMode>('online');
+  const canUseCloud = isOnline && accessMode === 'online';
   const screenSize = useScreenSize();
   const [hasMounted, setHasMounted] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
@@ -71,27 +74,40 @@ const InspectionPageContent = () => {
   const [configStatus, setConfigStatus] = useState({ hasSignature: false, hasPin: false });
   const recognitionRef = useRef<any>(null);
   const dictationBufferRef = useRef<string>('');
+  const syncInFlightRef = useRef(false);
+  const assignmentHintShownRef = useRef(false);
 
   useEffect(() => {
     setHasMounted(true);
+    setAccessMode(getInspectionMode());
 
-    // Detectar si está corriendo como PWA instalada
+    const handleModeChange = () => {
+      setAccessMode(getInspectionMode());
+    };
+    window.addEventListener('inspection-mode-changed', handleModeChange as EventListener);
+
+    // Detectar si estÃ¡ corriendo como PWA instalada
     const checkStandalone = () => {
       const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
       setIsStandalone(isStandaloneMode);
     };
     checkStandalone();
     
-    // Cargar email guardado offline (para PinGate sin sesión Firebase)
-    dbLocal.table('seguridad').toArray().then(rows => {
-      if (rows.length > 0) setOfflineEmail(rows[0].email);
-    }).catch(() => {});
+    // Cargar email guardado offline (para PinGate sin sesiÃ³n Firebase)
+    const cachedOfflineEmail = getStoredOfflineEmail();
+    if (cachedOfflineEmail) {
+      setOfflineEmail(cachedOfflineEmail);
+    } else {
+      dbLocal.table('seguridad').toArray().then(rows => {
+        if (rows.length > 0) setOfflineEmail(rows[0].email);
+      }).catch(() => {});
+    }
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').then(
           (registration) => {
-            console.log('SW registrado con éxito:', registration.scope);
+            console.log('SW registrado con Ã©xito:', registration.scope);
           },
           (err) => {
             console.log('Fallo en registro de SW:', err);
@@ -107,7 +123,7 @@ const InspectionPageContent = () => {
       };
       window.addEventListener('beforeinstallprompt', handleInstallPrompt);
 
-      // Chequeo de configuración para PWA
+      // Chequeo de configuraciÃ³n para PWA
       const checkConfig = async () => {
         const signature = !!localStorage.getItem('energy_engine_signature');
         let pin = false;
@@ -128,18 +144,23 @@ const InspectionPageContent = () => {
 
       checkConfig();
       checkStandalonePin();
-      return () => window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
+      return () => {
+        window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
+        window.removeEventListener('inspection-mode-changed', handleModeChange as EventListener);
+      };
     }
+    return () => {
+      window.removeEventListener('inspection-mode-changed', handleModeChange as EventListener);
+    };
   }, [user, isOnline]);
 
-  // Sincronización de Clientes (Background Sync)
+  // SincronizaciÃ³n de Clientes (Background Sync)
   useEffect(() => {
-    if (!isOnline || !firestore || !user) return;
+    if (!canUseCloud || !firestore || !user) return;
 
-    console.log("Iniciando sincronización de clientes...");
     const q = query(collection(firestore, 'clientes'), where('status', 'in', ['approved', 'preaprobado']));
     
-    // Usamos onSnapshot para mantener la caché siempre al día mientras esté online
+    // Usamos onSnapshot para mantener la cachÃ© siempre al dÃ­a mientras estÃ© online
     const unsubscribe = onSnapshot(q, (snapshot: any) => {
       const clientList = snapshot.docs.map((doc: any) => ({ 
         id: doc.id, 
@@ -149,18 +170,18 @@ const InspectionPageContent = () => {
       
       dbLocal.clientes_cache.clear().then(() => {
         dbLocal.clientes_cache.bulkPut(clientList);
-        console.log(`Caché de clientes actualizada: ${clientList.length} registros.`);
+        console.log(`CachÃ© de clientes actualizada: ${clientList.length} registros.`);
       });
     }, (error: any) => {
-      console.error("Error en sincronización de clientes:", error);
+      console.error("Error en sincronizaciÃ³n de clientes:", error);
     });
 
     return () => unsubscribe();
-  }, [isOnline, firestore, user]);
+  }, [canUseCloud, firestore, user]);
 
-  // Sincronización del Perfil de Usuario (Nombre del Técnico)
+  // SincronizaciÃ³n del Perfil de Usuario (Nombre del TÃ©cnico)
   useEffect(() => {
-    if (!isOnline || !firestore || !user?.email) return;
+    if (!canUseCloud || !firestore || !user?.email) return;
 
     const syncProfile = async () => {
       try {
@@ -179,23 +200,52 @@ const InspectionPageContent = () => {
     };
 
     syncProfile();
-  }, [isOnline, firestore, user]);
+  }, [canUseCloud, firestore, user]);
+
+  useEffect(() => {
+    if (!canUseCloud || !firestore || !user?.email) return;
+
+    const qAssigned = query(collection(firestore, 'ordenes_trabajo'), where('inspectorIds', 'array-contains', user.email));
+    const unsubscribe = onSnapshot(qAssigned, (snapshot: any) => {
+      const pendingCount = snapshot.docs.filter((d: any) => {
+        const estado = d.data()?.estado;
+        return estado === 'Pendiente' || estado === 'En Progreso';
+      }).length;
+
+      if (pendingCount > 0 && !assignmentHintShownRef.current) {
+        assignmentHintShownRef.current = true;
+        toast({
+          title: `Tienes ${pendingCount} trabajo(s) asignado(s)`,
+          description: 'Revisa Historial antes de crear un informe nuevo.',
+        });
+      }
+
+      if (pendingCount === 0) {
+        assignmentHintShownRef.current = false;
+      }
+    });
+
+    return () => unsubscribe();
+  }, [canUseCloud, firestore, user, toast]);
 
   const syncOfflineData = useCallback(async () => {
-    if (!isOnline || isSyncing || !user || !firestore) {
-      console.log('🔴 syncOfflineData skipped:', { isOnline, isSyncing, user: !!user, firestore: !!firestore });
+    if (!canUseCloud || syncInFlightRef.current || !user || !firestore) {
+      console.log('ðŸ”´ syncOfflineData skipped:', { canUseCloud, isSyncing, user: !!user, firestore: !!firestore });
       return;
     }
 
-    console.log('🟢 syncOfflineData INICIADA');
+    console.log('ðŸŸ¢ syncOfflineData INICIADA');
+    syncInFlightRef.current = true;
     setIsSyncing(true);
     const storage = getStorage(firestore.app);
     const maxRetries = 3;
+    let didSyncSomething = false;
 
     try {
       // 0. Sincronizar Clientes creados offline
       const pendingClientes = await dbLocal.clientes_pendientes.filter(record => !record.synced).toArray();
-      console.log(`📦 Clientes pendientes: ${pendingClientes.length}`);
+      if (pendingClientes.length > 0) didSyncSomething = true;
+      console.log(`ðŸ“¦ Clientes pendientes: ${pendingClientes.length}`);
       
       for (const record of pendingClientes) {
         let retryCount = 0;
@@ -204,29 +254,30 @@ const InspectionPageContent = () => {
         while (retryCount < maxRetries && !synced) {
           try {
             const docId = record.firebaseId || `CLIENT-${Date.now()}`;
-            console.log(`  ↑ Cliente: ${docId}`);
+            console.log(`  â†‘ Cliente: ${docId}`);
             await setDoc(doc(firestore, 'clientes', docId), record.data);
             await dbLocal.clientes_cache.put({ id: docId, ...record.data });
             await dbLocal.clientes_pendientes.update(record.id!, { synced: true, firebaseId: docId });
             synced = true;
-            console.log(`  ✅ Cliente OK: ${docId}`);
+            console.log(`  âœ… Cliente OK: ${docId}`);
           } catch (itemError: any) {
             retryCount++;
-            console.log(`  ⚠️ Cliente error (intento ${retryCount}): ${itemError?.message}`);
+            console.log(`  âš ï¸ Cliente error (intento ${retryCount}): ${itemError?.message}`);
             if (isRetryableError(itemError) && retryCount < maxRetries) {
               const delay = getBackoffDelay(retryCount);
               await new Promise(resolve => setTimeout(resolve, delay));
             } else {
-              console.error(`  ❌ Cliente fallido: ${record.id}`);
+              console.error(`  âŒ Cliente fallido: ${record.id}`);
               break;
             }
           }
         }
       }
 
-      // 1. Sincronizar Hojas de Trabajo CON IMÁGENES
+      // 1. Sincronizar Hojas de Trabajo CON IMÃGENES
       const pendingHojas = await dbLocal.hojas_trabajo.filter(record => !record.synced).toArray();
-      console.log(`📦 Hojas pendientes: ${pendingHojas.length}`);
+      if (pendingHojas.length > 0) didSyncSomething = true;
+      console.log(`ðŸ“¦ Hojas pendientes: ${pendingHojas.length}`);
       
       for (const record of pendingHojas) {
         let retryCount = 0;
@@ -246,7 +297,7 @@ const InspectionPageContent = () => {
         if (!record.firebaseId && record.id) {
           await dbLocal.hojas_trabajo.update(record.id, { firebaseId: docId });
         }
-        console.log(`\n🔄 Procesando hoja: ${docId}`);
+        console.log(`\nðŸ”„ Procesando hoja: ${docId}`);
         console.log(`   secuentialId/claveFBID: ${docId}`);
 
         while (retryCount < maxRetries && !synced) {
@@ -262,14 +313,14 @@ const InspectionPageContent = () => {
                 normalizedData.instalacion = cachedClient.direccion || normalizedData.instalacion;
               }
             }
-            console.log(`   📌 Clave documento=${docId}, displayId=${displayId}, imageIds=${imageIds?.length || 0}`);
+            console.log(`   ðŸ“Œ Clave documento=${docId}, displayId=${displayId}, imageIds=${imageIds?.length || 0}`);
 
             let inspectorSignatureUrl = normalizedData.inspectorSignatureUrl;
             if (normalizedData.inspectorSignature && normalizedData.inspectorSignature.startsWith('data:')) {
               const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
               await uploadString(inspRef, normalizedData.inspectorSignature, 'data_url');
               inspectorSignatureUrl = await getDownloadURL(inspRef);
-              console.log(`   ✅ Firma inspector subida`);
+              console.log(`   âœ… Firma inspector subida`);
             }
 
             let clientSignatureUrl = normalizedData.clientSignatureUrl;
@@ -277,13 +328,13 @@ const InspectionPageContent = () => {
               const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
               await uploadString(cliRef, normalizedData.clientSignature, 'data_url');
               clientSignatureUrl = await getDownloadURL(cliRef);
-              console.log(`   ✅ Firma cliente subida`);
+              console.log(`   âœ… Firma cliente subida`);
             }
 
-            // Procesar y subir imágenes desde IndexedDB
+            // Procesar y subir imÃ¡genes desde IndexedDB
             const imageUrls: string[] = [];
             if (imageIds && imageIds.length > 0) {
-              console.log(`   📸 Procesando ${imageIds.length} imágenes...`);
+              console.log(`   ðŸ“¸ Procesando ${imageIds.length} imÃ¡genes...`);
               for (const imgId of imageIds) {
                 const imgRecord = await dbLocal.imagenes.get(imgId);
                 if (imgRecord && imgRecord.base64Data) {
@@ -294,9 +345,9 @@ const InspectionPageContent = () => {
                     const url = await getDownloadURL(imgRef);
                     imageUrls.push(url);
                     await dbLocal.imagenes.update(imgId, { synced: true, uploadedUrl: url });
-                    console.log(`     ✅ Imagen ${imgRecord.fileName}`);
+                    console.log(`     âœ… Imagen ${imgRecord.fileName}`);
                   } catch (imgErr: any) {
-                    console.error(`     ❌ Error imagen: ${imgErr?.message}`);
+                    console.error(`     âŒ Error imagen: ${imgErr?.message}`);
                   }
                 }
               }
@@ -326,9 +377,9 @@ const InspectionPageContent = () => {
               fecha_creacion: Timestamp.now() 
             };
             
-            console.log(`   💾 Guardando en Firestore con docId=${docId}, numero_informe=${displayId || docId}: clienteId=${docData.clienteId}, clienteNombre=${docData.clienteNombre}`);
+            console.log(`   ðŸ’¾ Guardando en Firestore con docId=${docId}, numero_informe=${displayId || docId}: clienteId=${docData.clienteId}, clienteNombre=${docData.clienteNombre}`);
             await setDoc(doc(firestore, 'informes', docId), docData);
-            console.log(`   ✅ Guardado en Firestore OK`);
+            console.log(`   âœ… Guardado en Firestore OK`);
 
             if (record.data.originalJobId) {
               await updateDoc(doc(firestore, 'ordenes_trabajo', record.data.originalJobId), { estado: 'Completado' });
@@ -336,16 +387,16 @@ const InspectionPageContent = () => {
 
             await dbLocal.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
             synced = true;
-            console.log(`✅ Hoja de Trabajo sincronizada: ${docId}`);
+            console.log(`âœ… Hoja de Trabajo sincronizada: ${docId}`);
           } catch (itemError: any) {
             retryCount++;
-            console.error(`⚠️ Error hoja (intento ${retryCount}): ${itemError?.message}\n${itemError?.stack}`);
+            console.error(`âš ï¸ Error hoja (intento ${retryCount}): ${itemError?.message}\n${itemError?.stack}`);
             if (isRetryableError(itemError) && retryCount < maxRetries) {
               const delay = getBackoffDelay(retryCount);
-              console.log(`   ⏳ Reintentando en ${Math.round(delay)}ms...`);
+              console.log(`   â³ Reintentando en ${Math.round(delay)}ms...`);
               await new Promise(resolve => setTimeout(resolve, delay));
             } else {
-              console.error(`❌ Hoja fallida: ${record.id}`);
+              console.error(`âŒ Hoja fallida: ${record.id}`);
               break;
             }
           }
@@ -354,13 +405,14 @@ const InspectionPageContent = () => {
 
       // 2. Sincronizar Reportes de Gastos CON COMPROBANTES
       const pendingGastos = await dbLocal.gastos_report.filter(r => !r.synced).toArray();
-      console.log(`📦 Gastos pendientes: ${pendingGastos.length}`);
+      if (pendingGastos.length > 0) didSyncSomething = true;
+      console.log(`ðŸ“¦ Gastos pendientes: ${pendingGastos.length}`);
       
       for (const record of pendingGastos) {
         let retryCount = 0;
         let synced = false;
         
-        console.log(`\n💰 Procesando gasto: ${record.firebaseId}`);
+        console.log(`\nðŸ’° Procesando gasto: ${record.firebaseId}`);
 
         while (retryCount < maxRetries && !synced) {
           try {
@@ -375,7 +427,7 @@ const InspectionPageContent = () => {
               const sigRef = ref(storage, `firmas_gastos/${reportId}.png`);
               await uploadString(sigRef, signature, 'data_url');
               firmaUrl = await getDownloadURL(sigRef);
-              console.log(`   ✅ Firma gasto subida`);
+              console.log(`   âœ… Firma gasto subida`);
             }
 
             const formattedGastos = [];
@@ -388,9 +440,9 @@ const InspectionPageContent = () => {
                   const fRef = ref(storage, `comprobantes_gastos/${reportId}/${Date.now()}_${g.comprobanteFileName}`);
                   await uploadBytes(fRef, blob);
                   cUrl = await getDownloadURL(fRef);
-                  console.log(`   ✅ Comprobante ${g.comprobanteFileName}`);
+                  console.log(`   âœ… Comprobante ${g.comprobanteFileName}`);
                 } catch (fileErr: any) {
-                  console.error(`   ❌ Error comprobante: ${fileErr?.message}`);
+                  console.error(`   âŒ Error comprobante: ${fileErr?.message}`);
                 }
               }
 
@@ -404,8 +456,8 @@ const InspectionPageContent = () => {
               });
             }
 
-            console.log(`   💾 Guardando gasto en Firestore con docId=${reportId}...`);
-            await setDoc(doc(firestore, 'hojas_gastos', reportId), {
+            console.log(`   ðŸ’¾ Guardando gasto en Firestore con docId=${reportId}...`);
+            await setDoc(doc(firestore, 'gastos', reportId), {
               ...restData,
               id: reportId,  // clave principal
               itinerario: stops,
@@ -416,36 +468,39 @@ const InspectionPageContent = () => {
 
             await dbLocal.gastos_report.update(record.id!, { synced: true, firebaseId: reportId });
             synced = true;
-            console.log(`✅ Gasto sincronizado: ${restData.id}`);
+            console.log(`âœ… Gasto sincronizado: ${restData.id}`);
           } catch (gastoError: any) {
             retryCount++;
-            console.error(`⚠️ Error gasto (intento ${retryCount}): ${gastoError?.message}`);
+            console.error(`âš ï¸ Error gasto (intento ${retryCount}): ${gastoError?.message}`);
             if (isRetryableError(gastoError) && retryCount < maxRetries) {
               const delay = getBackoffDelay(retryCount);
               await new Promise(resolve => setTimeout(resolve, delay));
             } else {
-              console.error(`❌ Gasto fallido`);
+              console.error(`âŒ Gasto fallido`);
               break;
             }
           }
         }
       }
 
-      console.log(`\n🎉 Sincronización completada`);
-      toast({ title: 'Sincronización completada ✓', description: 'Todos los datos offline han sido subidos.' });
+      console.log(`\nðŸŽ‰ SincronizaciÃ³n completada`);
+      if (didSyncSomething) {
+        toast({ title: 'Sincronización completada ✓', description: 'Todos los datos offline han sido subidos.' });
+      }
     } catch (error: any) {
-      console.error('❌ Error general:', error?.message, error?.stack);
-      toast({ variant: 'destructive', title: 'Error en sincronización', description: 'Se reintentará al reconectar.' });
+      console.error('âŒ Error general:', error?.message, error?.stack);
+      toast({ variant: 'destructive', title: 'Error en sincronizaciÃ³n', description: 'Se reintentarÃ¡ al reconectar.' });
     } finally {
+      syncInFlightRef.current = false;
       setIsSyncing(false);
     }
-  }, [isOnline, isSyncing, user, firestore, toast]);
+  }, [canUseCloud, user, firestore, toast]);
 
   useEffect(() => {
-    if (isOnline && hasMounted) {
+    if (canUseCloud && hasMounted && user && firestore) {
       syncOfflineData();
     }
-  }, [isOnline, hasMounted, syncOfflineData]);
+  }, [canUseCloud, hasMounted, user, firestore, syncOfflineData]);
 
   const handleNavigate = (tab: string) => {
     setActiveTab(tab);
@@ -546,7 +601,7 @@ const InspectionPageContent = () => {
     try {
       const res = await processDictation({ dictation: text });
       setAiData(res);
-      toast({ title: "Voz Procesada ✓", description: "Formulario completado." });
+      toast({ title: "Voz Procesada âœ“", description: "Formulario completado." });
     } catch (e) {
       setAiData({ observations_summary: text } as any);
       toast({ variant: "destructive", title: "Error IA", description: "Texto volcado manual." });
@@ -580,12 +635,12 @@ const InspectionPageContent = () => {
   };
 
   const handleAiAnalyze = async () => {
-    if (!dictationNotebook.trim()) { toast({ variant: "destructive", title: "Vacío", description: "Dicta algo primero." }); return; }
+    if (!dictationNotebook.trim()) { toast({ variant: "destructive", title: "VacÃ­o", description: "Dicta algo primero." }); return; }
     setAiLoading(true);
     try {
       const res = await processDictation({ dictation: dictationNotebook });
       setAiData(res);
-      toast({ title: "Procesado ✓", description: "Formulario completado." });
+      toast({ title: "Procesado âœ“", description: "Formulario completado." });
     } catch (e) {
       setAiData({ observations_summary: dictationNotebook } as any);
       toast({ variant: "destructive", title: "Error IA", description: "Texto volcado manual." });
@@ -614,19 +669,20 @@ const InspectionPageContent = () => {
       );
     }
 
-    // BLOQUEO POR PIN (offline — usa email de Firebase o de sesión guardada)
+    // BLOQUEO POR PIN (offline â€” usa email de Firebase o de sesiÃ³n guardada)
+    const requiresOfflineLock = accessMode === 'offline' || !isOnline;
     const emailForPin = user?.email || offlineEmail;
-    if (!isOnline && !isPinVerified && emailForPin) {
+    if (requiresOfflineLock && !isPinVerified && emailForPin) {
       return <PinGate userEmail={emailForPin} onVerified={() => setIsPinVerified(true)} />;
     }
     // Offline sin email guardado: redirigir a auth
-    if (!isOnline && !isPinVerified && !emailForPin) {
+    if (requiresOfflineLock && !isPinVerified && !emailForPin) {
       if (typeof window !== 'undefined') window.location.href = '/auth/inspection';
       return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
     }
 
     if (activeTab === TABS.MENU) {
-      const name = user?.displayName || user?.email?.split('@')[0] || 'Técnico';
+      const name = user?.displayName || user?.email?.split('@')[0] || 'TÃ©cnico';
       const menuProps = {
         onNavigate: handleNavigate,
         onSelectInspection: handleSelectInspectionType,
@@ -635,7 +691,7 @@ const InspectionPageContent = () => {
         onConfigure: () => handleNavigate(TABS.PROFILE),
         canInstall: !!installPrompt,
         configStatus,
-        isOnline
+        isOnline: canUseCloud
       };
 
       return (
@@ -702,10 +758,18 @@ const InspectionPageContent = () => {
         activeTab={activeTab}
         isSubNavActive={!!activeInspectionForm}
         onBack={handleBackToHub}
-        isOnline={isOnline}
+        isOnline={canUseCloud}
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
       />
+
+      {accessMode === 'offline' && (
+        <div className="mt-20 mx-auto w-full max-w-4xl px-4">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-[11px] font-black uppercase tracking-wider text-amber-700">
+            Modo offline activo: todo se guarda en este dispositivo hasta volver a modo online.
+          </div>
+        </div>
+      )}
 
       <main className="flex-grow w-full pt-20 pb-32 md:pb-40 lg:pb-48 px-2 md:px-0">
         {renderContent()}
@@ -743,3 +807,9 @@ export default function InspectionPage() {
     </Suspense>
   );
 }
+
+
+
+
+
+

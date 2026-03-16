@@ -185,6 +185,13 @@ export default function JobsPage() {
 
   useEffect(() => {
     if (!db) return;
+    let currentOrders: Job[] = [];
+    let currentInformes: Job[] = [];
+    const refreshJobs = () => {
+      const merged = [...currentOrders, ...currentInformes].sort((a, b) => (b.fecha_creacion?.seconds || 0) - (a.fecha_creacion?.seconds || 0));
+      setJobs(merged);
+    };
+
     const qInspectors = query(collection(db, 'usuarios'));
     const unsubInspectors = onSnapshot(qInspectors, (snapshot: any) => {
       const inspectorList = snapshot.docs
@@ -199,31 +206,25 @@ export default function JobsPage() {
     
     const qJobs = query(collection(db, 'ordenes_trabajo'), orderBy('fecha_creacion', 'desc'), limit(100));
     const unsubJobs = onSnapshot(qJobs, (snapshot: any) => {
-      const jobList = snapshot.docs.map((doc: any) => ({
+      currentOrders = snapshot.docs.map((doc: any) => ({
         id: doc.id,
         ...(doc.data() as Omit<Job, 'id'>)
       }));
-      setJobs(prev => {
-          const others = prev.filter(j => j.formType !== 'job' && !j.id.startsWith('HT-') && !j.id.startsWith('IT-') && !j.id.startsWith('IR-'));
-          return [...jobList, ...others].sort((a,b) => (b.fecha_creacion?.seconds || 0) - (a.fecha_creacion?.seconds || 0));
-      });
+      refreshJobs();
       setLoading(false);
     });
 
     const qInformes = query(collection(db, 'informes'), orderBy('fecha_creacion', 'desc'), limit(50));
     const unsubInformes = onSnapshot(qInformes, (snapshot: any) => {
-        const informeList = snapshot.docs.map((doc: any) => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                numero_informe: data.numero_informe || doc.id,  // Fallback: usar id si falta numero_informe
-                ...(data as any)
-            };
-        });
-        setJobs(prev => {
-            const onlyJobs = prev.filter(j => j.formType === 'job' || (!j.id.startsWith('HT-') && !j.id.startsWith('IT-') && !j.id.startsWith('IR-')));
-            return [...onlyJobs, ...informeList].sort((a,b) => (b.fecha_creacion?.seconds || 0) - (a.fecha_creacion?.seconds || 0));
-        });
+      currentInformes = snapshot.docs.map((doc: any) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          numero_informe: data.numero_informe || doc.id,  // Fallback: usar id si falta numero_informe
+          ...(data as any)
+        };
+      });
+      refreshJobs();
     });
 
     return () => {

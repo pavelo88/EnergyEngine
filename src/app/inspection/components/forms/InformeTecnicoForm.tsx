@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
@@ -13,8 +13,10 @@ import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db as dbLocal } from '@/lib/db-local';
 import { drawPdfHeader, drawPdfFooter } from '../../lib/pdf-helpers';
 import { useToast } from '@/hooks/use-toast';
+import { useGpsRequired } from '@/hooks/use-gps-required';
 import ClientSelector from '../ClientSelector';
 import StableInput from '../StableInput';
+import { getInspectionMode, resolveInspectorEmail } from '@/lib/inspection-mode';
 
 export const generatePDF = (report: any, inspectorName: string, reportId: string | null) => {
     const doc = new jsPDF();
@@ -32,7 +34,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     let currentY = topMargin;
 
     try {
-        const title = `INFORME TÉCNICO Nº: ${finalID}`;
+        const title = `INFORME TÃ‰CNICO NÂº: ${finalID}`;
         doc.setTextColor(darkColor);
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
@@ -42,12 +44,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         autoTable(doc, {
             startY: currentY,
             body: [
-                ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
+                ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'TÃ©cnico:', inspectorName],
                 [{ content: 'Cliente:', styles: { fontStyle: 'bold' } }, { content: report.clienteNombre || report.cliente || 'N/A', colSpan: 3 }],
-                [{ content: 'Instalación:', styles: { fontStyle: 'bold' } }, { content: report.instalacion || 'N/A', colSpan: 3 }],
-                [{ content: 'UBICACIÓN:', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
+                [{ content: 'InstalaciÃ³n:', styles: { fontStyle: 'bold' } }, { content: report.instalacion || 'N/A', colSpan: 3 }],
+                [{ content: 'UBICACIÃ“N:', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
                 ['Motor:', report.motor || '-', 'Modelo:', report.modelo || '-'],
-                ['Nº de motor:', report.n_motor || '-', 'Grupo:', report.grupo || '-'],
+                ['NÂº de motor:', report.n_motor || '-', 'Grupo:', report.grupo || '-'],
             ],
             theme: 'grid',
             styles: { fontSize: 9, cellPadding: 2, lineColor: '#ccc', lineWidth: 0.1 },
@@ -60,7 +62,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         doc.setTextColor(darkColor);
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text("Descripción de la incidencia", leftMargin, currentY);
+        doc.text("DescripciÃ³n de la incidencia", leftMargin, currentY);
         currentY += 8;
 
         const rawText = report.reportContent || '';
@@ -128,6 +130,8 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
   const { user } = useUser();
   const firestore = useFirestore();
   const isOnline = useOnlineStatus();
+  const inspectorEmail = resolveInspectorEmail(user?.email);
+  const canUseCloud = isOnline && getInspectionMode() === 'online' && !!firestore && !!user?.email;
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
   
@@ -160,15 +164,20 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
   const [savedDocId, setSavedDocId] = useState('');
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const gpsRequired = useGpsRequired();
 
   useEffect(() => {
-    if (user && user.email && firestore) {
-        getDoc(doc(firestore, 'usuarios', user.email)).then(snap => {
-            if (snap.exists()) setInspectorName(snap.data().nombre);
-            else setInspectorName(user.displayName || user.email || 'Técnico Especialista');
-        });
+    if (canUseCloud && user?.email && firestore) {
+      getDoc(doc(firestore, 'usuarios', user.email)).then(snap => {
+        if (snap.exists()) setInspectorName(snap.data().nombre);
+        else setInspectorName(user.displayName || user.email || 'Tecnico Especialista');
+      });
+      return;
     }
-  }, [user, firestore]);
+    if (inspectorEmail) {
+      setInspectorName(inspectorEmail.split('@')[0]);
+    }
+  }, [canUseCloud, inspectorEmail, user, firestore]);
 
   useEffect(() => {
     if (initialData) {
@@ -219,7 +228,7 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
 
   const handleCaptureLocation = () => {
     if (!navigator.geolocation) {
-      toast({ variant: 'destructive', title: 'Error GPS', description: 'Tu dispositivo no soporta geolocalización.' });
+      toast({ variant: 'destructive', title: 'Error GPS', description: 'Tu dispositivo no soporta geolocalizaciÃ³n.' });
       setLocationStatus('error');
       return;
     }
@@ -229,10 +238,10 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
         const { latitude, longitude } = position.coords;
         handleInputChange('location', { lat: latitude, lon: longitude });
         setLocationStatus('success');
-        toast({ title: 'GPS OK', description: 'Ubicación registrada con éxito.' });
+        toast({ title: 'GPS OK', description: 'UbicaciÃ³n registrada con Ã©xito.' });
       },
       () => { 
-        toast({ variant: 'destructive', title: 'GPS Fallido', description: 'Active permisos de ubicación.' });
+        toast({ variant: 'destructive', title: 'GPS Fallido', description: 'Active permisos de ubicaciÃ³n.' });
         setLocationStatus('error'); 
       }
     );
@@ -243,26 +252,26 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
     setAiLoading(true);
     try {
       const res = await splitTechnicalReport({ dictation: formData.reportContent });
-      const formattedText = `ANTECEDENTES:\n\n${res.antecedentes}\n\nINTERVENCIÓN:\n\n${res.intervencion}\n\nRESUMEN Y SITUACIÓN ACTUAL:\n\n${res.resumen}`;
+      const formattedText = `ANTECEDENTES:\n\n${res.antecedentes}\n\nINTERVENCIÃ“N:\n\n${res.intervencion}\n\nRESUMEN Y SITUACIÃ“N ACTUAL:\n\n${res.resumen}`;
       setFormData((p: any) => ({ ...p, reportContent: formattedText }));
-      toast({ title: '¡Pulido por IA!', description: 'El reporte ha sido estructurado formalmente.' });
+      toast({ title: 'Â¡Pulido por IA!', description: 'El reporte ha sido estructurado formalmente.' });
     } catch (e: any) { 
         console.error("AI Error:", e);
         toast({ 
           variant: 'destructive', 
           title: 'IA no disponible', 
-          description: 'Error de servidor. El informe se mantendrá como texto manual.' 
+          description: 'Error de servidor. El informe se mantendrÃ¡ como texto manual.' 
         });
     } finally { setAiLoading(false); }
   };
 
   const handlePdfAction = useCallback((forceDownload = false) => {
     if (!formData.cliente || !formData.instalacion) {
-        toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Cliente e Instalación son obligatorios para generar PDF.' });
+        toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Cliente e InstalaciÃ³n son obligatorios para generar PDF.' });
         return;
     }
     setPdfLoading(true);
-    console.log("Generando PDF para previsualización...", formData);
+    console.log("Generando PDF para previsualizaciÃ³n...", formData);
     
     setTimeout(() => {
         try {
@@ -273,7 +282,7 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
                 console.log("Descargando PDF final...");
                 docPdf.save(`Informe_Tecnico_${savedDocId || 'Borrador'}.pdf`);
             } else {
-                console.log("Creando Blob URL para previsualización...");
+                console.log("Creando Blob URL para previsualizaciÃ³n...");
                 const blob = docPdf.output('blob');
                 const url = URL.createObjectURL(blob);
                 setPreviewPdfUrl(url);
@@ -288,12 +297,15 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
   }, [formData, inspectorSignature, inspectorName, isSaved, savedDocId, toast]);
 
   const handleSave = async () => {
-    if (!firestore || !user?.email) return;
+    if (!inspectorEmail) {
+      toast({ variant: 'destructive', title: 'Inspector no identificado', description: 'Inicia online una vez para habilitar el modo offline.' });
+      return;
+    }
     
     const missing = [];
     if (!formData.cliente) missing.push('Cliente');
-    if (!formData.instalacion) missing.push('Instalación');
-    if (!formData.location) missing.push('Ubicación GPS');
+    if (!formData.instalacion) missing.push('InstalaciÃ³n');
+    if (gpsRequired && !formData.location) missing.push('Ubicación GPS');
     if (!inspectorSignature) missing.push('Firma Inspector');
 
     if (missing.length > 0) {
@@ -322,15 +334,15 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
         setIsSaved(true);
 
         if (synced) {
-            toast({ title: '¡Informe Sincronizado!', description: `Guardado con éxito. ID: ${firebaseId}` });
+            toast({ title: 'Â¡Informe Sincronizado!', description: `Guardado con Ã©xito. ID: ${firebaseId}` });
         } else {
             toast({ 
               title: 'Guardado Localmente', 
-              description: 'Error de red. Se sincronizará automáticamente después.' 
+              description: 'Error de red. Se sincronizarÃ¡ automÃ¡ticamente despuÃ©s.' 
             });
         }
 
-        const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora?");
+        const shouldDownload = window.confirm("Â¡Informe guardado con Ã©xito! Â¿Desea descargar el PDF ahora?");
         if (shouldDownload) {
             handlePdfAction(true);
         }
@@ -338,7 +350,7 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
         if (onSuccess) onSuccess();
     };
     
-    if (isOnline) {
+    if (canUseCloud && firestore && user?.email) {
         try {
             const storage = getStorage();
             
@@ -383,8 +395,8 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
       }}>
         <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border-slate-100 bg-white">
           <DialogHeader className="p-6 border-b border-slate-100 bg-white">
-            <DialogTitle className="font-black uppercase tracking-tighter text-black">Borrador Informe Técnico</DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">Documento profesional para validación de intervenciones.</DialogDescription>
+            <DialogTitle className="font-black uppercase tracking-tighter text-black">Borrador Informe TÃ©cnico</DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">Documento profesional para validaciÃ³n de intervenciones.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 bg-slate-100">
             {previewPdfUrl ? (
@@ -398,7 +410,7 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
         </DialogContent>
       </Dialog>
 
-      <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe de Intervención Técnica</h2>
+      <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe de IntervenciÃ³n TÃ©cnica</h2>
       
       <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -410,10 +422,10 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
             </div>
             <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: string) => handleInputChange('motor', v)}/>
             <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={(v: string) => handleInputChange('modelo', v)}/>
-            <StableInput label="Nº de motor" icon={Type} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>
+            <StableInput label="NÂº de motor" icon={Type} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>
             <StableInput label="Grupo" icon={Settings} value={formData.grupo} onChange={(v: string) => handleInputChange('grupo', v)}/>
             <div className="md:col-span-2">
-                <StableInput label="Instalación / Ubicación Específica" icon={MapPin} value={formData.instalacion} onChange={(v: string) => handleInputChange('instalacion', v)}/>
+                <StableInput label="InstalaciÃ³n / UbicaciÃ³n EspecÃ­fica" icon={MapPin} value={formData.instalacion} onChange={(v: string) => handleInputChange('instalacion', v)}/>
             </div>
             <div className="md:col-span-2">
               <button 
@@ -423,7 +435,7 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
                     ${formData.location ? 'border-emerald-500/50 text-emerald-500 bg-emerald-500/10' : 'border-slate-100 text-slate-400 hover:border-primary'}`}
               >
                   {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={14}/> : <MapPin size={14}/>}
-                  <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : 'CAPTURAR UBICACIÓN GPS'}</span>
+                  <span>{formData.location ? `${formData.location.lat.toFixed(4)}, ${formData.location.lon.toFixed(4)}` : (gpsRequired ? 'CAPTURAR UBICACION GPS (REQUERIDO)' : 'CAPTURAR UBICACION GPS (OPCIONAL)')}</span>
               </button>
             </div>
           </div>
@@ -439,14 +451,14 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
         </div>
         <textarea 
             className="w-full h-56 bg-slate-50 border border-slate-200 rounded-2xl p-4 outline-none focus:border-primary focus:bg-white font-medium text-black transition-all resize-none shadow-inner leading-relaxed text-sm" 
-            placeholder="Escriba o dicte aquí el informe completo. Use la IA para separar automáticamente en Antecedentes, Intervención y Situación Actual."
+            placeholder="Escriba o dicte aquÃ­ el informe completo. Use la IA para separar automÃ¡ticamente en Antecedentes, IntervenciÃ³n y SituaciÃ³n Actual."
             value={formData.reportContent} 
             onChange={(e: any) => handleInputChange('reportContent', e.target.value)}
         />
       </section>
       
       <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm border border-slate-100">
-        <SignaturePad title="Firma del Técnico Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
+        <SignaturePad title="Firma del TÃ©cnico Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
         <p className="text-center font-black text-slate-400 text-[8px] uppercase tracking-widest mt-2">{inspectorName}</p>
       </section>
       
@@ -471,3 +483,5 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
     </main>
   );
 }
+
+

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -10,6 +10,11 @@ import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/icons';
 import { Loader2, AlertCircle, Eye, EyeOff, WifiOff, Lock } from 'lucide-react';
 import { db as dbLocal } from '@/lib/db-local';
+import {
+  normalizeInspectionEmail,
+  setInspectionMode,
+  setStoredOfflineEmail,
+} from '@/lib/inspection-mode';
 
 export default function InspectionLoginPage() {
   const router = useRouter();
@@ -24,22 +29,27 @@ export default function InspectionLoginPage() {
   const [loading, setLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [checkingOffline, setCheckingOffline] = useState(true);
-  const [savedEmail, setSavedEmail] = useState<string | null>(null);
 
-  // 1. Detectar conexión y email guardado
+  const isValidEmail = (value: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+  // 1. Detectar conexiÃ³n y email guardado
   useEffect(() => {
     const online = navigator.onLine;
     setIsOnline(online);
 
     const loadSavedEmail = async () => {
       try {
-        // Buscar si hay una sesión guardada en IndexedDB
+        // Buscar si hay una sesiÃ³n guardada en IndexedDB
         const allSecurity = await dbLocal.table('seguridad').toArray();
         if (allSecurity.length > 0) {
-          setSavedEmail(allSecurity[0].email);
+          const firstValid = allSecurity
+            .map((row: any) => normalizeInspectionEmail(String(row?.email || '')))
+            .find((mail: string) => isValidEmail(mail));
+          if (firstValid) setEmail(firstValid);
         }
       } catch (e) {
-        // tabla vacía o error — ignorar
+        // tabla vacÃ­a o error â€” ignorar
       } finally {
         setCheckingOffline(false);
       }
@@ -57,14 +67,19 @@ export default function InspectionLoginPage() {
     };
   }, []);
 
-  // 2. Si offline → ir directo a /inspection (PinGate lo intercepta)
+  // 2. Si offline â†’ ir directo a /inspection (PinGate lo intercepta)
   useEffect(() => {
     if (!checkingOffline && !isOnline) {
+      const cleanEmail = normalizeInspectionEmail(email);
+      if (isValidEmail(cleanEmail)) {
+        setStoredOfflineEmail(cleanEmail);
+      }
+      setInspectionMode('offline');
       router.replace('/inspection');
     }
-  }, [isOnline, checkingOffline, router]);
+  }, [isOnline, checkingOffline, email, router]);
 
-  // 3. Si ya hay usuario autenticado en Firebase → redirigir
+  // 3. Si ya hay usuario autenticado en Firebase â†’ redirigir
   useEffect(() => {
     if (!isUserLoading && user && firestore) {
       const checkRole = async () => {
@@ -81,9 +96,32 @@ export default function InspectionLoginPage() {
     }
   }, [user, isUserLoading, router, firestore]);
 
+  const handleOfflineAccess = async () => {
+    const cleanEmail = normalizeInspectionEmail(email);
+    if (!isValidEmail(cleanEmail)) {
+      setError('Para modo offline, ingresa un correo valido previamente registrado.');
+      return;
+    }
+
+    const security = await dbLocal.table('seguridad').get(cleanEmail);
+    if (!security) {
+      setError('Ese correo no tiene acceso offline en este dispositivo. Entra online una vez primero.');
+      return;
+    }
+
+    setStoredOfflineEmail(cleanEmail);
+    setInspectionMode('offline');
+    router.replace('/inspection');
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!navigator.onLine) {
+      const cleanEmail = normalizeInspectionEmail(email);
+      if (isValidEmail(cleanEmail)) {
+        setStoredOfflineEmail(cleanEmail);
+      }
+      setInspectionMode('offline');
       router.replace('/inspection');
       return;
     }
@@ -91,7 +129,12 @@ export default function InspectionLoginPage() {
     setError(null);
     if (!auth) { setError('Firebase no disponible.'); setLoading(false); return; }
 
-    const cleanEmail = email.trim();
+    const cleanEmail = normalizeInspectionEmail(email);
+    if (!isValidEmail(cleanEmail)) {
+      setError('El formato del correo no es vÃ¡lido.');
+      setLoading(false);
+      return;
+    }
 
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, password);
@@ -101,7 +144,7 @@ export default function InspectionLoginPage() {
       localStorage.setItem('energy_engine_session_id', sessionId);
 
       if (firestore) {
-        await setDoc(
+        void setDoc(
           doc(firestore, 'usuarios', cleanEmail),
           {
             activeSessionId: sessionId,
@@ -109,7 +152,7 @@ export default function InspectionLoginPage() {
             activeSessionDevice: 'inspection-web',
           },
           { merge: true }
-        );
+        ).catch((e) => console.warn('No se pudo registrar sesiÃƒÂ³n activa:', e));
       }
 
       // Guardar email en IndexedDB para uso offline futuro
@@ -119,19 +162,30 @@ export default function InspectionLoginPage() {
           await dbLocal.table('seguridad').put({ email: cleanEmail, createdAt: new Date() });
         }
       } catch { /* ignorar */ }
+
+      setStoredOfflineEmail(cleanEmail);
+      setInspectionMode('online');
+      setLoading(false);
+      router.replace('/inspection');
+      return;
     } catch (err: any) {
       const code = err?.code || '';
       if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
-        setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
+        setError('Credenciales incorrectas. Verifica tu correo y contraseÃ±a.');
         setLoading(false);
       } else if (code === 'auth/invalid-email') {
-        setError('El formato del correo no es válido.');
+        console.error('Firebase invalid-email', {
+          rawEmail: email,
+          cleanEmail,
+          cleanEmailCodes: [...cleanEmail].map(c => c.charCodeAt(0)),
+        });
+        setError('Firebase detecta el correo como inválido. Escríbelo manualmente y sin autocompletar.');
         setLoading(false);
       } else if (code === 'auth/network-request-failed') {
         // Redirigimos directamente al PinGate en vez de dar error
         router.replace('/inspection');
       } else {
-        setError('Error al iniciar sesión. Inténtalo de nuevo.');
+        setError('Error al iniciar sesiÃ³n. IntÃ©ntalo de nuevo.');
         setLoading(false);
       }
     }
@@ -144,7 +198,7 @@ export default function InspectionLoginPage() {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="text-white/40 text-xs font-black uppercase tracking-widest">
-            {!isOnline ? 'Modo offline — redirigiendo...' : 'Verificando sesión...'}
+            {!isOnline ? 'Modo offline â€” redirigiendo...' : 'Verificando sesiÃ³n...'}
           </p>
         </div>
       </div>
@@ -167,36 +221,36 @@ export default function InspectionLoginPage() {
           <Logo />
           <div className="text-center">
             <h1 className="text-2xl font-black text-white tracking-tighter italic">energy engine</h1>
-            <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Portal de Inspección Técnica</p>
+            <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Portal de InspecciÃ³n TÃ©cnica</p>
           </div>
         </div>
 
         {/* Card login */}
         <div className="bg-white rounded-[2rem] p-8 shadow-2xl space-y-6">
           <div className="space-y-1">
-            <h2 className="text-xl font-black text-slate-900 tracking-tighter">Iniciar Sesión</h2>
+            <h2 className="text-xl font-black text-slate-900 tracking-tighter">Iniciar SesiÃ³n</h2>
             <p className="text-sm text-slate-400">Introduce tus credenciales de acceso</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                Correo Electrónico
+                Correo ElectrÃ³nico
               </Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="inspector@energyengine.es"
                 required
-                value={savedEmail || email}
-                onChange={(e) => { setSavedEmail(null); setEmail(e.target.value); }}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="rounded-xl border-slate-200 bg-slate-50 font-bold text-slate-900 h-12"
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                Contraseña
+                ContraseÃ±a
               </Label>
               <div className="relative">
                 <Input
@@ -206,7 +260,7 @@ export default function InspectionLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="rounded-xl border-slate-200 bg-slate-50 font-bold text-slate-900 h-12 pr-10"
-                  placeholder="••••••••"
+                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                 />
                 <button
                   type="button"
@@ -232,6 +286,16 @@ export default function InspectionLoginPage() {
             >
               {loading ? <><Loader2 size={16} className="animate-spin" /> Verificando...</> : 'Entrar'}
             </button>
+
+            <button
+              type="button"
+              onClick={handleOfflineAccess}
+              disabled={loading}
+              className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <Lock size={14} />
+              Entrar offline con PIN
+            </button>
           </form>
         </div>
 
@@ -245,3 +309,4 @@ export default function InspectionLoginPage() {
     </div>
   );
 }
+

@@ -199,7 +199,7 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
           <Input 
             placeholder="BUSCAR CLIENTE..." 
-            value={searchTerm || selectedClient?.nombre}
+            value={searchTerm || selectedClient?.nombre || ''}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={`pl-10 h-10 rounded-xl border-slate-200 bg-slate-50 focus:bg-white transition-all font-bold text-xs !text-black ${selectedClient ? 'border-primary ring-1 ring-primary/10' : ''}`}
           />

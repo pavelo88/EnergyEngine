@@ -34,7 +34,7 @@ export default function ImportPage() {
           if (json.length === 0) throw new Error("Archivo vacío.");
 
           const batch = writeBatch(db);
-          const jobsCollection = collection(db, 'trabajos');
+          const jobsCollection = collection(db, 'ordenes_trabajo');
 
           json.forEach((row: any) => {
             const newJob = {

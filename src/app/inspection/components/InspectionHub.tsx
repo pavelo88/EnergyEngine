@@ -47,7 +47,7 @@ export default function InspectionHub({
     setError('');
     
     try {
-      const docRef = doc(db, 'trabajos', inspectionId.trim());
+      const docRef = doc(db, 'informes', inspectionId.trim());
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
