@@ -67,17 +67,12 @@ export default function InspectionLoginPage() {
     };
   }, []);
 
-  // 2. Si offline â†’ ir directo a /inspection (PinGate lo intercepta)
+  // 2. Marcar modo offline cuando no hay internet
   useEffect(() => {
     if (!checkingOffline && !isOnline) {
-      const cleanEmail = normalizeInspectionEmail(email);
-      if (isValidEmail(cleanEmail)) {
-        setStoredOfflineEmail(cleanEmail);
-      }
       setInspectionMode('offline');
-      router.replace('/inspection');
     }
-  }, [isOnline, checkingOffline, email, router]);
+  }, [isOnline, checkingOffline]);
 
   // 3. Si ya hay usuario autenticado en Firebase â†’ redirigir
   useEffect(() => {
@@ -117,12 +112,7 @@ export default function InspectionLoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!navigator.onLine) {
-      const cleanEmail = normalizeInspectionEmail(email);
-      if (isValidEmail(cleanEmail)) {
-        setStoredOfflineEmail(cleanEmail);
-      }
-      setInspectionMode('offline');
-      router.replace('/inspection');
+      await handleOfflineAccess();
       return;
     }
     setLoading(true);
@@ -192,13 +182,13 @@ export default function InspectionLoginPage() {
   };
 
   // Loading inicial
-  if (checkingOffline || isUserLoading || (!isOnline)) {
+  if (checkingOffline || isUserLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-900">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="text-white/40 text-xs font-black uppercase tracking-widest">
-            {!isOnline ? 'Modo offline â€” redirigiendo...' : 'Verificando sesiÃ³n...'}
+            Verificando sesiÃ³n...
           </p>
         </div>
       </div>
@@ -309,4 +299,6 @@ export default function InspectionLoginPage() {
     </div>
   );
 }
+
+
 

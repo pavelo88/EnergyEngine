@@ -18,7 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import ClientSelector from '../ClientSelector';
 import StableInput from '../StableInput';
 import { generateReportId, fileToBase64 } from '@/lib/offline-utils';
-import { getInspectionMode, resolveInspectorEmail } from '@/lib/inspection-mode';
+import { resolveInspectorEmail } from '@/lib/inspection-mode';
+import { getNextSequenceForUser } from '@/lib/sequence-manager';
 
 const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
     <div className="flex flex-col items-center gap-1">
@@ -208,7 +209,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
   const firestore = useFirestore();
   const isOnline = useOnlineStatus();
   const inspectorEmail = resolveInspectorEmail(user?.email);
-  const canUseCloud = isOnline && getInspectionMode() === 'online' && !!firestore && !!user?.email;
+  const canUseCloud = isOnline && !!firestore && !!user?.email;
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
   const [inspectorInitials, setInspectorInitials] = useState('EE');
@@ -464,7 +465,12 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
     setSaving(true);
 
     // Mantener numeraciÃ³n secuencial para PDF (visible)
-    const sequence = await dbLocal.getNextSequence('hoja-trabajo');
+    const sequence = await getNextSequenceForUser({
+      type: 'hoja-trabajo',
+      userEmail: inspectorEmail || '',
+      firestore: canUseCloud ? firestore : null,
+      isOnline: canUseCloud,
+    });
     const sequentialId = `HT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
     console.log(`ðŸ“Œ IDs generados: displayId=${sequentialId}`);
     
@@ -505,7 +511,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
         // Guardar firmas en IndexedDB como backup
         if (inspectorSignature && !synced) {
           await dbLocal.firmas.put({
-            userEmail: inspectorEmail,
+            userEmail: inspectorEmail || '',
             base64Data: inspectorSignature,
             createdAt: new Date(),
           });
@@ -808,6 +814,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
     </div>
   );
 }
+
 
 
 

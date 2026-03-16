@@ -18,7 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useGpsRequired } from '@/hooks/use-gps-required';
 import ClientSelector from '../ClientSelector';
 import StableInput from '../StableInput';
-import { getInspectionMode, resolveInspectorEmail } from '@/lib/inspection-mode';
+import { resolveInspectorEmail } from '@/lib/inspection-mode';
+import { getNextSequenceForUser } from '@/lib/sequence-manager';
 
 const BASIC_REVISION_CHECKLIST = {
   "INSPECCIÃ“N EN EL MOTOR": ["Nivel de lubricante", "Indicador nivel refrigerante", "Correa del ventilador", "Filtro de combustible y prefiltro", "Filtro de aire", "Filtro de aceite y prefiltro de aceite", "Tubo de escape", "Circuito de refrigeraciÃ³n", "Circuito de lubricaciÃ³n", "BaterÃ­as", "Motor de arranque"],
@@ -257,7 +258,7 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
   const firestore = useFirestore(); 
   const isOnline = useOnlineStatus();
   const inspectorEmail = resolveInspectorEmail(user?.email);
-  const canUseCloud = isOnline && getInspectionMode() === 'online' && !!firestore && !!user?.email;
+  const canUseCloud = isOnline && !!firestore && !!user?.email;
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
   const [images, setImages] = useState<File[]>([]);
@@ -462,7 +463,12 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
 
     setSaving(true);
 
-    const sequence = await dbLocal.getNextSequence('revision-basica');
+    const sequence = await getNextSequenceForUser({
+      type: 'revision-basica',
+      userEmail: inspectorEmail || '',
+      firestore: canUseCloud ? firestore : null,
+      isOnline: canUseCloud,
+    });
     const names = inspectorName.split(' ');
     const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
     const docId = `BAS-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
@@ -725,6 +731,7 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
     </div>
   );
 }
+
 
 
 

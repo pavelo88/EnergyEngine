@@ -10,6 +10,7 @@ import { getStorage, ref, getDownloadURL, uploadString, uploadBytes } from 'fire
 import { db as dbLocal } from '@/lib/db-local';
 import { getBackoffDelay, isRetryableError, base64ToBlob } from '@/lib/offline-utils';
 import { getInspectionMode, getStoredOfflineEmail, type InspectionMode } from '@/lib/inspection-mode';
+import { syncLocalCountersFromCloud } from '@/lib/sequence-manager';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -54,7 +55,7 @@ const InspectionPageContent = () => {
   }, [searchParams]);
   const isOnline = useOnlineStatus();
   const [accessMode, setAccessMode] = useState<InspectionMode>('online');
-  const canUseCloud = isOnline && accessMode === 'online';
+  const canUseCloud = isOnline && !!firestore && !!user?.email;
   const screenSize = useScreenSize();
   const [hasMounted, setHasMounted] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
@@ -154,6 +155,15 @@ const InspectionPageContent = () => {
     };
   }, [user, isOnline]);
 
+  useEffect(() => {
+    if (isOnline && user?.email && accessMode !== 'online') {
+      setAccessMode('online');
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('energy_engine_inspection_mode', 'online');
+      }
+    }
+  }, [isOnline, user, accessMode]);
+
   // SincronizaciÃ³n de Clientes (Background Sync)
   useEffect(() => {
     if (!canUseCloud || !firestore || !user) return;
@@ -200,6 +210,14 @@ const InspectionPageContent = () => {
     };
 
     syncProfile();
+  }, [canUseCloud, firestore, user]);
+
+  useEffect(() => {
+    if (!canUseCloud || !firestore || !user?.email) return;
+
+    syncLocalCountersFromCloud(firestore, user.email).catch((err) => {
+      console.error('Error al sincronizar contadores locales:', err);
+    });
   }, [canUseCloud, firestore, user]);
 
   useEffect(() => {
@@ -670,13 +688,17 @@ const InspectionPageContent = () => {
     }
 
     // BLOQUEO POR PIN (offline â€” usa email de Firebase o de sesiÃ³n guardada)
-    const requiresOfflineLock = accessMode === 'offline' || !isOnline;
+    const requiresOfflineLock = !user?.email && !isOnline;
     const emailForPin = user?.email || offlineEmail;
     if (requiresOfflineLock && !isPinVerified && emailForPin) {
       return <PinGate userEmail={emailForPin} onVerified={() => setIsPinVerified(true)} />;
     }
     // Offline sin email guardado: redirigir a auth
     if (requiresOfflineLock && !isPinVerified && !emailForPin) {
+      if (typeof window !== 'undefined') window.location.href = '/auth/inspection';
+      return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+    }
+    if (!user?.email && isOnline && !requiresOfflineLock) {
       if (typeof window !== 'undefined') window.location.href = '/auth/inspection';
       return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
     }
@@ -763,7 +785,7 @@ const InspectionPageContent = () => {
         canInstall={!!installPrompt}
       />
 
-      {accessMode === 'offline' && (
+      {accessMode === 'offline' && !user?.email && (
         <div className="mt-20 mx-auto w-full max-w-4xl px-4">
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-[11px] font-black uppercase tracking-wider text-amber-700">
             Modo offline activo: todo se guarda en este dispositivo hasta volver a modo online.

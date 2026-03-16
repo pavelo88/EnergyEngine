@@ -1,9 +1,9 @@
-import Dexie, { type Table } from 'dexie';
+﻿import Dexie, { type Table } from 'dexie';
 
 /**
  * @fileOverview Arquitectura de base de datos local (IndexedDB) para Energy Engine.
- * Utiliza Dexie.js para gestionar el almacenamiento persistente en el dispositivo del técnico,
- * permitiendo el funcionamiento offline-first y la sincronización posterior con Firebase.
+ * Utiliza Dexie.js para gestionar el almacenamiento persistente en el dispositivo del tÃ©cnico,
+ * permitiendo el funcionamiento offline-first y la sincronizaciÃ³n posterior con Firebase.
  */
 
 // --- INTERFACES DE DATOS LOCALES ---
@@ -11,9 +11,9 @@ import Dexie, { type Table } from 'dexie';
 export interface HojaTrabajoLocal {
   id?: number;           // Clave primaria autoincremental local
   firebaseId?: string;   // ID del documento en Firestore (ej: 2026-AG-001)
-  synced: boolean;       // Estado de sincronización
+  synced: boolean;       // Estado de sincronizaciÃ³n
   data: any;             // El objeto completo del informe
-  createdAt: Date;       // Fecha de creación local
+  createdAt: Date;       // Fecha de creaciÃ³n local
 }
 
 export interface RegistroJornadaLocal {
@@ -65,7 +65,7 @@ export interface ImagenLocal {
   base64Data: string;    // Imagen codificada en base64
   fileName: string;
   mimeType: string;
-  uploadedUrl?: string;  // URL de Firebase después de sincronizar
+  uploadedUrl?: string;  // URL de Firebase despuÃ©s de sincronizar
   synced: boolean;
   createdAt: Date;
 }
@@ -123,16 +123,42 @@ export class LocalDB extends Dexie {
   }
 
   /**
-   * Obtiene y aumenta el contador para un tipo de documento, reiniciándose cada año
+   * Obtiene y aumenta el contador para un tipo de documento, reiniciÃ¡ndose cada aÃ±o
    */
-  async getNextSequence(type: string): Promise<number> {
-    const year = new Date().getFullYear();
-    const key = `contador_${type}_${year}`;
+    private getCounterKey(type: string, userEmail?: string, year?: number): string {
+    const safeType = String(type || '').trim().toLowerCase();
+    const safeYear = year || new Date().getFullYear();
+    const owner = String(userEmail || '').trim().toLowerCase();
+    const safeOwner = owner ? owner.replace(/[^a-z0-9@._-]/g, '_') : 'global';
+    return `contador_${safeOwner}_${safeType}_${safeYear}`;
+  }
+
+  async getSequence(type: string, userEmail?: string, year?: number): Promise<number> {
+    const key = this.getCounterKey(type, userEmail, year);
     const config = await this.configuracion.get(key);
-    const nextValue = (config?.value || 0) + 1;
-    await this.configuracion.put({ key, value: nextValue });
+    if (typeof config?.value === 'number') return config.value;
+
+    // Compatibilidad con contadores legacy sin usuario.
+    const legacyKey = `contador_${String(type || '').trim().toLowerCase()}_${year || new Date().getFullYear()}`;
+    const legacy = await this.configuracion.get(legacyKey);
+    return typeof legacy?.value === 'number' ? legacy.value : 0;
+  }
+
+  async setSequence(type: string, userEmail: string | undefined, value: number, year?: number): Promise<void> {
+    const key = this.getCounterKey(type, userEmail, year);
+    await this.configuracion.put({ key, value: Math.max(0, Number(value) || 0) });
+  }
+
+  /**
+   * Obtiene y aumenta el contador por tipo + usuario + anio.
+   */
+  async getNextSequence(type: string, userEmail?: string, year?: number): Promise<number> {
+    const currentValue = await this.getSequence(type, userEmail, year);
+    const nextValue = currentValue + 1;
+    await this.setSequence(type, userEmail, nextValue, year);
     return nextValue;
   }
 }
 
 export const db = new LocalDB();
+

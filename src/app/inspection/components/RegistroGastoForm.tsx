@@ -23,7 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import SignaturePad from './SignaturePad';
 import PinGate from './security/PinGate';
 import { fileToBase64, generateReportId } from '@/lib/offline-utils';
-import { getInspectionMode, resolveInspectorEmail } from '@/lib/inspection-mode';
+import { resolveInspectorEmail } from '@/lib/inspection-mode';
 
 // --- TIPOS DE DATOS ---
 type GastoItem = {
@@ -57,7 +57,7 @@ export default function RegistroGastoForm() {
   const storage = firestore ? getStorage(firestore.app) : null;
   const isOnline = useOnlineStatus();
   const inspectorEmail = resolveInspectorEmail(user?.email);
-  const canUseCloud = isOnline && getInspectionMode() === 'online' && !!firestore && !!storage && !!user?.email;
+  const canUseCloud = isOnline && !!firestore && !!storage && !!user?.email;
   const { toast } = useToast();
 
   const [reportDate, setReportDate] = useState<Date>(new Date());
