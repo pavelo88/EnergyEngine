@@ -1,24 +1,24 @@
-﻿import Dexie, { type Table } from 'dexie';
+import Dexie, { type Table } from 'dexie';
 
 /**
  * @fileOverview Arquitectura de base de datos local (IndexedDB) para Energy Engine.
- * Utiliza Dexie.js para gestionar el almacenamiento persistente en el dispositivo del tÃ©cnico,
- * permitiendo el funcionamiento offline-first y la sincronizaciÃ³n posterior con Firebase.
+ * Utiliza Dexie.js para gestionar el almacenamiento persistente en el dispositivo del técnico,
+ * permitiendo el funcionamiento offline-first y la sincronización posterior con Firebase.
  */
 
 // --- INTERFACES DE DATOS LOCALES ---
 
 export interface HojaTrabajoLocal {
   id?: number;           // Clave primaria autoincremental local
-  firebaseId?: string;   // ID del documento en Firestore (ej: 2026-AG-001)
-  synced: boolean;       // Estado de sincronizaciÃ³n
+  firebaseId: string;   // ID del documento en Firestore (ej: 2026-AG-001)
+  synced: boolean;       // Estado de sincronización
   data: any;             // El objeto completo del informe
-  createdAt: Date;       // Fecha de creaciÃ³n local
+  createdAt: Date;       // Fecha de creación local
 }
 
 export interface RegistroJornadaLocal {
   id?: number;
-  firebaseId?: string;
+  firebaseId: string;
   synced: boolean;
   data: any;
   createdAt: Date;
@@ -26,7 +26,7 @@ export interface RegistroJornadaLocal {
 
 export interface GastoLocal {
   id?: number;
-  firebaseId?: string;
+  firebaseId: string;
   synced: boolean;
   data: any;
   createdAt: Date;
@@ -34,7 +34,7 @@ export interface GastoLocal {
 
 export interface GastoReportLocal {
   id?: number;
-  firebaseId?: string;
+  firebaseId: string;
   synced: boolean;
   data: any;
   createdAt: Date;
@@ -53,7 +53,7 @@ export interface ClienteCache {
 
 export interface ClientePendiente {
   id?: number;
-  firebaseId?: string;
+  firebaseId: string;
   synced: boolean;
   data: any;
   createdAt: Date;
@@ -65,7 +65,7 @@ export interface ImagenLocal {
   base64Data: string;    // Imagen codificada en base64
   fileName: string;
   mimeType: string;
-  uploadedUrl?: string;  // URL de Firebase despuÃ©s de sincronizar
+  uploadedUrl?: string;  // URL de Firebase después de sincronizar
   synced: boolean;
   createdAt: Date;
 }
@@ -84,9 +84,9 @@ export interface SyncQueue {
   recordType: 'hoja-trabajo' | 'gasto',
   status: 'pending' | 'retrying' | 'failed';
   retryCount: number;
-  lastError?: string;
+  lastError: string;
   createdAt: Date;
-  lastRetry?: Date;
+  lastRetry: Date;
 }
 
 // --- CLASE DE BASE DE DATOS ---
@@ -123,9 +123,9 @@ export class LocalDB extends Dexie {
   }
 
   /**
-   * Obtiene y aumenta el contador para un tipo de documento, reiniciÃ¡ndose cada aÃ±o
+   * Obtiene y aumenta el contador para un tipo de documento, reiniciándose cada año
    */
-    private getCounterKey(type: string, userEmail?: string, year?: number): string {
+    private getCounterKey(type: string, userEmail: string, year: number): string {
     const safeType = String(type || '').trim().toLowerCase();
     const safeYear = year || new Date().getFullYear();
     const owner = String(userEmail || '').trim().toLowerCase();
@@ -133,26 +133,26 @@ export class LocalDB extends Dexie {
     return `contador_${safeOwner}_${safeType}_${safeYear}`;
   }
 
-  async getSequence(type: string, userEmail?: string, year?: number): Promise<number> {
+  async getSequence(type: string, userEmail: string, year: number): Promise<number> {
     const key = this.getCounterKey(type, userEmail, year);
     const config = await this.configuracion.get(key);
-    if (typeof config?.value === 'number') return config.value;
+    if (config && typeof config.value === 'number') return config.value;
 
     // Compatibilidad con contadores legacy sin usuario.
     const legacyKey = `contador_${String(type || '').trim().toLowerCase()}_${year || new Date().getFullYear()}`;
     const legacy = await this.configuracion.get(legacyKey);
-    return typeof legacy?.value === 'number' ? legacy.value : 0;
+    return (legacy && typeof legacy.value === 'number') ? legacy.value : 0;
   }
 
-  async setSequence(type: string, userEmail: string | undefined, value: number, year?: number): Promise<void> {
-    const key = this.getCounterKey(type, userEmail, year);
+  async setSequence(type: string, userEmail: string | undefined, value: number, year: number): Promise<void> {
+    const key = this.getCounterKey(type, userEmail || 'global', year);
     await this.configuracion.put({ key, value: Math.max(0, Number(value) || 0) });
   }
 
   /**
    * Obtiene y aumenta el contador por tipo + usuario + anio.
    */
-  async getNextSequence(type: string, userEmail?: string, year?: number): Promise<number> {
+  async getNextSequence(type: string, userEmail: string, year: number): Promise<number> {
     const currentValue = await this.getSequence(type, userEmail, year);
     const nextValue = currentValue + 1;
     await this.setSequence(type, userEmail, nextValue, year);

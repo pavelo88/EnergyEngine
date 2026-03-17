@@ -22,7 +22,7 @@ export default function Footer({ activeTab, onNavigate }: FooterProps) {
       alert("Cierre de sesión bloqueado: No hay conexión a internet.");
       return;
     }
-    if (confirm("¿Cerrar sesión ahora?")) {
+    if (confirm("�Cerrar sesi�n ahora?")) {
       localStorage.removeItem('energy_engine_session_id');
       await signOut(auth);
     }

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -33,23 +33,23 @@ export default function InspectionLoginPage() {
   const isValidEmail = (value: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-  // 1. Detectar conexiÃ³n y email guardado
+  // 1. Detectar conexión y email guardado
   useEffect(() => {
     const online = navigator.onLine;
     setIsOnline(online);
 
     const loadSavedEmail = async () => {
       try {
-        // Buscar si hay una sesiÃ³n guardada en IndexedDB
+        // Buscar si hay una sesión guardada en IndexedDB
         const allSecurity = await dbLocal.table('seguridad').toArray();
         if (allSecurity.length > 0) {
           const firstValid = allSecurity
-            .map((row: any) => normalizeInspectionEmail(String(row?.email || '')))
+            .map((row: any) => normalizeInspectionEmail(String(row.email || '')))
             .find((mail: string) => isValidEmail(mail));
           if (firstValid) setEmail(firstValid);
         }
       } catch (e) {
-        // tabla vacÃ­a o error â€” ignorar
+        // tabla vacía o error  ignorar
       } finally {
         setCheckingOffline(false);
       }
@@ -74,13 +74,13 @@ export default function InspectionLoginPage() {
     }
   }, [isOnline, checkingOffline]);
 
-  // 3. Si ya hay usuario autenticado en Firebase â†’ redirigir
+  // 3. Si ya hay usuario autenticado en Firebase  redirigir
   useEffect(() => {
     if (!isUserLoading && user && firestore) {
       const checkRole = async () => {
         try {
           const userDoc = await getDoc(doc(firestore, 'usuarios', user.email!));
-          if (userDoc.exists() && userDoc.data().roles?.includes('inspector')) {
+          if (userDoc.exists() && userDoc.data().roles.includes('inspector')) {
             router.push('/inspection');
           }
         } catch {
@@ -121,7 +121,7 @@ export default function InspectionLoginPage() {
 
     const cleanEmail = normalizeInspectionEmail(email);
     if (!isValidEmail(cleanEmail)) {
-      setError('El formato del correo no es vÃ¡lido.');
+      setError('El formato del correo no es válido.');
       setLoading(false);
       return;
     }
@@ -142,7 +142,7 @@ export default function InspectionLoginPage() {
             activeSessionDevice: 'inspection-web',
           },
           { merge: true }
-        ).catch((e) => console.warn('No se pudo registrar sesiÃƒÂ³n activa:', e));
+        ).catch((e) => console.warn('No se pudo registrar sesión activa:', e));
       }
 
       // Guardar email en IndexedDB para uso offline futuro
@@ -159,9 +159,9 @@ export default function InspectionLoginPage() {
       router.replace('/inspection');
       return;
     } catch (err: any) {
-      const code = err?.code || '';
+      const code = err.code || '';
       if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
-        setError('Credenciales incorrectas. Verifica tu correo y contraseÃ±a.');
+        setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
         setLoading(false);
       } else if (code === 'auth/invalid-email') {
         console.error('Firebase invalid-email', {
@@ -175,7 +175,7 @@ export default function InspectionLoginPage() {
         // Redirigimos directamente al PinGate en vez de dar error
         router.replace('/inspection');
       } else {
-        setError('Error al iniciar sesiÃ³n. IntÃ©ntalo de nuevo.');
+        setError('Error al iniciar sesión. Inténtalo de nuevo.');
         setLoading(false);
       }
     }
@@ -188,7 +188,7 @@ export default function InspectionLoginPage() {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="text-white/40 text-xs font-black uppercase tracking-widest">
-            Verificando sesiÃ³n...
+            Verificando sesión...
           </p>
         </div>
       </div>
@@ -210,22 +210,21 @@ export default function InspectionLoginPage() {
         <div className="flex flex-col items-center gap-3">
           <Logo />
           <div className="text-center">
-            <h1 className="text-2xl font-black text-white tracking-tighter italic">energy engine</h1>
-            <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Portal de InspecciÃ³n TÃ©cnica</p>
+            <h1 className="text-2xl font-black text-white tracking-tighter italic">Portal de Inspección Técnica</h1>
           </div>
         </div>
 
         {/* Card login */}
         <div className="bg-white rounded-[2rem] p-8 shadow-2xl space-y-6">
           <div className="space-y-1">
-            <h2 className="text-xl font-black text-slate-900 tracking-tighter">Iniciar SesiÃ³n</h2>
+            <h2 className="text-xl font-black text-slate-900 tracking-tighter">Iniciar Sesión</h2>
             <p className="text-sm text-slate-400">Introduce tus credenciales de acceso</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                Correo ElectrÃ³nico
+                Correo Electrónico
               </Label>
               <Input
                 id="email"
@@ -240,7 +239,7 @@ export default function InspectionLoginPage() {
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                ContraseÃ±a
+                Contraseña
               </Label>
               <div className="relative">
                 <Input
@@ -250,7 +249,7 @@ export default function InspectionLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="rounded-xl border-slate-200 bg-slate-50 font-bold text-slate-900 h-12 pr-10"
-                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                  placeholder="Admin123"
                 />
                 <button
                   type="button"

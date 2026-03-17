@@ -123,7 +123,7 @@ export default function ProfileTab() {
       alert("AVISO CRÍTICO: No puedes cerrar sesión mientras estás sin conexión. Si sales ahora, no podrás volver a entrar hasta recuperar el internet.");
       return;
     }
-    if (confirm("¿Estás seguro de que deseas cerrar sesión? Asegúrate de haber guardado todos tus trabajos.")) {
+    if (confirm("�Est�s seguro de que deseas cerrar sesi�n? Aseg�rate de haber guardado todos tus trabajos.")) {
       localStorage.removeItem('energy_engine_session_id');
       await signOut(auth);
     }
@@ -139,7 +139,7 @@ export default function ProfileTab() {
           <div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Técnico RTS Registrado</p>
             <h2 className="text-xl font-black text-slate-900 tracking-tight">
-              {auth.currentUser?.displayName?.toUpperCase() || auth.currentUser?.email?.split('@')[0].toUpperCase() || 'TÉCNICO ENERGY'}
+              {auth.currentUser?.displayName?.toUpperCase() || auth.currentUser?.email?.split('@')[0].toUpperCase() || 'T�CNICO ENERGY'}
             </h2>
             <p className="text-sm font-medium text-slate-500">{auth.currentUser?.email}</p>
           </div>

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
@@ -32,11 +32,11 @@ type GastoItem = {
   descripcion: string;
   forma_pago: string;
   stopId: string; // ID de la parada o 'general'
-  comprobanteUrl?: string;
-  comprobanteFile?: File;
-  comprobanteBase64?: string;  // Para almacenamiento offline
-  comprobanteFileName?: string;
-  comprobanteMimeType?: string;
+  comprobanteUrl: string;
+  comprobanteFile: File;
+  comprobanteBase64: string;  // Para almacenamiento offline
+  comprobanteFileName: string;
+  comprobanteMimeType: string;
 };
 
 type Stop = {
@@ -48,22 +48,22 @@ type Stop = {
   ubicacion: { lat: number, lon: number } | null;
 };
 
-const initialGastoState = { rubro: 'AlimentaciÃ³n', monto: '', descripcion: '', forma_pago: 'Tarjeta Empresa', stopId: 'general', comprobanteFile: undefined };
-const initialStopState = { clienteId: '', clienteNombre: '', actividad: 'InspecciÃ³n', hora: format(new Date(), 'HH:mm') };
+const initialGastoState = { rubro: 'Alimentación', monto: '', descripcion: '', forma_pago: 'Tarjeta Empresa', stopId: 'general', comprobanteFile: undefined };
+const initialStopState = { clienteId: '', clienteNombre: '', actividad: 'Inspección', hora: format(new Date(), 'HH:mm') };
 
 export default function RegistroGastoForm() {
   const { user } = useUser();
   const firestore = useFirestore();
   const storage = firestore ? getStorage(firestore.app) : null;
   const isOnline = useOnlineStatus();
-  const inspectorEmail = resolveInspectorEmail(user?.email);
+  const inspectorEmail = resolveInspectorEmail(user?.email || '');
   const canUseCloud = isOnline && !!firestore && !!storage && !!user?.email;
   const { toast } = useToast();
 
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const [observacionesDiarias, setObservacionesDiarias] = useState('');
   const [isVerified, setIsVerified] = useState(false);
-  
+
   // Itinerario y Clientes
   const [stops, setStops] = useState<Stop[]>([]);
   const [currentStop, setCurrentStop] = useState<any>(initialStopState);
@@ -87,7 +87,7 @@ export default function RegistroGastoForm() {
       try {
         const snap = await getDocs(collection(firestore, 'clientes'));
         const list = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
-        setClients(list.sort((a,b) => (a.nombre > b.nombre ? 1 : -1)));
+        setClients(list.sort((a, b) => (a.nombre > b.nombre ? 1 : -1)));
         await dbLocal.clientes_cache.bulkPut(list as any);
       } catch (e) {
         setClients(await dbLocal.clientes_cache.toArray());
@@ -101,8 +101,8 @@ export default function RegistroGastoForm() {
       toast({ variant: 'destructive', title: 'Selecciona un cliente' });
       return;
     }
-    
-    // Capturar ubicaciÃ³n en el momento de aÃ±adir la parada
+
+    // Capturar ubicación en el momento de aÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±adir la parada
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition((pos) => {
         const newStop: Stop = {
@@ -112,12 +112,12 @@ export default function RegistroGastoForm() {
         };
         setStops([...stops, newStop]);
         setCurrentStop(initialStopState);
-        toast({ title: 'PARADA REGISTRADA', description: `UbicaciÃ³n capturada para ${currentStop.clienteNombre}` });
+        toast({ title: 'PARADA REGISTRADA', description: `Ubicación capturada para ${currentStop.clienteNombre}` });
       }, () => {
         const newStop: Stop = { ...currentStop, id: `stop-${Date.now()}`, ubicacion: null };
         setStops([...stops, newStop]);
         setCurrentStop(initialStopState);
-        toast({ title: 'PARADA SIN GPS', description: 'No se pudo obtener la ubicaciÃ³n.' });
+        toast({ title: 'PARADA SIN GPS', description: 'No se pudo obtener la ubicación.' });
       });
     }
   };
@@ -161,7 +161,7 @@ export default function RegistroGastoForm() {
 
     setLoading(true);
 
-    // ID Ãºnico para el reporte
+    // ID ÃƒÆ’Ã†â€™Ãƒâ€šºnico para el reporte
     const reportId = generateReportId('GR');
 
     const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
@@ -188,24 +188,24 @@ export default function RegistroGastoForm() {
         createdAt: new Date(),
       });
 
-      toast({ title: synced ? 'REGISTRO ENVIADO' : 'GUARDADO LOCAL', description: 'Los datos estÃ¡n protegidos y listos.' });
+      toast({ title: synced ? 'REGISTRO ENVIADO' : 'GUARDADO LOCAL', description: 'Los datos están protegidos y listos.' });
     };
 
     if (canUseCloud && firestore && storage && user?.email) {
       try {
-        console.log(`ðŸŸ¢ MODO ONLINE - Sincronizando gasto ${reportId}...`);
-        
+        console.log(`🌐 MODO ONLINE - Sincronizando gasto ${reportId}...`);
+
         // Subir Firma
         const signatureRef = ref(storage, `firmas_gastos/${reportId}.png`);
         await uploadString(signatureRef, signature!, 'data_url');
         const firmaUrl = await getDownloadURL(signatureRef);
-        console.log(`   âœ… Firma subida`);
+        console.log(`   ✅ Firma subida`);
 
         // Procesar Gastos con sus comprobantes
         const formattedGastos = [];
         for (const g of gastos) {
           let cUrl = '';
-          
+
           // Si hay base64 (offline que se carga), convertir a Blob y subir
           if (g.comprobanteBase64 && g.comprobanteFileName) {
             try {
@@ -217,7 +217,7 @@ export default function RegistroGastoForm() {
               }
               const byteArray = new Uint8Array(byteNumbers);
               const blob = new Blob([byteArray], { type: g.comprobanteMimeType || 'application/octet-stream' });
-              
+
               const fRef = ref(storage, `comprobantes_gastos/${reportId}/${Date.now()}_${g.comprobanteFileName}`);
               await uploadBytes(fRef, blob);
               cUrl = await getDownloadURL(fRef);
@@ -225,7 +225,7 @@ export default function RegistroGastoForm() {
               console.error('Error procesando comprobante base64:', err);
             }
           }
-          
+
           const stopInfo = stops.find(s => s.id === g.stopId);
           formattedGastos.push({
             ...g,
@@ -241,18 +241,18 @@ export default function RegistroGastoForm() {
         }
 
         await setDoc(doc(firestore, "gastos", reportId), {
-          id: reportId,  // ID Ãºnico - clave principal
-          inspectorId: userEmail, 
-          inspectorNombre: user.displayName || userEmail,
+          id: reportId,  // ID ÃƒÆ’Ã†â€™Ãƒâ€šºnico - clave principal
+          inspectorId: userEmail,
+          inspectorNombre: user?.displayName || userEmail,
           fecha: reportDate,
           itinerario: stops,
-          gastos: formattedGastos.map(({comprobanteFile, comprobanteBase64, comprobanteFileName, comprobanteMimeType, ...rest}) => rest),
+          gastos: formattedGastos.map(({ comprobanteFile, comprobanteBase64, comprobanteFileName, comprobanteMimeType, ...rest }) => rest),
           observaciones: observacionesDiarias,
           firmaUrl,
           total: totalGastos,
           fecha_creacion: serverTimestamp(),
         });
-        console.log(`   ðŸ’¾ Guardado en Firestore con docId=${reportId}`);
+        console.log(`   💾 Guardado en Firestore con docId=${reportId}`);
 
         await saveDataToLocal(true, reportId);
       } catch (e: any) {
@@ -267,16 +267,16 @@ export default function RegistroGastoForm() {
 
     setLoading(false);
     // Reset Form (opcional o redirigir)
-    window.location.reload(); 
+    window.location.reload();
   };
 
-  if (!isVerified && user) return <PinGate userEmail={user.email!} onVerified={() => setIsVerified(true)} />;
+  if (!isVerified && user?.email) return <PinGate userEmail={user.email} onVerified={() => setIsVerified(true)} />;
 
   return (
     <div className="space-y-6 pb-24 md:pb-10 animate-in fade-in slide-in-from-right-4 duration-500 min-h-screen bg-slate-50 p-4">
-      
+
       <main className="max-w-4xl mx-auto space-y-8 pb-40">
-        
+
         {/* CABECERA */}
         <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
           <div className="flex items-center justify-between">
@@ -300,7 +300,7 @@ export default function RegistroGastoForm() {
           </div>
         </section>
 
-        {/* ITINERARIO DEL DÃA */}
+        {/* ITINERARIO DEL DÍA */}
         <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
           <div className="flex items-center gap-2 mb-2">
             <MapPinned size={20} className="text-primary" />
@@ -309,12 +309,19 @@ export default function RegistroGastoForm() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-5 rounded-3xl border-2 border-slate-100">
             <div className="md:col-span-2 space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cliente / Punto de IntervenciÃ³n</label>
-              <Select 
-                value={currentStop.clienteId} 
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cliente / Punto de Intervención</label>
+              <Select
+                value={currentStop.clienteId}
                 onValueChange={(val) => {
-                  const c = clients.find(cl => cl.id === val);
-                  setCurrentStop({...currentStop, clienteId: val, clienteNombre: c?.nombre || ''});
+                  // Si es la opción manual de Oficina, no buscamos en la base de datos
+                  if (val === "OFICINA") {
+                    setCurrentStop({ ...currentStop, clienteId: val, clienteNombre: 'OFICINA CENTRAL' });
+                  } else {
+                    // Buscamos en la base de datos local
+                    const c = clients.find(cl => cl.id === val);
+                    // Usamos c?.nombre (el signo de interrogación salva el error si no existe)
+                    setCurrentStop({ ...currentStop, clienteId: val, clienteNombre: c?.nombre || 'Cliente Desconocido' });
+                  }
                 }}
               >
                 <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-white font-bold text-slate-900">
@@ -326,12 +333,13 @@ export default function RegistroGastoForm() {
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Actividad</label>
-              <Select value={currentStop.actividad} onValueChange={(v) => setCurrentStop({...currentStop, actividad: v})}>
+              <Select value={currentStop.actividad} onValueChange={(v) => setCurrentStop({ ...currentStop, actividad: v })}>
                 <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-white font-bold text-slate-900"><SelectValue /></SelectTrigger>
                 <SelectContent className="rounded-xl font-bold">
-                  {['InspecciÃ³n', 'AverÃ­a', 'Mantenimiento', 'Entrega', 'Obra', 'Otros'].map(a => <SelectItem key={a} value={a}>{a.toUpperCase()}</SelectItem>)}
+                  {['Inspección', 'Avería', 'Mantenimiento', 'Entrega', 'Obra', 'Otros'].map(a => <SelectItem key={a} value={a}>{a.toUpperCase()}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -344,11 +352,11 @@ export default function RegistroGastoForm() {
             {stops.map((s, i) => (
               <div key={s.id} className="flex items-center justify-between p-4 bg-white border-2 border-slate-100 rounded-2xl shadow-sm">
                 <div className="flex items-center gap-4">
-                   <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center font-black">{i + 1}</div>
-                   <div>
-                      <p className="font-bold text-slate-800 uppercase">{s.clienteNombre}</p>
-                      <p className="text-[10px] font-black text-slate-400 tracking-widest">{s.actividad} â€¢ {s.hora} â€¢ {s.ubicacion ? 'GPS OK' : 'SIN GPS'}</p>
-                   </div>
+                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center font-black">{i + 1}</div>
+                  <div>
+                    <p className="font-bold text-slate-800 uppercase">{s.clienteNombre}</p>
+                    <p className="text-[10px] font-black text-slate-400 tracking-widest">{s.actividad} • {s.hora} • {s.ubicacion ? 'GPS OK' : 'SIN GPS'}</p>
+                  </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setStops(stops.filter(st => st.id !== s.id))} className="text-red-400 hover:text-red-600 rounded-full">
                   <Trash2 size={20} />
@@ -361,30 +369,30 @@ export default function RegistroGastoForm() {
 
         {/* GASTOS */}
         <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
-           <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center">
             <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">
-              < Euro size={18} className="text-primary" /> Gastos del DÃ­a
+              < Euro size={18} className="text-primary" /> Gastos del Día
             </h3>
-            {totalGastos > 0 && <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl font-black text-sm">TOTAL: {totalGastos.toFixed(2)} â‚¬</div>}
+            {totalGastos > 0 && <div className="bg-primary/10 text-primary px-4 py-2 rounded-xl font-black text-sm">TOTAL: {totalGastos.toFixed(2)} €</div>}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-5 rounded-3xl border-2 border-slate-100">
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">CategorÃ­a</label>
-              <Select value={currentGasto.rubro} onValueChange={v => setCurrentGasto({...currentGasto, rubro: v})}>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Categoría</label>
+              <Select value={currentGasto.rubro} onValueChange={v => setCurrentGasto({ ...currentGasto, rubro: v })}>
                 <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-white font-bold text-slate-900"><SelectValue /></SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  {['Combustible', 'Peajes', 'Parking', 'ManutenciÃ³n', 'Hospedaje', 'Otros'].map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  {['Combustible', 'Peajes', 'Parking', 'Manutención', 'Hospedaje', 'Otros'].map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Monto (â‚¬)</label>
-              <Input type="number" placeholder="0.00" value={currentGasto.monto} onChange={e => setCurrentGasto({...currentGasto, monto: e.target.value})} className="h-14 rounded-2xl border-slate-200 bg-white font-black text-xl text-slate-900" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Monto (€)</label>
+              <Input type="number" placeholder="0.00" value={currentGasto.monto} onChange={e => setCurrentGasto({ ...currentGasto, monto: e.target.value })} className="h-14 rounded-2xl border-slate-200 bg-white font-black text-xl text-slate-900" />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Forma de Pago</label>
-              <Select value={currentGasto.forma_pago} onValueChange={v => setCurrentGasto({...currentGasto, forma_pago: v})}>
+              <Select value={currentGasto.forma_pago} onValueChange={v => setCurrentGasto({ ...currentGasto, forma_pago: v })}>
                 <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-white font-bold text-slate-900"><SelectValue /></SelectTrigger>
                 <SelectContent className="rounded-xl">
                   {['Tarjeta Empresa', 'Efectivo', 'Transferencia', 'Tarjeta Personal'].map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
@@ -393,64 +401,64 @@ export default function RegistroGastoForm() {
             </div>
             <div className="space-y-1 md:col-span-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asociado a Parada</label>
-              <Select value={currentGasto.stopId} onValueChange={v => setCurrentGasto({...currentGasto, stopId: v})}>
+              <Select value={currentGasto.stopId} onValueChange={v => setCurrentGasto({ ...currentGasto, stopId: v })}>
                 <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-white font-bold text-slate-900"><SelectValue /></SelectTrigger>
                 <SelectContent className="rounded-xl">
                   <SelectItem value="general" className="font-bold">GASTO GENERAL / OTROS</SelectItem>
-                  {stops.map((s, i) => <SelectItem key={s.id} value={s.id}>PARADA {i+1}: {s.clienteNombre}</SelectItem>)}
+                  {stops.map((s, i) => <SelectItem key={s.id} value={s.id}>PARADA {i + 1}: {s.clienteNombre}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1 md:col-span-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Concepto / Referencia</label>
-              <Input placeholder="Ej: Ticket Gasolinera Repsol" value={currentGasto.descripcion} onChange={e => setCurrentGasto({...currentGasto, descripcion: e.target.value})} className="h-14 rounded-2xl border-slate-200 bg-white font-medium text-slate-900" />
+              <Input placeholder="Ej: Ticket Gasolinera Repsol" value={currentGasto.descripcion} onChange={e => setCurrentGasto({ ...currentGasto, descripcion: e.target.value })} className="h-14 rounded-2xl border-slate-200 bg-white font-medium text-slate-900" />
             </div>
             <div className="flex gap-2 md:col-span-2">
-               <Button variant="outline" onClick={() => fileInputRef.current?.click()} className={`flex-1 h-14 rounded-2xl border-2 font-bold transition-all shadow-sm ${currentGasto.comprobanteFile ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : 'border-slate-200 text-slate-600 bg-white'}`}>
-                  <Camera size={18} className="mr-2" /> {currentGasto.comprobanteFile ? 'TICKET OK' : 'SUBIR TICKET'}
-                  <input type="file" ref={fileInputRef} onChange={(e) => e.target.files?.[0] && setCurrentGasto({...currentGasto, comprobanteFile: e.target.files[0]})} accept="image/*" className="hidden" />
-               </Button>
-               <Button onClick={handleAddGasto} className="flex-[2] h-14 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
-                  AÃ‘ADIR GASTO
-               </Button>
+              <Button variant="outline" onClick={() => fileInputRef.current?.click()} className={`flex-1 h-14 rounded-2xl border-2 font-bold transition-all shadow-sm ${currentGasto.comprobanteFile ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : 'border-slate-200 text-slate-600 bg-white'}`}>
+                <Camera size={18} className="mr-2" /> {currentGasto.comprobanteFile ? 'TICKET OK' : 'SUBIR TICKET'}
+                <input type="file" ref={fileInputRef} onChange={(e) => e.target.files?.[0] && setCurrentGasto({ ...currentGasto, comprobanteFile: e.target.files[0] })} accept="image/*" className="hidden" />
+              </Button>
+              <Button onClick={handleAddGasto} className="flex-[2] h-14 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
+                AÑADIR GASTO
+              </Button>
             </div>
           </div>
 
           <div className="space-y-3">
-             {gastos.map((g, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-white border-2 border-slate-100 rounded-2xl shadow-sm">
-                   <div className="flex items-center gap-4 text-left">
-                      <div className={`p-3 rounded-xl ${g.comprobanteFile ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-400'}`}>
-                         <FileText size={20} />
-                      </div>
-                      <div>
-                         <p className="font-bold text-slate-800 text-sm">{g.descripcion}</p>
-                         <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase">
-                            {g.rubro} â€¢ {g.monto.toFixed(2)}â‚¬ â€¢ {stops.find(s => s.id === g.stopId)?.clienteNombre || 'GENERAL'}
-                         </p>
-                      </div>
-                   </div>
-                   <Button variant="ghost" size="icon" onClick={() => setGastos(gastos.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600">
-                      <Trash2 size={18} />
-                   </Button>
+            {gastos.map((g, i) => (
+              <div key={i} className="flex items-center justify-between p-4 bg-white border-2 border-slate-100 rounded-2xl shadow-sm">
+                <div className="flex items-center gap-4 text-left">
+                  <div className={`p-3 rounded-xl ${g.comprobanteFile ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-400'}`}>
+                    <FileText size={20} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-800 text-sm">{g.descripcion}</p>
+                    <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase">
+                      {g.rubro} • {g.monto.toFixed(2)}€ • {stops.find(s => s.id === g.stopId)?.clienteNombre || 'GENERAL'}
+                    </p>
+                  </div>
                 </div>
-             ))}
+                <Button variant="ghost" size="icon" onClick={() => setGastos(gastos.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600">
+                  <Trash2 size={18} />
+                </Button>
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* FIRMA Y ENVÃO */}
+        {/* FIRMA Y ENVÃƒÆ’Ã‚ÂO */}
         <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100 text-center">
           <div className="flex flex-col items-center gap-2">
             <ClipboardSignature size={32} className="text-primary" />
-            <h3 className="font-black text-slate-900 uppercase tracking-tighter">ValidaciÃ³n Final</h3>
+            <h3 className="font-black text-slate-900 uppercase tracking-tighter">Validación Final</h3>
             <p className="text-xs text-slate-400 font-medium max-w-xs">Certifico que los itinerarios y gastos declarados son veraces y corresponden a mi jornada.</p>
           </div>
           <SignaturePad title="Firma del Inspector" signature={signature} onSignatureEnd={setSignature} />
-          
+
           <div className="pt-6">
-            <Button 
-              onClick={handleSaveReport} 
-              disabled={loading} 
+            <Button
+              onClick={handleSaveReport}
+              disabled={loading}
               className="w-full h-24 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all disabled:opacity-50 hover:bg-slate-800"
             >
               {loading ? <Loader2 className="animate-spin text-primary" size={28} /> : <Save size={28} className="text-primary" />}

@@ -49,7 +49,7 @@ export const getNextSequenceForUser = async ({
   const activeYear = getYear(year);
 
   if (!normalizedEmail) {
-    return dbLocal.getNextSequence(type, undefined, activeYear);
+    return dbLocal.getNextSequence(type, 'global', activeYear);
   }
 
   const getLocalFallback = async () => dbLocal.getNextSequence(type, normalizedEmail, activeYear);
@@ -71,9 +71,13 @@ export const getNextSequenceForUser = async ({
       tx.set(
         userRef,
         {
-          [`inspectionCounters.${yearKey}.${type}`]: next,
+          inspectionCounters: {
+            [yearKey]: {
+              [type]: next
+            }
+          },
           countersUpdatedAt: serverTimestamp(),
-        } as any,
+        },
         { merge: true }
       );
 

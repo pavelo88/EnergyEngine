@@ -1,4 +1,4 @@
-﻿
+
 'use client';
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
@@ -28,7 +28,7 @@ const SIMPLIFIED_CHECKLIST_ITEMS = [
     "Filtro de Agua",
     "Litros de Aceite",
     "Litros de Anticongelante",
-    "BaterÃ­as",
+    "Baterías",
     "Otros"
 ];
 
@@ -64,19 +64,19 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         doc.setTextColor(darkColor);
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
-        doc.text(`INFORME SIMPLIFICADO - NÂº: ${finalID}`, leftMargin, currentY);
+        doc.text(`INFORME SIMPLIFICADO - Nº: ${finalID}`, leftMargin, currentY);
         currentY += 6;
 
         autoTable(doc, {
             startY: currentY,
             body: [
                 [{ content: 'CLIENTE:', styles: { fontStyle: 'bold', cellWidth: 35 } }, { content: report.clienteNombre || report.cliente || '', colSpan: 3 }],
-                [{ content: 'INSTALACIÃ“N:', styles: { fontStyle: 'bold' } }, { content: report.instalacion || '', colSpan: 3 }],
-                [{ content: 'DIRECCIÃ“N:', styles: { fontStyle: 'bold' } }, { content: report.direccion || '', colSpan: 3 }],
-                 [{ content: 'UBICACIÃ“N (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
-                [{ content: 'FECHA REVISIÃ“N:', styles: { fontStyle: 'bold' } }, report.fecha_revision || '', { content: 'POTENCIA:', styles: { fontStyle: 'bold', cellWidth: 30 } }, report.potencia || ''],
-                [{ content: 'MOTOR:', styles: { fontStyle: 'bold' } }, report.motor || '', { content: 'NÂº MOTOR:', styles: { fontStyle: 'bold' } }, report.n_motor || ''],
-                [{ content: 'MODELO:', styles: { fontStyle: 'bold' } }, report.modelo || '', { content: 'NÂº GRUPO:', styles: { fontStyle: 'bold' } }, report.n_grupo || ''],
+                [{ content: 'INSTALACIÓN:', styles: { fontStyle: 'bold' } }, { content: report.instalacion || '', colSpan: 3 }],
+                [{ content: 'DIRECCIÓN:', styles: { fontStyle: 'bold' } }, { content: report.direccion || '', colSpan: 3 }],
+                 [{ content: 'UBICACIÓN (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
+                [{ content: 'FECHA REVISIÓN:', styles: { fontStyle: 'bold' } }, report.fecha_revision || '', { content: 'POTENCIA:', styles: { fontStyle: 'bold', cellWidth: 30 } }, report.potencia || ''],
+                [{ content: 'MOTOR:', styles: { fontStyle: 'bold' } }, report.motor || '', { content: 'Nº MOTOR:', styles: { fontStyle: 'bold' } }, report.n_motor || ''],
+                [{ content: 'MODELO:', styles: { fontStyle: 'bold' } }, report.modelo || '', { content: 'Nº GRUPO:', styles: { fontStyle: 'bold' } }, report.n_grupo || ''],
             ],
             theme: 'grid', 
             styles: { fontSize: 8, cellPadding: 2 },
@@ -113,17 +113,17 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
             startY: currentY,
             body: [
                 [{ content: 'DATOS DE PRUEBAS', styles: { fontStyle: 'bold', fillColor: darkColor, textColor: '#fff' }}, { content: 'VALORES', styles: { fontStyle: 'bold', fillColor: darkColor, textColor: '#fff' }}],
-                ['Horas de funcionamiento', report.datos_pruebas?.horas || ''],
-                ['PresiÃ³n aceite', report.datos_pruebas?.presion || ''],
-                ['Temperatura en bloque motor', report.datos_pruebas?.temperatura || ''],
-                ['Nivel de deposito de combustible', report.datos_pruebas?.nivel_combustible || ''],
-                ['TensiÃ³n en el alternador', report.datos_pruebas?.tension_alternador || ''],
-                ['Frecuencia', report.datos_pruebas?.frecuencia || ''],
-                ['Carga de baterÃ­as', report.datos_pruebas?.carga_baterias || ''],
+                ['Horas de funcionamiento', report.datos_pruebas.horas || ''],
+                ['Presión aceite', report.datos_pruebas.presion || ''],
+                ['Temperatura en bloque motor', report.datos_pruebas.temperatura || ''],
+                ['Nivel de deposito de combustible', report.datos_pruebas.nivel_combustible || ''],
+                ['Tensión en el alternador', report.datos_pruebas.tension_alternador || ''],
+                ['Frecuencia', report.datos_pruebas.frecuencia || ''],
+                ['Carga de baterías', report.datos_pruebas.carga_baterias || ''],
                 [{ content: 'PRUEBAS CON CARGA', colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#f1f5f9' }}],
-                [{ content: `TensiÃ³n: RS: ${report.pruebas_carga?.tension_rs || ''}   ST: ${report.pruebas_carga?.tension_st || ''}   RT: ${report.pruebas_carga?.tension_rt || ''}`, colSpan: 2 }],
-                [{ content: `Intensidad: R: ${report.pruebas_carga?.intensidad_r || ''}   S: ${report.pruebas_carga?.intensidad_s || ''}   T: ${report.pruebas_carga?.intensidad_t || ''}`, colSpan: 2 }],
-                [{ content: `Potencia: ${report.pruebas_carga?.potencia_kw || ''} kW`, colSpan: 2 }],
+                [{ content: `Tensión: RS: ${report.pruebas_carga.tension_rs || ''}   ST: ${report.pruebas_carga.tension_st || ''}   RT: ${report.pruebas_carga.tension_rt || ''}`, colSpan: 2 }],
+                [{ content: `Intensidad: R: ${report.pruebas_carga.intensidad_r || ''}   S: ${report.pruebas_carga.intensidad_s || ''}   T: ${report.pruebas_carga.intensidad_t || ''}`, colSpan: 2 }],
+                [{ content: `Potencia: ${report.pruebas_carga.potencia_kw || ''} kW`, colSpan: 2 }],
             ],
             theme: 'grid', 
             styles: { fontSize: 8, cellPadding: 2 },
@@ -174,7 +174,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         doc.setFont('helvetica', 'normal');
         if (report.inspectorSignatureUrl) doc.addImage(report.inspectorSignatureUrl, 'PNG', 25, currentY, 60, 25);
         doc.line(25, currentY + 25, 85, currentY + 25);
-        doc.text("Firma tÃ©cnico:", 25, currentY + 30);
+        doc.text("Firma técnico:", 25, currentY + 30);
         doc.text(inspectorName || '', 25, currentY + 35);
 
         if (report.clientSignatureUrl) doc.addImage(report.clientSignatureUrl, 'PNG', 125, currentY, 60, 25);
@@ -193,11 +193,11 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 };
 
 
-export default function InformeSimplificadoForm({ initialData, aiData, onSuccess }: { initialData?: any, aiData?: ProcessDictationOutput | null, onSuccess?: () => void }) {
+export default function InformeSimplificadoForm({ initialData, aiData, onSuccess }: { initialData: any, aiData: ProcessDictationOutput | null, onSuccess: () => void }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const isOnline = useOnlineStatus();
-  const inspectorEmail = resolveInspectorEmail(user?.email);
+  const inspectorEmail = resolveInspectorEmail(user?.email || '');
   const canUseCloud = isOnline && !!firestore && !!user?.email;
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
@@ -315,11 +315,11 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
       (pos) => { 
         handleInputChange('location', { lat: pos.coords.latitude, lon: pos.coords.longitude }); 
         setLocationStatus('success'); 
-        toast({ title: 'GPS OK', description: 'UbicaciÃ³n registrada.' });
+        toast({ title: 'GPS OK', description: 'Ubicación registrada.' });
       },
       () => { 
         setLocationStatus('error'); 
-        toast({ variant: 'destructive', title: 'GPS Fallido', description: 'Active permisos de ubicaciÃ³n.' }); 
+        toast({ variant: 'destructive', title: 'GPS Fallido', description: 'Active permisos de ubicación.' }); 
       }
     );
   };
@@ -360,7 +360,7 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
     
     const missing = [];
     if (!formData.cliente) missing.push('Cliente');
-    if (!formData.instalacion) missing.push('InstalaciÃ³n');
+    if (!formData.instalacion) missing.push('Instalación');
     if (gpsRequired && !formData.location) missing.push('Ubicacion GPS');
     if (!inspectorSignature) missing.push('Firma Inspector');
     if (!clientSignature) missing.push('Firma Cliente');
@@ -387,7 +387,7 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
       }
     };
     
-    const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
+    const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
         const localData = { ...formData, formType: 'informe-simplificado', originalJobId: initialData?.id || null };
         if (!synced) { (localData as any).images = images; (localData as any).inspectorSignature = inspectorSignature; (localData as any).clientSignature = clientSignature; }
         await dbLocal.hojas_trabajo.add({ firebaseId: firebaseId || '', synced, data: localData, createdAt: new Date() });
@@ -396,10 +396,10 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
         setSavedDocId(firebaseId || '');
         setIsSaved(true);
 
-        if (synced) toast({ title: 'Â¡Guardado!', description: `Documento ID: ${firebaseId}` });
-        else toast({ title: 'Guardado Local', description: 'Se sincronizarÃ¡ al recuperar red.' });
+        if (synced) toast({ title: '¡Guardado!', description: `Documento ID: ${firebaseId}` });
+        else toast({ title: 'Guardado Local', description: 'Se sincronizará al recuperar red.' });
 
-        const shouldDownload = window.confirm("Â¡Informe guardado con Ã©xito! Â¿Desea descargar el PDF ahora?");
+        const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora");
         if (shouldDownload) {
             handlePdfAction(true, firebaseId);
         }
@@ -407,7 +407,7 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
         if (onSuccess) onSuccess();
     };
 
-    if (canUseCloud && firestore && user?.email) {
+    if (canUseCloud && firestore && user.email) {
         try {
             const storage = getStorage();
 
@@ -426,8 +426,8 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
 
             const docData = { 
                 ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl, 
-                inspectorId: user.email, inspectorNombre: inspectorName, 
-                inspectorIds: initialData?.inspectorIds || [user.email],
+                inspectorId: inspectorEmail || '', inspectorNombre: inspectorName, 
+                inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
                 inspectorNombres: initialData?.inspectorNombres || [inspectorName],
                 fecha_creacion: Timestamp.now(), formType: formData.formType || 'informe-simplificado', id: docId, estado: 'Completado' 
             };  await setDoc(doc(firestore, 'informes', docId), docData);
@@ -449,7 +449,7 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
             <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border-slate-100 bg-white">
                 <DialogHeader className="p-6 border-b border-slate-100 bg-white">
                     <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa Informe Simplificado</DialogTitle>
-                    <DialogDescription className="text-xs text-slate-500">Revise la informaciÃ³n antes del cierre tÃ©cnico.</DialogDescription>
+                    <DialogDescription className="text-xs text-slate-500">Revise la información antes del cierre técnico.</DialogDescription>
                 </DialogHeader>
                 <div className="flex-1 bg-slate-100">
                     {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full border-none" title="PDF Preview" />}
@@ -468,13 +468,13 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
                           <ClientSelector onSelect={handleClientSelect} selectedClientId={formData.clienteId} />
                         </div>
                     </div>
-                    <StableInput label="InstalaciÃ³n" icon={MapPin} value={formData.instalacion} onChange={(v: string) => handleInputChange('instalacion', v)}/>
-                    <StableInput label="DirecciÃ³n" icon={MapPin} value={formData.direccion} onChange={(v: string) => handleInputChange('direccion', v)}/>
-                    <StableInput label="Fecha RevisiÃ³n" icon={Calendar} type="date" value={formData.fecha_revision} onChange={(v: string) => handleInputChange('fecha_revision', v)}/>
+                    <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={(v: string) => handleInputChange('instalacion', v)}/>
+                    <StableInput label="Dirección" icon={MapPin} value={formData.direccion} onChange={(v: string) => handleInputChange('direccion', v)}/>
+                    <StableInput label="Fecha Revisión" icon={Calendar} type="date" value={formData.fecha_revision} onChange={(v: string) => handleInputChange('fecha_revision', v)}/>
                     <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: string) => handleInputChange('motor', v)}/>
                     <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={(v: string) => handleInputChange('modelo', v)}/>
-                    <StableInput label="NÂº Motor" icon={Hash} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>
-                    <StableInput label="NÂº Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: string) => handleInputChange('n_grupo', v)}/>
+                    <StableInput label="Nº Motor" icon={Hash} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>
+                    <StableInput label="Nº Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: string) => handleInputChange('n_grupo', v)}/>
                     <StableInput label="Potencia" icon={Zap} value={formData.potencia} onChange={(v: string) => handleInputChange('potencia', v)}/>
                     <button 
                         onClick={handleCaptureLocation} 
@@ -482,7 +482,7 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
                         className={`w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center justify-center gap-2 font-black shadow-sm text-xs transition-all active:scale-95 disabled:opacity-50 ${formData.location ? 'border-emerald-500/50 text-emerald-500 bg-emerald-500/10' : 'border-slate-100 text-slate-400 hover:border-primary'}`}
                     >
                         {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={14}/> : formData.location ? <CheckCircle2 size={14} className="text-emerald-500"/> : <MapPin size={14}/>}
-                        <span>{formData.location ? `UBICACIÃ“N CAPTURADA` : (gpsRequired ? 'CAPTURAR GPS (REQUERIDO)' : 'CAPTURAR GPS (OPCIONAL)')}</span>
+                        <span>{formData.location ? `UBICACIÓN CAPTURADA` : (gpsRequired ? 'CAPTURAR GPS (REQUERIDO)' : 'CAPTURAR GPS (OPCIONAL)')}</span>
                     </button>
                 </div>
             </section>
@@ -513,17 +513,17 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
                 <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Mediciones y Pruebas</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <StableInput icon={Clock} label="Horas" value={formData.datos_pruebas.horas} onChange={(v: string) => handleNestedChange('datos_pruebas', 'horas', v)} />
-                    <StableInput icon={Gauge} label="PresiÃ³n Aceite" value={formData.datos_pruebas.presion} onChange={(v: string) => handleNestedChange('datos_pruebas', 'presion', v)} />
+                    <StableInput icon={Gauge} label="Presión Aceite" value={formData.datos_pruebas.presion} onChange={(v: string) => handleNestedChange('datos_pruebas', 'presion', v)} />
                     <StableInput icon={Thermometer} label="Temperatura" value={formData.datos_pruebas.temperatura} onChange={(v: string) => handleNestedChange('datos_pruebas', 'temperatura', v)} />
                     <StableInput icon={Droplets} label="Nivel Combustible" value={formData.datos_pruebas.nivel_combustible} onChange={(v: string) => handleNestedChange('datos_pruebas', 'nivel_combustible', v)} />
-                    <StableInput icon={Zap} label="TensiÃ³n Alternador" value={formData.datos_pruebas.tension_alternador} onChange={(v: string) => handleNestedChange('datos_pruebas', 'tension_alternador', v)} />
+                    <StableInput icon={Zap} label="Tensión Alternador" value={formData.datos_pruebas.tension_alternador} onChange={(v: string) => handleNestedChange('datos_pruebas', 'tension_alternador', v)} />
                     <StableInput icon={Wind} label="Frecuencia" value={formData.datos_pruebas.frecuencia} onChange={(v: any) => handleNestedChange('datos_pruebas', 'frecuencia', v)} />
-                    <StableInput icon={Battery} label="Carga BaterÃ­as" value={formData.datos_pruebas.carga_baterias} onChange={(v: any) => handleNestedChange('datos_pruebas', 'carga_baterias', v)} />
+                    <StableInput icon={Battery} label="Carga Baterías" value={formData.datos_pruebas.carga_baterias} onChange={(v: any) => handleNestedChange('datos_pruebas', 'carga_baterias', v)} />
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-slate-100 mt-3">
-                    <LoadTestInput label="TensiÃ³n RS" value={formData.pruebas_carga.tension_rs} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_rs', v)} />
-                    <LoadTestInput label="TensiÃ³n ST" value={formData.pruebas_carga.tension_st} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_st', v)} />
-                    <LoadTestInput label="TensiÃ³n RT" value={formData.pruebas_carga.tension_rt} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_rt', v)} />
+                    <LoadTestInput label="Tensión RS" value={formData.pruebas_carga.tension_rs} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_rs', v)} />
+                    <LoadTestInput label="Tensión ST" value={formData.pruebas_carga.tension_st} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_st', v)} />
+                    <LoadTestInput label="Tensión RT" value={formData.pruebas_carga.tension_rt} onChange={(v: string) => handleNestedChange('pruebas_carga', 'tension_rt', v)} />
                     <LoadTestInput label="Potencia kW" value={formData.pruebas_carga.potencia_kw} onChange={(v: string) => handleNestedChange('pruebas_carga', 'potencia_kw', v)} />
                 </div>
             </section>
@@ -532,7 +532,7 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
                 <h2 className="text-lg font-black text-black flex items-center gap-2 uppercase tracking-tighter"><Camera className="text-primary" size={18}/> Evidencia Multimedia</h2>
                 <label htmlFor="image-upload" className="w-full cursor-pointer bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center hover:bg-white hover:border-primary transition-all group active:scale-[0.99]">
                     <Camera size={28} className="text-slate-300 mb-1.5 group-hover:text-primary transition-colors"/>
-                    <span className="font-black text-[10px] uppercase tracking-widest text-slate-400">Capturar ImÃ¡genes</span>
+                    <span className="font-black text-[10px] uppercase tracking-widest text-slate-400">Capturar Imágenes</span>
                 </label>
                 <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange}/>
                 {images.length > 0 && (<div className="grid grid-cols-3 sm:grid-cols-4 gap-3">{images.map((img, i) => (<div key={i} className="relative aspect-square shadow-sm rounded-lg overflow-hidden border border-slate-100"><img src={URL.createObjectURL(img)} alt={`pv ${i}`} className="w-full h-full object-cover transition-transform hover:scale-110"/></div>))}</div>)}

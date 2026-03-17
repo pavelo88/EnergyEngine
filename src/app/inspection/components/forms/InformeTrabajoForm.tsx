@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
@@ -37,7 +37,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     let currentY = topMargin;
 
-    const title = `INFORME TÃ‰CNICO NÂº: ${finalID}`;
+    const title = `INFORME TÉCNICO Nº: ${finalID}`;
     doc.setTextColor(darkColor);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
@@ -47,12 +47,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     autoTable(doc, {
         startY: currentY,
         body: [
-            ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'TÃ©cnico:', inspectorName],
+            ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
             [{ content: 'Cliente:', styles: { fontStyle: 'bold' } }, { content: report.clienteNombre || report.cliente || '-', colSpan: 3 }],
-            [{ content: 'InstalaciÃ³n:', styles: { fontStyle: 'bold' } }, { content: report.instalacion, colSpan: 3 }],
-            [{ content: 'UBICACIÃ“N (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
+            [{ content: 'Instalación:', styles: { fontStyle: 'bold' } }, { content: report.instalacion, colSpan: 3 }],
+            [{ content: 'UBICACIÓN (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
             ['Motor:', report.motor, 'Modelo:', report.modelo],
-            ['NÂº de motor:', report.n_motor, 'Grupo:', report.grupo],
+            ['Nº de motor:', report.n_motor, 'Grupo:', report.grupo],
         ],
         theme: 'grid',
         styles: { fontSize: 9, cellPadding: 2, lineColor: '#ccc', lineWidth: 0.1 },
@@ -66,7 +66,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.setTextColor(darkColor);
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text("DescripciÃ³n de la incidencia", leftMargin, currentY);
+    doc.text("Descripción de la incidencia", leftMargin, currentY);
     currentY += 8;
 
     const rawText = report.reportContent || '';
@@ -125,11 +125,11 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 };
 
 
-export default function InformeTrabajoForm({ initialData, aiData }: { initialData?: any, aiData?: ProcessDictationOutput | null }) {
+export default function InformeTrabajoForm({ initialData, aiData }: { initialData: any, aiData: ProcessDictationOutput | null }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const isOnline = useOnlineStatus();
-  const inspectorEmail = resolveInspectorEmail(user?.email);
+  const inspectorEmail = resolveInspectorEmail(user?.email || '');
   const canUseCloud = isOnline && !!firestore && !!user?.email;
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
@@ -245,7 +245,7 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
       (error) => {
         const description =
           error.code === error.PERMISSION_DENIED
-            ? 'Activa el permiso de ubicacion para continuar.'
+            ? 'Activa el permiso de ubicación para continuar.'
             : 'No se pudo capturar el GPS. Intenta nuevamente.';
         toast({ variant: 'destructive', title: 'No se pudo capturar GPS', description });
         setLocationStatus('error');
@@ -260,7 +260,7 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
     setAiLoading(true);
     try {
       const res = await splitTechnicalReport({ dictation: formData.reportContent });
-      const formattedText = `ANTECEDENTES:\n\n${res.antecedentes}\n\nINTERVENCIÃ“N:\n\n${res.intervencion}\n\nRESUMEN Y SITUACIÃ“N ACTUAL:\n\n${res.resumen}`;
+      const formattedText = `ANTECEDENTES:\n\n${res.antecedentes}\n\nINTERVENCIÓN:\n\n${res.intervencion}\n\nRESUMEN Y SITUACIÓN ACTUAL:\n\n${res.resumen}`;
       setFormData((p: any) => ({ ...p, reportContent: formattedText }));
     } catch (e: any) { 
         console.error("AI enhancement failed:", e); 
@@ -287,7 +287,7 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
           description: !inspectorEmail
             ? 'No existe identidad offline. Inicia online una vez para habilitar guardado local.'
             : gpsRequired && !formData.location
-            ? 'En este dispositivo, la ubicacion GPS es obligatoria.'
+            ? 'En este dispositivo, la ubicación GPS es obligatoria.'
             : 'La firma del inspector es obligatoria.',
         });
         return;
@@ -307,7 +307,7 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
     const docId = `IT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
     
     const updateOriginalJobStatus = async (jobId: string) => {
-        if (canUseCloud && firestore && user?.email) {
+        if (canUseCloud && firestore && user.email) {
             try {
                 await updateDoc(doc(firestore, 'ordenes_trabajo', jobId), { estado: 'Completado' });
             } catch (updateError) {
@@ -316,7 +316,7 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
         }
     };
 
-    const saveDataToLocal = async (synced: boolean, firebaseId?: string) => {
+    const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
         const localData = { 
           ...formData, 
           originalJobId: initialData?.id || null 
@@ -333,13 +333,13 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
         });
         
         if (synced) {
-            toast({ title: 'Â¡Guardado y Sincronizado!', description: `ID: ${firebaseId}` });
+            toast({ title: '¡Guardado y Sincronizado!', description: `ID: ${firebaseId}` });
         } else {
-            toast({ title: 'Guardado localmente', description: 'Se sincronizarÃ¡ al recuperar la conexiÃ³n.' });
+            toast({ title: 'Guardado localmente', description: 'Se sincronizará al recuperar la conexión.' });
         }
     };
     
-    if (canUseCloud && firestore && user?.email) {
+    if (canUseCloud && firestore && user.email) {
         try {
             const formType = 'informe-tecnico';
 
@@ -350,8 +350,8 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
 
             const docData = {
                 ...formData, imageUrls: [], inspectorSignatureUrl, clientSignatureUrl: null,
-                inspectorId: user.email, inspectorNombre: inspectorName,
-                inspectorIds: initialData?.inspectorIds || [user.email],
+                inspectorId: inspectorEmail || '', inspectorNombre: inspectorName,
+                inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
                 inspectorNombres: initialData?.inspectorNombres || [inspectorName],
                 fecha_creacion: Timestamp.now(), formType: formData.formType || 'informe-trabajo', id: docId, estado: 'Completado' 
             };
@@ -380,7 +380,7 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
       <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => !isOpen && setPreviewPdfUrl(null)}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border-slate-100 bg-white">
           <DialogHeader className="p-6 border-b border-slate-100 bg-white">
-            <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa del Informe TÃ©cnico</DialogTitle>
+            <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa del Informe Técnico</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">Revisa el borrador antes de guardarlo.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 bg-slate-100">
@@ -389,10 +389,10 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
         </DialogContent>
       </Dialog>
 
-      <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe TÃ©cnico</h2>
+      <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Técnico</h2>
       
       <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
-         <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Datos de IdentificaciÃ³n</h3>
+         <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Datos de Identificación</h3>
          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="md:col-span-2 space-y-2">
                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Cliente Base</label>
@@ -402,10 +402,10 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
             </div>
             <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: string) => handleInputChange('motor', v)}/>
             <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={(v: string) => handleInputChange('modelo', v)}/>
-            <StableInput label="NÂº de motor" icon={Type} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>
+            <StableInput label="Nº de motor" icon={Type} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)}/>
             <StableInput label="Grupo" icon={Settings} value={formData.grupo} onChange={(v: string) => handleInputChange('grupo', v)}/>
             <div className="md:col-span-2">
-                <StableInput label="InstalaciÃ³n" icon={MapPin} value={formData.instalacion} onChange={(v: string) => handleInputChange('instalacion', v)}/>
+                <StableInput label="Instalación" icon={MapPin} value={formData.instalacion} onChange={(v: string) => handleInputChange('instalacion', v)}/>
             </div>
             <div className="md:col-span-2">
               <button 
@@ -414,7 +414,7 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
                   className={`w-full bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-center gap-2 font-black shadow-sm text-xs transition-all active:scale-95 disabled:opacity-50 ${formData.location ? 'border-emerald-500/50 text-emerald-500 bg-emerald-500/10' : 'border-slate-100 text-slate-400 hover:border-primary'}`}
               >
                   {locationStatus === 'loading' ? <Loader2 className="animate-spin text-primary" size={14}/> : formData.location ? <CheckCircle2 size={14} className="text-emerald-500"/> : <MapPin size={14}/>}
-                  <span>{formData.location ? `UBICACIÃ“N CAPTURADA` : (gpsRequired ? 'CAPTURAR GPS (REQUERIDO)' : 'CAPTURAR GPS (OPCIONAL)')}</span>
+                  <span>{formData.location ? `UBICACIÓN CAPTURADA` : (gpsRequired ? 'CAPTURAR GPS (REQUERIDO)' : 'CAPTURAR GPS (OPCIONAL)')}</span>
               </button>
             </div>
           </div>
@@ -423,7 +423,7 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
       <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
          <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
             <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                <Type size={14} className="text-primary" /> DescripciÃ³n de la incidencia
+                <Type size={14} className="text-primary" /> Descripción de la incidencia
             </h3>
             <button onClick={handleEnhanceReport} disabled={aiLoading} className="flex items-center gap-2 text-[10px] font-black bg-primary/10 text-primary px-4 py-2 rounded-xl hover:bg-primary/20 transition-all active:scale-95 uppercase tracking-widest">
                 {aiLoading ? <Loader2 size={12} className="animate-spin"/> : <Wand2 size={12} />}
@@ -432,14 +432,14 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
         </div>
         <textarea 
             className="w-full h-64 bg-slate-50 border border-slate-200 rounded-xl p-4 outline-none focus:border-primary focus:bg-white font-medium text-black shadow-inner resize-y leading-relaxed text-sm" 
-            placeholder="Dicte o escriba aquÃ­ el informe completo. La IA lo estructurarÃ¡ en Antecedentes, IntervenciÃ³n y Resumen."
+            placeholder="Dicte o escriba aquí el informe completo. La IA lo estructurará en Antecedentes, Intervención y Resumen."
             value={formData.reportContent} 
             onChange={(e: any) => handleInputChange('reportContent', e.target.value)}
         />
       </section>
       
       <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
-        <h2 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">ValidaciÃ³n</h2>
+        <h2 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Validación</h2>
         <div>
             <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
             <p className="text-center font-black mt-2 text-slate-400 text-[8px] uppercase">{inspectorName}</p>

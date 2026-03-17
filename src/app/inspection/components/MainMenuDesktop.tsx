@@ -10,7 +10,7 @@ import InstallPwaCard from './InstallPwaCard';
 
 interface MainMenuProps {
   onNavigate: (tab: string) => void;
-  onSelectInspection?: (type: string) => void;
+  onSelectInspection?: (type: any, data?: any) => void;
   userName: string;
   onInstall?: () => void;
   onConfigure?: () => void;

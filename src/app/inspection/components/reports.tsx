@@ -61,17 +61,16 @@ export default function ReportsPage() {
     try {
         switch(report.formType) {
             case 'hoja-trabajo':
-                doc = generateHojaTrabajoPDF(report, report.tecnicoNombre, report.id);
+                doc = generateHojaTrabajoPDF(report, report.inspectorNombre || report.tecnicoNombre || 'N/A', report.id);
                 break;
             case 'informe-revision':
-                doc = generateInformeRevisionPDF(report, report.tecnicoNombre, report.id);
+                doc = generateInformeRevisionPDF(report, report.inspectorNombre || report.tecnicoNombre || 'N/A', report.id);
                 break;
             case 'informe-tecnico':
-                // CORRECCIÓN: Cambiado report.id_informe por report.id
-                doc = generateInformeTecnicoPDF(report, report.tecnicoNombre, report.id);
+                doc = generateInformeTecnicoPDF(report, report.inspectorNombre || report.tecnicoNombre || 'N/A', report.id);
                 break;
             case 'informe-simplificado':
-                doc = generateInformeSimplificadoPDF(report, report.tecnicoNombre, report.id);
+                doc = generateInformeSimplificadoPDF(report, report.inspectorNombre || report.tecnicoNombre || 'N/A', report.id);
                 break;
             default:
                 alert('Este tipo de documento no tiene un formato de PDF para reimprimir.');

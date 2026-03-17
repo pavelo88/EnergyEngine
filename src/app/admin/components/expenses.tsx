@@ -175,8 +175,8 @@ export default function ExpensesPage() {
                     <td className="py-4 font-black text-right text-slate-800">{gasto.monto.toFixed(2)} €</td>
                     <td className="py-4 text-right">
                         <span className={`px-2 py-1 text-[9px] font-black rounded-full uppercase tracking-tighter
-                          ${gasto.estado === 'Pendiente de Aprobación' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                          {gasto.estado === 'Pendiente de Aprobación' ? 'Pendiente' : 'Aprobado'}
+                          ${gasto.estado === 'Pendiente de Aprobaci�n' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                          {gasto.estado === 'Pendiente de Aprobaci�n' ? 'Pendiente' : 'Aprobado'}
                         </span>
                     </td>
                   </tr>

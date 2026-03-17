@@ -284,7 +284,7 @@ export default function JobsPage() {
   };
 
   const handleDeleteJob = async (jobId: string) => {
-    if (window.confirm("¿Seguro que quieres eliminar este trabajo?")) {
+    if (window.confirm("�Seguro que quieres eliminar este trabajo?")) {
       try {
         await deleteDoc(doc(db, 'ordenes_trabajo', jobId));
       } catch (error) {

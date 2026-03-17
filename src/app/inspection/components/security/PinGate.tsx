@@ -71,7 +71,7 @@ export default function PinGate({ userEmail, onVerified }: PinGateProps) {
       return;
     }
     
-    if (confirm("Para cambiar el PIN o si lo has olvidado, debes cerrar sesión y volver a entrar con tu contraseña de correo. ¿Continuar?")) {
+    if (confirm("Para cambiar el PIN o si lo has olvidado, debes cerrar sesi�n y volver a entrar con tu contrase�a de correo. �Continuar?")) {
       localStorage.removeItem('energy_engine_session_id');
       await signOut(auth);
       window.location.reload();
@@ -93,7 +93,7 @@ export default function PinGate({ userEmail, onVerified }: PinGateProps) {
           </h2>
           <p className="text-slate-500 font-medium text-sm">
             {mode === 'setup' 
-              ? 'Introduce un código de 4 dígitos para proteger tus registros en este dispositivo.' 
+              ? 'Introduce un c�digo de 4 d�gitos para proteger tus registros en este dispositivo.' 
               : 'Introduce tu código de seguridad para continuar.'}
           </p>
           <div className="mt-4 inline-flex items-center justify-center gap-2 bg-slate-100 px-4 py-2 rounded-full border border-slate-200 w-full max-w-[250px] mx-auto">
