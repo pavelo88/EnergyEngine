@@ -12,7 +12,7 @@ import { AdminHeaderProvider } from '@/app/admin/components/AdminHeaderContext';
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, firestore, isUserLoading } = useFirebase();
   const router = useRouter();
-  
+
   const [authStatus, setAuthStatus] = useState<'loading' | 'authorized' | 'unauthorized'>('loading');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -28,7 +28,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       try {
         if (user.email && firestore) {
-          const userDocRef = doc(firestore, 'usuarios', user.email);
+          // CORRECCIÓN: Convertir a minúsculas para que coincida con la base de datos
+          const cleanEmail = user.email.toLowerCase();
+          const userDocRef = doc(firestore, 'usuarios', cleanEmail);
           const userDocSnap = await getDoc(userDocRef);
 
           if (userDocSnap.exists()) {
@@ -38,15 +40,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             if (roles.includes('admin')) {
               setAuthStatus('authorized');
             } else {
+              console.warn("El usuario existe, pero no tiene el rol de 'admin'");
               setAuthStatus('unauthorized');
               router.replace('/auth/admin');
             }
           } else {
+            console.warn("No se encontró el documento del usuario en la tabla 'usuarios'");
             setAuthStatus('unauthorized');
             router.replace('/auth/admin');
           }
         }
       } catch (error) {
+        // CORRECCIÓN: Mostrar error en consola en vez de fallar en silencio
+        console.error("Firebase bloqueó la lectura del usuario:", error);
         setAuthStatus('unauthorized');
         router.replace('/auth/admin');
       }
@@ -78,22 +84,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <AdminHeaderProvider>
       <div className="flex h-screen bg-[#04060b] text-slate-200 overflow-hidden noise-bg">
-        <Sidebar 
-          isOpen={isSidebarOpen} 
-          onClose={() => setIsSidebarOpen(false)} 
-          user={user as any} 
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          user={user as any}
         />
-        
+
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
           <Header onMenuClick={() => setIsSidebarOpen(true)} />
-          
+
           <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
             <div className="max-w-[1600px] mx-auto">
               {children}
             </div>
           </main>
         </div>
-        
+
         {/* Background decorative glows */}
         <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 blur-[120px] rounded-full pointer-events-none -z-10 animate-pulse"></div>
         <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full pointer-events-none -z-10"></div>
