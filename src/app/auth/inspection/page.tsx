@@ -79,8 +79,11 @@ export default function InspectionLoginPage() {
     if (!isUserLoading && user && firestore) {
       const checkRole = async () => {
         try {
-          const userDoc = await getDoc(doc(firestore, 'usuarios', user.email!));
-          if (userDoc.exists() && userDoc.data().roles.includes('inspector')) {
+          // CORRECCIÓN: Usamos toLowerCase() para la búsqueda en Firestore
+          const cleanEmail = user.email!.toLowerCase();
+          const userDoc = await getDoc(doc(firestore, 'usuarios', cleanEmail));
+
+          if (userDoc.exists() && userDoc.data().roles?.includes('inspector')) {
             router.push('/inspection');
           }
         } catch {
@@ -134,8 +137,13 @@ export default function InspectionLoginPage() {
       localStorage.setItem('energy_engine_session_id', sessionId);
 
       if (firestore) {
+        // CORRECCIÓN: Obtener el userData para guardar el pinHash localmente
+        const userDocRef = doc(firestore, 'usuarios', cleanEmail);
+        const userDocSnap = await getDoc(userDocRef);
+        const userData = userDocSnap.exists() ? userDocSnap.data() : null;
+
         void setDoc(
-          doc(firestore, 'usuarios', cleanEmail),
+          userDocRef,
           {
             activeSessionId: sessionId,
             activeSessionAt: serverTimestamp(),
@@ -143,15 +151,20 @@ export default function InspectionLoginPage() {
           },
           { merge: true }
         ).catch((e) => console.warn('No se pudo registrar sesión activa:', e));
-      }
 
-      // Guardar email en IndexedDB para uso offline futuro
-      try {
-        const existing = await dbLocal.table('seguridad').get(cleanEmail);
-        if (!existing) {
-          await dbLocal.table('seguridad').put({ email: cleanEmail, createdAt: new Date() });
-        }
-      } catch { /* ignorar */ }
+        // Guardar email y pin en IndexedDB para uso offline futuro
+        try {
+          const existing = await dbLocal.table('seguridad').get(cleanEmail);
+
+          // Actualizamos siempre para garantizar que el pin más reciente esté guardado
+          await dbLocal.table('seguridad').put({
+            email: cleanEmail,
+            createdAt: existing ? existing.createdAt : new Date(),
+            pinHash: userData?.pin || null // Guardamos el PIN en local
+          });
+
+        } catch { /* ignorar */ }
+      }
 
       setStoredOfflineEmail(cleanEmail);
       setInspectionMode('online');
@@ -298,6 +311,3 @@ export default function InspectionLoginPage() {
     </div>
   );
 }
-
-
-
