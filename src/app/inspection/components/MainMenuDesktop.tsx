@@ -49,7 +49,7 @@ const quickInspections = [
   { id: 'hoja-trabajo', label: 'Hoja de Trabajo', icon: <FileText size={28} />, color: 'from-blue-600 to-blue-400' },
   { id: 'informe-tecnico', label: 'Informe Técnico', icon: <Settings size={28} />, color: 'from-indigo-600 to-indigo-400' },
   { id: 'informe-revision', label: 'Informe de Revisión', icon: <ClipboardCheck size={28} />, color: 'from-violet-600 to-violet-400' },
-  { id: 'informe-simplificado', label: 'Info Simplificado', icon: <Wrench size={28} />, color: 'from-amber-600 to-amber-400' },
+  { id: 'informe-simplificado', label: 'Informe Simplificado', icon: <Wrench size={28} />, color: 'from-amber-600 to-amber-400' },
   // { id: 'revision-basica', label: 'Revisión Básica', icon: <Activity size={28} />, color: 'from-emerald-600 to-emerald-400' },
 ];
 
@@ -103,8 +103,7 @@ export default function MainMenuDesktop({
             <button
               key={item.id}
               onClick={() => onSelectInspection?.(item.id)}
-              className="group relative flex flex-col items-start p-8 glass-card rounded-[2.5rem] transition-all duration-300 hover:scale-[1.02] hover:border-primary/50 overflow-hidden"
-            >
+                className="group relative flex flex-col items-start p-8 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-white/10 shadow-xl rounded-[2.5rem] transition-all duration-300 hover:scale-[1.02] hover:border-primary/50 overflow-hidden"            >
               <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center text-white shadow-xl mb-6 transition-transform group-hover:scale-110`}>
                 {item.icon}
               </div>

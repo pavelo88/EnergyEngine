@@ -102,8 +102,7 @@ export default function MainMenuMobile({
             <button
               key={item.id}
               onClick={() => onSelectInspection?.(item.id)}
-              className="group relative flex flex-col items-start p-6 glass-card rounded-[2rem] transition-all duration-300 active:scale-[0.95] hover:border-primary/50 overflow-hidden"
-            >
+              className="group relative flex flex-col items-start p-6 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-white/10 shadow-xl rounded-[2rem] transition-all duration-300 active:scale-[0.95] hover:border-primary/50 overflow-hidden"            >
               <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center text-white shadow-lg mb-4 transition-transform group-hover:scale-110`}>
                 {item.icon}
               </div>

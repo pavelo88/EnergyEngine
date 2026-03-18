@@ -514,7 +514,7 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
           className="w-full p-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs flex items-center justify-center gap-2 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
         >
           {saving ? <Loader2 className="animate-spin text-white" size={16} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={16} /> : <Save className="text-white" size={16} />}
-          {saving ? 'GUARDANDO DATOS...' : isSaved ? 'GUARDADO' : 'CERRAR INFORME'}
+          {saving ? 'GUARDANDO DATOS...' : isSaved ? 'GUARDADO' : 'GUARDAR INFORME'}
         </button>
       </div>
     </main>
