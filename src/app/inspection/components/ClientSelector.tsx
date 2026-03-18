@@ -30,7 +30,7 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
   const db = useFirestore();
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
-  
+
   const [clients, setClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
@@ -58,21 +58,21 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
     ]).then(([cached, pending]) => {
       // Crear mapa para deduplicar y evitar claves duplicadas
       const clientMap = new Map<string, Client>();
-      
+
       // Primero: cached clients
       cached.forEach(c => {
         clientMap.set(c.id, c as Client);
       });
-      
+
       // Segundo: pending clients (sobrescriben si existen)
       pending.forEach(p => {
         const uniqueId = p.firebaseId ? p.firebaseId : `offline-${p.id}`;
-        clientMap.set(uniqueId, { 
-          id: uniqueId, 
-          ...p.data 
+        clientMap.set(uniqueId, {
+          id: uniqueId,
+          ...p.data
         } as Client);
       });
-      
+
       const merged = Array.from(clientMap.values());
       if (merged.length > 0) {
         setClients(merged);
@@ -116,8 +116,8 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
   const filteredClients = useMemo(() => {
     // Si el término de búsqueda coincide exactamente con el nombre del cliente seleccionado, no mostramos la lista (ya se seleccionó)
     if (selectedClient && searchTerm === selectedClient.nombre) return [];
-    
-    return clients.filter(c => 
+
+    return clients.filter(c =>
       c.nombre.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [clients, searchTerm, selectedClient]);
@@ -125,8 +125,8 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
   const handleCreateClient = async () => {
     if (!db) return;
     if (!newClient.nombre) {
-        toast({ variant: 'destructive', title: 'Faltan datos', description: 'El nombre es obligatorio.' });
-        return;
+      toast({ variant: 'destructive', title: 'Faltan datos', description: 'El nombre es obligatorio.' });
+      return;
     }
 
     setIsSaving(true);
@@ -197,40 +197,40 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-          <Input 
-            placeholder="BUSCAR CLIENTE..." 
+          <Input
+            placeholder="BUSCAR CLIENTE..."
             value={searchTerm || selectedClient?.nombre || ''}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={`pl-10 h-10 rounded-xl border-slate-200 bg-slate-50 focus:bg-white transition-all font-bold text-xs !text-black ${selectedClient ? 'border-primary ring-1 ring-primary/10' : ''}`}
           />
         </div>
-        
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" className="h-10 px-3 rounded-xl border-dashed border-primary text-primary hover:bg-primary/5 font-black text-[10px] uppercase tracking-widest">
               <Plus size={14} className="mr-1" /> Nuevo
             </Button>
           </DialogTrigger>
-          <DialogContent className="rounded-[2.5rem] max-w-sm">
+          <DialogContent className="rounded-[2.5rem] max-w-sm bg-white text-slate-950 border border-slate-200 light">
             <DialogHeader>
               <DialogTitle className="font-black uppercase tracking-tighter">Nuevo Cliente Pre-aprobado</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-1">
                 <Label htmlFor="name" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre Comercial</Label>
-                <Input id="name" value={newClient.nombre} onChange={e => setNewClient({...newClient, nombre: e.target.value})} placeholder="Empresa S.L." className="rounded-xl font-bold text-slate-900" />
+                <Input id="name" value={newClient.nombre} onChange={e => setNewClient({ ...newClient, nombre: e.target.value })} placeholder="Empresa S.L." className="rounded-xl font-bold text-slate-900" />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="address" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dirección</Label>
-                <Input id="address" value={newClient.direccion} onChange={e => setNewClient({...newClient, direccion: e.target.value})} placeholder="Calle Falsa 123" className="rounded-xl font-bold text-slate-900" />
+                <Input id="address" value={newClient.direccion} onChange={e => setNewClient({ ...newClient, direccion: e.target.value })} placeholder="Calle Referencial 123" className="rounded-xl font-bold text-slate-900" />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="email" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email (Usado como ID)</Label>
-                <Input id="email" type="email" value={newClient.email} onChange={e => setNewClient({...newClient, email: e.target.value})} placeholder="cliente@correo.com" className="rounded-xl font-bold text-slate-900" />
+                <Input id="email" type="email" value={newClient.email} onChange={e => setNewClient({ ...newClient, email: e.target.value })} placeholder="cliente@correo.com" className="rounded-xl font-bold text-slate-900" />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="phone" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Teléfono</Label>
-                <Input id="phone" value={newClient.telefono} onChange={e => setNewClient({...newClient, telefono: e.target.value})} placeholder="+34..." className="rounded-xl font-bold text-slate-900" />
+                <Input id="phone" value={newClient.telefono} onChange={e => setNewClient({ ...newClient, telefono: e.target.value })} placeholder="+34..." className="rounded-xl font-bold text-slate-900" />
               </div>
             </div>
             <DialogFooter>
@@ -246,10 +246,10 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
       {(loading || filteredClients.length > 0) && (
         <div className="max-h-60 overflow-y-auto rounded-2xl border border-slate-100 bg-white shadow-inner divide-y divide-slate-50">
           {loading ? (
-               <div className="p-10 flex flex-col items-center justify-center text-slate-400 italic text-xs gap-2">
-                  <Loader2 className="animate-spin text-primary" size={20} />
-                  <span>Buscando...</span>
-               </div>
+            <div className="p-10 flex flex-col items-center justify-center text-slate-400 italic text-xs gap-2">
+              <Loader2 className="animate-spin text-primary" size={20} />
+              <span>Buscando...</span>
+            </div>
           ) : filteredClients.length > 0 ? (
             filteredClients.map(client => (
               <button

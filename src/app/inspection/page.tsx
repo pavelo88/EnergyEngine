@@ -91,6 +91,11 @@ const InspectionPageContent = () => {
     const checkStandalone = () => {
       const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
       setIsStandalone(isStandaloneMode);
+      
+      // REGLA: Si NO es standalone (es navegador normal), el PIN se auto-verifica
+      if (!isStandaloneMode) {
+        setIsPinVerified(true);
+      }
     };
     checkStandalone();
 
@@ -124,27 +129,37 @@ const InspectionPageContent = () => {
       };
       window.addEventListener('beforeinstallprompt', handleInstallPrompt);
 
-      // Chequeo de configuración para PWA
+      // Chequeo de configuración para PWA (PIN y Firma)
       const checkConfig = async () => {
         const signature = !!localStorage.getItem('energy_engine_signature');
-        let pin = false;
+        let hasPin = false;
+        
         if (user?.email) {
-          const security = await dbLocal.table('seguridad').get(user.email);
-          pin = !!security?.pinHash;
-        }
-        setConfigStatus({ hasSignature: signature, hasPin: pin });
-      };
-      const checkStandalonePin = async () => {
-        if (user?.email) {
-          const security = await dbLocal.table('seguridad').get(user.email);
-          if (!security || !security.pinHash) {
-            setRequiresStandalonePin(true);
+          // 1. Check Local
+          const localSecurity = await dbLocal.table('seguridad').get(user.email);
+          hasPin = !!localSecurity?.pinHash;
+
+          // 2. Check Cloud (si estamos online y no hay local)
+          if (!hasPin && isOnline && firestore) {
+            try {
+              const userDoc = await getDoc(doc(firestore, 'usuarios', user.email));
+              if (userDoc.exists() && userDoc.data().pinHash) {
+                hasPin = true;
+                // Sincronizar al local para uso offline posterior
+                await dbLocal.table('seguridad').put({
+                  email: user.email,
+                  pinHash: userDoc.data().pinHash,
+                  nombre: user.displayName || userDoc.data().nombre,
+                  updatedAt: new Date()
+                });
+              }
+            } catch (e) { console.error("Error al verificar PIN en nube:", e); }
           }
         }
+        setConfigStatus({ hasSignature: signature, hasPin: hasPin });
       };
 
       checkConfig();
-      checkStandalonePin();
       return () => {
         window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
         window.removeEventListener('inspection-mode-changed', handleModeChange as EventListener);
@@ -551,19 +566,50 @@ const InspectionPageContent = () => {
   };
 
   const handleInstallClick = async () => {
-    if (!installPrompt) return;
+    if (isStandalone) {
+      toast({ 
+        variant: "glass",
+        title: "App Descargada", 
+        description: "Ya estás utilizando la aplicación instalada." 
+      });
+      return;
+    }
+
+    if (!installPrompt) {
+      toast({ 
+        variant: "glass",
+        title: "Instalación en espera", 
+        description: "El navegador aún no ha detectado la capacidad de instalación. Asegúrate de cumplir los requisitos de PWA.",
+      });
+      return;
+    }
 
     // Validar si requiere setup de PIN antes de instalar
     if (user?.email) {
       const security = await dbLocal.table('seguridad').get(user.email);
       if (!security || !security.pinHash) {
         setIsSettingUpPinForInstall(true);
+        setIsPinVerified(false); // FORZAR VISTA DE PIN PARA SETUP
+        toast({ 
+          variant: "glass",
+          title: "Seguridad Requerida", 
+          description: "Configura un PIN antes de instalar para proteger tus datos offline." 
+        });
         return;
       }
     }
 
     installPrompt.prompt();
-    installPrompt.userChoice.then(() => setInstallPrompt(null));
+    installPrompt.userChoice.then((choiceResult: any) => {
+      if (choiceResult.outcome === 'accepted') {
+        toast({ 
+          variant: "glass",
+          title: "Instalación Iniciada", 
+          description: "Sigue los pasos de tu navegador." 
+        });
+      }
+      setInstallPrompt(null);
+    });
   };
 
   const isDictatingRef = useRef(false);
@@ -708,7 +754,8 @@ const InspectionPageContent = () => {
         onConfigure: () => handleNavigate(TABS.PROFILE),
         canInstall: !!installPrompt,
         configStatus,
-        isOnline: canUseCloud
+        isOnline: canUseCloud,
+        isStandalone: isStandalone
       };
 
       return (
@@ -726,7 +773,17 @@ const InspectionPageContent = () => {
     let props: any = {};
 
     if (activeTab === TABS.NEW_INSPECTION) {
-      if (!activeInspectionForm) return <div className="w-full h-full max-w-4xl mx-auto"><InspectionHub onSelectInspectionType={handleSelectInspectionType} onInstall={handleInstallClick} canInstall={!!installPrompt} /></div>;
+      if (!activeInspectionForm) return (
+        <div className="w-full h-full max-w-4xl mx-auto">
+          <InspectionHub 
+            onSelectInspectionType={handleSelectInspectionType} 
+            onInstall={handleInstallClick} 
+            canInstall={!!installPrompt}
+            isStandalone={isStandalone}
+            hasPin={configStatus.hasPin}
+          />
+        </div>
+      );
 
       switch (activeInspectionForm) {
         case 'hoja-trabajo': Component = HojaTrabajoFormLazy; break;
@@ -778,6 +835,7 @@ const InspectionPageContent = () => {
         isOnline={canUseCloud}
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
+        isStandalone={isStandalone}
       />
 
       {accessMode === 'offline' && !user?.email && (

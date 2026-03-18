@@ -88,7 +88,7 @@ export default function ReportsPage() {
 
   const handleReprintPDF = (report: Report) => {
     let doc: jsPDF | null = null;
-    const inspectorName = report.tecnicoNombre || report.inspectorNombres?.join(', ') || 'Técnico Energy Engine';
+    const inspectorName = report.tecnicoNombre || report.inspectorNombres?.join(', ') || 'técnico energy engine';
     try {
         switch(report.formType) {
             case 'hoja-trabajo': doc = generateHojaTrabajoPDF(report, inspectorName, report.id); break;

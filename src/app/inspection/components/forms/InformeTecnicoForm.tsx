@@ -341,7 +341,7 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
       setIsSaved(true);
 
       if (synced) {
-        toast({ title: 'Â¡Informe Sincronizado!', description: `Guardado con éxito. ID: ${firebaseId}` });
+        toast({ title: '¡Informe Sincronizado!', description: `Guardado con éxito. ID: ${firebaseId}` });
       } else {
         toast({
           title: 'Guardado Localmente',
@@ -400,7 +400,7 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
           setPreviewPdfUrl(null);
         }
       }}>
-        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border-slate-100 bg-white">
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border border-slate-200 bg-white text-slate-950 light">
           <DialogHeader className="p-6 border-b border-slate-100 bg-white">
             <DialogTitle className="font-black uppercase tracking-tighter text-black">Borrador Informe Técnico</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">Documento profesional para validación de intervenciones.</DialogDescription>

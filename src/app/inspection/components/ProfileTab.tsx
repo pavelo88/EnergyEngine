@@ -119,13 +119,18 @@ export default function ProfileTab() {
   };
 
   const handleLogout = async () => {
-    if (!isOnline) {
-      alert("AVISO CRÍTICO: No puedes cerrar sesión mientras estás sin conexión. Si sales ahora, no podrás volver a entrar hasta recuperar el internet.");
-      return;
-    }
-    if (confirm("�Est�s seguro de que deseas cerrar sesi�n? Aseg�rate de haber guardado todos tus trabajos.")) {
-      localStorage.removeItem('energy_engine_session_id');
-      await signOut(auth);
+    if (confirm("¿Estás seguro de que deseas cerrar sesión? Asegúrate de haber guardado todos tus trabajos.")) {
+      try {
+        localStorage.removeItem('energy_engine_session_id');
+        localStorage.removeItem('energy_engine_offline_email');
+        if (auth) {
+          await signOut(auth);
+        }
+      } catch (err) {
+        console.warn("Error formal al cerrar sesión en Firebase (posiblemente offline):", err);
+      } finally {
+        window.location.href = '/auth/inspection';
+      }
     }
   };
 
@@ -205,7 +210,7 @@ export default function ProfileTab() {
       </section>
 
       <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 flex flex-col items-center gap-2">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Energy Engine Security Protocol</p>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">energy engine security protocol</p>
         <p className="text-[9px] font-bold text-slate-300 uppercase">Dispositivo Autorizado por {auth.currentUser?.email}</p>
       </div>
     </div>

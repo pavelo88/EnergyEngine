@@ -1,89 +1,103 @@
 'use client';
 
-import { brands } from '@/lib/data';
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
+
+interface Brand {
+    name: string;
+    logoUrl: string;
+}
+
+const brands: Brand[] = [
+    { name: 'Perkins', logoUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Perkins-Logo.svg' },
+    { name: 'Guascor Energy', logoUrl: 'https://guascor-energy.com/wp-content/uploads/2026/02/guascor-logo-60.svg' },
+    { name: 'Cummins', logoUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Cummins_logo.svg' },
+    { name: 'IVECO', logoUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Iveco_Logo_2023.svg' },
+    { name: 'Volvo Penta', logoUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Volvo_Penta_stacked_wordmark.svg' },
+    { name: 'MAN', logoUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/MAN_logo.svg' },
+    { name: 'MTU', logoUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/MTU_Solutions_logo.svg' },
+    { name: 'Rolls Royce', logoUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Rolls-Royce_Group_logo.svg' }
+];
+
+const BrandItem = ({ brand, isCenter }: { brand: Brand; isCenter: boolean }) => {
+    const [hasError, setHasError] = useState(false);
+
+    return (
+        <div className="flex-shrink-0 w-[200px] flex items-center justify-center px-8 transition-all duration-500">
+            {hasError ? (
+                <span
+                    className={cn(
+                        "text-xl font-bold font-headline uppercase tracking-widest transition-colors duration-500",
+                        isCenter ? "text-primary scale-125" : "text-slate-400 grayscale"
+                    )}
+                >
+                    {brand.name}
+                </span>
+            ) : (
+                <div className={cn(
+                    "relative w-32 h-16 transition-all duration-500",
+                    isCenter ? "grayscale-0 scale-125 brightness-150 contrast-125" : "grayscale opacity-50 hover:opacity-100 brightness-125"
+                )}>
+                    <Image
+                        src={brand.logoUrl}
+                        alt={brand.name}
+                        fill
+                        className="object-contain"
+                        onError={() => setHasError(true)}
+                    />
+                </div>
+            )}
+        </div>
+    );
+};
 
 export default function Brands() {
-    const [rotation, setRotation] = useState(0);
-    const [radius, setRadius] = useState(280); 
-    const requestRef = useRef<number>(0);
-    
-    const totalDisplayBrands = brands.length;
+    const [scrollX, setScrollX] = useState(0);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const infiniteBrands = [...brands, ...brands, ...brands, ...brands];
 
     useEffect(() => {
-        const handleResize = () => {
-            const width = window.innerWidth;
-            // Configuramos 3 tamaños de radio para: Celular, Tablet y Escritorio
-            if (width < 640) {
-                setRadius(130); // Celular
-            } else if (width < 1024) {
-                setRadius(200); // Tablet
-            } else {
-                setRadius(280); // Escritorio
-            }
-        };
-
-        handleResize();
-        window.addEventListener('resize', handleResize);
-
+        let animationId: number;
         const animate = () => {
-            setRotation(prev => prev - 0.03); 
-            requestRef.current = requestAnimationFrame(animate);
+            setScrollX((prev) => (prev + 1) % (brands.length * 200));
+            animationId = requestAnimationFrame(animate);
         };
-        requestRef.current = requestAnimationFrame(animate);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            if (requestRef.current) {
-                cancelAnimationFrame(requestRef.current);
-            }
-        };
+        animationId = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(animationId);
     }, []);
-    
-    return (
-        <section id="marcas" className="py-12 scroll-mt-20 overflow-hidden">
-      
-            <div className="max-w-6xl mx-auto px-4">
-                {/* Redujimos el mb-10 a mb-4 para quitar el espacio en blanco gigante */}
-                <h2 className="text-center text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4 font-headline">
-                    Aliados Tecnológicos <span className="text-primary">Multimarca</span>
-                </h2>  
 
-            {/* Redujimos el mt-16 a mt-4 y ajustamos la altura dinámica del contenedor */}
-            <div className="relative mt-4 flex items-center justify-center [perspective:1200px] [mask-image:radial-gradient(circle_at_center,white_40%,transparent_80%)]" 
-                    style={{ height: radius < 150 ? "200px" : radius < 250 ? "250px" : "350px" }}>
-                
-                <div className="absolute h-full w-full"
-                    style={{
-                        transformStyle: "preserve-3d",
-                        transform: `rotateX(-15deg) rotateY(${rotation}deg)` 
-                    }}
+    const getIsCenter = (index: number) => {
+        if (!containerRef.current) return false;
+        const containerWidth = containerRef.current.offsetWidth;
+        const itemWidth = 200;
+        const centerPoint = containerWidth / 2;
+        const itemPosition = (index * itemWidth) - scrollX + (itemWidth / 2);
+        return Math.abs(itemPosition - centerPoint) < (itemWidth / 2);
+    };
+
+    return (
+        <div id="marcas" className="relative py-24 overflow-hidden">
+            {/* FORCE light glass belt in BOTH modes - Enclosing title */}
+            <div className="absolute inset-x-4 top-4 bottom-4 bg-white/60 dark:bg-white/60 backdrop-blur-3xl rounded-huge border border-white/20 shadow-premium z-0" />
+            
+            <div className="container mx-auto px-6 mb-12 text-center max-w-5xl relative z-10">
+                <h2 className="text-center text-[1.8rem] md:text-5xl font-serif font-medium mb-12 text-black dark:text-black leading-[1.2] tracking-tight pt-10">
+                    Expertos en el mantenimiento de las <br /> <span className="text-primary italic">principales marcas del mercado</span>
+                </h2>
+            </div>
+
+            <div className="relative flex overflow-hidden w-full z-10">
+                <div
+                    className="flex whitespace-nowrap py-4"
+                    style={{ transform: `translateX(-${scrollX}px)` }}
                 >
-                    {brands.map((brand, index) => {
-                        const angle = (360 / totalDisplayBrands) * index;
-                        
-                        return (
-                            <div
-                                key={brand}
-                                // ¡OJO AQUÍ! 
-                                // 1. Quitamos los -translate de Tailwind
-                                // 2. Hicimos tarjetas pequeñas en móvil (w-28 h-12) y grandes en compu (md:w-44 md:h-20)
-                                className="absolute left-1/2 top-1/2 flex w-20 h-12 md:w-44 md:h-20 items-center justify-center rounded-2xl border bg-secondary/50 p-2 md:p-4 text-center dark:bg-white/[0.03] backdrop-blur-sm"
-                                style={{
-                                    // 3. Agregamos translate(-50%, -50%) directo al transform para arreglar el "baile"
-                                    transform: `translate(-50%, -50%) rotateY(${angle}deg) translateZ(${radius}px)`,
-                                }}
-                            >
-                                {/* El texto también es más pequeño en móvil (text-[10px]) */}
-                                <span className="text-[10px] md:text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                                    {brand}
-                                </span>
-                            </div>
-                        );
-                    })}
+                    {infiniteBrands.map((brand, idx) => (
+                        <BrandItem key={idx} brand={brand} isCenter={getIsCenter(idx)} />
+                    ))}
                 </div>
             </div>
-          </div>
-        </section>
+        </div>
     );
 }

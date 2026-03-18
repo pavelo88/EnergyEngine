@@ -280,7 +280,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
       if (inspectorEmail) {
         // Primero intentamos local (offline-first)
         const cachedSecurity = await dbLocal.table('seguridad').get(inspectorEmail);
-        if (cachedSecurity.nombre) {
+        if (cachedSecurity && cachedSecurity.nombre) {
           setInspectorName(cachedSecurity.nombre);
           setFormData(p => ({ ...p, tecnicos: cachedSecurity.nombre }));
 
@@ -638,7 +638,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
           setPreviewPdfUrl(null);
         }
       }}>
-        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border-slate-100 bg-white">
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border border-slate-200 bg-white text-slate-950 light">
           <DialogHeader className="p-6 border-b border-slate-100 bg-white">
             <DialogTitle className="font-black uppercase tracking-tighter text-black">Borrador de Informe Técnico</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">Previsualice el documento antes de realizar el guardado final.</DialogDescription>

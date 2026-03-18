@@ -24,6 +24,22 @@ const menuItems = [
 export default function Sidebar({ activeTab, onNavigate }: SidebarProps) {
   const auth = useAuth();
 
+  const handleLogout = async () => {
+    if (confirm("¿Cerrar sesión ahora?")) {
+      try {
+        localStorage.removeItem('energy_engine_session_id');
+        localStorage.removeItem('energy_engine_offline_email');
+        if (auth) {
+          await signOut(auth);
+        }
+      } catch (err) {
+        console.warn("Error formal al cerrar sesión en Firebase (posiblemente offline):", err);
+      } finally {
+        window.location.href = '/auth/inspection';
+      }
+    }
+  };
+
   return (
     // Barra lateral con estilo Glassmorphism: fondo translúcido y bordes sutiles
     <aside className="hidden xl:flex w-80 bg-white/60 backdrop-blur-xl flex-col p-8 sticky top-0 h-screen border-r border-white/80 shadow-lg">
@@ -48,7 +64,7 @@ export default function Sidebar({ activeTab, onNavigate }: SidebarProps) {
       </nav>
 
       {/* Botón para cerrar sesión */}
-      <button onClick={() => auth && signOut(auth)} className="flex items-center gap-4 p-4 text-red-500/80 font-bold hover:bg-red-500/10 hover:text-red-600 rounded-2xl transition-all duration-300 ease-in-out">
+      <button onClick={handleLogout} className="flex items-center gap-4 p-4 text-red-500/80 font-bold hover:bg-red-500/10 hover:text-red-600 rounded-2xl transition-all duration-300 ease-in-out">
         <LogOut size={22} /> Cerrar Sesión
       </button>
     </aside>

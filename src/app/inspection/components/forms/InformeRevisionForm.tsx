@@ -528,7 +528,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
           setPreviewPdfUrl(null);
         }
       }}>
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border-slate-100 bg-white">
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border border-slate-200 bg-white text-slate-950 light">
           <DialogHeader className="p-6 border-b border-slate-100 bg-white">
             <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa Informe de Revisión</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">Documento temporal generado para verificación de datos.</DialogDescription>

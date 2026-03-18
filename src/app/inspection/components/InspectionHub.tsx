@@ -9,10 +9,13 @@ import {
   Loader2,
   ArrowRight,
   Wrench,
-  Smartphone
+  Smartphone,
+  CheckCircle2,
+  PlusCircle
 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
+import { cn } from '@/lib/utils';
 
 type ReportType = 'hoja-trabajo' | 'informe-tecnico' | 'informe-revision' | 'informe-simplificado';
 
@@ -20,10 +23,14 @@ export default function InspectionHub({
   onSelectInspectionType,
   onInstall,
   canInstall,
+  isStandalone,
+  hasPin
 }: { 
   onSelectInspectionType: (type: ReportType, data?: any) => void;
   onInstall?: () => void;
   canInstall?: boolean;
+  isStandalone?: boolean;
+  hasPin?: boolean;
 }) {
   const [inspectionId, setInspectionId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -114,23 +121,47 @@ export default function InspectionHub({
         </div>
       </section>
 
-      {/* INSTALAR COMO APP — solo visible si el navegador lo soporta */}
-      {canInstall && onInstall && (
-        <section className="pt-2">
+      {/* INSTALAR COMO APP */}
+      <section className="pt-2">
+        {isStandalone ? (
+          <div className="w-full h-20 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 rounded-[2rem] font-black uppercase tracking-widest flex items-center justify-center gap-4 shadow-sm">
+            <CheckCircle2 size={24} />
+            <div className="text-left">
+              <p className="text-sm font-black text-emerald-700">APP INSTALADA ✓</p>
+              <p className="text-[9px] text-emerald-600/70 font-bold uppercase tracking-widest">Estás usando la versión nativa</p>
+            </div>
+          </div>
+        ) : (
           <button 
             onClick={onInstall}
-            className="w-full h-20 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-slate-800 active:scale-95 transition-all shadow-xl"
+            disabled={!hasPin || !canInstall}
+            className={cn(
+               "w-full h-20 rounded-[2rem] font-black uppercase tracking-widest flex items-center justify-center gap-4 transition-all shadow-xl active:scale-95",
+               !hasPin || !canInstall 
+                 ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed" 
+                 : "bg-slate-900 text-white hover:bg-slate-800"
+            )}
           >
-            <div className="w-10 h-10 bg-primary/20 text-primary rounded-xl flex items-center justify-center">
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center",
+              !hasPin || !canInstall ? "bg-slate-200 text-slate-400" : "bg-primary/20 text-primary"
+            )}>
               <Smartphone size={20} />
             </div>
-            <div className="text-left">
-              <p className="text-sm font-black">Instalar Energy Engine</p>
-              <p className="text-[9px] text-white/50 font-bold uppercase tracking-widest">Guardar en pantalla de inicio</p>
+            <div className="text-left text-xs">
+              <p className="font-black uppercase tracking-tighter">
+                {!hasPin ? 'Configura PIN para instalar' : !canInstall ? 'Instalación no disponible' : 'Instalar energy engine'}
+              </p>
+              <p className={cn(
+                "text-[9px] font-bold uppercase tracking-widest",
+                !hasPin || !canInstall ? "text-slate-400" : "text-white/50"
+              )}>
+                {!hasPin ? 'Paso de seguridad obligatorio' : !canInstall ? 'Usa Chrome/Edge para instalar' : 'Para informes offline'}
+              </p>
             </div>
           </button>
-        </section>
-      )}
+        )}
+      </section>
     </div>
   );
 }

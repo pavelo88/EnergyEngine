@@ -21,7 +21,6 @@ import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db as dbLocal } from '@/lib/db-local';
 import { useToast } from '@/hooks/use-toast';
 import SignaturePad from './SignaturePad';
-import PinGate from './security/PinGate';
 import { fileToBase64, generateReportId } from '@/lib/offline-utils';
 import { resolveInspectorEmail } from '@/lib/inspection-mode';
 
@@ -62,7 +61,6 @@ export default function RegistroGastoForm() {
 
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const [observacionesDiarias, setObservacionesDiarias] = useState('');
-  const [isVerified, setIsVerified] = useState(false);
 
   // Itinerario y Clientes
   const [stops, setStops] = useState<Stop[]>([]);
@@ -270,7 +268,6 @@ export default function RegistroGastoForm() {
     window.location.reload();
   };
 
-  if (!isVerified && user?.email) return <PinGate userEmail={user.email} onVerified={() => setIsVerified(true)} />;
 
   return (
     <div className="space-y-6 pb-24 md:pb-10 animate-in fade-in slide-in-from-right-4 duration-500 min-h-screen bg-slate-50 p-4">
@@ -284,7 +281,7 @@ export default function RegistroGastoForm() {
               <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center"><Euro size={24} /></div>
               <div>
                 <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Registro de Gastos</h2>
-                <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mt-1">Energy Engine Management System</p>
+                <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mt-1">energy engine management system</p>
               </div>
             </div>
             <Popover>

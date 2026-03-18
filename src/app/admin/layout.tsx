@@ -63,7 +63,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (authStatus === 'loading' || isUserLoading) {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-slate-50 gap-4">
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-slate-950 gap-4">
+        {/* Light mode (Comentado): bg-slate-50 */}
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-slate-500 font-bold animate-pulse uppercase tracking-widest text-xs">Verificando Credenciales de Administración...</p>
       </div>
@@ -72,7 +73,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (authStatus === 'unauthorized') {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-slate-50 gap-4">
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-slate-950 gap-4">
+        {/* Light mode (Comentado): bg-slate-50 */}
         <ShieldAlert className="h-12 w-12 text-red-500" />
         <p className="text-slate-800 font-bold text-center px-4">
           Sin permisos administrativos. Redirigiendo...
@@ -83,7 +85,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <AdminHeaderProvider>
-      <div className="flex h-screen bg-[#04060b] text-slate-200 overflow-hidden noise-bg">
+      <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden relative">
+        {/* Light mode (Comentado): bg-slate-50 text-slate-900 */}
+
+        {/* Decorative Glows */}
+        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[120px] pointer-events-none animate-pulse"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-500/10 rounded-full blur-[120px] pointer-events-none animate-pulse"></div>
+        <div className="absolute top-[20%] left-[20%] w-[10%] h-[10%] bg-primary/20 rounded-full blur-[80px] pointer-events-none"></div>
+
         <Sidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}

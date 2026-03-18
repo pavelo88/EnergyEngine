@@ -148,10 +148,10 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       </div>
 
       <Dialog open={isFullScreen} onOpenChange={setIsFullScreen}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-4 bg-slate-900 border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
-          <DialogHeader className="text-white mb-2">
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-4 bg-white border border-slate-200 shadow-2xl rounded-[2.5rem] overflow-hidden light">
+          <DialogHeader className="text-slate-900 mb-2">
             <DialogTitle className="font-black uppercase tracking-tighter text-base">{title}</DialogTitle>
-            <DialogDescription className="text-slate-400 text-[10px]">
+            <DialogDescription className="text-slate-500 text-[10px]">
               Dibuje su firma. El trazo se guardará en alta resolución.
             </DialogDescription>
           </DialogHeader>
@@ -167,7 +167,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
               style={{ touchAction: 'none' }}
             />
             {!hasContent && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-100 font-black text-2xl md:text-4xl uppercase tracking-[0.2em]">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-200 font-black text-2xl md:text-4xl uppercase tracking-[0.2em] opacity-50">
                 FIRMAR AQUÍ
               </div>
             )}
@@ -176,7 +176,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
           <div className="flex gap-3 mt-4">
             <Button 
               variant="ghost" 
-              className="flex-1 h-12 rounded-xl bg-white/5 text-white hover:bg-white/10 font-bold text-xs"
+              className="flex-1 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold text-xs"
               onClick={handleClear}
             >
               <Trash2 size={16} className="mr-2" /> LIMPIAR

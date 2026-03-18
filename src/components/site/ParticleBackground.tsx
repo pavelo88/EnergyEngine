@@ -53,8 +53,8 @@ const ParticleBackground = () => {
           color: linkColor,
           distance: 150,
           enable: true,
-          opacity: 0.2,
-          width: 1,
+          opacity: 0.1,
+          width: 0.5,
         },
         move: {
           direction: 'none' as const,
@@ -71,10 +71,10 @@ const ParticleBackground = () => {
             enable: true,
             area: 800,
           },
-          value: 40, // Reducir cantidad para estabilidad
+          value: 30, // Reducir cantidad para estabilidad
         },
         opacity: {
-          value: 0.3,
+          value: 0.2,
         },
         shape: {
           type: 'triangle' as const,

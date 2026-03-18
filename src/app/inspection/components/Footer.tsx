@@ -17,55 +17,62 @@ export default function Footer({ activeTab, onNavigate }: FooterProps) {
   const auth = useAuth();
   const isOnline = useOnlineStatus();
 
-  const handleLogout = async () => {
-    if (!isOnline) {
-      alert("Cierre de sesión bloqueado: No hay conexión a internet.");
-      return;
-    }
-    if (confirm("�Cerrar sesi�n ahora?")) {
-      localStorage.removeItem('energy_engine_session_id');
-      await signOut(auth);
+  const handleLogout = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (window.confirm("¿Cerrar sesión ahora?")) {
+      try {
+        localStorage.removeItem('energy_engine_session_id');
+        localStorage.removeItem('energy_engine_offline_email');
+        if (auth) {
+          await signOut(auth);
+        }
+      } catch (err) {
+        console.warn("Error formal al cerrar sesión en Firebase:", err);
+      } finally {
+        window.location.href = '/auth/inspection';
+      }
     }
   };
 
   const navItems = [
+    { id: TABS.MENU, icon: Compass, label: 'Panel' },
     { id: TABS.TASKS, icon: ClipboardList, label: 'Historial' },
     { id: TABS.EXPENSES, icon: Receipt, label: 'Gastos' },
-    { id: 'logout', icon: LogOut, label: 'Salir', isLogout: true },
     { id: TABS.PROFILE, icon: User, label: 'Perfil' },
-    { id: TABS.MENU, icon: Compass, label: 'Panel' },
+    { id: 'logout', icon: LogOut, label: 'Salir', isLogout: true },
   ];
 
   return (
-    <footer className="fixed bottom-0 left-0 w-full z-40 pb-[env(safe-area-inset-bottom)]">
-      <div className="bg-white/80 backdrop-blur-xl border-t border-slate-200 shadow-[0_-10px_40px_-5px_rgba(0,0,0,0.1)]">
+    <footer className="fixed bottom-0 left-0 w-full z-40 pb-[env(safe-area-inset-bottom)] px-4">
+      <div className="glass-carbon rounded-t-[2.5rem] border-t border-white/10 shadow-2xl">
         <div className="max-w-md md:max-w-2xl mx-auto flex justify-around items-center h-20 px-4 relative">
           {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            
             if (item.isLogout) {
               return (
                 <button
                   key={item.id}
+                  type="button"
                   onClick={handleLogout}
-                  className={cn(
-                    "relative -top-8 w-16 h-16 rounded-full flex flex-col items-center justify-center shadow-xl border-4 border-white transition-transform active:scale-90 z-50",
-                    isOnline ? "bg-red-500 text-white shadow-red-500/40" : "bg-slate-200 text-slate-400 shadow-slate-200/40 cursor-not-allowed"
-                  )}
+                  className="flex flex-col items-center justify-center gap-1 w-14 text-red-400 hover:text-red-500 transition-colors active:scale-90"
                 >
-                  {isOnline ? <LogOut size={28} strokeWidth={3} /> : <WifiOff size={28} strokeWidth={3} />}
-                  <span className="text-[7px] font-black uppercase tracking-widest mt-0.5">SALIR</span>
+                  <Icon size={24} strokeWidth={2} />
+                  <span className="text-[9px] font-black uppercase tracking-tighter">SALIR</span>
                 </button>
               );
             }
 
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
                 className={cn(
                   "flex flex-col items-center justify-center gap-1 w-14 transition-all duration-300",
-                  isActive ? 'text-primary' : 'text-slate-400 hover:text-primary'
+                  isActive ? 'text-primary' : 'text-slate-400 hover:text-white transition-colors'
                 )}
               >
                 <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />

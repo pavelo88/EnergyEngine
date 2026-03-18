@@ -10,7 +10,7 @@ export const generateProfessionalPDF = (type: string, data: any, tecnico: string
   doc.rect(0, 0, 210, 40, 'F');
   doc.setTextColor(255);
   doc.setFontSize(22);
-  doc.text("ENERGY ENGINE RTS", 15, 20);
+  doc.text("energy engine rts", 15, 20);
   doc.setFontSize(10);
   doc.text(`REPORTE: ${type.toUpperCase()} | ID: ${finalID}`, 15, 30);
   doc.text(`TÉCNICO: ${tecnico} | FECHA: ${new Date().toLocaleDateString()}`, 130, 20);

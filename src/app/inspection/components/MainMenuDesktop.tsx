@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import TABS from '../constants';
 import InstallPwaCard from './InstallPwaCard';
+import { cn } from '@/lib/utils';
 
 interface MainMenuProps {
   onNavigate: (tab: string) => void;
@@ -17,6 +18,7 @@ interface MainMenuProps {
   canInstall?: boolean;
   configStatus?: { hasSignature: boolean, hasPin: boolean };
   isOnline?: boolean;
+  isStandalone?: boolean;
 }
 
 const navigationItems = [
@@ -59,82 +61,85 @@ export default function MainMenuDesktop({
   onConfigure,
   canInstall,
   configStatus,
-  isOnline
+  isOnline,
+  isStandalone
 }: MainMenuProps) {
   return (
     <div className="w-full font-sans py-10 space-y-12">
-      <header className="px-4 flex justify-between items-end">
-        <div>
-          <h2 className="text-slate-400 dark:text-slate-500 text-sm font-black tracking-[0.3em] uppercase">Engineering Terminal</h2>
-          <h1 className="text-slate-900 text-6xl font-black mt-2 tracking-tighter leading-none">Hola, {userName}</h1>
-        </div>
-        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-white shadow-2xl shadow-primary/30 transform rotate-3">
-          <User size={40} />
+      <header className="px-2">
+        <div className="flex items-center gap-6">
+          <div className="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-white shadow-2xl shadow-primary/20 transform -rotate-3">
+            <User size={40} />
+          </div>
+          <div>
+            <h2 className="text-slate-400 dark:text-slate-500 text-xs font-bold tracking-[0.4em] uppercase">Engineering Management System</h2>
+            <h1 className="text-slate-950 dark:text-white text-5xl font-headline font-bold tracking-tighter leading-none mt-2">Bienvenido, {userName}</h1>
+          </div>
         </div>
       </header>
- 
+
       {canInstall && onInstall && onConfigure && configStatus && (
-        <section className="px-4">
+        <section>
           <InstallPwaCard 
             onInstall={onInstall}
             onConfigure={onConfigure}
             hasPin={configStatus.hasPin}
             hasSignature={configStatus.hasSignature}
             isOnline={!!isOnline}
+            isStandalone={isStandalone}
           />
         </section>
       )}
 
       <section className="space-y-6">
-        <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] px-4 flex items-center gap-3">
-          <Zap size={16} className="text-primary" /> Acciones Rápidas • Inspección
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div className="flex items-center justify-between px-2">
+          <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+            <Zap size={14} className="text-primary fill-primary/20" /> Acciones Rápidas Disponibles
+          </h3>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {quickInspections.map((item) => (
             <button
               key={item.id}
               onClick={() => onSelectInspection?.(item.id)}
-              className="group relative flex flex-col items-center justify-center p-12 bg-white dark:bg-[#0b101b]/60 dark:backdrop-blur-xl border border-slate-100 dark:border-white/5 rounded-[3.5rem] shadow-xl transition-all duration-300 transform hover:-translate-y-2 active:scale-[0.98] hover:border-primary/50 overflow-hidden"
+              className="group relative flex flex-col items-start p-8 glass-card rounded-[2.5rem] transition-all duration-300 hover:scale-[1.02] hover:border-primary/50 overflow-hidden"
             >
-              <div className={`w-20 h-20 rounded-[2rem] bg-gradient-to-br ${item.color} flex items-center justify-center text-white shadow-2xl mb-6 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}>
+              <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center text-white shadow-xl mb-6 transition-transform group-hover:scale-110`}>
                 {item.icon}
               </div>
-              <span className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter text-center">
-                {item.label}
-              </span>
-              <ArrowUpRight className="absolute top-8 right-8 text-slate-200 dark:text-white/10 group-hover:text-primary transition-colors" size={24} />
+              <div className="text-left">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-1">Módulo</span>
+                <span className="text-xl font-headline font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+                    {item.label}
+                </span>
+              </div>
+              <div className="absolute -right-8 -bottom-8 w-24 h-24 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors" />
             </button>
           ))}
-          {/* 
-            <button
-                onClick={() => onNavigate(TABS.NEW_INSPECTION)}
-                className="group relative flex flex-col items-center justify-center p-10 bg-slate-900 dark:bg-primary/10 border border-slate-800 dark:border-primary/20 rounded-[3rem] shadow-2xl transition-all duration-300 transform hover:-translate-y-2 active:scale-[0.98]"
-            >
-                <div className="w-20 h-20 rounded-[2rem] bg-white/10 flex items-center justify-center text-white mb-6">
-                    <Plus size={40} />
-                </div>
-                <span className="text-xl font-black text-white uppercase tracking-tighter">Explorar Hub</span>
-                <ArrowUpRight className="absolute top-8 right-8 text-white/20" size={24} />
-            </button>
-            */}
         </div>
       </section>
 
-      <section className="space-y-6">
-        <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] px-4">Gestión Estratégica</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+      <section className="space-y-6 pt-4">
+        <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] px-2 flex items-center gap-2">
+           <Activity size={14} /> Gestión Estratégica
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {navigationItems.map((item) => (
             <button
               key={item.id}
               onClick={() => onNavigate(item.id)}
-              className={`flex items-center gap-6 p-8 rounded-[2.5rem] border shadow-2xl transition-all duration-300 hover:brightness-110 active:scale-[0.98] text-white ${item.classes}`}
+              className={cn(
+                "flex items-center gap-6 p-8 rounded-[3rem] border transition-all duration-500 hover:scale-[1.02] active:scale-[0.98] text-white shadow-2xl",
+                item.classes
+              )}
             >
-              <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center shadow-inner">
                 {item.icon}
               </div>
               <div className="text-left">
-                <h4 className="text-2xl font-black uppercase tracking-tighter">{item.label}</h4>
-                <p className="text-[10px] font-black opacity-60 uppercase tracking-widest">{item.desc}</p>
+                <h4 className="text-2xl font-headline font-black uppercase tracking-tighter leading-none">{item.label}</h4>
+                <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-1">{item.desc}</p>
               </div>
             </button>
           ))}

@@ -39,8 +39,11 @@ export default function AdminLoginPage() {
             if (userDocSnap.exists()) {
               const userData = userDocSnap.data();
 
-              // 2. Verificamos que 'roles' existe y contiene 'admin'
-              if (userData.roles && Array.isArray(userData.roles) && userData.roles.includes('admin')) {
+              // 2. Verificamos los permisos (soporta tanto un Array "roles" como un String "role")
+              const hasAdminArray = userData.roles && Array.isArray(userData.roles) && userData.roles.includes('admin');
+              const hasAdminString = userData.role && userData.role === 'admin';
+
+              if (hasAdminArray || hasAdminString) {
                 router.push('/admin');
               } else {
                 await auth.signOut();
@@ -130,26 +133,26 @@ export default function AdminLoginPage() {
 
   if (isUserLoading || user) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
+      <div className="flex h-screen w-full items-center justify-center bg-transparent">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-slate-100 p-4">
-      <Card className="w-full max-w-sm rounded-2xl shadow-xl">
+    <div className="flex min-h-screen w-full items-center justify-center p-4 relative z-10 bg-transparent">
+      <Card className="w-full max-w-sm rounded-[2.5rem] shadow-2xl glass-crystallized border-white/10">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto mb-2 flex justify-center">
             <Logo />
           </div>
-          <CardTitle className="text-2xl font-bold text-slate-800">¡Bienvenido de nuevo!</CardTitle>
-          <CardDescription>Acceso al panel de administración.</CardDescription>
+          <CardTitle className="text-2xl font-black text-white tracking-tighter uppercase italic font-headline">¡Bienvenido de nuevo!</CardTitle>
+          <CardDescription className="text-slate-400 font-medium">Panel de administración local.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-slate-300 font-bold uppercase text-[10px] tracking-widest px-1">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -157,10 +160,11 @@ export default function AdminLoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="bg-white/5 border-white/10 text-white rounded-xl h-12"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Contraseña o DNI</Label>
+              <Label htmlFor="password" className="text-slate-300 font-bold uppercase text-[10px] tracking-widest px-1">Contraseña o DNI</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -168,40 +172,40 @@ export default function AdminLoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pr-10"
+                  className="pr-10 bg-white/5 border-white/10 text-white rounded-xl h-12"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-primary"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-primary"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center justify-between text-xs px-1">
               <div className="flex items-center gap-2">
-                <Checkbox id="remember-me-admin" />
-                <Label htmlFor="remember-me-admin" className="text-muted-foreground font-medium">Recordarme</Label>
+                <Checkbox id="remember-me-admin" className="border-white/20 data-[state=checked]:bg-primary" />
+                <Label htmlFor="remember-me-admin" className="text-slate-400 font-bold uppercase tracking-tighter cursor-pointer">Recordarme</Label>
               </div>
-              <Link href="/auth/forgot-password" className="underline text-muted-foreground hover:text-primary">
-                Olvidaste tu contraseña?
+              <Link href="/auth/forgot-password" title="Olvidaste tu contraseña" className="text-slate-400 font-bold uppercase tracking-tighter hover:text-primary transition-colors">
+                ¿Olvidaste tu contraseña?
               </Link>
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-800">
-                <AlertCircle className="h-4 w-4" />
+              <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-xs font-bold text-red-500 animate-in fade-in zoom-in duration-300">
+                <AlertCircle className="h-4 w-4 shrink-0" />
                 <p>{error}</p>
               </div>
             )}
-            <Button type="submit" className="w-full font-bold" disabled={loading}>
+            <Button type="submit" className="w-full h-12 font-black uppercase tracking-widest text-xs rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg active:scale-[0.98] transition-all" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {loading ? 'Verificando...' : 'Iniciar Sesión'}
             </Button>
-            <div className="pt-2 text-center text-sm">
-              <Link href="/auth/inspection" className="underline text-muted-foreground hover:text-primary">
+            <div className="pt-4 text-center">
+              <Link href="/auth/inspection" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors">
                 Ir al Módulo de Inspectores
               </Link>
             </div>

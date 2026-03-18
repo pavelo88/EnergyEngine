@@ -1,41 +1,40 @@
 'use client';
 
-import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
 
 export default function Hero() {
-
   return (
-    <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
-        <div>
-        <Badge
-            variant="outline"
-            className="border-primary/20 bg-primary/10 text-primary py-1 px-4 text-[10px] font-black uppercase tracking-widest mb-6"
-        >
-            Misión Crítica Garantizada
-        </Badge>
-        </div>
-        <h1 
-        className="text-5xl md:text-6xl font-black uppercase leading-[0.85] tracking-tighter mb-8 font-headline text-foreground"
-        >
-        energía <br /> <span className="text-primary">imparable</span>
-        </h1>
-        <p 
-        className="text-lg text-muted-foreground mb-8 max-w-md text-balance"
-        >
-        Especialistas en mantenimiento industrial para infraestructuras de
-        alta exigencia: Aeropuertos y Hospitales.
-        </p>
-        <div>
-        <Button asChild size="lg" className="px-10 py-7 bg-primary text-primary-foreground rounded-full font-black uppercase tracking-widest text-xs group hover:bg-primary/90 transition-all shadow-lg shadow-primary/30">
-            <Link href="#contacto">
-            Contactar Ingeniería
-            <ArrowRight className="size-4 ml-2 transition-transform group-hover:translate-x-1" />
-            </Link>
+    <div className="animate-fade-in text-left">
+      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-transparent border border-primary/20 text-primary text-sm font-bold mb-6 backdrop-blur-sm">
+        <ShieldCheck className="w-4 h-4" />
+        <span>SERVICIO SAT 24/7 - DISPONIBILIDAD INMEDIATA</span>
+      </div>
+      <h1 className="text-[2.2rem] md:text-6xl font-serif font-medium leading-[1.1] mb-8 tracking-tighter text-white normal-case text-shadow-strong">
+        Mantenimiento y <br />
+        <span className="text-primary italic drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">Reparación Industrial</span> <br />
+        <span className="block mt-2 text-[20px] md:text-[34px] text-white/90 tracking-tight leading-tight text-shadow-premium">
+          de Grupos Electrógenos
+        </span>
+      </h1>
+      <p className="text-base md:text-lg text-white/90 mb-10 max-w-2xl leading-relaxed font-medium text-shadow-premium">
+        Más de 20 años de experiencia en la operación electromecánica de motores diésel, gas y plantas de cogeneración. <br className='hidden md:block' /> <span className="text-white font-bold">Tu socio estratégico en eficiencia energética.</span>
+      </p>
+      <div className="flex flex-col sm:flex-row gap-4">
+        <Button size="lg" asChild className="bg-primary hover:bg-primary/90 text-white h-16 px-10 text-lg group font-bold rounded-huge shadow-premium transition-all border-none cursor-pointer">
+          <Link href="#servicios">
+            Nuestros Servicios
+            <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </Link>
         </Button>
-        </div>
+        <Button size="lg" variant="outline" asChild className="h-16 px-10 text-lg bg-white/10 backdrop-blur-md border-white/20 rounded-huge hover:bg-white/20 transition-all font-bold text-white cursor-pointer">
+          <Link href="#contacto">
+            Solicitar Presupuesto
+          </Link>
+        </Button>
+      </div>
     </div>
   );
 }

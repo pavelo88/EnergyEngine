@@ -21,13 +21,14 @@ import {
 // --- Dashboard Sub-Components ---
 
 const PremiumGlassCard = ({ title, children, className = "", icon: Icon }: any) => (
-  <div className={`glass-card p-6 md:p-8 rounded-[2.5rem] relative overflow-hidden group ${className}`}>
-    <div className="flex justify-between items-start mb-6 border-b border-white/5 pb-4">
+  <div className={`bg-white/5 backdrop-blur-xl p-6 md:p-8 rounded-[2.5rem] border border-white/10 shadow-2xl ${className}`}>
+    {/* Light mode (Comentado): bg-white/90 backdrop-blur-xl border-slate-200 */}
+    <div className="flex justify-between items-start mb-6 border-b border-white/20 pb-4 relative z-10">
         <div className="flex items-center gap-3">
-            {Icon && <div className="p-2 bg-primary/20 rounded-xl text-primary"><Icon size={18}/></div>}
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{title}</h3>
+            {Icon && <div className="p-2 bg-primary/10 rounded-xl text-primary"><Icon size={18}/></div>}
+            <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">{title}</h3>
         </div>
-        <button className="text-slate-600 hover:text-white transition-colors transition-transform active:scale-95">
+        <button className="text-slate-400 hover:text-slate-900 transition-colors transition-transform active:scale-95">
            <MoreHorizontal size={20} />
         </button>
     </div>
@@ -37,21 +38,22 @@ const PremiumGlassCard = ({ title, children, className = "", icon: Icon }: any) 
 );
 
 const StatMiniCard = ({ label, value, colorClass = "text-primary" }: any) => (
-    <div className="flex flex-col gap-1 p-4 bg-white/5 border border-white/5 rounded-3xl group-hover:bg-white/10 transition-colors">
-        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</span>
-        <span className={`text-2xl font-black tracking-tight ${colorClass}`}>{value}</span>
+    <div className="flex flex-col gap-1 p-4 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-colors relative group">
+        {/* Light mode (Comentado): bg-white border-slate-100 hover:bg-slate-50 */}
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest relative z-10">{label}</span>
+        <span className={`text-2xl font-black tracking-tight ${colorClass} relative z-10`}>{value}</span>
     </div>
 );
 
 const InspectionProgressRow = ({ site, progress, status }: any) => (
-    <div className="flex flex-col gap-2 p-4 bg-white/5 border border-white/5 rounded-3xl hover:bg-white/10 transition-all cursor-pointer">
+    <div className="flex flex-col gap-2 p-4 glass-crystallized rounded-3xl hover:brightness-105 transition-all cursor-pointer relative">
         <div className="flex justify-between items-center text-xs uppercase tracking-tight">
-            <span className="font-black text-white">{site}</span>
-            <span className="font-bold text-slate-400">{progress}%</span>
+            <span className="font-black text-slate-900">{site}</span>
+            <span className="font-bold text-slate-500">{progress}%</span>
         </div>
-        <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
+        <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
             <div 
-                className={`h-full transition-all duration-1000 rounded-full ${status === 'Critical' ? 'bg-red-500' : 'bg-primary glow-green'}`} 
+                className={`h-full transition-all duration-1000 rounded-full ${status === 'Critical' ? 'bg-red-500' : 'bg-primary'}`} 
                 style={{ width: `${progress}%` }}
             />
         </div>
@@ -62,7 +64,7 @@ const InspectionProgressRow = ({ site, progress, status }: any) => (
             </span>
             <div className="flex -space-x-2">
                 {[1, 2].map(i => (
-                    <div key={i} className="w-5 h-5 rounded-full border-2 border-[#0b101b] bg-slate-800 flex items-center justify-center text-[8px] font-bold">T</div>
+                    <div key={i} className="w-5 h-5 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-600">T</div>
                 ))}
             </div>
         </div>
@@ -184,28 +186,28 @@ export default function AdminDashboardPage() {
         {/* Personal Status */}
         <PremiumGlassCard title="Estatus de Personal" className="lg:col-span-4" icon={Users}>
             <div className="space-y-6">
-                <div className="flex flex-col gap-2 p-4 bg-white/5 border border-white/5 rounded-3xl group">
+                <div className="glass-crystallized flex flex-col gap-2 p-4 rounded-3xl group">
                     <div className="flex justify-between items-center text-xs uppercase tracking-tight">
-                        <span className="font-black text-emerald-500">Personal Operativo</span>
-                        <span className="font-bold text-white">{stats.operationalInspectors || 0}</span>
+                        <span className="font-black text-emerald-600">Personal Operativo</span>
+                        <span className="font-bold text-slate-900">{stats.operationalInspectors || 0}</span>
                     </div>
-                    <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 glow-green transition-all duration-1000" style={{ width: `${(stats.operationalInspectors || 0) / stats.inspectors * 100}%` }} />
+                    <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${(stats.operationalInspectors || 0) / stats.inspectors * 100}%` }} />
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-2 p-4 bg-white/5 border border-white/5 rounded-3xl group">
+                <div className="glass-crystallized flex flex-col gap-2 p-4 rounded-3xl group">
                     <div className="flex justify-between items-center text-xs uppercase tracking-tight">
-                        <span className="font-black text-blue-400">Personal Libre</span>
-                        <span className="font-bold text-white text-glow-green">{freeInspectors}</span>
+                        <span className="font-black text-blue-500">Personal Libre</span>
+                        <span className="font-bold text-slate-900">{freeInspectors}</span>
                     </div>
-                    <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-400 transition-all duration-1000" style={{ width: `${freeInspectors / stats.inspectors * 100}%` }} />
+                    <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${freeInspectors / stats.inspectors * 100}%` }} />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                    <StatMiniCard label="Total Técnicos" value={stats.inspectors} colorClass="text-slate-200" />
+                    <StatMiniCard label="Total Técnicos" value={stats.inspectors} colorClass="text-slate-600" />
                     <StatMiniCard label="Clientes Activos" value={stats.clients} colorClass="text-primary" />
                 </div>
             </div>
@@ -229,7 +231,7 @@ export default function AdminDashboardPage() {
                         <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                         <XAxis dataKey="name" stroke="#64748b" fontSize={10} axisLine={false} tickLine={false} dy={10} />
                         <YAxis stroke="#64748b" fontSize={10} axisLine={false} tickLine={false} />
-                        <Tooltip contentStyle={{ backgroundColor: '#0b101b', border: '1px solid #ffffff10', borderRadius: '12px' }} />
+                        <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', color: '#0f172a' }} />
                         <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
                     </AreaChart>
                 </ResponsiveContainer>
@@ -238,11 +240,11 @@ export default function AdminDashboardPage() {
                 <div className="flex items-center gap-6">
                     <div className="flex flex-col">
                         <span className="text-[10px] font-black text-slate-500 uppercase">Capacidad Utilizada</span>
-                        <span className="text-xl font-black text-white">{Math.round((stats.operationalInspectors || 0) / stats.inspectors * 100)}%</span>
+                        <span className="text-xl font-black text-slate-900">{Math.round((stats.operationalInspectors || 0) / stats.inspectors * 100)}%</span>
                     </div>
                     <div className="flex flex-col">
                         <span className="text-[10px] font-black text-slate-500 uppercase">Pendientes</span>
-                        <span className="text-xl font-black text-amber-500">{stats.pendingJobs}</span>
+                        <span className="text-xl font-black text-amber-600">{stats.pendingJobs}</span>
                     </div>
                 </div>
             </div>
@@ -256,19 +258,19 @@ export default function AdminDashboardPage() {
         <PremiumGlassCard title="Control de Gastos por Inspector" icon={ShieldCheck}>
             <div className="space-y-4 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
                 {expensesByInspector.length > 0 ? expensesByInspector.map((exp, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-3xl hover:bg-white/10 transition-all group">
+                    <div key={idx} className="flex items-center justify-between p-4 glass-crystallized rounded-3xl hover:brightness-105 transition-all group relative">
                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-2xl bg-slate-800 flex items-center justify-center font-black text-slate-400 group-hover:text-primary transition-colors border border-white/5">
+                            <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center font-black text-slate-400 group-hover:text-primary transition-colors border border-slate-100">
                                 {exp.nombre.substring(0, 2).toUpperCase()}
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-sm font-black text-white">{exp.nombre}</span>
-                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{exp.count} reportes realizados</span>
+                                <span className="text-sm font-black text-slate-900">{exp.nombre}</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{exp.count} reportes realizados</span>
                             </div>
                         </div>
                         <div className="text-right">
-                            <div className="text-lg font-black text-primary text-glow-green">{exp.total.toFixed(2)}€</div>
-                            <div className="text-[8px] font-black text-slate-600 uppercase">Total Acumulado</div>
+                            <div className="text-lg font-black text-primary">{exp.total.toFixed(2)}€</div>
+                            <div className="text-[8px] font-black text-slate-400 uppercase">Total Acumulado</div>
                         </div>
                     </div>
                 )) : (
@@ -284,10 +286,10 @@ export default function AdminDashboardPage() {
         <PremiumGlassCard title="Últimos Informes Generados" icon={Clock}>
             <div className="space-y-4">
                 {recentJobs.length > 0 ? recentJobs.map(job => (
-                    <div key={job.id} className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-3xl hover:bg-white/10 transition-all group">
+                    <div key={job.id} className="flex items-center justify-between p-4 glass-crystallized rounded-3xl hover:brightness-105 transition-all group relative">
                         <div className="flex flex-col">
-                            <span className="text-sm font-black text-white uppercase group-hover:text-primary transition-colors">{job.clienteNombre || job.cliente || 'S/N'}</span>
-                            <span className="text-[9px] font-bold text-slate-500 mt-0.5">
+                            <span className="text-sm font-black text-slate-900 uppercase group-hover:text-primary transition-colors">{job.clienteNombre || job.cliente || 'S/N'}</span>
+                            <span className="text-[9px] font-bold text-slate-400 mt-0.5">
                                 {job.inspectorNombre || 'Inspector Central'} • 
                                 {job.fecha_creacion?.toDate ? job.fecha_creacion.toDate().toLocaleDateString() : 'Hoy'}
                             </span>

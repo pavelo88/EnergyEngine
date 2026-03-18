@@ -5,10 +5,14 @@ import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Logo } from '@/components/icons';
-import { Loader2, AlertCircle, Eye, EyeOff, WifiOff, Lock } from 'lucide-react';
+import { Loader2, AlertCircle, Eye, EyeOff, Lock, WifiOff } from 'lucide-react';
+import Link from 'next/link';
+import { Checkbox } from '@/components/ui/checkbox';
 import { db as dbLocal } from '@/lib/db-local';
 import {
   normalizeInspectionEmail,
@@ -49,7 +53,7 @@ export default function InspectionLoginPage() {
           if (firstValid) setEmail(firstValid);
         }
       } catch (e) {
-        // tabla vacía o error  ignorar
+        // tabla vacía o error ignorar
       } finally {
         setCheckingOffline(false);
       }
@@ -74,20 +78,38 @@ export default function InspectionLoginPage() {
     }
   }, [isOnline, checkingOffline]);
 
-  // 3. Si ya hay usuario autenticado en Firebase  redirigir
+  // 3. Si ya hay usuario autenticado en Firebase redirigir (Protección pasiva)
   useEffect(() => {
     if (!isUserLoading && user && firestore) {
       const checkRole = async () => {
         try {
-          // CORRECCIÓN: Usamos toLowerCase() para la búsqueda en Firestore
           const cleanEmail = user.email!.toLowerCase();
-          const userDoc = await getDoc(doc(firestore, 'usuarios', cleanEmail));
+          const userDocRef = doc(firestore, 'usuarios', cleanEmail);
+          const userDocSnap = await getDoc(userDocRef);
 
-          if (userDoc.exists() && userDoc.data().roles?.includes('inspector')) {
-            router.push('/inspection');
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+
+            const hasAccessArray = userData.roles && Array.isArray(userData.roles) &&
+              (userData.roles.includes('inspector') || userData.roles.includes('admin'));
+
+            const hasAccessString = userData.role &&
+              (userData.role === 'inspector' || userData.role === 'admin');
+
+            if (hasAccessArray || hasAccessString) {
+              router.push('/inspection');
+            } else {
+              const authInstance = (await import('firebase/auth')).getAuth();
+              await authInstance.signOut();
+              setError("No tienes permisos de inspector (Rol insuficiente).");
+            }
+          } else {
+            const authInstance = (await import('firebase/auth')).getAuth();
+            await authInstance.signOut();
+            setError("Usuario no encontrado en la base de datos.");
           }
-        } catch {
-          router.push('/inspection');
+        } catch (error) {
+          console.error("Error al verificar rol:", error);
         }
       };
       checkRole();
@@ -114,10 +136,12 @@ export default function InspectionLoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!navigator.onLine) {
       await handleOfflineAccess();
       return;
     }
+
     setLoading(true);
     setError(null);
     if (!auth) { setError('Firebase no disponible.'); setLoading(false); return; }
@@ -130,77 +154,89 @@ export default function InspectionLoginPage() {
     }
 
     try {
+      // 1. Iniciar sesión en Firebase
       await signInWithEmailAndPassword(auth, cleanEmail, password);
-      const sessionId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      localStorage.setItem('energy_engine_session_id', sessionId);
 
       if (firestore) {
-        // CORRECCIÓN: Obtener el userData para guardar el pinHash localmente
         const userDocRef = doc(firestore, 'usuarios', cleanEmail);
         const userDocSnap = await getDoc(userDocRef);
-        const userData = userDocSnap.exists() ? userDocSnap.data() : null;
 
-        void setDoc(
-          userDocRef,
-          {
-            activeSessionId: sessionId,
-            activeSessionAt: serverTimestamp(),
-            activeSessionDevice: 'inspection-web',
-          },
-          { merge: true }
-        ).catch((e) => console.warn('No se pudo registrar sesión activa:', e));
+        // 2. Verificar permisos inmediatamente antes de dejarlo pasar
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          const hasAccessArray = userData.roles && Array.isArray(userData.roles) &&
+            (userData.roles.includes('inspector') || userData.roles.includes('admin'));
+          const hasAccessString = userData.role &&
+            (userData.role === 'inspector' || userData.role === 'admin');
 
-        // Guardar email y pin en IndexedDB para uso offline futuro
-        try {
-          const existing = await dbLocal.table('seguridad').get(cleanEmail);
+          if (!hasAccessArray && !hasAccessString) {
+            await auth.signOut();
+            setError("No tienes permisos de inspector (Rol insuficiente).");
+            setLoading(false);
+            return; // Bloqueado, no avanza
+          }
 
-          // Actualizamos siempre para garantizar que el pin más reciente esté guardado
-          await dbLocal.table('seguridad').put({
-            email: cleanEmail,
-            createdAt: existing ? existing.createdAt : new Date(),
-            pinHash: userData?.pin || null // Guardamos el PIN en local
-          });
+          // 3. Si tiene permisos, registramos la sesión
+          const sessionId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          localStorage.setItem('energy_engine_session_id', sessionId);
 
-        } catch { /* ignorar */ }
+          void setDoc(
+            userDocRef,
+            {
+              activeSessionId: sessionId,
+              activeSessionAt: serverTimestamp(),
+              activeSessionDevice: 'inspection-web',
+            },
+            { merge: true }
+          ).catch((e) => console.warn('No se pudo registrar sesión activa:', e));
+
+          // 4. Guardar email y pin en IndexedDB para uso offline futuro
+          try {
+            const existing = await dbLocal.table('seguridad').get(cleanEmail);
+            await dbLocal.table('seguridad').put({
+              email: cleanEmail,
+              createdAt: existing ? existing.createdAt : new Date(),
+              pinHash: userData.pin || null
+            });
+          } catch { /* ignorar */ }
+
+          setStoredOfflineEmail(cleanEmail);
+          setInspectionMode('online');
+          setLoading(false);
+          router.replace('/inspection');
+
+        } else {
+          await auth.signOut();
+          setError("Usuario no encontrado en la base de datos.");
+          setLoading(false);
+          return;
+        }
       }
-
-      setStoredOfflineEmail(cleanEmail);
-      setInspectionMode('online');
-      setLoading(false);
-      router.replace('/inspection');
-      return;
     } catch (err: any) {
       const code = err.code || '';
       if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
         setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
-        setLoading(false);
       } else if (code === 'auth/invalid-email') {
-        console.error('Firebase invalid-email', {
-          rawEmail: email,
-          cleanEmail,
-          cleanEmailCodes: [...cleanEmail].map(c => c.charCodeAt(0)),
-        });
         setError('Firebase detecta el correo como inválido. Escríbelo manualmente y sin autocompletar.');
-        setLoading(false);
       } else if (code === 'auth/network-request-failed') {
         // Redirigimos directamente al PinGate en vez de dar error
         router.replace('/inspection');
       } else {
         setError('Error al iniciar sesión. Inténtalo de nuevo.');
-        setLoading(false);
       }
+      setLoading(false);
     }
   };
 
   // Loading inicial
   if (checkingOffline || isUserLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-900">
+      <div className="flex h-screen w-full items-center justify-center bg-transparent">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-white/40 text-xs font-black uppercase tracking-widest">
+          <p className="text-slate-400 text-xs font-black uppercase tracking-widest">
             Verificando sesión...
           </p>
         </div>
@@ -210,35 +246,26 @@ export default function InspectionLoginPage() {
 
   if (user) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-900">
+      <div className="flex h-screen w-full items-center justify-center bg-transparent">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-slate-900 p-6">
-      <div className="w-full max-w-sm space-y-8">
-        {/* Logo + nombre */}
-        <div className="flex flex-col items-center gap-3">
-          <Logo />
-          <div className="text-center">
-            <h1 className="text-2xl font-black text-white tracking-tighter italic">Portal de Inspección Técnica</h1>
+    <div className="flex min-h-screen w-full items-center justify-center p-4 relative z-10 bg-transparent">
+      <Card className="w-full max-w-sm rounded-2xl shadow-2xl glass-crystallized">
+        <CardHeader className="text-center space-y-4">
+          <div className="mx-auto mb-2 flex justify-center">
+             <Logo />
           </div>
-        </div>
-
-        {/* Card login */}
-        <div className="bg-white rounded-[2rem] p-8 shadow-2xl space-y-6">
-          <div className="space-y-1">
-            <h2 className="text-xl font-black text-slate-900 tracking-tighter">Iniciar Sesión</h2>
-            <p className="text-sm text-slate-400">Introduce tus credenciales de acceso</p>
-          </div>
-
+          <CardTitle className="text-2xl font-bold text-slate-800">¡Bienvenido de nuevo!</CardTitle>
+          <CardDescription>Portal de Inspección Técnica.</CardDescription>
+        </CardHeader>
+        <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                Correo Electrónico
-              </Label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -246,68 +273,76 @@ export default function InspectionLoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="rounded-xl border-slate-200 bg-slate-50 font-bold text-slate-900 h-12"
               />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                Contraseña
-              </Label>
+              <Label htmlFor="password">Contraseña o PIN</Label>
               <div className="relative">
                 <Input
                   id="password"
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="rounded-xl border-slate-200 bg-slate-50 font-bold text-slate-900 h-12 pr-10"
-                  placeholder="Admin123"
+                  className="pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-primary transition-colors"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-primary"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
 
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <Checkbox id="remember-me" />
+                <Label htmlFor="remember-me" className="text-muted-foreground font-medium">Recordarme</Label>
+              </div>
+              <Link href="/auth/forgot-password" className="underline text-muted-foreground hover:text-primary">
+                Olvidaste tu contraseña?
+              </Link>
+            </div>
+
             {error && (
-              <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                <p className="font-bold">{error}</p>
+              <div className="flex items-center gap-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-800">
+                <AlertCircle className="h-4 w-4" />
+                <p>{error}</p>
               </div>
             )}
+            
+            <Button type="submit" className="w-full font-bold" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading ? 'Verificando...' : 'Iniciar Sesión'}
+            </Button>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-12 bg-primary text-white rounded-xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-95 hover:bg-primary/90"
-            >
-              {loading ? <><Loader2 size={16} className="animate-spin" /> Verificando...</> : 'Entrar'}
-            </button>
-
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={handleOfflineAccess}
               disabled={loading}
-              className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full font-bold border-slate-300 bg-transparent text-slate-700 hover:bg-slate-100"
             >
-              <Lock size={14} />
+              <Lock size={16} className="mr-2" />
               Entrar offline con PIN
-            </button>
-          </form>
-        </div>
+            </Button>
 
-        {/* Modo offline hint */}
-        <div className="flex items-center justify-center gap-2 text-white/30 text-[10px] font-black uppercase tracking-widest">
-          <Lock size={10} />
-          Sin internet, usa tu PIN de acceso offline
-          <WifiOff size={10} />
-        </div>
-      </div>
+            <div className="pt-2 text-center text-sm">
+              <Link href="/auth/admin" className="underline text-muted-foreground hover:text-primary">
+                Ir al Panel de Administración
+              </Link>
+            </div>
+            
+            <div className="flex items-center justify-center gap-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest pt-4">
+              <Lock size={10} />
+              Sin internet, usa tu PIN
+              <WifiOff size={10} />
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
