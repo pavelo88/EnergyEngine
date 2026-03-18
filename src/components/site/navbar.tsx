@@ -63,8 +63,7 @@ export default function Navbar() {
                   Intranet
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="glass-white border border-slate-200/50 dark:border-white/10 dark:bg-slate-900/90 rounded-2xl">
-                <DropdownMenuItem asChild className="focus:bg-slate-100 dark:focus:bg-white/10">
+                <DropdownMenuContent align="end" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200 dark:border-white/10 shadow-2xl rounded-2xl">                <DropdownMenuItem asChild className="focus:bg-slate-100 dark:focus:bg-white/10">
                   <Link href="/admin" className="font-bold text-slate-800 dark:text-white uppercase tracking-tighter cursor-pointer">Administración</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="focus:bg-slate-100 dark:focus:bg-white/10">

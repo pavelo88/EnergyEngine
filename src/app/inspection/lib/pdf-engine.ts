@@ -103,13 +103,12 @@ export const generatePDF = (data: any, tecnico: string, reportID: string) => {
     } catch (e) { console.warn("No se pudo cargar firma cliente"); }
   }
 
-  // Dibujar Pie de página
-// --- DIBUJAR PIE DE PÁGINA CORRECTAMENTE ---
+  
   const totalPages = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     drawPdfFooter(doc, i, totalPages);
   }
-  
+
   return doc;
 };

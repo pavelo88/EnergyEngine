@@ -29,8 +29,7 @@ export const getStoredOfflineEmail = (): string | null => {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem(OFFLINE_EMAIL_KEY);
   if (!raw) return null;
-  const normalized = normalizeInspectionEmail(raw);
-  return normalized || null;
+  return normalizeInspectionEmail(raw);
 };
 
 export const setStoredOfflineEmail = (email: string) => {
@@ -40,14 +39,25 @@ export const setStoredOfflineEmail = (email: string) => {
   localStorage.setItem(OFFLINE_EMAIL_KEY, normalized);
 };
 
+// MEJORADO: Ahora prioriza el email real de Firebase y no bloquea si no hay offline
 export const resolveInspectorEmail = (firebaseEmail?: string | null): string | null => {
-  const normalizedFirebase = normalizeInspectionEmail(firebaseEmail || '');
-  if (normalizedFirebase) return normalizedFirebase;
-  return getStoredOfflineEmail();
+  if (firebaseEmail) return normalizeInspectionEmail(firebaseEmail);
+  
+  const offline = getStoredOfflineEmail();
+  if (offline) return offline;
+
+  return null;
 };
 
+// MEJORADO: Ya no es tan estricto. Si hay email de Firebase, DEJA PASAR.
 export const canUseCloudSync = (isOnline: boolean, firestoreReady: boolean, firebaseEmail?: string | null) => {
+  // Si no hay internet o firestore no carga, directo a offline
   if (!isOnline || !firestoreReady) return false;
-  if (!resolveInspectorEmail(firebaseEmail)) return false;
+  
+  // Si hay un email de Firebase, permitimos el uso de la nube
+  const email = resolveInspectorEmail(firebaseEmail);
+  if (!email) return false;
+
+  // Si el usuario eligió manualmente "modo offline", respetamos su decisión
   return getInspectionMode() !== 'offline';
 };
