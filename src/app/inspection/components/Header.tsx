@@ -20,50 +20,51 @@ export default function Header({ activeTab, isOnline, onBack, isSubNavActive, on
   const showBackButton = true;
 
   return (
-    <header className="fixed top-0 left-0 w-full px-6 glass-carbon flex justify-between items-center z-50 h-16 border-b border-white/5">
+    <header className="fixed top-0 left-0 w-full px-6 bg-slate-950 flex justify-between items-center z-50 h-20 border-b border-white/10 shadow-2xl">
       <div className="flex items-center gap-4">
         {showBackButton && (
           <button 
             onClick={onBack} 
-            className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white border border-white/10 hover:bg-white/20 transition-all active:scale-95"
+            className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-white border border-white/10 hover:bg-white/20 transition-all active:scale-95 shadow-md"
             aria-label="Volver"
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={28} />
           </button>
         )}
         <div className="flex flex-col leading-none">
-          <div className="font-headline italic tracking-tighter text-2xl font-black">
+          <div className="font-headline italic tracking-tighter text-3xl font-black">
             <span className="text-white">energy</span>
             <span className="text-primary ml-1">engine</span>
           </div>
-          <span className="text-[8px] font-black text-slate-400 tracking-[0.3em] uppercase -mt-0.5">INTRANET TÉCNICA</span>
+          <span className="text-[10px] font-black text-slate-400 tracking-[0.3em] uppercase mt-1">INTRANET TÉCNICA</span>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <div className={cn(
-            "flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black border transition-all duration-500",
+            "flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black border transition-all duration-500 shadow-inner",
             isOnline 
-                ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-500 bg-emerald-500/5" 
-                : "border-red-500/30 text-red-600 dark:text-red-400 bg-red-500/5"
+                ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10" 
+                : "border-red-500/30 text-red-400 bg-red-500/10"
         )}>
             <div className={cn(
-                "w-1.5 h-1.5 rounded-full",
+                "w-2 h-2 rounded-full",
                 isOnline ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" : "bg-red-500 shadow-[0_0_8px_#ef4444]"
             )} />
-            {isOnline ? 'CONECTADO' : 'SIN RED'}
+            <span className="hidden sm:inline">{isOnline ? 'CONECTADO' : 'SIN RED'}</span>
+            <span className="sm:hidden">{isOnline ? 'ON' : 'OFF'}</span>
         </div>
         {isStandalone ? (
-          <div className="w-8 h-8 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400 border border-emerald-500/30" title="App Descargada">
-            <Check size={14} />
+          <div className="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-400 border border-emerald-500/30 shadow-lg" title="App Descargada">
+            <Check size={20} />
           </div>
         ) : (
           <button 
             onClick={onInstall} 
-            className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-white border border-white/10 hover:bg-white/20 transition-all active:scale-95 shadow-lg" 
+            className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-primary border border-primary/30 hover:bg-primary/30 transition-all active:scale-95 shadow-lg" 
             title="Instalar App (PWA)"
           >
-            <Download size={14} />
+            <Download size={20} />
           </button>
         )}
       </div>
