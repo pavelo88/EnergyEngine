@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, query, orderBy, limit } from "firebase/firestore";
 import { useFirestore } from '@/firebase';
-import { PlusCircle, Loader2, Pencil, Trash2, Download, Search, X, ClipboardList, Settings, ClipboardCheck, Wrench, ChevronDown, User } from 'lucide-react';
+import { PlusCircle, Loader2, Pencil, Trash2, Download, Search, X, ClipboardList, Settings, ClipboardCheck, Wrench, ChevronDown, User, Printer } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,6 +11,12 @@ import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { useAdminHeader } from './AdminHeaderContext';
 import { formatSafeDate } from '@/lib/utils';
+import { getPdfFileName, normalizeReportForPdf } from '@/lib/pdf-utils';
+import { generatePDF as generateHojaTrabajoPDF } from '@/app/inspection/components/forms/HojaTrabajoForm';
+import { generatePDF as generateInformeRevisionPDF } from '@/app/inspection/components/forms/InformeRevisionForm';
+import { generatePDF as generateInformeTecnicoPDF } from '@/app/inspection/components/forms/InformeTecnicoForm';
+import { generatePDF as generateInformeSimplificadoPDF } from '@/app/inspection/components/forms/InformeSimplificadoForm';
+import { generatePDF as generateRevisionBasicaPDF } from '@/app/inspection/components/forms/RevisionBasicaForm';
 
 // ────────── AUTOCOMPLETE COMBOBOX ──────────
 function Combobox({ label, placeholder, items, value, onSelect, renderItem, filterKey = 'label' }: {
@@ -120,7 +126,7 @@ type Job = {
   tecnicoNombre?: string; 
   estado: 'Pendiente' | 'En Progreso' | 'Completado';
   fecha_creacion?: any;
-  formType?: string;
+  formType?: 'hoja-trabajo' | 'informe-revision' | 'informe-tecnico' | 'informe-simplificado' | 'revision-basica' | 'job' | string;
 };
 
 const FORM_TYPES = [
@@ -284,7 +290,7 @@ export default function JobsPage() {
   };
 
   const handleDeleteJob = async (jobId: string) => {
-    if (window.confirm("�Seguro que quieres eliminar este trabajo?")) {
+    if (window.confirm("¿Seguro que quieres eliminar este trabajo?")) {
       try {
         await deleteDoc(doc(db, 'ordenes_trabajo', jobId));
       } catch (error) {
@@ -307,6 +313,50 @@ export default function JobsPage() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingJob(null);
+  };
+
+  const canReprint = (job: Job) =>
+    !!job.formType &&
+    job.estado === 'Completado' &&
+    ['hoja-trabajo', 'informe-revision', 'informe-tecnico', 'informe-simplificado', 'revision-basica'].includes(job.formType);
+
+  const handleReprintSavedPdf = async (job: Job) => {
+    if (!canReprint(job)) return;
+
+    const finalId = job.numero_informe || job.id;
+    const inspectorName = job.tecnicoNombre || job.inspectorNombres?.join(', ') || 'tecnico energy engine';
+    const reportForPdf = await normalizeReportForPdf(job as any);
+    let docPdf: any = null;
+
+    try {
+      switch (job.formType) {
+        case 'hoja-trabajo':
+          docPdf = generateHojaTrabajoPDF(reportForPdf, inspectorName, finalId);
+          break;
+        case 'informe-revision':
+          docPdf = generateInformeRevisionPDF(reportForPdf, inspectorName, finalId);
+          break;
+        case 'informe-tecnico':
+          docPdf = generateInformeTecnicoPDF(reportForPdf, inspectorName, finalId);
+          break;
+        case 'informe-simplificado':
+          docPdf = generateInformeSimplificadoPDF(reportForPdf, inspectorName, finalId);
+          break;
+        case 'revision-basica':
+          docPdf = generateRevisionBasicaPDF(reportForPdf, inspectorName, finalId);
+          break;
+        default:
+          alert('Este tipo de documento no soporta reimpresion automatica.');
+          return;
+      }
+
+      if (docPdf) {
+        docPdf.save(getPdfFileName(finalId));
+      }
+    } catch (error) {
+      console.error('Error al reimprimir PDF desde trabajos:', error);
+      alert('No se pudo reimprimir el PDF.');
+    }
   };
 
   return (
@@ -347,12 +397,20 @@ export default function JobsPage() {
                           {job.estado}
                         </span>
                     </td>
-                    <td className="py-4 text-right">
-                        <div className="flex justify-end gap-1">
-                          <button onClick={() => {setEditingJob(job);setIsModalOpen(true);}} className="p-2 text-slate-300 hover:text-primary transition-colors disabled:opacity-30" disabled={job.formType !== 'job'}><Pencil size={18}/></button>
-                          <button onClick={() => handleDeleteJob(job.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
-                        </div>
-                    </td>
+	                    <td className="py-4 text-right">
+	                        <div className="flex justify-end gap-1">
+	                          <button
+                                onClick={() => handleReprintSavedPdf(job)}
+                                className="p-2 text-slate-300 hover:text-emerald-500 transition-colors disabled:opacity-30"
+                                disabled={!canReprint(job)}
+                                title={canReprint(job) ? 'Reimprimir PDF' : 'Disponible solo para informes completados'}
+                              >
+                                <Printer size={18} />
+                              </button>
+	                          <button onClick={() => {setEditingJob(job);setIsModalOpen(true);}} className="p-2 text-slate-300 hover:text-primary transition-colors disabled:opacity-30" disabled={job.formType !== 'job'}><Pencil size={18}/></button>
+	                          <button onClick={() => handleDeleteJob(job.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
+	                        </div>
+	                    </td>
                   </tr>
                 ))}
                  {jobs.length === 0 && (

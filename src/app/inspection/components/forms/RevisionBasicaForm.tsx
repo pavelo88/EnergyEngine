@@ -1,5 +1,4 @@
-
-'use client';
+﻿'use client';
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, addDoc, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
@@ -20,6 +19,8 @@ import ClientSelector from '../ClientSelector';
 import StableInput from '../StableInput';
 import { resolveInspectorEmail } from '@/lib/inspection-mode';
 import { getNextSequenceForUser } from '@/lib/sequence-manager';
+import { addImageSafely, getPdfFileName } from '@/lib/pdf-utils';
+import { MAX_IMAGES_PER_REPORT } from '@/lib/report-limits';
 
 const BASIC_REVISION_CHECKLIST = {
   "INSPECCIÓN EN EL MOTOR": ["Nivel de lubricante", "Indicador nivel refrigerante", "Correa del ventilador", "Filtro de combustible y prefiltro", "Filtro de aire", "Filtro de aceite y prefiltro de aceite", "Tubo de escape", "Circuito de refrigeración", "Circuito de lubricación", "Baterías", "Motor de arranque"],
@@ -58,7 +59,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.setTextColor(darkColor);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text(`REVISI�N B�?SICA - N�: ${finalID}`, leftMargin, currentY);
+    doc.text(`REVISION BASICA - N: ${finalID}`, leftMargin, currentY);
     currentY += 6;
 
     autoTable(doc, {
@@ -128,14 +129,15 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         startY: currentY,
         head: [['RECAMBIOS Y MATERIALES', 'REFERENCIA / CANTIDAD']],
         body: [
-            ['F.A. (Filtro de Aceite)', report.recambios.fa || ''],
-            ['F.C. (Filtro de Combustible)', report.recambios.fc || ''],
-            ['F.AR. (Filtro de Aire)', report.recambios.far || ''],
-            ['F.AG. (Filtro de Agua)', report.recambios.fag || ''],
-            ['L.AC. (Litros de Aceite)', report.recambios.lac || ''],
-            ['L.ANT. (Litros de Anticongelante)', report.recambios.lant || ''],
-            ['BAT. (Baterías)', report.recambios.bat || ''],
-            ['REST. (Resto / Otros)', report.recambios.rest || ''],
+            // PROTECCIÓN RECAMBIOS
+            ['F.A. (Filtro de Aceite)', report.recambios?.fa || ''],
+            ['F.C. (Filtro de Combustible)', report.recambios?.fc || ''],
+            ['F.AR. (Filtro de Aire)', report.recambios?.far || ''],
+            ['F.AG. (Filtro de Agua)', report.recambios?.fag || ''],
+            ['L.AC. (Litros de Aceite)', report.recambios?.lac || ''],
+            ['L.ANT. (Litros de Anticongelante)', report.recambios?.lant || ''],
+            ['BAT. (Baterías)', report.recambios?.bat || ''],
+            ['REST. (Resto / Otros)', report.recambios?.rest || ''],
         ],
         theme: 'grid', 
         styles: { fontSize: 8, cellPadding: 2 },
@@ -155,17 +157,19 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         startY: currentY,
         body: [
             [{ content: 'DATOS DE PRUEBAS', styles: { fontStyle: 'bold', fillColor: darkColor, textColor: '#fff' }}, { content: 'VALORES', styles: { fontStyle: 'bold', fillColor: darkColor, textColor: '#fff' }}],
-            ['Horas de funcionamiento', report.datos_pruebas.horas || ''],
-            ['Presión aceite', report.datos_pruebas.presion || ''],
-            ['Temperatura en bloque motor', report.datos_pruebas.temperatura || ''],
-            ['Nivel de deposito de combustible', report.datos_pruebas.nivel_combustible || ''],
-            ['Tensión en el alternador', report.datos_pruebas.tension_alternador || ''],
-            ['Frecuencia', report.datos_pruebas.frecuencia || ''],
-            ['Carga de baterías', report.datos_pruebas.carga_baterias || ''],
+            // PROTECCIÓN DATOS PRUEBAS
+            ['Horas de funcionamiento', report.datos_pruebas?.horas || ''],
+            ['Presión aceite', report.datos_pruebas?.presion || ''],
+            ['Temperatura en bloque motor', report.datos_pruebas?.temperatura || ''],
+            ['Nivel de deposito de combustible', report.datos_pruebas?.nivel_combustible || ''],
+            ['Tensión en el alternador', report.datos_pruebas?.tension_alternador || ''],
+            ['Frecuencia', report.datos_pruebas?.frecuencia || ''],
+            ['Carga de baterías', report.datos_pruebas?.carga_baterias || ''],
             [{ content: 'PRUEBAS CON CARGA', colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#f1f5f9' }}],
-            [{ content: `Tensión: RS: ${report.pruebas_carga.tension_rs || ''}   ST: ${report.pruebas_carga.tension_st || ''}   RT: ${report.pruebas_carga.tension_rt || ''}`, colSpan: 2 }],
-            [{ content: `Intensidad: R: ${report.pruebas_carga.intensidad_r || ''}   S: ${report.pruebas_carga.intensidad_s || ''}   T: ${report.pruebas_carga.intensidad_t || ''}`, colSpan: 2 }],
-            [{ content: `Potencia: ${report.pruebas_carga.potencia_kw || ''} kW`, colSpan: 2 }],
+            // PROTECCIÓN PRUEBAS CARGA
+            [{ content: `Tensión: RS: ${report.pruebas_carga?.tension_rs || ''}   ST: ${report.pruebas_carga?.tension_st || ''}   RT: ${report.pruebas_carga?.tension_rt || ''}`, colSpan: 2 }],
+            [{ content: `Intensidad: R: ${report.pruebas_carga?.intensidad_r || ''}   S: ${report.pruebas_carga?.intensidad_s || ''}   T: ${report.pruebas_carga?.intensidad_t || ''}`, colSpan: 2 }],
+            [{ content: `Potencia: ${report.pruebas_carga?.potencia_kw || ''} kW`, colSpan: 2 }],
         ],
         theme: 'grid', 
         styles: { fontSize: 8, cellPadding: 2 },
@@ -229,16 +233,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     
-    if (report.inspectorSignatureUrl) {
-        doc.addImage(report.inspectorSignatureUrl, 'PNG', 25, currentY, 60, 25);
-    }
+    addImageSafely(doc, report.inspectorSignatureUrl, 25, currentY, 60, 25);
     doc.line(25, currentY + 25, 85, currentY + 25);
     doc.text("Firma técnico:", 25, currentY + 30);
     doc.text(inspectorName || '', 25, currentY + 35);
 
-    if (report.clientSignatureUrl) {
-        doc.addImage(report.clientSignatureUrl, 'PNG', 125, currentY, 60, 25);
-    }
+    addImageSafely(doc, report.clientSignatureUrl, 125, currentY, 60, 25);
     doc.line(125, currentY + 25, 185, currentY + 25);
     doc.text("Conforme cliente:", 125, currentY + 30);
     doc.text(report.recibidoPor || '', 125, currentY + 35);
@@ -360,23 +360,24 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
             observaciones: aiData.observations_summary || prev.observaciones,
             checklist: newChecklist,
             recambios: recambiosUpdates,
+            // PROTECCIÓN 3 IA
             datos_pruebas: {
-              horas: aiData.mediciones_generales.horas || prev.datos_pruebas.horas,
-              presion: aiData.mediciones_generales.presion || prev.datos_pruebas.presion,
-              temperatura: aiData.mediciones_generales.temp || prev.datos_pruebas.temperatura,
-              nivel_combustible: aiData.mediciones_generales.combustible || prev.datos_pruebas.nivel_combustible,
-              tension_alternador: aiData.mediciones_generales.tensionAlt || prev.datos_pruebas.tension_alternador,
-              frecuencia: aiData.mediciones_generales.frecuencia || prev.datos_pruebas.frecuencia,
-              carga_baterias: aiData.mediciones_generales.cargaBat || prev.datos_pruebas.carga_baterias,
+              horas: aiData.mediciones_generales?.horas || prev.datos_pruebas.horas,
+              presion: aiData.mediciones_generales?.presion || prev.datos_pruebas.presion,
+              temperatura: aiData.mediciones_generales?.temp || prev.datos_pruebas.temperatura,
+              nivel_combustible: aiData.mediciones_generales?.combustible || prev.datos_pruebas.nivel_combustible,
+              tension_alternador: aiData.mediciones_generales?.tensionAlt || prev.datos_pruebas.tension_alternador,
+              frecuencia: aiData.mediciones_generales?.frecuencia || prev.datos_pruebas.frecuencia,
+              carga_baterias: aiData.mediciones_generales?.cargaBat || prev.datos_pruebas.carga_baterias,
             },
             pruebas_carga: {
-              tension_rs: aiData.pruebas_carga.rs || prev.pruebas_carga.tension_rs,
-              tension_st: aiData.pruebas_carga.st || prev.pruebas_carga.tension_st,
-              tension_rt: aiData.pruebas_carga.rt || prev.pruebas_carga.tension_rt,
-              intensidad_r: aiData.pruebas_carga.r || prev.pruebas_carga.intensidad_r,
-              intensidad_s: aiData.pruebas_carga.s || prev.pruebas_carga.intensidad_s,
-              intensidad_t: aiData.pruebas_carga.t || prev.pruebas_carga.intensidad_t,
-              potencia_kw: aiData.pruebas_carga.kw || prev.pruebas_carga.potencia_kw,
+              tension_rs: aiData.pruebas_carga?.rs || prev.pruebas_carga.tension_rs,
+              tension_st: aiData.pruebas_carga?.st || prev.pruebas_carga.tension_st,
+              tension_rt: aiData.pruebas_carga?.rt || prev.pruebas_carga.tension_rt,
+              intensidad_r: aiData.pruebas_carga?.r || prev.pruebas_carga.intensidad_r,
+              intensidad_s: aiData.pruebas_carga?.s || prev.pruebas_carga.intensidad_s,
+              intensidad_t: aiData.pruebas_carga?.t || prev.pruebas_carga.intensidad_t,
+              potencia_kw: aiData.pruebas_carga?.kw || prev.pruebas_carga.potencia_kw,
             }
           };
       });
@@ -427,9 +428,17 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
   };
   
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setImages(prev => [...prev, ...Array.from(e.target.files!)]);
+    if (!e.target.files) return;
+    const selected = Array.from(e.target.files);
+    if (images.length + selected.length > MAX_IMAGES_PER_REPORT) {
+      toast({
+        variant: 'destructive',
+        title: 'Limite de imagenes',
+        description: `Maximo ${MAX_IMAGES_PER_REPORT} imagenes por informe.`,
+      });
+      return;
     }
+    setImages((prev) => [...prev, ...selected]);
   };
 
   const handlePdfAction = (forceDownload = false, docIdOverride?: string) => {
@@ -441,7 +450,8 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
     const finalId = docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
     const doc = generatePDF(reportData, inspectorName, finalId);
     if (isSaved || forceDownload) {
-        doc.save(`Revision_Basica_${finalId}.pdf`);
+        // SOLUCIÓN: FORZAR .pdf
+        doc.save(`${finalId}.pdf`);
     } else {
         const blob = doc.output('blob');
         const url = URL.createObjectURL(blob);
@@ -457,111 +467,130 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
     if (isSaved) return;
 
     if (!formData.cliente || !formData.instalacion || (gpsRequired && !formData.location) || !inspectorSignature || !clientSignature) {
-      toast({ variant: 'destructive', title: 'Datos incompletos', description: 'Cliente, instalación, localización y ambas firmas son obligatorios.' });
+      toast({ variant: 'destructive', title: 'Datos incompletos', description: 'Cliente, instalacion, localizacion y ambas firmas son obligatorios.' });
       return;
     }
 
-    setSaving(true);
+    if (images.length > MAX_IMAGES_PER_REPORT) {
+      toast({
+        variant: 'destructive',
+        title: 'Limite de imagenes',
+        description: `Maximo ${MAX_IMAGES_PER_REPORT} imagenes por informe.`,
+      });
+      return;
+    }
 
-    const sequence = await getNextSequenceForUser({
-      type: 'revision-basica',
-      userEmail: inspectorEmail || '',
-      firestore: canUseCloud ? firestore : null,
-      isOnline: canUseCloud,
-    });
-    const names = inspectorName.split(' ');
-    const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
-    const docId = `BAS-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
-    
-    const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
-        const localData = { 
-          ...formData, 
-          formType: 'revision-basica',
-          originalJobId: initialData?.id || null
-        };
-        if (!synced) {
-            (localData as any).images = images;
-            (localData as any).inspectorSignature = inspectorSignature;
-            (localData as any).clientSignature = clientSignature;
-        }
+    let didStartSave = false;
+    try {
+      const names = inspectorName.split(' ');
+      const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
+      setSaving(true);
+      didStartSave = true;
 
-        await dbLocal.hojas_trabajo.add({
-            firebaseId: firebaseId || '',
-            synced,
-            data: localData,
-            createdAt: new Date(),
-        });
-        
-        setSaving(false);
-        setSavedDocId(firebaseId || '');
-        setIsSaved(true);
+      const sequence = await getNextSequenceForUser({
+        type: 'revision-basica',
+        userEmail: inspectorEmail || '',
+        firestore: canUseCloud ? firestore : null,
+        isOnline: canUseCloud,
+      });
+      const docId = `BAS-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
+      const limitedImages = images.slice(0, MAX_IMAGES_PER_REPORT);
 
-        if (!synced) {
-            toast({ title: 'Guardado localmente (sin conexión)', description: 'El informe se sincronizará cuando vuelvas a tener conexión.' });
-        } else {
-            toast({ title: '¡Guardado y Sincronizado!', description: `La revisión básica ha sido guardada con el ID: ${firebaseId}` });
-        }
-
-        const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora");
-        if (shouldDownload) {
-            handlePdfAction(true, firebaseId);
-        }
-        
-        if (onSuccess) onSuccess();
-    };
-
-    if (canUseCloud && firestore && user?.email) {
-      try {
-          const formType = 'revision-basica';
-
-          const storage = getStorage();
-          const imageUrls = await Promise.all(
-              images.map(async (image) => {
-              const imageRef = ref(storage, `informes/${docId}/${image.name}`);
-              await uploadBytes(imageRef, image);
-              return await getDownloadURL(imageRef);
-              })
-          );
-          
-          const inspectorRef = ref(storage, `firmas/${docId}/inspector.png`);
-          await uploadString(inspectorRef, inspectorSignature!, 'data_url');
-          const inspectorSignatureUrl = await getDownloadURL(inspectorRef);
-
-          const clientRef = ref(storage, `firmas/${docId}/cliente.png`);
-          await uploadString(clientRef, clientSignature!, 'data_url');
-          const clientSignatureUrl = await getDownloadURL(clientRef);
-
-          const docData = { 
-              ...formData,
-              imageUrls,
-              inspectorSignatureUrl, 
-              clientSignatureUrl, 
-              inspectorId: inspectorEmail || '', 
-              inspectorNombre: inspectorName, 
-              inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
-              inspectorNombres: initialData?.inspectorNombres || [inspectorName],
-              fecha_creacion: Timestamp.now(), 
-              formType,
-              id: docId,
-              estado: 'Completado',
+      const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
+          const localData: any = {
+            ...formData,
+            formType: 'revision-basica',
+            originalJobId: initialData?.id || null,
+            numero_informe: firebaseId,
           };
-          await setDoc(doc(firestore, 'informes', docId), docData);
-
-          if (initialData?.id) {
-            await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
+          if (!synced) {
+              localData.images = limitedImages;
+              localData.inspectorSignature = inspectorSignature;
+              localData.clientSignature = clientSignature;
           }
 
-          await saveDataToLocal(true, docId);
+          await dbLocal.hojas_trabajo.add({
+              firebaseId: firebaseId || '',
+              synced,
+              data: localData,
+              createdAt: new Date(),
+          });
 
-      } catch (e: any) { 
-        console.error("Error saving document:", e); 
+          setSavedDocId(firebaseId || '');
+          setIsSaved(true);
+
+          if (!synced) {
+              toast({ title: 'Guardado localmente', description: 'El informe se sincronizara cuando vuelvas a tener conexion.' });
+          } else {
+              toast({ title: 'Guardado y sincronizado', description: `La revision basica ha sido guardada con el ID: ${firebaseId}` });
+          }
+
+          handlePdfAction(true, firebaseId);
+
+          if (onSuccess) onSuccess();
+      };
+
+      if (canUseCloud && firestore && user?.email) {
+        try {
+            const storage = getStorage();
+            const imageUrls = await Promise.all(
+                limitedImages.map(async (image) => {
+                const imageRef = ref(storage, `informes/${docId}/${image.name}`);
+                await uploadBytes(imageRef, image);
+                return getDownloadURL(imageRef);
+                })
+            );
+
+            const inspectorRef = ref(storage, `firmas/${docId}/inspector.png`);
+            await uploadString(inspectorRef, inspectorSignature!, 'data_url');
+            const inspectorSignatureUrl = await getDownloadURL(inspectorRef);
+
+            const clientRef = ref(storage, `firmas/${docId}/cliente.png`);
+            await uploadString(clientRef, clientSignature!, 'data_url');
+            const clientSignatureUrl = await getDownloadURL(clientRef);
+
+            const docData = {
+                ...formData,
+                imageUrls,
+                inspectorSignatureUrl,
+                clientSignatureUrl,
+                inspectorId: inspectorEmail || '',
+                inspectorNombre: inspectorName,
+                inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
+                inspectorNombres: initialData?.inspectorNombres || [inspectorName],
+                fecha_creacion: Timestamp.now(),
+                formType: 'revision-basica',
+                id: docId,
+                numero_informe: docId,
+                estado: 'Completado',
+            };
+            await setDoc(doc(firestore, 'informes', docId), docData);
+
+            if (initialData?.id) {
+              await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
+            }
+
+            await saveDataToLocal(true, docId);
+
+        } catch (e) {
+          console.error('Error saving document:', e);
+          await saveDataToLocal(false, docId);
+        }
+      } else {
         await saveDataToLocal(false, docId);
       }
-    } else {
-      await saveDataToLocal(false, docId);
+    } catch (error) {
+      console.error('Error en guardado de revision basica:', error);
+      toast({
+        variant: 'destructive',
+        title: 'No se pudo guardar',
+        description: 'Intente nuevamente. Si continua, revise conexion y permisos.',
+      });
+    } finally {
+      if (didStartSave) setSaving(false);
     }
   };
-  
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full bg-white min-h-screen pb-20">
        <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => {
@@ -571,9 +600,18 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
             }
         }}>
             <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border border-slate-200 bg-white text-slate-950 light">
-                <DialogHeader className="p-6 border-b border-slate-100 bg-white">
-                    <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa de Revisión Básica</DialogTitle>
-                    <DialogDescription className="text-xs text-slate-500">Revisa el borrador. Este NO es el documento final.</DialogDescription>
+                {/* SOLUCIÓN: Botón en cabecera */}
+                <DialogHeader className="p-6 border-b border-slate-100 bg-white flex flex-row items-center justify-between">
+                    <div>
+                      <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa de Revisión Básica</DialogTitle>
+                      <DialogDescription className="text-xs text-slate-500">Revisa el borrador. Este NO es el documento final.</DialogDescription>
+                    </div>
+                    <button 
+                      onClick={() => handlePdfAction(true)} 
+                      className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-primary/90 transition-all shadow-sm active:scale-95"
+                    >
+                      Descargar PDF
+                    </button>
                 </DialogHeader>
                 <div className="flex-1 bg-slate-100">
                     {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full shadow-lg" title="PDF Preview" />}
@@ -709,29 +747,36 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
                 </div>
             </section>
 
-            {/* --- ACCIONES --- */}
+            {/* SOLUCIÓN: Botones Directos */}
             <div className="flex flex-col md:flex-row gap-3 pt-4">
-                <button 
-                    onClick={() => handlePdfAction(false)} 
-                    className="w-full p-5 bg-white text-black border border-slate-200 rounded-2xl font-black text-sm shadow-md flex items-center justify-center gap-3 active:scale-95 transition-all hover:border-primary disabled:opacity-50"
-                >
-                    {isSaved ? <Printer className="text-primary" size={18} /> : <FileSearch className="text-primary" size={18} />}
-                    {isSaved ? 'IMPRIMIR PDF' : 'VISTA PREVIA'}
-                </button>
-                <button 
-                    onClick={handleSave} 
-                    disabled={saving || isSaved} 
-                    className="w-full p-5 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700"
-                >
-                    {saving ? <Loader2 className="animate-spin text-white" size={18} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={18} /> : <Save className="text-white" size={18} />}
-                    {saving ? 'GUARDANDO...' : isSaved ? 'GUARDADO' : 'GUARDAR REVISIÓN'}
-                </button>
+              <button
+                onClick={() => handlePdfAction(false)}
+                disabled={pdfLoading}
+                className="w-full p-4 bg-white border border-slate-200 rounded-[1.5rem] font-bold flex items-center justify-center gap-2 hover:border-primary transition-all text-slate-600 shadow-sm active:scale-95 disabled:opacity-50 text-xs"
+              >
+                {pdfLoading ? <Loader2 className="animate-spin text-primary" size={16} /> : <FileSearch size={16} className="text-primary" />}
+                VISTA PREVIA
+              </button>
+
+              <button
+                onClick={() => handlePdfAction(true)}
+                disabled={pdfLoading}
+                className="w-full p-4 bg-white border border-slate-200 rounded-[1.5rem] font-bold flex items-center justify-center gap-2 hover:border-primary transition-all text-black shadow-md active:scale-95 disabled:opacity-50 text-xs"
+              >
+                {pdfLoading ? <Loader2 className="animate-spin text-primary" size={16} /> : <Printer size={16} className="text-primary" />}
+                {isSaved ? 'DESCARGAR PDF FINAL' : 'DESCARGAR BORRADOR'}
+              </button>
+
+              <button
+                onClick={handleSave}
+                disabled={saving || isSaved}
+                className="w-full p-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs flex items-center justify-center gap-2 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
+              >
+                {saving ? <Loader2 className="animate-spin text-white" size={16} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={16} /> : <Save className="text-white" size={16} />}
+                {saving ? 'GUARDANDO DATOS...' : isSaved ? 'GUARDADO' : 'GUARDAR REVISIÓN'}
+              </button>
             </div>
         </main>
     </div>
   );
 }
-
-
-
-

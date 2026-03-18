@@ -112,7 +112,8 @@ export default function ProfileTab() {
       alert("Por favor, dibuja una firma antes de guardar.");
       return;
     }
-    const base64 = canvasRef.current.toDataURL('image/png');
+    // CAMBIO AQUÍ: También a JPEG
+    const base64 = canvasRef.current.toDataURL('image/jpeg', 0.5);
     localStorage.setItem('energy_engine_signature', base64);
     setSavedSignature(base64);
     alert("Firma guardada correctamente en el dispositivo.");
@@ -144,7 +145,7 @@ export default function ProfileTab() {
           <div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Técnico RTS Registrado</p>
             <h2 className="text-xl font-black text-slate-900 tracking-tight">
-              {auth.currentUser?.displayName?.toUpperCase() || auth.currentUser?.email?.split('@')[0].toUpperCase() || 'T�CNICO ENERGY'}
+              {auth.currentUser?.displayName?.toUpperCase() || auth.currentUser?.email?.split('@')[0].toUpperCase() || 'TÉCNICO ENERGY'}
             </h2>
             <p className="text-sm font-medium text-slate-500">{auth.currentUser?.email}</p>
           </div>

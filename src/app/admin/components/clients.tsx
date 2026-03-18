@@ -98,7 +98,7 @@ export default function ClientsPage() {
     }
   };
   const handleDeleteClient = useCallback(async (client: Client) => {
-    if (window.confirm(`�Seguro que quieres eliminar a ${client.nombre}?`)) {
+    if (window.confirm(`¿Seguro que quieres eliminar a ${client.nombre}?`)) {
       try {
         await deleteDoc(doc(db, 'clientes', client.id));
       } catch (error) {

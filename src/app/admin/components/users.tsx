@@ -101,7 +101,7 @@ export default function UsersPage() {
 
   const handleDeleteUser = async (userId: string) => {
     if (!db) return;
-    if (window.confirm('�Seguro que quieres eliminar este usuario?')) {
+    if (window.confirm('¿Seguro que quieres eliminar este usuario?')) {
       try {
         await deleteDoc(doc(db, 'usuarios', userId));
         fetchUsers();

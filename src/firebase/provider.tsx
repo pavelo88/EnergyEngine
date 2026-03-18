@@ -3,7 +3,7 @@
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore, doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged, signOut } from 'firebase/auth';
+import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseStorage } from 'firebase/storage';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 
@@ -125,13 +125,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       const data = snap.data() as any;
       const activeSessionId = data?.activeSessionId as string | undefined;
       if (activeSessionId && activeSessionId !== sessionId) {
-        try {
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('energy_engine_session_id');
-          }
-          await signOut(auth);
-        } catch (err) {
-          console.error('Failed to enforce single active session:', err);
+        console.warn('Session id remoto detectado, adoptando sesión activa sin cerrar autenticación local.');
+        sessionId = activeSessionId;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('energy_engine_session_id', activeSessionId);
         }
       }
     });

@@ -1,5 +1,4 @@
-
-'use client';
+﻿'use client';
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
@@ -20,6 +19,8 @@ import ClientSelector from '../ClientSelector';
 import StableInput from '../StableInput';
 import { resolveInspectorEmail } from '@/lib/inspection-mode';
 import { getNextSequenceForUser } from '@/lib/sequence-manager';
+import { addImageSafely, getPdfFileName } from '@/lib/pdf-utils';
+import { MAX_IMAGES_PER_REPORT } from '@/lib/report-limits';
 
 const SIMPLIFIED_CHECKLIST_ITEMS = [
     "Filtro de Aceite",
@@ -113,17 +114,19 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
             startY: currentY,
             body: [
                 [{ content: 'DATOS DE PRUEBAS', styles: { fontStyle: 'bold', fillColor: darkColor, textColor: '#fff' }}, { content: 'VALORES', styles: { fontStyle: 'bold', fillColor: darkColor, textColor: '#fff' }}],
-                ['Horas de funcionamiento', report.datos_pruebas.horas || ''],
-                ['Presión aceite', report.datos_pruebas.presion || ''],
-                ['Temperatura en bloque motor', report.datos_pruebas.temperatura || ''],
-                ['Nivel de deposito de combustible', report.datos_pruebas.nivel_combustible || ''],
-                ['Tensión en el alternador', report.datos_pruebas.tension_alternador || ''],
-                ['Frecuencia', report.datos_pruebas.frecuencia || ''],
-                ['Carga de baterías', report.datos_pruebas.carga_baterias || ''],
+                // PROTECCIÓN 1
+                ['Horas de funcionamiento', report.datos_pruebas?.horas || ''],
+                ['Presión aceite', report.datos_pruebas?.presion || ''],
+                ['Temperatura en bloque motor', report.datos_pruebas?.temperatura || ''],
+                ['Nivel de deposito de combustible', report.datos_pruebas?.nivel_combustible || ''],
+                ['Tensión en el alternador', report.datos_pruebas?.tension_alternador || ''],
+                ['Frecuencia', report.datos_pruebas?.frecuencia || ''],
+                ['Carga de baterías', report.datos_pruebas?.carga_baterias || ''],
                 [{ content: 'PRUEBAS CON CARGA', colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#f1f5f9' }}],
-                [{ content: `Tensión: RS: ${report.pruebas_carga.tension_rs || ''}   ST: ${report.pruebas_carga.tension_st || ''}   RT: ${report.pruebas_carga.tension_rt || ''}`, colSpan: 2 }],
-                [{ content: `Intensidad: R: ${report.pruebas_carga.intensidad_r || ''}   S: ${report.pruebas_carga.intensidad_s || ''}   T: ${report.pruebas_carga.intensidad_t || ''}`, colSpan: 2 }],
-                [{ content: `Potencia: ${report.pruebas_carga.potencia_kw || ''} kW`, colSpan: 2 }],
+                // PROTECCIÓN 2
+                [{ content: `Tensión: RS: ${report.pruebas_carga?.tension_rs || ''}   ST: ${report.pruebas_carga?.tension_st || ''}   RT: ${report.pruebas_carga?.tension_rt || ''}`, colSpan: 2 }],
+                [{ content: `Intensidad: R: ${report.pruebas_carga?.intensidad_r || ''}   S: ${report.pruebas_carga?.intensidad_s || ''}   T: ${report.pruebas_carga?.intensidad_t || ''}`, colSpan: 2 }],
+                [{ content: `Potencia: ${report.pruebas_carga?.potencia_kw || ''} kW`, colSpan: 2 }],
             ],
             theme: 'grid', 
             styles: { fontSize: 8, cellPadding: 2 },
@@ -172,12 +175,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        if (report.inspectorSignatureUrl) doc.addImage(report.inspectorSignatureUrl, 'PNG', 25, currentY, 60, 25);
+        addImageSafely(doc, report.inspectorSignatureUrl, 25, currentY, 60, 25);
         doc.line(25, currentY + 25, 85, currentY + 25);
         doc.text("Firma técnico:", 25, currentY + 30);
         doc.text(inspectorName || '', 25, currentY + 35);
 
-        if (report.clientSignatureUrl) doc.addImage(report.clientSignatureUrl, 'PNG', 125, currentY, 60, 25);
+        addImageSafely(doc, report.clientSignatureUrl, 125, currentY, 60, 25);
         doc.line(125, currentY + 25, 185, currentY + 25);
         doc.text("Conforme cliente:", 125, currentY + 30);
         doc.text(report.recibidoPor || '', 125, currentY + 35);
@@ -271,23 +274,24 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
             recibidoPor: aiData.identidad.recibe || prev.recibidoPor,
             observaciones: aiData.observations_summary || prev.observaciones,
             recambios_checklist: newCheck,
+            // PROTECCIÓN 3 IA
             datos_pruebas: {
-              horas: aiData.mediciones_generales.horas || prev.datos_pruebas.horas,
-              presion: aiData.mediciones_generales.presion || prev.datos_pruebas.presion,
-              temperatura: aiData.mediciones_generales.temp || prev.datos_pruebas.temperatura,
-              nivel_combustible: aiData.mediciones_generales.combustible || prev.datos_pruebas.nivel_combustible,
-              tension_alternador: aiData.mediciones_generales.tensionAlt || prev.datos_pruebas.tension_alternador,
-              frecuencia: aiData.mediciones_generales.frecuencia || prev.datos_pruebas.frecuencia,
-              carga_baterias: aiData.mediciones_generales.cargaBat || prev.datos_pruebas.carga_baterias,
+              horas: aiData.mediciones_generales?.horas || prev.datos_pruebas.horas,
+              presion: aiData.mediciones_generales?.presion || prev.datos_pruebas.presion,
+              temperatura: aiData.mediciones_generales?.temp || prev.datos_pruebas.temperatura,
+              nivel_combustible: aiData.mediciones_generales?.combustible || prev.datos_pruebas.nivel_combustible,
+              tension_alternador: aiData.mediciones_generales?.tensionAlt || prev.datos_pruebas.tension_alternador,
+              frecuencia: aiData.mediciones_generales?.frecuencia || prev.datos_pruebas.frecuencia,
+              carga_baterias: aiData.mediciones_generales?.cargaBat || prev.datos_pruebas.carga_baterias,
             },
             pruebas_carga: {
-              tension_rs: aiData.pruebas_carga.rs || prev.pruebas_carga.tension_rs,
-              tension_st: aiData.pruebas_carga.st || prev.pruebas_carga.tension_st,
-              tension_rt: aiData.pruebas_carga.rt || prev.pruebas_carga.tension_rt,
-              intensidad_r: aiData.pruebas_carga.r || prev.pruebas_carga.intensidad_r,
-              intensidad_s: aiData.pruebas_carga.s || prev.pruebas_carga.intensidad_s,
-              intensidad_t: aiData.pruebas_carga.t || prev.pruebas_carga.intensidad_t,
-              potencia_kw: aiData.pruebas_carga.kw || prev.pruebas_carga.potencia_kw,
+              tension_rs: aiData.pruebas_carga?.rs || prev.pruebas_carga.tension_rs,
+              tension_st: aiData.pruebas_carga?.st || prev.pruebas_carga.tension_st,
+              tension_rt: aiData.pruebas_carga?.rt || prev.pruebas_carga.tension_rt,
+              intensidad_r: aiData.pruebas_carga?.r || prev.pruebas_carga.intensidad_r,
+              intensidad_s: aiData.pruebas_carga?.s || prev.pruebas_carga.intensidad_s,
+              intensidad_t: aiData.pruebas_carga?.t || prev.pruebas_carga.intensidad_t,
+              potencia_kw: aiData.pruebas_carga?.kw || prev.pruebas_carga.potencia_kw,
             }
           };
       });
@@ -324,7 +328,19 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
     );
   };
   
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files) setImages(p => [...p, ...Array.from(e.target.files!)]); };
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const selected = Array.from(e.target.files);
+    if (images.length + selected.length > MAX_IMAGES_PER_REPORT) {
+      toast({
+        variant: 'destructive',
+        title: 'Limite de imagenes',
+        description: `Maximo ${MAX_IMAGES_PER_REPORT} imagenes por informe.`,
+      });
+      return;
+    }
+    setImages((prev) => [...prev, ...selected]);
+  };
 
   const handlePdfAction = (forceDownload = false, docIdOverride?: string) => {
     if (!formData.cliente || !formData.instalacion) {
@@ -332,24 +348,25 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
         return;
     }
     setPdfLoading(true);
-    setTimeout(() => {
-        try {
-            const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: clientSignature };
-            const finalId = docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
-            const docPdf = generatePDF(reportData, inspectorName, finalId);
-            if (isSaved || forceDownload) docPdf.save(`Informe_Simplificado_${finalId}.pdf`); 
-            else {
-                const blob = docPdf.output('blob');
-                const url = URL.createObjectURL(blob);
-                setPreviewPdfUrl(url);
-            }
-        } catch (e) {
-            console.error("Fallo PDF:", e);
-            toast({ variant: 'destructive', title: 'Error PDF' });
-        } finally {
-            setPdfLoading(false);
-        }
-    }, 500);
+    try {
+      const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: clientSignature };
+      const finalId = formData.numero_informe || docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
+      const docPdf = generatePDF(reportData, inspectorName, finalId);
+      
+      if (isSaved || forceDownload) {
+        // SOLUCIÓN: FORZAR .pdf
+        docPdf.save(`${finalId}.pdf`);
+      } else {
+        const blob = docPdf.output('blob');
+        const url = URL.createObjectURL(blob);
+        setPreviewPdfUrl(url);
+      }
+    } catch (e) {
+      console.error("Fallo PDF:", e);
+      toast({ variant: 'destructive', title: 'Error PDF' });
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -357,87 +374,131 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
       toast({ variant: 'destructive', title: 'Inspector no identificado', description: 'Inicia online una vez para habilitar el modo offline.' });
       return;
     }
-    
+
     const missing = [];
     if (!formData.cliente) missing.push('Cliente');
-    if (!formData.instalacion) missing.push('Instalación');
+    if (!formData.instalacion) missing.push('Instalacion');
     if (gpsRequired && !formData.location) missing.push('Ubicacion GPS');
     if (!inspectorSignature) missing.push('Firma Inspector');
     if (!clientSignature) missing.push('Firma Cliente');
 
     if (missing.length > 0) {
-      toast({ variant: 'destructive', title: 'Datos Incompletos', description: `Falta: ${missing.join(', ')}` }); 
+      toast({ variant: 'destructive', title: 'Datos incompletos', description: `Falta: ${missing.join(', ')}` });
       return;
     }
-    setSaving(true);
 
-    const sequence = await getNextSequenceForUser({
-      type: 'informe-simplificado',
-      userEmail: inspectorEmail || '',
-      firestore: canUseCloud ? firestore : null,
-      isOnline: canUseCloud,
-    });
-    const names = inspectorName.split(' ');
-    const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
-    const docId = `IS-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
+    if (images.length > MAX_IMAGES_PER_REPORT) {
+      toast({
+        variant: 'destructive',
+        title: 'Limite de imagenes',
+        description: `Maximo ${MAX_IMAGES_PER_REPORT} imagenes por informe.`,
+      });
+      return;
+    }
 
-    const updateOriginalJobStatus = async (jobId: string) => {
-      if (canUseCloud && firestore && user?.email) {
+    let didStartSave = false;
+    try {
+      const names = inspectorName.split(' ');
+      const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
+      setSaving(true);
+      didStartSave = true;
+
+      const sequence = await getNextSequenceForUser({
+        type: 'informe-simplificado',
+        userEmail: inspectorEmail || '',
+        firestore: canUseCloud ? firestore : null,
+        isOnline: canUseCloud,
+      });
+      const docId = `IS-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
+      const limitedImages = images.slice(0, MAX_IMAGES_PER_REPORT);
+
+      const updateOriginalJobStatus = async (jobId: string) => {
+        if (canUseCloud && firestore && user?.email) {
           try { await updateDoc(doc(firestore, 'ordenes_trabajo', jobId), { estado: 'Completado' }); } catch (e) { console.error(e); }
-      }
-    };
-    
-    const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
-        const localData = { ...formData, formType: 'informe-simplificado', originalJobId: initialData?.id || null };
-        if (!synced) { (localData as any).images = images; (localData as any).inspectorSignature = inspectorSignature; (localData as any).clientSignature = clientSignature; }
+        }
+      };
+
+      const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
+        const localData: any = {
+          ...formData,
+          formType: 'informe-simplificado',
+          originalJobId: initialData?.id || null,
+          numero_informe: firebaseId,
+        };
+        if (!synced) {
+          localData.images = limitedImages;
+          localData.inspectorSignature = inspectorSignature;
+          localData.clientSignature = clientSignature;
+        }
         await dbLocal.hojas_trabajo.add({ firebaseId: firebaseId || '', synced, data: localData, createdAt: new Date() });
-        
-        setSaving(false);
+
         setSavedDocId(firebaseId || '');
         setIsSaved(true);
 
-        if (synced) toast({ title: '¡Guardado!', description: `Documento ID: ${firebaseId}` });
-        else toast({ title: 'Guardado Local', description: 'Se sincronizará al recuperar red.' });
+        if (synced) toast({ title: 'Guardado', description: `Documento ID: ${firebaseId}` });
+        else toast({ title: 'Guardado local', description: 'Se sincronizara al recuperar red.' });
 
-        const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora");
-        if (shouldDownload) {
-            handlePdfAction(true, firebaseId);
-        }
-        
+        handlePdfAction(true, firebaseId);
+
         if (onSuccess) onSuccess();
-    };
+      };
 
-    if (canUseCloud && firestore && user.email) {
+      if (canUseCloud && firestore && user.email) {
         try {
-            const storage = getStorage();
+          const storage = getStorage();
 
-            const imageUrls = await Promise.all(images.map(async (img) => {
-                const r = ref(storage, `informes/${docId}/${img.name}`);
-                await uploadBytes(r, img); return await getDownloadURL(r);
-            }));
+          const imageUrls = await Promise.all(limitedImages.map(async (img) => {
+            const r = ref(storage, `informes/${docId}/${img.name}`);
+            await uploadBytes(r, img);
+            return getDownloadURL(r);
+          }));
 
-            const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
-            await uploadString(inspRef, inspectorSignature!, 'data_url');
-            const inspectorSignatureUrl = await getDownloadURL(inspRef);
+          const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
+          await uploadString(inspRef, inspectorSignature!, 'data_url');
+          const inspectorSignatureUrl = await getDownloadURL(inspRef);
 
-            const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
-            await uploadString(cliRef, clientSignature!, 'data_url');
-            const clientSignatureUrl = await getDownloadURL(cliRef);
+          const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
+          await uploadString(cliRef, clientSignature!, 'data_url');
+          const clientSignatureUrl = await getDownloadURL(cliRef);
 
-            const docData = { 
-                ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl, 
-                inspectorId: inspectorEmail || '', inspectorNombre: inspectorName, 
-                inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
-                inspectorNombres: initialData?.inspectorNombres || [inspectorName],
-                fecha_creacion: Timestamp.now(), formType: formData.formType || 'informe-simplificado', id: docId, estado: 'Completado' 
-            };  await setDoc(doc(firestore, 'informes', docId), docData);
-            if (initialData?.id) await updateOriginalJobStatus(initialData.id);
+          const docData = {
+            ...formData,
+            imageUrls,
+            inspectorSignatureUrl,
+            clientSignatureUrl,
+            inspectorId: inspectorEmail || '',
+            inspectorNombre: inspectorName,
+            inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
+            inspectorNombres: initialData?.inspectorNombres || [inspectorName],
+            fecha_creacion: Timestamp.now(),
+            formType: formData.formType || 'informe-simplificado',
+            id: docId,
+            numero_informe: docId,
+            estado: 'Completado'
+          };
+          await setDoc(doc(firestore, 'informes', docId), docData);
+          if (initialData?.id) await updateOriginalJobStatus(initialData.id);
 
-            await saveDataToLocal(true, docId);
-        } catch (error) { console.error("Error Firebase:", error); await saveDataToLocal(false, docId); }
-    } else { await saveDataToLocal(false, docId); }
+          await saveDataToLocal(true, docId);
+        } catch (error) {
+          console.error('Error Firebase:', error);
+          await saveDataToLocal(false, docId);
+        }
+      } else {
+        await saveDataToLocal(false, docId);
+      }
+    } catch (error) {
+      console.error('Error en guardado de informe simplificado:', error);
+      toast({
+        variant: 'destructive',
+        title: 'No se pudo guardar',
+        description: 'Intente nuevamente. Si continua, revise conexion y permisos.',
+      });
+    } finally {
+      if (didStartSave) setSaving(false);
+    }
   };
-  
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full bg-white min-h-screen pb-20">
        <Dialog open={!!previewPdfUrl} onOpenChange={(isOpen) => {
@@ -447,12 +508,21 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
             }
         }}>
             <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border border-slate-200 bg-white text-slate-950 light">
-                <DialogHeader className="p-6 border-b border-slate-100 bg-white">
-                    <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa Informe Simplificado</DialogTitle>
-                    <DialogDescription className="text-xs text-slate-500">Revise la información antes del cierre técnico.</DialogDescription>
+                {/* SOLUCIÓN: Botón en cabecera */}
+                <DialogHeader className="p-6 border-b border-slate-100 bg-white flex flex-row items-center justify-between">
+                    <div>
+                      <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa Informe Simplificado</DialogTitle>
+                      <DialogDescription className="text-xs text-slate-500">Revise la información antes del cierre técnico.</DialogDescription>
+                    </div>
+                    <button 
+                      onClick={() => handlePdfAction(true)} 
+                      className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-primary/90 transition-all shadow-sm active:scale-95"
+                    >
+                      Descargar PDF
+                    </button>
                 </DialogHeader>
                 <div className="flex-1 bg-slate-100">
-                    {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full border-none" title="PDF Preview" />}
+                  {previewPdfUrl && <iframe src={`${previewPdfUrl}#toolbar=0`} className="w-full h-full border-none" title="PDF Preview" />}
                 </div>
             </DialogContent>
         </Dialog>
@@ -547,29 +617,36 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
                 </div>
             </section>
 
+            {/* SOLUCIÓN: Botones Directos */}
             <div className="flex flex-col md:flex-row gap-3 pt-4">
-                <button 
-                    onClick={() => handlePdfAction(false)} 
-                    disabled={pdfLoading}
-                    className="w-full p-5 bg-white text-black border border-slate-200 rounded-2xl font-black text-sm flex items-center justify-center gap-3 active:scale-95 transition-all shadow-md disabled:opacity-50 hover:border-primary"
-                >
-                    {pdfLoading ? <Loader2 className="animate-spin text-primary" size={18}/> : isSaved ? <Printer className="text-primary" size={18} /> : <FileSearch className="text-primary" size={18} />}
-                    {pdfLoading ? 'GENERANDO...' : isSaved ? 'IMPRIMIR PDF FINAL' : 'VISTA PREVIA'}
-                </button>
-                <button 
-                    onClick={handleSave} 
-                    disabled={saving || isSaved} 
-                    className="w-full p-5 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-3 active:scale-95 transition-all shadow-xl disabled:opacity-50 disabled:bg-slate-700"
-                >
-                    {saving ? <Loader2 className="animate-spin text-white" size={18} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={18} /> : <Save className="text-white" size={18} />}
-                    {saving ? 'GUARDANDO DATOS...' : isSaved ? 'GUARDADO' : 'CERRAR INFORME'}
-                </button>
+              <button
+                onClick={() => handlePdfAction(false)}
+                disabled={pdfLoading}
+                className="w-full p-4 bg-white border border-slate-200 rounded-[1.5rem] font-bold flex items-center justify-center gap-2 hover:border-primary transition-all text-slate-600 shadow-sm active:scale-95 disabled:opacity-50 text-xs"
+              >
+                {pdfLoading ? <Loader2 className="animate-spin text-primary" size={16} /> : <FileSearch size={16} className="text-primary" />}
+                VISTA PREVIA
+              </button>
+
+              <button
+                onClick={() => handlePdfAction(true)}
+                disabled={pdfLoading}
+                className="w-full p-4 bg-white border border-slate-200 rounded-[1.5rem] font-bold flex items-center justify-center gap-2 hover:border-primary transition-all text-black shadow-md active:scale-95 disabled:opacity-50 text-xs"
+              >
+                {pdfLoading ? <Loader2 className="animate-spin text-primary" size={16} /> : <Printer size={16} className="text-primary" />}
+                {isSaved ? 'DESCARGAR PDF FINAL' : 'DESCARGAR BORRADOR'}
+              </button>
+
+              <button
+                onClick={handleSave}
+                disabled={saving || isSaved}
+                className="w-full p-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs flex items-center justify-center gap-2 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
+              >
+                {saving ? <Loader2 className="animate-spin text-white" size={16} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={16} /> : <Save className="text-white" size={16} />}
+                {saving ? 'GUARDANDO DATOS...' : isSaved ? 'GUARDADO' : 'CERRAR INFORME'}
+              </button>
             </div>
         </main>
     </div>
   );
 }
-
-
-
-

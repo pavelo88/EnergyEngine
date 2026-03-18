@@ -19,7 +19,7 @@ import ClientSelector from '../ClientSelector';
 import StableInput from '../StableInput';
 import { resolveInspectorEmail } from '@/lib/inspection-mode';
 import { getNextSequenceForUser } from '@/lib/sequence-manager';
-
+import { addImageSafely, getPdfFileName } from '@/lib/pdf-utils';
 
 
 export const generatePDF = (report: any, inspectorName: string, reportId: string | null) => {
@@ -107,10 +107,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     
     currentY += 1;
 
-    if (report.inspectorSignatureUrl) {
-        doc.addImage(report.inspectorSignatureUrl, 'PNG', leftMargin, currentY, 60, 25);
-    }
-    doc.setFontSize(10);
+addImageSafely(doc, report.inspectorSignatureUrl, leftMargin, currentY, 60, 25);    doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`Firmado: ${inspectorName}`, leftMargin, currentY + 32);
     doc.text(`A ${new Date(report.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, leftMargin, currentY + 39);
@@ -273,7 +270,7 @@ export default function InformeTrabajoForm({ initialData, aiData }: { initialDat
     const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature };
     const docPdf = generatePDF(reportData, inspectorName, isSaved ? savedDocId : 'BORRADOR');
     if (isSaved) {
-      docPdf.save(`Informe_Tecnico_${savedDocId}.pdf`);
+      docPdf.save(getPdfFileName(savedDocId));
     } else {
       setPreviewPdfUrl(docPdf.output('datauristring'));
     }

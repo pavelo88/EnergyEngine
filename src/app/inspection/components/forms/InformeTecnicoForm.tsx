@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
@@ -18,6 +18,7 @@ import ClientSelector from '../ClientSelector';
 import StableInput from '../StableInput';
 import { resolveInspectorEmail } from '@/lib/inspection-mode';
 import { getNextSequenceForUser } from '@/lib/sequence-manager';
+import { addImageSafely, getPdfFileName } from '@/lib/pdf-utils';
 
 export const generatePDF = (report: any, inspectorName: string, reportId: string | null) => {
   const doc = new jsPDF();
@@ -35,7 +36,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   let currentY = topMargin;
 
   try {
-    const title = `INFORME TÃ‰CNICO NÂº: ${finalID}`;
+    const title = `INFORME TÉCNICO Nº: ${finalID}`;
     doc.setTextColor(darkColor);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
@@ -48,9 +49,9 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         ['Fecha:', new Date(report.fecha).toLocaleDateString('es-ES'), 'Técnico:', inspectorName],
         [{ content: 'Cliente:', styles: { fontStyle: 'bold' } }, { content: report.clienteNombre || report.cliente || 'N/A', colSpan: 3 }],
         [{ content: 'Instalación:', styles: { fontStyle: 'bold' } }, { content: report.instalacion || 'N/A', colSpan: 3 }],
-        [{ content: 'UBICACIÃ“N:', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
+        [{ content: 'UBICACIÓN:', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
         ['Motor:', report.motor || '-', 'Modelo:', report.modelo || '-'],
-        ['NÂº de motor:', report.n_motor || '-', 'Grupo:', report.grupo || '-'],
+        ['Nº de motor:', report.n_motor || '-', 'Grupo:', report.grupo || '-'],
       ],
       theme: 'grid',
       styles: { fontSize: 9, cellPadding: 2, lineColor: '#ccc', lineWidth: 0.1 },
@@ -104,11 +105,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     currentY += 5;
 
-    if (report.inspectorSignatureUrl) {
-      try {
-        doc.addImage(report.inspectorSignatureUrl, 'PNG', leftMargin, currentY, 60, 25);
-      } catch (e) { console.error("Could not add signature to PDF:", e); }
-    }
+    addImageSafely(doc, report.inspectorSignatureUrl, leftMargin, currentY, 60, 25);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`Firmado: ${inspectorName}`, leftMargin, currentY + 32);
@@ -253,9 +250,9 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
     setAiLoading(true);
     try {
       const res = await splitTechnicalReport({ dictation: formData.reportContent });
-      const formattedText = `ANTECEDENTES:\n\n${res.antecedentes}\n\nINTERVENCIÃ“N:\n\n${res.intervencion}\n\nRESUMEN Y SITUACIÃ“N ACTUAL:\n\n${res.resumen}`;
+      const formattedText = `ANTECEDENTES:\n\n${res.antecedentes}\n\nINTERVENCIÓN:\n\n${res.intervencion}\n\nRESUMEN Y SITUACIÓN ACTUAL:\n\n${res.resumen}`;
       setFormData((p: any) => ({ ...p, reportContent: formattedText }));
-      toast({ title: 'Â¡Pulido por IA!', description: 'El reporte ha sido estructurado formalmente.' });
+      toast({ title: '¡Pulido por IA!', description: 'El reporte ha sido estructurado formalmente.' });
     } catch (e: any) {
       console.error("AI Error:", e);
       toast({
@@ -276,15 +273,12 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
     setTimeout(() => {
       try {
         const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature };
-
-        // PRIORIDAD: 1. ID Forzado (el que acabamos de generar) 2. ID guardado en estado 3. Borrador
         const finalId = docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
-
         const docPdf = generatePDF(reportData, inspectorName, finalId);
 
         if (isSaved || forceDownload) {
-          // AQUÍ ESTÁ LA MAGIA: Forzamos el nombre del archivo con el ID real
-          docPdf.save(`Informe_Tecnico_${finalId}.pdf`);
+          // SOLUCIÓN: FORZAR .pdf
+          docPdf.save(`${finalId}.pdf`);
         } else {
           const blob = docPdf.output('blob');
           const url = URL.createObjectURL(blob);
@@ -306,89 +300,105 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
 
     const missing = [];
     if (!formData.cliente) missing.push('Cliente');
-    if (!formData.instalacion) missing.push('Instalación');
-    if (gpsRequired && !formData.location) missing.push('Ubicación GPS');
+    if (!formData.instalacion) missing.push('Instalacion');
+    if (gpsRequired && !formData.location) missing.push('Ubicacion GPS');
     if (!inspectorSignature) missing.push('Firma Inspector');
 
     if (missing.length > 0) {
       toast({
         variant: 'destructive',
-        title: 'Datos Incompletos',
+        title: 'Datos incompletos',
         description: `Por favor complete: ${missing.join(', ')}`
       });
       return;
     }
 
-    setSaving(true);
+    let didStartSave = false;
+    try {
+      const names = inspectorName.split(' ');
+      const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
+      setSaving(true);
+      didStartSave = true;
 
-    const sequence = await getNextSequenceForUser({
-      type: 'informe-tecnico',
-      userEmail: inspectorEmail || '',
-      firestore: canUseCloud ? firestore : null,
-      isOnline: canUseCloud,
-    });
-    const names = inspectorName.split(' ');
-    const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
-    const docId = `IT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
+      const sequence = await getNextSequenceForUser({
+        type: 'informe-tecnico',
+        userEmail: inspectorEmail || '',
+        firestore: canUseCloud ? firestore : null,
+        isOnline: canUseCloud,
+      });
+      const docId = `IT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
 
-    const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
-      const localData = { ...formData, originalJobId: initialData?.id || null };
-      if (!synced) (localData as any).inspectorSignature = inspectorSignature;
-      await dbLocal.hojas_trabajo.add({ firebaseId: firebaseId || '', synced, data: localData, createdAt: new Date() });
+      const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
+        const localData: any = {
+          ...formData,
+          formType: 'informe-tecnico',
+          originalJobId: initialData?.id || null,
+          numero_informe: firebaseId,
+        };
+        if (!synced) localData.inspectorSignature = inspectorSignature;
+        await dbLocal.hojas_trabajo.add({ firebaseId: firebaseId || '', synced, data: localData, createdAt: new Date() });
 
-      setSaving(false);
-      setSavedDocId(firebaseId || '');
-      setIsSaved(true);
+        setSavedDocId(firebaseId || '');
+        setIsSaved(true);
 
-      if (synced) {
-        toast({ title: '¡Informe Sincronizado!', description: `Guardado con éxito. ID: ${firebaseId}` });
-      } else {
-        toast({
-          title: 'Guardado Localmente',
-          description: 'Error de red. Se sincronizará automáticamente después.'
-        });
-      }
+        if (synced) {
+          toast({ title: 'Informe sincronizado', description: `Guardado con exito. ID: ${firebaseId}` });
+        } else {
+          toast({
+            title: 'Guardado localmente',
+            description: 'Error de red. Se sincronizara automaticamente despues.'
+          });
+        }
 
-      const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora");
-      if (shouldDownload) {
-        handlePdfAction(true, docId);
-      }
+        handlePdfAction(true, firebaseId);
 
-      if (onSuccess) onSuccess();
-    };
+        if (onSuccess) onSuccess();
+      };
 
-    if (canUseCloud && firestore && user?.email) {
-      try {
-        const storage = getStorage();
-
-        let inspectorSignatureUrl = null;
+      if (canUseCloud && firestore && user?.email) {
         try {
+          const storage = getStorage();
+
+          let inspectorSignatureUrl = null;
           const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
           await uploadString(signatureRef, inspectorSignature!, 'data_url');
           inspectorSignatureUrl = await getDownloadURL(signatureRef);
-        } catch (storageErr) {
-          console.warn("Storage Error (likely CORS):", storageErr);
-          throw new Error("STORAGE_CORS_ERROR");
+
+          const docData = {
+            ...formData,
+            inspectorSignatureUrl,
+            clientSignatureUrl: null,
+            inspectorId: inspectorEmail || '',
+            inspectorNombre: inspectorName,
+            inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
+            inspectorNombres: initialData?.inspectorNombres || [inspectorName],
+            fecha_creacion: Timestamp.now(),
+            formType: formData.formType || 'informe-tecnico',
+            id: docId,
+            numero_informe: docId,
+            estado: 'Completado'
+          };
+
+          await setDoc(doc(firestore, 'informes', docId), docData);
+          if (initialData?.id) await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
+
+          await saveDataToLocal(true, docId);
+        } catch (e) {
+          console.error('Cloud save failed:', e);
+          await saveDataToLocal(false, docId);
         }
-
-        const docData = {
-          ...formData, inspectorSignatureUrl, clientSignatureUrl: null,
-          inspectorId: inspectorEmail || '', inspectorNombre: inspectorName,
-          inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
-          inspectorNombres: initialData?.inspectorNombres || [inspectorName],
-          fecha_creacion: Timestamp.now(), formType: formData.formType || 'informe-tecnico', id: docId, estado: 'Completado'
-        };
-
-        await setDoc(doc(firestore, 'informes', docId), docData);
-        if (initialData?.id) await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
-
-        await saveDataToLocal(true, docId);
-      } catch (e: any) {
-        console.error("Cloud save failed:", e);
+      } else {
         await saveDataToLocal(false, docId);
       }
-    } else {
-      await saveDataToLocal(false, docId);
+    } catch (error) {
+      console.error('Error en guardado de informe tecnico:', error);
+      toast({
+        variant: 'destructive',
+        title: 'No se pudo guardar',
+        description: 'Intente nuevamente. Si continua, revise conexion y permisos.',
+      });
+    } finally {
+      if (didStartSave) setSaving(false);
     }
   };
 
@@ -401,9 +411,18 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
         }
       }}>
         <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border border-slate-200 bg-white text-slate-950 light">
-          <DialogHeader className="p-6 border-b border-slate-100 bg-white">
-            <DialogTitle className="font-black uppercase tracking-tighter text-black">Borrador Informe Técnico</DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">Documento profesional para validación de intervenciones.</DialogDescription>
+          {/* SOLUCIÓN: Botón en cabecera */}
+          <DialogHeader className="p-6 border-b border-slate-100 bg-white flex flex-row items-center justify-between">
+            <div>
+              <DialogTitle className="font-black uppercase tracking-tighter text-black">Borrador Informe Técnico</DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">Documento profesional para validación de intervenciones.</DialogDescription>
+            </div>
+            <button 
+              onClick={() => handlePdfAction(true)} 
+              className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-primary/90 transition-all shadow-sm active:scale-95"
+            >
+              Descargar PDF
+            </button>
           </DialogHeader>
           <div className="flex-1 bg-slate-100">
             {previewPdfUrl ? (
@@ -429,7 +448,7 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
           </div>
           <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: string) => handleInputChange('motor', v)} />
           <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={(v: string) => handleInputChange('modelo', v)} />
-          <StableInput label="NÂº de motor" icon={Type} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)} />
+          <StableInput label="Nº de motor" icon={Type} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)} />
           <StableInput label="Grupo" icon={Settings} value={formData.grupo} onChange={(v: string) => handleInputChange('grupo', v)} />
           <div className="md:col-span-2">
             <StableInput label="Instalación / Ubicación Específica" icon={MapPin} value={formData.instalacion} onChange={(v: string) => handleInputChange('instalacion', v)} />
@@ -469,27 +488,35 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
         <p className="text-center font-black text-slate-400 text-[8px] uppercase tracking-widest mt-2">{inspectorName}</p>
       </section>
 
-      <div className="flex flex-col md:flex-row gap-4 pt-4">
+      {/* SOLUCIÓN: Botones Directos */}
+      <div className="flex flex-col md:flex-row gap-3 pt-4">
         <button
           onClick={() => handlePdfAction(false)}
           disabled={pdfLoading}
-          className="w-full p-5 bg-white text-black border border-slate-200 rounded-[1.5rem] font-bold text-sm flex items-center justify-center gap-3 active:scale-95 transition-all hover:border-primary shadow-md disabled:opacity-50"
+          className="w-full p-4 bg-white border border-slate-200 rounded-[1.5rem] font-bold flex items-center justify-center gap-2 hover:border-primary transition-all text-slate-600 shadow-sm active:scale-95 disabled:opacity-50 text-xs"
         >
-          {pdfLoading ? <Loader2 className="animate-spin text-primary" size={18} /> : isSaved ? <Printer className="text-primary" size={18} /> : <FileSearch className="text-primary" size={18} />}
-          {pdfLoading ? 'GENERANDO...' : 'VISTA PREVIA PDF'}
+          {pdfLoading ? <Loader2 className="animate-spin text-primary" size={16} /> : <FileSearch size={16} className="text-primary" />}
+          VISTA PREVIA
         </button>
+
+        <button
+          onClick={() => handlePdfAction(true)}
+          disabled={pdfLoading}
+          className="w-full p-4 bg-white border border-slate-200 rounded-[1.5rem] font-bold flex items-center justify-center gap-2 hover:border-primary transition-all text-black shadow-md active:scale-95 disabled:opacity-50 text-xs"
+        >
+          {pdfLoading ? <Loader2 className="animate-spin text-primary" size={16} /> : <Printer size={16} className="text-primary" />}
+          {isSaved ? 'DESCARGAR PDF FINAL' : 'DESCARGAR BORRADOR'}
+        </button>
+
         <button
           onClick={handleSave}
           disabled={saving || isSaved}
-          className="w-full p-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-sm flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 shadow-xl disabled:bg-slate-700"
+          className="w-full p-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs flex items-center justify-center gap-2 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
         >
-          {saving ? <Loader2 className="animate-spin text-white" size={18} /> : isSaved ? <CheckCircle2 className="text-white" size={18} /> : <Save className="text-white" size={18} />}
-          {saving ? 'GUARDANDO INFORME...' : isSaved ? 'INFORME GUARDADO' : 'CERRAR Y GUARDAR'}
+          {saving ? <Loader2 className="animate-spin text-white" size={16} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={16} /> : <Save className="text-white" size={16} />}
+          {saving ? 'GUARDANDO DATOS...' : isSaved ? 'GUARDADO' : 'CERRAR INFORME'}
         </button>
       </div>
     </main>
   );
 }
-
-
-

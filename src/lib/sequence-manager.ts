@@ -13,6 +13,7 @@ type SequenceRequest = {
 };
 
 const getYear = (year?: number) => year || new Date().getFullYear();
+const PROJECTION_TIMEOUT_MS = 1500;
 
 export const syncLocalCountersFromCloud = async (
   firestore: Firestore,
@@ -89,5 +90,52 @@ export const getNextSequenceForUser = async ({
   } catch (error) {
     console.warn(`Falling back to local sequence for ${type}:`, error);
     return getLocalFallback();
+  }
+};
+
+export const getProjectedSequenceForUser = async ({
+  type,
+  userEmail,
+  firestore,
+  isOnline,
+  year,
+}: SequenceRequest): Promise<number> => {
+  const normalizedEmail = normalizeInspectionEmail(userEmail);
+  const activeYear = getYear(year);
+
+  if (!normalizedEmail) {
+    const current = await dbLocal.getSequence(type, 'global', activeYear);
+    return current + 1;
+  }
+
+  const getLocalProjected = async () => {
+    const localCurrent = await dbLocal.getSequence(type, normalizedEmail, activeYear);
+    return localCurrent + 1;
+  };
+
+  if (!isOnline || !firestore) {
+    return getLocalProjected();
+  }
+
+  try {
+    const userRef = doc(firestore, 'usuarios', normalizedEmail);
+    const snap = await Promise.race([
+      getDoc(userRef),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Projected sequence timeout')), PROJECTION_TIMEOUT_MS);
+      }),
+    ]);
+    const countersByYear = ((snap.exists() ? snap.data()?.inspectionCounters : {}) || {}) as Record<string, Record<string, number>>;
+    const yearKey = String(activeYear);
+    const cloudCurrent = Number(countersByYear?.[yearKey]?.[type] || 0);
+    const localCurrent = await dbLocal.getSequence(type, normalizedEmail, activeYear);
+    const baseCurrent = Math.max(
+      Number.isFinite(cloudCurrent) ? cloudCurrent : 0,
+      Number.isFinite(localCurrent) ? localCurrent : 0
+    );
+    return baseCurrent + 1;
+  } catch (error) {
+    console.warn(`Falling back to local projected sequence for ${type}:`, error);
+    return getLocalProjected();
   }
 };

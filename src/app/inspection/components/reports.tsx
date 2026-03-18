@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { collection, query, getDocs, orderBy } from 'firebase/firestore';
@@ -6,13 +6,14 @@ import { useFirestore } from '@/firebase';
 import { Loader2, FileText, AlertTriangle, Printer } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import { getPdfFileName, normalizeReportForPdf } from '@/lib/pdf-utils';
 
 // Importar las funciones de generación de PDF de cada formulario
 import { generatePDF as generateHojaTrabajoPDF } from '@/app/inspection/components/forms/HojaTrabajoForm';
 import { generatePDF as generateInformeRevisionPDF } from '@/app/inspection/components/forms/InformeRevisionForm';
-import { generatePDF as generateInformeTecnicoPDF } from '@/app/inspection/components/forms/InformeTrabajoForm';
-// Asumimos que también existirá un generador para InformeSimplificadoForm
+import { generatePDF as generateInformeTecnicoPDF } from '@/app/inspection/components/forms/InformeTecnicoForm';
 import { generatePDF as generateInformeSimplificadoPDF } from '@/app/inspection/components/forms/InformeSimplificadoForm';
+import { generatePDF as generateRevisionBasicaPDF } from '@/app/inspection/components/forms/RevisionBasicaForm';
 
 
 interface Report {
@@ -20,7 +21,7 @@ interface Report {
   cliente: string;
   clienteNombre?: string;
   fecha_creacion: any; 
-  formType: 'hoja-trabajo' | 'informe-revision' | 'informe-tecnico' | 'informe-simplificado' | 'job' | undefined;
+  formType: 'hoja-trabajo' | 'informe-revision' | 'informe-tecnico' | 'informe-simplificado' | 'revision-basica' | 'job' | undefined;
   [key: string]: any; // Para el resto de los datos
 }
 
@@ -56,21 +57,27 @@ export default function ReportsPage() {
     fetchAllReports();
   }, [db]);
 
-  const handleReprintPDF = (report: Report) => {
+  const handleReprintPDF = async (report: Report) => {
     let doc: jsPDF | null = null;
+    const reportForPdf = await normalizeReportForPdf(report as any);
+    const inspectorName = report.inspectorNombre || report.tecnicoNombre || 'N/A';
+    const finalId = (report as any).numero_informe || report.id;
     try {
-        switch(report.formType) {
+        switch (report.formType) {
             case 'hoja-trabajo':
-                doc = generateHojaTrabajoPDF(report, report.inspectorNombre || report.tecnicoNombre || 'N/A', report.id);
+                doc = generateHojaTrabajoPDF(reportForPdf, inspectorName, finalId);
                 break;
             case 'informe-revision':
-                doc = generateInformeRevisionPDF(report, report.inspectorNombre || report.tecnicoNombre || 'N/A', report.id);
+                doc = generateInformeRevisionPDF(reportForPdf, inspectorName, finalId);
                 break;
             case 'informe-tecnico':
-                doc = generateInformeTecnicoPDF(report, report.inspectorNombre || report.tecnicoNombre || 'N/A', report.id);
+                doc = generateInformeTecnicoPDF(reportForPdf, inspectorName, finalId);
                 break;
             case 'informe-simplificado':
-                doc = generateInformeSimplificadoPDF(report, report.inspectorNombre || report.tecnicoNombre || 'N/A', report.id);
+                doc = generateInformeSimplificadoPDF(reportForPdf, inspectorName, finalId);
+                break;
+            case 'revision-basica':
+                doc = generateRevisionBasicaPDF(reportForPdf, inspectorName, finalId);
                 break;
             default:
                 alert('Este tipo de documento no tiene un formato de PDF para reimprimir.');
@@ -78,20 +85,21 @@ export default function ReportsPage() {
         }
 
         if (doc) {
-            doc.save(`Reimpresion_${report.id}.pdf`);
+            doc.save(getPdfFileName(finalId));
         }
     } catch (e) {
-        console.error("Error al reimprimir PDF:", e);
-        alert("No se pudo generar el PDF. Revisa la consola para más detalles.");
+        console.error('Error al reimprimir PDF:', e);
+        alert('No se pudo generar el PDF. Revisa la consola para mas detalles.');
     }
   };
-  
+
   const getReportTitle = (formType: Report['formType']) => {
     switch(formType) {
         case 'hoja-trabajo': return 'Hoja de Trabajo';
         case 'informe-revision': return 'Informe de Revisión';
         case 'informe-tecnico': return 'Informe Técnico';
         case 'informe-simplificado': return 'Informe Simplificado';
+        case 'revision-basica': return 'Revision Basica';
         case 'job': return 'Trabajo Manual';
         default: return 'Documento General';
     }
@@ -151,3 +159,6 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+
+

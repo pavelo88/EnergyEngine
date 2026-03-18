@@ -11,11 +11,12 @@ import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { useAdminHeader } from './AdminHeaderContext';
 import { formatSafeDate } from '@/lib/utils';
+import { getInlineImageDataUrl, getPdfFileName } from '@/lib/pdf-utils';
 
 // Importar las funciones de generación de PDF de cada formulario
 import { generatePDF as generateHojaTrabajoPDF } from '@/app/inspection/components/forms/HojaTrabajoForm';
 import { generatePDF as generateInformeRevisionPDF } from '@/app/inspection/components/forms/InformeRevisionForm';
-import { generatePDF as generateInformeTecnicoPDF } from '@/app/inspection/components/forms/InformeTrabajoForm';
+import { generatePDF as generateInformeTecnicoPDF } from '@/app/inspection/components/forms/InformeTecnicoForm';
 import { generatePDF as generateInformeSimplificadoPDF } from '@/app/inspection/components/forms/InformeSimplificadoForm';
 
 interface Report {
@@ -88,18 +89,35 @@ export default function ReportsPage() {
 
   const handleReprintPDF = (report: Report) => {
     let doc: jsPDF | null = null;
-    const inspectorName = report.tecnicoNombre || report.inspectorNombres?.join(', ') || 'técnico energy engine';
+    const inspectorName = report.tecnicoNombre || report.inspectorNombres?.join(', ') || 'tecnico energy engine';
+    const reportForPdf = {
+      ...report,
+      inspectorSignatureUrl: getInlineImageDataUrl((report as any).inspectorSignatureUrl || (report as any).inspectorSignature || ''),
+      clientSignatureUrl: getInlineImageDataUrl((report as any).clientSignatureUrl || (report as any).clientSignature || ''),
+    };
+
     try {
-        switch(report.formType) {
-            case 'hoja-trabajo': doc = generateHojaTrabajoPDF(report, inspectorName, report.id); break;
-            case 'informe-revision': doc = generateInformeRevisionPDF(report, inspectorName, report.id); break;
-            case 'informe-tecnico': doc = generateInformeTecnicoPDF(report, inspectorName, report.id); break;
-            case 'informe-simplificado': doc = generateInformeSimplificadoPDF(report, inspectorName, report.id); break;
-            default: alert('El formato de este documento no soporta reimpresión automática.'); return;
-        }
-        if (doc) doc.save(`Informe_${report.id}.pdf`);
+      switch (report.formType) {
+        case 'hoja-trabajo':
+          doc = generateHojaTrabajoPDF(reportForPdf, inspectorName, report.id);
+          break;
+        case 'informe-revision':
+          doc = generateInformeRevisionPDF(reportForPdf, inspectorName, report.id);
+          break;
+        case 'informe-tecnico':
+          doc = generateInformeTecnicoPDF(reportForPdf, inspectorName, report.id);
+          break;
+        case 'informe-simplificado':
+          doc = generateInformeSimplificadoPDF(reportForPdf, inspectorName, report.id);
+          break;
+        default:
+          alert('El formato de este documento no soporta reimpresion automatica.');
+          return;
+      }
+
+      if (doc) doc.save(getPdfFileName(report.id));
     } catch (e) {
-        console.error("Error al reimprimir PDF maestro:", e);
+      console.error('Error al reimprimir PDF maestro:', e);
     }
   };
   
@@ -179,3 +197,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+

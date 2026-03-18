@@ -1,16 +1,17 @@
-
+﻿
 'use client';
 
 import React, { useState, useEffect, Suspense, useRef, useCallback } from 'react';
 import { useFirebase } from '@/firebase';
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { collection, query, where, getDocs, setDoc, doc, Timestamp, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, setDoc, doc, Timestamp, updateDoc, onSnapshot, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { getStorage, ref, getDownloadURL, uploadString, uploadBytes } from 'firebase/storage';
 import { db as dbLocal } from '@/lib/db-local';
 import { getBackoffDelay, isRetryableError, base64ToBlob } from '@/lib/offline-utils';
 import { getInspectionMode, getStoredOfflineEmail, type InspectionMode } from '@/lib/inspection-mode';
 import { syncLocalCountersFromCloud } from '@/lib/sequence-manager';
+import { MAX_IMAGES_PER_REPORT } from '@/lib/report-limits';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -261,13 +262,72 @@ const InspectionPageContent = () => {
     return () => unsubscribe();
   }, [canUseCloud, firestore, user, toast]);
 
+  const resolveCounterType = (reportNumber: string, formType?: string) => {
+    if (formType === 'hoja-trabajo') return 'hoja-trabajo';
+    if (formType === 'informe-revision') return 'informe-revision';
+    if (formType === 'informe-tecnico') return 'informe-tecnico';
+    if (formType === 'informe-simplificado') return 'informe-simplificado';
+    if (formType === 'revision-basica') return 'revision-basica';
+
+    const prefix = String(reportNumber || '').split('-')[0]?.toUpperCase();
+    if (prefix === 'HT') return 'hoja-trabajo';
+    if (prefix === 'IR') return 'informe-revision';
+    if (prefix === 'IT') return 'informe-tecnico';
+    if (prefix === 'IS') return 'informe-simplificado';
+    if (prefix === 'BAS') return 'revision-basica';
+    return null;
+  };
+
+  const getSequenceFromReportNumber = (reportNumber: string) => {
+    const match = String(reportNumber || '').match(/-(\d{4,})$/);
+    if (!match) return null;
+    const value = Number(match[1]);
+    return Number.isFinite(value) ? value : null;
+  };
+
+  const ensureCloudCounterAtLeast = useCallback(async (reportNumber: string, formType?: string) => {
+    if (!firestore || !user?.email) return;
+
+    const normalizedReportNumber = String(reportNumber || '').trim();
+    if (!normalizedReportNumber) return;
+
+    const sequenceValue = getSequenceFromReportNumber(normalizedReportNumber);
+    if (!sequenceValue || sequenceValue <= 0) return;
+
+    const counterType = resolveCounterType(normalizedReportNumber, formType);
+    if (!counterType) return;
+
+    const yearKey = String(new Date().getFullYear());
+    const userRef = doc(firestore, 'usuarios', user.email);
+
+    await runTransaction(firestore, async (tx) => {
+      const snap = await tx.get(userRef);
+      const data = (snap.exists() ? snap.data() : {}) as any;
+      const current = Number(data?.inspectionCounters?.[yearKey]?.[counterType] || 0);
+      if (sequenceValue <= current) return;
+
+      tx.set(
+        userRef,
+        {
+          inspectionCounters: {
+            [yearKey]: {
+              [counterType]: sequenceValue
+            }
+          },
+          countersUpdatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    });
+  }, [firestore, user?.email]);
+
   const syncOfflineData = useCallback(async () => {
     if (!canUseCloud || syncInFlightRef.current || !user || !firestore) {
-      console.log('🔴 syncOfflineData skipped:', { canUseCloud, isSyncing, user: !!user, firestore: !!firestore });
+      console.log('ðŸ”´ syncOfflineData skipped:', { canUseCloud, isSyncing, user: !!user, firestore: !!firestore });
       return;
     }
 
-    console.log('🟢 syncOfflineData INICIADA');
+    console.log('ðŸŸ¢ syncOfflineData INICIADA');
     syncInFlightRef.current = true;
     setIsSyncing(true);
     const storage = getStorage(firestore.app);
@@ -278,7 +338,7 @@ const InspectionPageContent = () => {
       // 0. Sincronizar Clientes creados offline
       const pendingClientes = await dbLocal.clientes_pendientes.filter(record => !record.synced).toArray();
       if (pendingClientes.length > 0) didSyncSomething = true;
-      console.log(`📦 Clientes pendientes: ${pendingClientes.length}`);
+      console.log(`ðŸ“¦ Clientes pendientes: ${pendingClientes.length}`);
 
       for (const record of pendingClientes) {
         let retryCount = 0;
@@ -287,36 +347,36 @@ const InspectionPageContent = () => {
         while (retryCount < maxRetries && !synced) {
           try {
             const docId = record.firebaseId || `CLIENT-${Date.now()}`;
-            console.log(`  ↑ Cliente: ${docId}`);
+            console.log(`  â†‘ Cliente: ${docId}`);
             await setDoc(doc(firestore, 'clientes', docId), record.data);
             await dbLocal.clientes_cache.put({ id: docId, ...record.data });
             await dbLocal.clientes_pendientes.update(record.id!, { synced: true, firebaseId: docId });
             synced = true;
-            console.log(`  ✅ Cliente OK: ${docId}`);
+            console.log(`  âœ… Cliente OK: ${docId}`);
           } catch (itemError: any) {
             retryCount++;
-            console.log(`  ?�? Cliente error (intento ${retryCount}): ${itemError.message}`);
+            console.log(`  ?ï¿½? Cliente error (intento ${retryCount}): ${itemError.message}`);
             if (isRetryableError(itemError) && retryCount < maxRetries) {
               const delay = getBackoffDelay(retryCount);
               await new Promise(resolve => setTimeout(resolve, delay));
             } else {
-              console.error(`  �?� Cliente fallido: ${record.id}`);
+              console.error(`  ï¿½?ï¿½ Cliente fallido: ${record.id}`);
               break;
             }
           }
         }
       }
 
-      // 1. Sincronizar Hojas de Trabajo CON IM�?GENES
+      // 1. Sincronizar Hojas de Trabajo CON IMï¿½?GENES
       const pendingHojas = await dbLocal.hojas_trabajo.filter(record => !record.synced).toArray();
       if (pendingHojas.length > 0) didSyncSomething = true;
-      console.log(`📦 Hojas pendientes: ${pendingHojas.length}`);
+      console.log(`ðŸ“¦ Hojas pendientes: ${pendingHojas.length}`);
 
       for (const record of pendingHojas) {
         let retryCount = 0;
         let synced = false;
 
-        // record.firebaseId ahora es el sequentialId (HT-XX-0001)
+        const numeroInformeLocal = String(record.data?.numero_informe || record.data?.displayId || '').trim();
         const formType = record.data.formType || 'informe';
         const localSuffix = (record.id || Date.now()).toString().padStart(4, '0');
         const fallbackPrefix =
@@ -326,11 +386,11 @@ const InspectionPageContent = () => {
                 formType === 'informe-simplificado' ? 'IS-REC-' :
                   formType === 'revision-basica' ? 'BAS-REC-' :
                     'INF-REC-';
-        const docId = record.firebaseId || `${fallbackPrefix}${localSuffix}`;
-        if (!record.firebaseId && record.id) {
+        const docId = numeroInformeLocal || record.firebaseId || `${fallbackPrefix}${localSuffix}`;
+        if (record.id && record.firebaseId !== docId) {
           await dbLocal.hojas_trabajo.update(record.id, { firebaseId: docId });
         }
-        console.log(`\n🔄 Procesando hoja: ${docId}`);
+        console.log(`\nðŸ”„ Procesando hoja: ${docId}`);
         console.log(`   secuentialId/claveFBID: ${docId}`);
 
         while (retryCount < maxRetries && !synced) {
@@ -346,13 +406,13 @@ const InspectionPageContent = () => {
                 normalizedData.instalacion = cachedClient.direccion || normalizedData.instalacion;
               }
             }
-            console.log(`   📌 Clave documento=${docId}, displayId=${displayId}, imageIds=${imageIds?.length || 0}`);
+            console.log(`   ðŸ“Œ Clave documento=${docId}, displayId=${displayId}, imageIds=${imageIds?.length || 0}`);
             let inspectorSignatureUrl = normalizedData.inspectorSignatureUrl;
             if (normalizedData.inspectorSignature && normalizedData.inspectorSignature.startsWith('data:')) {
               const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
               await uploadString(inspRef, normalizedData.inspectorSignature, 'data_url');
               inspectorSignatureUrl = await getDownloadURL(inspRef);
-              console.log(`   ✅ Firma inspector subida`);
+              console.log(`   âœ… Firma inspector subida`);
             }
 
             let clientSignatureUrl = normalizedData.clientSignatureUrl;
@@ -360,14 +420,15 @@ const InspectionPageContent = () => {
               const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
               await uploadString(cliRef, normalizedData.clientSignature, 'data_url');
               clientSignatureUrl = await getDownloadURL(cliRef);
-              console.log(`   ✅ Firma cliente subida`);
+              console.log(`   âœ… Firma cliente subida`);
             }
 
             // Procesar y subir imágenes desde IndexedDB
             const imageUrls: string[] = [];
-            if (imageIds && imageIds.length > 0) {
-              console.log(`   📸 Procesando ${imageIds.length} imágenes...`);
-              for (const imgId of imageIds) {
+            const limitedImageIds = Array.isArray(imageIds) ? imageIds.slice(0, MAX_IMAGES_PER_REPORT) : [];
+            if (limitedImageIds.length > 0) {
+              console.log(`   ðŸ“¸ Procesando ${limitedImageIds.length} imágenes...`);
+              for (const imgId of limitedImageIds) {
                 const imgRecord = await dbLocal.imagenes.get(imgId);
                 if (imgRecord && imgRecord.base64Data) {
                   try {
@@ -377,16 +438,16 @@ const InspectionPageContent = () => {
                     const url = await getDownloadURL(imgRef);
                     imageUrls.push(url);
                     await dbLocal.imagenes.update(imgId, { synced: true, uploadedUrl: url });
-                    console.log(`     ✅ Imagen ${imgRecord.fileName}`);
+                    console.log(`     âœ… Imagen ${imgRecord.fileName}`);
                   } catch (imgErr: any) {
-                    console.error(`     �?� Error imagen: ${imgErr.message}`);
+                    console.error(`     ï¿½?ï¿½ Error imagen: ${imgErr.message}`);
                   }
                 }
               }
             }
 
-            if ((!imageIds || imageIds.length === 0) && Array.isArray(record.data.images) && record.data.images.length > 0) {
-              for (const image of record.data.images) {
+            if (limitedImageIds.length === 0 && Array.isArray(record.data.images) && record.data.images.length > 0) {
+              for (const image of record.data.images.slice(0, MAX_IMAGES_PER_REPORT)) {
                 if (!image) continue;
                 try {
                   const fileName = (image as any).name || `offline_${Date.now()}.jpg`;
@@ -407,30 +468,32 @@ const InspectionPageContent = () => {
               // Si la del cliente no existe (normal en Informe Técnico), mandamos null.
               inspectorSignatureUrl: inspectorSignatureUrl || null,
               clientSignatureUrl: clientSignatureUrl || null,
-              numero_informe: displayId || docId,
+              numero_informe: numeroInformeLocal || displayId || docId,
               fecha_creacion: Timestamp.now()
             };
 
-            console.log(`   💾 Guardando en Firestore con docId=${docId}, numero_informe=${displayId || docId}: clienteId=${docData.clienteId}, clienteNombre=${docData.clienteNombre}`);
+            console.log(`   ðŸ’¾ Guardando en Firestore con docId=${docId}, numero_informe=${docData.numero_informe}: clienteId=${docData.clienteId}, clienteNombre=${docData.clienteNombre}`);
             await setDoc(doc(firestore, 'informes', docId), docData);
-            console.log(`   ✅ Guardado en Firestore OK`);
+            console.log(`   âœ… Guardado en Firestore OK`);
 
             if (record.data.originalJobId) {
               await updateDoc(doc(firestore, 'ordenes_trabajo', record.data.originalJobId), { estado: 'Completado' });
             }
 
+            await ensureCloudCounterAtLeast(docData.numero_informe, formType);
+
             await dbLocal.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
             synced = true;
-            console.log(`✅ Hoja de Trabajo sincronizada: ${docId}`);
+            console.log(`âœ… Hoja de Trabajo sincronizada: ${docId}`);
           } catch (itemError: any) {
             retryCount++;
-            console.error(`?�? Error hoja (intento ${retryCount}): ${itemError.message}\n${itemError.stack}`);
+            console.error(`?ï¿½? Error hoja (intento ${retryCount}): ${itemError.message}\n${itemError.stack}`);
             if (isRetryableError(itemError) && retryCount < maxRetries) {
               const delay = getBackoffDelay(retryCount);
-              console.log(`   �?� Reintentando en ${Math.round(delay)}ms...`);
+              console.log(`   ï¿½?ï¿½ Reintentando en ${Math.round(delay)}ms...`);
               await new Promise(resolve => setTimeout(resolve, delay));
             } else {
-              console.error(`�?� Hoja fallida: ${record.id}`);
+              console.error(`ï¿½?ï¿½ Hoja fallida: ${record.id}`);
               break;
             }
           }
@@ -440,13 +503,13 @@ const InspectionPageContent = () => {
       // 2. Sincronizar Reportes de Gastos CON COMPROBANTES
       const pendingGastos = await dbLocal.gastos_report.filter(r => !r.synced).toArray();
       if (pendingGastos.length > 0) didSyncSomething = true;
-      console.log(`📦 Gastos pendientes: ${pendingGastos.length}`);
+      console.log(`ðŸ“¦ Gastos pendientes: ${pendingGastos.length}`);
 
       for (const record of pendingGastos) {
         let retryCount = 0;
         let synced = false;
 
-        console.log(`\n💰 Procesando gasto: ${record.firebaseId}`);
+        console.log(`\nðŸ’° Procesando gasto: ${record.firebaseId}`);
 
         while (retryCount < maxRetries && !synced) {
           try {
@@ -461,7 +524,7 @@ const InspectionPageContent = () => {
               const sigRef = ref(storage, `firmas_gastos/${reportId}.png`);
               await uploadString(sigRef, signature, 'data_url');
               firmaUrl = await getDownloadURL(sigRef);
-              console.log(`   ✅ Firma gasto subida`);
+              console.log(`   âœ… Firma gasto subida`);
             }
 
             const formattedGastos = [];
@@ -474,9 +537,9 @@ const InspectionPageContent = () => {
                   const fRef = ref(storage, `comprobantes_gastos/${reportId}/${Date.now()}_${g.comprobanteFileName}`);
                   await uploadBytes(fRef, blob);
                   cUrl = await getDownloadURL(fRef);
-                  console.log(`   ✅ Comprobante ${g.comprobanteFileName}`);
+                  console.log(`   âœ… Comprobante ${g.comprobanteFileName}`);
                 } catch (fileErr: any) {
-                  console.error(`   �?� Error comprobante: ${fileErr.message}`);
+                  console.error(`   ï¿½?ï¿½ Error comprobante: ${fileErr.message}`);
                 }
               }
 
@@ -490,7 +553,7 @@ const InspectionPageContent = () => {
               });
             }
 
-            console.log(`   💾 Guardando gasto en Firestore con docId=${reportId}...`);
+            console.log(`   ðŸ’¾ Guardando gasto en Firestore con docId=${reportId}...`);
             await setDoc(doc(firestore, 'gastos', reportId), {
               ...restData,
               id: reportId,  // clave principal
@@ -502,33 +565,33 @@ const InspectionPageContent = () => {
 
             await dbLocal.gastos_report.update(record.id!, { synced: true, firebaseId: reportId });
             synced = true;
-            console.log(`✅ Gasto sincronizado: ${restData.id}`);
+            console.log(`âœ… Gasto sincronizado: ${restData.id}`);
           } catch (gastoError: any) {
             retryCount++;
-            console.error(`?�? Error gasto (intento ${retryCount}): ${gastoError.message}`);
+            console.error(`?ï¿½? Error gasto (intento ${retryCount}): ${gastoError.message}`);
             if (isRetryableError(gastoError) && retryCount < maxRetries) {
               const delay = getBackoffDelay(retryCount);
               await new Promise(resolve => setTimeout(resolve, delay));
             } else {
-              console.error(`�?� Gasto fallido`);
+              console.error(`ï¿½?ï¿½ Gasto fallido`);
               break;
             }
           }
         }
       }
 
-      console.log(`\n🎉 Sincronización completada`);
+      console.log(`\nðŸŽ‰ Sincronización completada`);
       if (didSyncSomething) {
-        toast({ title: 'Sincronización completada ✓', description: 'Todos los datos offline han sido subidos.' });
+        toast({ title: 'Sincronización completada âœ“', description: 'Todos los datos offline han sido subidos.' });
       }
     } catch (error: any) {
-      console.error('�?� Error general:', error.message, error.stack);
+      console.error('ï¿½?ï¿½ Error general:', error.message, error.stack);
       toast({ variant: 'destructive', title: 'Error en sincronización', description: 'Se reintentará al reconectar.' });
     } finally {
       syncInFlightRef.current = false;
       setIsSyncing(false);
     }
-  }, [canUseCloud, user, firestore, toast]);
+  }, [canUseCloud, user, firestore, toast, ensureCloudCounterAtLeast]);
 
   useEffect(() => {
     if (canUseCloud && hasMounted && user?.email && firestore) {
@@ -666,7 +729,7 @@ const InspectionPageContent = () => {
     try {
       const res = await processDictation({ dictation: text });
       setAiData(res);
-      toast({ title: "Voz Procesada ✓", description: "Formulario completado." });
+      toast({ title: "Voz Procesada âœ“", description: "Formulario completado." });
     } catch (e) {
       setAiData({ observations_summary: text } as any);
       toast({ variant: "destructive", title: "Error IA", description: "Texto volcado manual." });
@@ -705,7 +768,7 @@ const InspectionPageContent = () => {
     try {
       const res = await processDictation({ dictation: dictationNotebook });
       setAiData(res);
-      toast({ title: "Procesado ✓", description: "Formulario completado." });
+      toast({ title: "Procesado âœ“", description: "Formulario completado." });
     } catch (e) {
       setAiData({ observations_summary: dictationNotebook } as any);
       toast({ variant: "destructive", title: "Error IA", description: "Texto volcado manual." });
@@ -725,7 +788,7 @@ const InspectionPageContent = () => {
       return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
     }
 
-    // 3. BLOQUEO MAESTRO: Si no ha verificado el PIN, no renderizamos NADA MÁS que el PinGate.
+    // 3. BLOQUEO MAESTRO: Si no ha verificado el PIN, no renderizamos NADA MÃS que el PinGate.
     if (!isPinVerified) {
       return (
         <PinGate
@@ -754,7 +817,7 @@ const InspectionPageContent = () => {
         onConfigure: () => handleNavigate(TABS.PROFILE),
         canInstall: !!installPrompt,
         configStatus,
-        isOnline: canUseCloud,
+        isOnline: isOnline,
         isStandalone: isStandalone
       };
 
@@ -832,7 +895,7 @@ const InspectionPageContent = () => {
         activeTab={activeTab}
         isSubNavActive={!!activeInspectionForm}
         onBack={handleBackToHub}
-        isOnline={canUseCloud}
+        isOnline={isOnline}
         onInstall={handleInstallClick}
         canInstall={!!installPrompt}
         isStandalone={isStandalone}
@@ -882,6 +945,9 @@ export default function InspectionPage() {
     </Suspense>
   );
 }
+
+
+
 
 
 

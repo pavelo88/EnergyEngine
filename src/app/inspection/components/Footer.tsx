@@ -1,10 +1,9 @@
 'use client';
 
-import React from 'react';
-import { Compass, User, Receipt, ClipboardList, LogOut, WifiOff } from 'lucide-react';
+import React, { useState } from 'react';
+import { Compass, User, Receipt, ClipboardList, LogOut, Loader2 } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { useOnlineStatus } from '@/hooks/use-online-status';
 import TABS from '../constants';
 import { cn } from '@/lib/utils';
 
@@ -15,33 +14,41 @@ interface FooterProps {
 
 export default function Footer({ activeTab, onNavigate }: FooterProps) {
   const auth = useAuth();
-  const isOnline = useOnlineStatus();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const handleLogout = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
     
-    if (window.confirm("¿Cerrar sesión ahora?")) {
-      try {
-        localStorage.removeItem('energy_engine_session_id');
-        localStorage.removeItem('energy_engine_offline_email');
-        if (auth) {
-          await signOut(auth);
-        }
-      } catch (err) {
-        console.warn("Error formal al cerrar sesión en Firebase:", err);
-      } finally {
-        window.location.href = '/auth/inspection';
+    if (!window.confirm('¿Cerrar sesión ahora? Asegúrate de haber guardado tus trabajos.')) return;
+
+    setIsLoggingOut(true);
+
+    try {
+      // 1. Destruir toda la caché y permisos locales inmediatamente
+      localStorage.removeItem('energy_engine_session_id');
+      localStorage.removeItem('energy_engine_offline_email');
+      localStorage.removeItem('energy_engine_inspection_mode');
+
+      // 2. Intentar cerrar sesión en Firebase sin que bloquee la UI si no hay red
+      if (auth) {
+        await signOut(auth).catch((err) => {
+          console.warn('Cierre de sesión local forzado (Firebase offline/error):', err);
+        });
       }
+    } finally {
+      // 3. Forzar redirección dura. 
+      // Usar window.location en lugar de router.replace evita que Next.js o la PWA se queden colgados.
+      window.location.href = '/auth/inspection';
     }
   };
 
+  // BOTÓN "SALIR" MOVIDO AL CENTRO (Índice 2 del arreglo)
   const navItems = [
     { id: TABS.MENU, icon: Compass, label: 'Panel' },
     { id: TABS.TASKS, icon: ClipboardList, label: 'Historial' },
+    { id: 'logout', icon: LogOut, label: 'Salir', isLogout: true },
     { id: TABS.EXPENSES, icon: Receipt, label: 'Gastos' },
     { id: TABS.PROFILE, icon: User, label: 'Perfil' },
-    { id: 'logout', icon: LogOut, label: 'Salir', isLogout: true },
   ];
 
   return (
@@ -51,17 +58,25 @@ export default function Footer({ activeTab, onNavigate }: FooterProps) {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
-            
+
+            // Renderizado especial para el botón central de Salir
             if (item.isLogout) {
               return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={handleLogout}
-                  className="flex flex-col items-center justify-center gap-1 w-14 text-red-400 hover:text-red-500 transition-colors active:scale-90"
+                  disabled={isLoggingOut}
+                  className="flex flex-col items-center justify-center gap-1 w-14 text-red-400 hover:text-red-500 transition-colors active:scale-90 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <Icon size={24} strokeWidth={2} />
-                  <span className="text-[9px] font-black uppercase tracking-tighter">SALIR</span>
+                  {isLoggingOut ? (
+                    <Loader2 size={24} className="animate-spin text-red-400" />
+                  ) : (
+                    <Icon size={24} strokeWidth={2} />
+                  )}
+                  <span className="text-[9px] font-black uppercase tracking-tighter">
+                    {isLoggingOut ? 'SALIENDO...' : 'SALIR'}
+                  </span>
                 </button>
               );
             }
@@ -71,7 +86,7 @@ export default function Footer({ activeTab, onNavigate }: FooterProps) {
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 w-14 transition-all duration-300",
+                  'flex flex-col items-center justify-center gap-1 w-14 transition-all duration-300',
                   isActive ? 'text-primary' : 'text-slate-400 hover:text-white transition-colors'
                 )}
               >

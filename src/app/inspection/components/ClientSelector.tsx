@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, getDocs, setDoc, doc, onSnapshot } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { collection, query, where, setDoc, doc, onSnapshot } from 'firebase/firestore';
+import { useFirestore, useUser } from '@/firebase';
 import { Search, Plus, User, MapPin, Mail, Phone, Loader2, Check, Save } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -28,8 +28,11 @@ interface ClientSelectorProps {
 
 export default function ClientSelector({ onSelect, selectedClientId }: ClientSelectorProps) {
   const db = useFirestore();
+  const { user } = useUser();
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
+  const hasShownPermissionToastRef = useRef(false);
+  const canUseCloudClients = isOnline && !!db && !!user?.email;
 
   const [clients, setClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -74,14 +77,17 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
       });
 
       const merged = Array.from(clientMap.values());
-      if (merged.length > 0) {
-        setClients(merged);
+      setClients(merged);
+      if (merged.length > 0 || !canUseCloudClients) {
         setLoading(false);
       }
     });
 
     // Cuando hay conexión, mantenemos la lista actualizada desde Firestore
-    if (!isOnline) return;
+    if (!canUseCloudClients) {
+      setLoading(false);
+      return;
+    }
 
     const q = query(collection(db, 'clientes'), where('status', 'in', ['approved', 'preaprobado']));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -90,12 +96,21 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
       setLoading(false);
       dbLocal.clientes_cache.bulkPut(clientList);
     }, (error) => {
+      const errorCode = (error as any)?.code || '';
+      if (errorCode === 'permission-denied' && !hasShownPermissionToastRef.current) {
+        hasShownPermissionToastRef.current = true;
+        toast({
+          variant: 'destructive',
+          title: 'Sin permisos de nube',
+          description: 'Seguiremos trabajando con clientes en cachÃ© local.',
+        });
+      }
       console.error("Error fetching clients:", error);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [db, isOnline]);
+  }, [db, canUseCloudClients, toast]);
 
   const selectedClient = useMemo(() => {
     return clients.find(c => c.id === selectedClientId);
@@ -152,7 +167,7 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
     };
 
     try {
-      if (isOnline) {
+      if (canUseCloudClients) {
         await setDoc(doc(db, 'clientes', docId), clientData);
         await dbLocal.clientes_cache.put(createdClient);
         toast({ title: 'Cliente registrado', description: 'Registrado como preaprobado.' });

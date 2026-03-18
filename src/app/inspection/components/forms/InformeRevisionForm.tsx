@@ -1,5 +1,4 @@
-
-'use client';
+﻿'use client';
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
@@ -20,9 +19,8 @@ import ClientSelector from '../ClientSelector';
 import StableInput from '../StableInput';
 import { resolveInspectorEmail } from '@/lib/inspection-mode';
 import { getNextSequenceForUser } from '@/lib/sequence-manager';
-
-
-
+import { addImageSafely, getPdfFileName } from '@/lib/pdf-utils';
+import { MAX_IMAGES_PER_REPORT } from '@/lib/report-limits';
 
 const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
   <div className="flex flex-col items-center gap-1">
@@ -55,19 +53,19 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.setTextColor(darkColor);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text(`INFORME DE REVISIÃ“N - NÂº: ${finalID}`, leftMargin, currentY);
+    doc.text(`INFORME DE REVISIÓN - Nº: ${finalID}`, leftMargin, currentY);
     currentY += 6;
 
     autoTable(doc, {
       startY: currentY,
       body: [
         [{ content: 'CLIENTE:', styles: { fontStyle: 'bold', cellWidth: 35 } }, { content: report.clienteNombre || report.cliente || '', colSpan: 3 }],
-        [{ content: 'INSTALACIÃ“N:', styles: { fontStyle: 'bold' } }, { content: report.instalacion || '', colSpan: 3 }],
-        [{ content: 'DIRECCIÃ“N:', styles: { fontStyle: 'bold' } }, { content: report.direccion || '', colSpan: 3 }],
-        [{ content: 'UBICACIÃ“N (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
-        [{ content: 'FECHA REVISIÃ“N:', styles: { fontStyle: 'bold' } }, report.fecha_revision || '', { content: 'POTENCIA:', styles: { fontStyle: 'bold', cellWidth: 30 } }, report.potencia || ''],
-        [{ content: 'MOTOR:', styles: { fontStyle: 'bold' } }, report.motor || '', { content: 'NÂº MOTOR:', styles: { fontStyle: 'bold' } }, report.n_motor || ''],
-        [{ content: 'MODELO:', styles: { fontStyle: 'bold' } }, report.modelo || '', { content: 'NÂº GRUPO:', styles: { fontStyle: 'bold' } }, report.n_grupo || ''],
+        [{ content: 'INSTALACIÓN:', styles: { fontStyle: 'bold' } }, { content: report.instalacion || '', colSpan: 3 }],
+        [{ content: 'DIRECCIÓN:', styles: { fontStyle: 'bold' } }, { content: report.direccion || '', colSpan: 3 }],
+        [{ content: 'UBICACIÓN (LAT/LON):', styles: { fontStyle: 'bold' } }, { content: report.location ? `${report.location.lat.toFixed(6)}, ${report.location.lon.toFixed(6)}` : 'No registrada', colSpan: 3 }],
+        [{ content: 'FECHA REVISIÓN:', styles: { fontStyle: 'bold' } }, report.fecha_revision || '', { content: 'POTENCIA:', styles: { fontStyle: 'bold', cellWidth: 30 } }, report.potencia || ''],
+        [{ content: 'MOTOR:', styles: { fontStyle: 'bold' } }, report.motor || '', { content: 'Nº MOTOR:', styles: { fontStyle: 'bold' } }, report.n_motor || ''],
+        [{ content: 'MODELO:', styles: { fontStyle: 'bold' } }, report.modelo || '', { content: 'Nº GRUPO:', styles: { fontStyle: 'bold' } }, report.n_grupo || ''],
       ],
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 2 },
@@ -79,7 +77,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     const colWidth = 28;
     autoTable(doc, {
       startY: currentY,
-      head: [['INSPECCIÃ“N / ESTADO', 'OK', 'DEFECT', 'CAMBIO']],
+      head: [['INSPECCIÓN / ESTADO', 'OK', 'DEFECT', 'CAMBIO']],
       body: Object.entries(CHECKLIST_SECTIONS).flatMap(([section, items]) => {
         const sectionRows: any[] = [[{ content: section, colSpan: 4, styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#000', halign: 'left' } }]];
         (items as string[]).forEach(item => {
@@ -125,17 +123,19 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
       startY: currentY,
       body: [
         [{ content: 'DATOS DE PRUEBAS', styles: { fontStyle: 'bold', fillColor: darkColor, textColor: '#fff' } }, { content: 'VALORES', styles: { fontStyle: 'bold', fillColor: darkColor, textColor: '#fff' } }],
-        ['Horas de funcionamiento', report.datos_pruebas.horas || ''],
-        ['Presión aceite', report.datos_pruebas.presion || ''],
-        ['Temperatura en bloque motor', report.datos_pruebas.temperatura || ''],
-        ['Nivel de deposito de combustible', report.datos_pruebas.nivel_combustible || ''],
-        ['Tensión en el alternador', report.datos_pruebas.tension_alternador || ''],
-        ['Frecuencia', report.datos_pruebas.frecuencia || ''],
-        ['Carga de baterías', report.datos_pruebas.carga_baterias || ''],
+        // PROTECCIÓN 1
+        ['Horas de funcionamiento', report.datos_pruebas?.horas || ''],
+        ['Presión aceite', report.datos_pruebas?.presion || ''],
+        ['Temperatura en bloque motor', report.datos_pruebas?.temperatura || ''],
+        ['Nivel de deposito de combustible', report.datos_pruebas?.nivel_combustible || ''],
+        ['Tensión en el alternador', report.datos_pruebas?.tension_alternador || ''],
+        ['Frecuencia', report.datos_pruebas?.frecuencia || ''],
+        ['Carga de baterías', report.datos_pruebas?.carga_baterias || ''],
         [{ content: 'PRUEBAS CON CARGA', colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#f1f5f9' } }],
-        [{ content: `Tensión: RS: ${report.pruebas_carga.tension_rs || ''}   ST: ${report.pruebas_carga.tension_st || ''}   RT: ${report.pruebas_carga.tension_rt || ''}`, colSpan: 2 }],
-        [{ content: `Intensidad: R: ${report.pruebas_carga.intensidad_r || ''}   S: ${report.pruebas_carga.intensidad_s || ''}   T: ${report.pruebas_carga.intensidad_t || ''}`, colSpan: 2 }],
-        [{ content: `Potencia: ${report.pruebas_carga.potencia_kw || ''} kW`, colSpan: 2 }],
+        // PROTECCIÓN 2
+        [{ content: `Tensión: RS: ${report.pruebas_carga?.tension_rs || ''}   ST: ${report.pruebas_carga?.tension_st || ''}   RT: ${report.pruebas_carga?.tension_rt || ''}`, colSpan: 2 }],
+        [{ content: `Intensidad: R: ${report.pruebas_carga?.intensidad_r || ''}   S: ${report.pruebas_carga?.intensidad_s || ''}   T: ${report.pruebas_carga?.intensidad_t || ''}`, colSpan: 2 }],
+        [{ content: `Potencia: ${report.pruebas_carga?.potencia_kw || ''} kW`, colSpan: 2 }],
       ],
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 2 },
@@ -199,16 +199,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
 
-    if (report.inspectorSignatureUrl) {
-      doc.addImage(report.inspectorSignatureUrl, 'PNG', 25, currentY, 60, 25);
-    }
+    addImageSafely(doc, report.inspectorSignatureUrl, 25, currentY, 60, 25);
     doc.line(25, currentY + 25, 85, currentY + 25);
     doc.text("Firma técnico:", 25, currentY + 30);
     doc.text(inspectorName || '', 25, currentY + 35);
 
-    if (report.clientSignatureUrl) {
-      doc.addImage(report.clientSignatureUrl, 'PNG', 125, currentY, 60, 25);
-    }
+    addImageSafely(doc, report.clientSignatureUrl, 125, currentY, 60, 25);
     doc.line(125, currentY + 25, 185, currentY + 25);
     doc.text("Conforme cliente:", 125, currentY + 30);
     doc.text(report.recibidoPor || '', 125, currentY + 35);
@@ -385,8 +381,10 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
         };
         const finalId = docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
         const doc = generatePDF(reportData, inspectorName, finalId);
+        
         if (isSaved || forceDownload) {
-          doc.save(`Informe_Revision_${finalId}.pdf`);
+          // SOLUCIÓN: FORZAR .pdf
+          doc.save(`${finalId}.pdf`);
         } else {
           const blob = doc.output('blob');
           const url = URL.createObjectURL(blob);
@@ -402,9 +400,17 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setImages(prev => [...prev, ...Array.from(e.target.files!)]);
+    if (!e.target.files) return;
+    const selected = Array.from(e.target.files);
+    if (images.length + selected.length > MAX_IMAGES_PER_REPORT) {
+      toast({
+        variant: 'destructive',
+        title: 'Limite de imagenes',
+        description: `Maximo ${MAX_IMAGES_PER_REPORT} imagenes por informe.`,
+      });
+      return;
     }
+    setImages((prev) => [...prev, ...selected]);
   };
 
   const handleSave = async () => {
@@ -416,7 +422,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
 
     const missing = [];
     if (!formData.cliente) missing.push('Cliente');
-    if (!formData.instalacion) missing.push('Instalación');
+    if (!formData.instalacion) missing.push('Instalacion');
     if (gpsRequired && !formData.location) missing.push('Ubicacion GPS');
     if (!inspectorSignature) missing.push('Firma Inspector');
     if (!clientSignature) missing.push('Firma Cliente');
@@ -424,99 +430,128 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
     if (missing.length > 0) {
       toast({
         variant: 'destructive',
-        title: 'Faltan Datos Obligatorios',
+        title: 'Faltan datos obligatorios',
         description: `Complete los siguientes campos: ${missing.join(', ')}`
       });
       return;
     }
-    setSaving(true);
 
-    const sequence = await getNextSequenceForUser({
-      type: 'informe-revision',
-      userEmail: inspectorEmail || '',
-      firestore: canUseCloud ? firestore : null,
-      isOnline: canUseCloud,
-    });
-    const names = inspectorName.split(' ');
-    const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
-    const docId = `IR-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
-
-    const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
-      const localData = {
-        ...formData,
-        formType: 'informe-revision',
-        originalJobId: initialData?.id || null
-      };
-      if (!synced) {
-        (localData as any).images = images;
-        (localData as any).inspectorSignature = inspectorSignature;
-        (localData as any).clientSignature = clientSignature;
-      }
-      await dbLocal.hojas_trabajo.add({
-        firebaseId: firebaseId || '',
-        synced,
-        data: localData,
-        createdAt: new Date(),
+    if (images.length > MAX_IMAGES_PER_REPORT) {
+      toast({
+        variant: 'destructive',
+        title: 'Limite de imagenes',
+        description: `Maximo ${MAX_IMAGES_PER_REPORT} imagenes por informe.`,
       });
+      return;
+    }
 
-      setSaving(false);
-      setSavedDocId(firebaseId || '');
-      setIsSaved(true);
+    let didStartSave = false;
+    try {
+      const names = inspectorName.split(' ');
+      const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
+      setSaving(true);
+      didStartSave = true;
 
-      if (!synced) {
-        toast({ title: 'Guardado Local', description: 'Error de red. El informe se sincronizará automáticamente después.' });
-      } else {
-        toast({ title: 'Â¡Informe Guardado!', description: `Documento sincronizado con ID: ${firebaseId}` });
-      }
+      const sequence = await getNextSequenceForUser({
+        type: 'informe-revision',
+        userEmail: inspectorEmail || '',
+        firestore: canUseCloud ? firestore : null,
+        isOnline: canUseCloud,
+      });
+      const docId = `IR-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
+      const limitedImages = images.slice(0, MAX_IMAGES_PER_REPORT);
 
-      const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora");
-      if (shouldDownload) {
-        handlePdfAction(true, firebaseId);
-      }
-
-      if (onSuccess) onSuccess();
-    };
-
-    if (canUseCloud && firestore && user?.email) {
-      try {
-        const storage = getStorage();
-
-        const imageUrls = await Promise.all(images.map(async (image) => {
-          const imageRef = ref(storage, `informes/${docId}/${image.name}`);
-          await uploadBytes(imageRef, image);
-          return await getDownloadURL(imageRef);
-        }));
-
-        const inspectorSignatureRef = ref(storage, `firmas/${docId}/inspector.png`);
-        await uploadString(inspectorSignatureRef, inspectorSignature!, 'data_url');
-        const inspectorSignatureUrl = await getDownloadURL(inspectorSignatureRef);
-
-        const clientSignatureRef = ref(storage, `firmas/${docId}/cliente.png`);
-        await uploadString(clientSignatureRef, clientSignature!, 'data_url');
-        const clientSignatureUrl = await getDownloadURL(clientSignatureRef);
-
-        const docData = {
-          ...formData, imageUrls, inspectorSignatureUrl, clientSignatureUrl,
-          inspectorId: inspectorEmail || '', inspectorNombre: inspectorName,
-          inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
-          inspectorNombres: initialData?.inspectorNombres || [inspectorName],
-          fecha_creacion: Timestamp.now(), formType: 'informe-revision', id: docId, estado: 'Completado'
+      const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
+        const localData: any = {
+          ...formData,
+          formType: 'informe-revision',
+          originalJobId: initialData?.id || null,
+          numero_informe: firebaseId,
         };
+        if (!synced) {
+          localData.images = limitedImages;
+          localData.inspectorSignature = inspectorSignature;
+          localData.clientSignature = clientSignature;
+        }
+        await dbLocal.hojas_trabajo.add({
+          firebaseId: firebaseId || '',
+          synced,
+          data: localData,
+          createdAt: new Date(),
+        });
 
-        await setDoc(doc(firestore, 'informes', docId), docData);
+        setSavedDocId(firebaseId || '');
+        setIsSaved(true);
 
-        if (initialData?.id) {
-          await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
+        if (!synced) {
+          toast({ title: 'Guardado local', description: 'Error de red. El informe se sincronizara automaticamente despues.' });
+        } else {
+          toast({ title: 'Informe guardado', description: `Documento sincronizado con ID: ${firebaseId}` });
         }
 
-        await saveDataToLocal(true, docId);
+        handlePdfAction(true, firebaseId);
 
-      } catch (error) {
-        console.error("Fallo al guardar en la nube:", error);
+        if (onSuccess) onSuccess();
+      };
+
+      if (canUseCloud && firestore && user?.email) {
+        try {
+          const storage = getStorage();
+
+          const imageUrls = await Promise.all(limitedImages.map(async (image) => {
+            const imageRef = ref(storage, `informes/${docId}/${image.name}`);
+            await uploadBytes(imageRef, image);
+            return getDownloadURL(imageRef);
+          }));
+
+          const inspectorSignatureRef = ref(storage, `firmas/${docId}/inspector.png`);
+          await uploadString(inspectorSignatureRef, inspectorSignature!, 'data_url');
+          const inspectorSignatureUrl = await getDownloadURL(inspectorSignatureRef);
+
+          const clientSignatureRef = ref(storage, `firmas/${docId}/cliente.png`);
+          await uploadString(clientSignatureRef, clientSignature!, 'data_url');
+          const clientSignatureUrl = await getDownloadURL(clientSignatureRef);
+
+          const docData = {
+            ...formData,
+            imageUrls,
+            inspectorSignatureUrl,
+            clientSignatureUrl,
+            inspectorId: inspectorEmail || '',
+            inspectorNombre: inspectorName,
+            inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
+            inspectorNombres: initialData?.inspectorNombres || [inspectorName],
+            fecha_creacion: Timestamp.now(),
+            formType: 'informe-revision',
+            id: docId,
+            numero_informe: docId,
+            estado: 'Completado'
+          };
+
+          await setDoc(doc(firestore, 'informes', docId), docData);
+
+          if (initialData?.id) {
+            await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
+          }
+
+          await saveDataToLocal(true, docId);
+
+        } catch (error) {
+          console.error('Fallo al guardar en la nube:', error);
+          await saveDataToLocal(false, docId);
+        }
+      } else {
         await saveDataToLocal(false, docId);
       }
-    } else {
-      await saveDataToLocal(false, docId);
+    } catch (error) {
+      console.error('Error en guardado de informe de revision:', error);
+      toast({
+        variant: 'destructive',
+        title: 'No se pudo guardar',
+        description: 'Intente nuevamente. Si continua, revise conexion y permisos.',
+      });
+    } finally {
+      if (didStartSave) setSaving(false);
     }
   };
 
@@ -529,12 +564,21 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
         }
       }}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border border-slate-200 bg-white text-slate-950 light">
-          <DialogHeader className="p-6 border-b border-slate-100 bg-white">
-            <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa Informe de Revisión</DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">Documento temporal generado para verificación de datos.</DialogDescription>
+          {/* SOLUCIÓN: Botón en cabecera */}
+          <DialogHeader className="p-6 border-b border-slate-100 bg-white flex flex-row items-center justify-between">
+            <div>
+              <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa Informe de Revisión</DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">Documento temporal generado para verificación de datos.</DialogDescription>
+            </div>
+            <button 
+              onClick={() => handlePdfAction(true)} 
+              className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-primary/90 transition-all shadow-sm active:scale-95"
+            >
+              Descargar PDF
+            </button>
           </DialogHeader>
           <div className="flex-1 bg-slate-100">
-            {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full border-none" title="PDF Preview" />}
+          {previewPdfUrl && <iframe src={`${previewPdfUrl}#toolbar=0`} className="w-full h-full border-none" title="PDF Preview" />}
           </div>
         </DialogContent>
       </Dialog>
@@ -556,8 +600,8 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
             <StableInput label="Fecha Revisión" icon={Calendar} type="date" value={formData.fecha_revision} onChange={(v: any) => handleInputChange('fecha_revision', v)} />
             <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: any) => handleInputChange('motor', v)} />
             <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={(v: any) => handleInputChange('modelo', v)} />
-            <StableInput label="NÂº Motor" icon={Hash} value={formData.n_motor} onChange={(v: any) => handleInputChange('n_motor', v)} />
-            <StableInput label="NÂº Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: any) => handleInputChange('n_grupo', v)} />
+            <StableInput label="Nº Motor" icon={Hash} value={formData.n_motor} onChange={(v: any) => handleInputChange('n_motor', v)} />
+            <StableInput label="Nº Grupo" icon={Hash} value={formData.n_grupo} onChange={(v: any) => handleInputChange('n_grupo', v)} />
             <StableInput label="Potencia" icon={Zap} value={formData.potencia} onChange={(v: any) => handleInputChange('potencia', v)} />
 
             <button
@@ -657,30 +701,36 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
           </div>
         </section>
 
-        {/* --- ACCIONES --- */}
+        {/* SOLUCIÓN: Botones Directos */}
         <div className="flex flex-col md:flex-row gap-3 pt-4">
           <button
             onClick={() => handlePdfAction(false)}
             disabled={pdfLoading}
-            className="w-full p-5 bg-white text-black border border-slate-200 rounded-2xl font-black text-sm shadow-md flex items-center justify-center gap-3 active:scale-95 transition-all hover:border-primary disabled:opacity-50"
+            className="w-full p-4 bg-white border border-slate-200 rounded-[1.5rem] font-bold flex items-center justify-center gap-2 hover:border-primary transition-all text-slate-600 shadow-sm active:scale-95 disabled:opacity-50 text-xs"
           >
-            {pdfLoading ? <Loader2 className="animate-spin text-primary" size={18} /> : isSaved ? <Printer className="text-primary" size={18} /> : <FileSearch className="text-primary" size={18} />}
-            {pdfLoading ? 'GENERANDO...' : isSaved ? 'IMPRIMIR PDF FINAL' : 'VISTA PREVIA PDF'}
+            {pdfLoading ? <Loader2 className="animate-spin text-primary" size={16} /> : <FileSearch size={16} className="text-primary" />}
+            VISTA PREVIA
           </button>
+
+          <button
+            onClick={() => handlePdfAction(true)}
+            disabled={pdfLoading}
+            className="w-full p-4 bg-white border border-slate-200 rounded-[1.5rem] font-bold flex items-center justify-center gap-2 hover:border-primary transition-all text-black shadow-md active:scale-95 disabled:opacity-50 text-xs"
+          >
+            {pdfLoading ? <Loader2 className="animate-spin text-primary" size={16} /> : <Printer size={16} className="text-primary" />}
+            {isSaved ? 'DESCARGAR PDF FINAL' : 'DESCARGAR BORRADOR'}
+          </button>
+
           <button
             onClick={handleSave}
             disabled={saving || isSaved}
-            className="w-full p-5 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 disabled:bg-slate-700"
+            className="w-full p-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs flex items-center justify-center gap-2 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
           >
-            {saving ? <Loader2 className="animate-spin text-white" size={18} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={18} /> : <Save className="text-white" size={18} />}
-            {saving ? 'GUARDANDO INFORME...' : isSaved ? 'INFORME GUARDADO' : 'FINALIZAR REVISIÃ“N'}
+            {saving ? <Loader2 className="animate-spin text-white" size={16} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={16} /> : <Save className="text-white" size={16} />}
+            {saving ? 'GUARDANDO...' : isSaved ? 'INFORME GUARDADO' : 'FINALIZAR REVISIÓN'}
           </button>
         </div>
       </main>
     </div>
   );
 }
-
-
-
-

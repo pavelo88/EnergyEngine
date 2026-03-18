@@ -1,63 +1,110 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { drawPdfHeader, drawPdfFooter } from './pdf-helpers';
 
-export const generateProfessionalPDF = (type: string, data: any, tecnico: string, reportID: string) => {
+/**
+ * Genera un PDF robusto que no se rompe si faltan datos técnicos.
+ * @param data Objeto con la información del informe (formData)
+ * @param tecnico Nombre del inspector
+ * @param reportID ID del informe (ej: HT-PG-0002)
+ */
+export const generatePDF = (data: any, tecnico: string, reportID: string) => {
   const doc = new jsPDF();
+  
+  // Dibujar encabezado profesional (PowerSat / Energy Engine)
+  drawPdfHeader(doc);
+
   const finalID = reportID || 'BORRADOR';
+  const marginX = 15;
+  let currentY = 35;
 
-  // Header Naranja PowerSat
-  doc.setFillColor(245, 158, 11);
-  doc.rect(0, 0, 210, 40, 'F');
-  doc.setTextColor(255);
-  doc.setFontSize(22);
-  doc.text("energy engine rts", 15, 20);
-  doc.setFontSize(10);
-  doc.text(`REPORTE: ${type.toUpperCase()} | ID: ${finalID}`, 15, 30);
-  doc.text(`TÉCNICO: ${tecnico} | FECHA: ${new Date().toLocaleDateString()}`, 130, 20);
+  // --- TÍTULO Y DATOS BÁSICOS ---
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(30, 41, 59);
+  doc.text(`HOJA DE TRABAJO: ${finalID}`, marginX, currentY);
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  currentY += 6;
+  doc.text(`Cliente: ${data.clienteNombre || data.clienteId || 'No asignado'}`, marginX, currentY);
+  doc.text(`Fecha: ${data.fecha || new Date().toLocaleDateString()}`, 150, currentY);
+  currentY += 5;
+  doc.text(`Instalación: ${data.instalacion || '-'}`, marginX, currentY);
+  doc.text(`Técnico: ${tecnico || 'No especificado'}`, 150, currentY);
 
-  // Tabla ADN
+  // --- TABLA 1: PARÁMETROS TÉCNICOS (PROTEGIDA) ---
+  // Extraemos los objetos o creamos unos vacíos para que no den error .map o .prop
+  const p = data.parametrosTecnicos || {};
+  
   (doc as any).autoTable({
-    startY: 45,
-    head: [['ADN DEL GRUPO', 'DETALLE']],
+    startY: currentY + 10,
+    margin: { left: marginX },
+    head: [['PARÁMETRO TÉCNICO', 'VALOR MEDIDO']],
     body: [
-      ['CLIENTE', data.cliente.nombre],
-      ['INSTALACIÓN', data.cliente.instalacion],
-      ['Nº GRUPO', data.cliente.n_grupo],
-      ['POTENCIA', data.cliente.potencia_kva + ' KVA'],
-      ['S/N MOTOR', data.equipo.sn]
+      ['Presión de Aceite', (p.presionAceite || '-') + ' Bar'],
+      ['Temperatura', (p.temperatura || '-') + ' ºC'],
+      ['Tensión de Baterías', (p.tensionBaterias || '-') + ' Vdc'],
+      ['Frecuencia', (p.frecuencia || '-') + ' Hz'],
+      ['Horas de Operación', (p.horas || '0') + ' H'],
+      ['Nivel de Combustible', (p.nivelCombustible || '-') + ' %']
     ],
     theme: 'grid',
-    headStyles: { fillColor: [30, 41, 59] }
+    headStyles: { fillColor: [39, 180, 96], textColor: [255, 255, 255] },
+    styles: { fontSize: 8 }
   });
 
-  // Tabla Eléctrica (RS, ST, RT, R, S, T, KW)
+  // --- TABLA 2: PRUEBA CON CARGA (PROTEGIDA) ---
+  const c = data.potenciaConCarga || {};
+  const lastY = (doc as any).lastAutoTable.finalY;
+
   (doc as any).autoTable({
-    startY: (doc as any).lastAutoTable.finalY + 10,
-    head: [['PRUEBA ELÉCTRICA', 'VALOR']],
+    startY: lastY + 10,
+    margin: { left: marginX },
+    head: [['PRUEBA ELÉCTRICA CON CARGA', 'VALOR']],
     body: [
-      [`TENSIÓN RS / ST / RT`, `${data.pruebasCarga.rs}V / ${data.pruebasCarga.st}V / ${data.pruebasCarga.rt}V`],
-      [`INTENSIDAD R / S / T`, `${data.pruebasCarga.r}A / ${data.pruebasCarga.s}A / ${data.pruebasCarga.t}A`],
-      ['POTENCIA ACTIVA', `${data.pruebasCarga.kw} kW`],
-      ['HORAS OPERACIÓN', `${data.mediciones.horas} H`]
+      ['Tensión RS / ST / RT', `${c.tensionRS || '-'}V / ${c.tensionST || '-'}V / ${c.tensionRT || '-'}V`],
+      ['Intensidad R / S / T', `${c.intensidadR || '-'}A / ${c.intensidadS || '-'}A / ${c.intensidadT || '-'}A`],
+      ['Potencia Activa', (c.potenciaKW || '-') + ' kW'],
+      ['Potencia Aparente', (c.potencia || '-') + ' kVA']
     ],
-    theme: 'striped'
+    theme: 'striped',
+    headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
+    styles: { fontSize: 8 }
   });
 
-  // Notas
-  const currentY = (doc as any).lastAutoTable.finalY + 15;
-  doc.setTextColor(30, 41, 59);
-  doc.setFontSize(12);
-  doc.text("NOTAS Y HALLAZGOS TÉCNICOS:", 15, currentY);
-  doc.setFontSize(9);
-  const splitText = doc.splitTextToSize(data.observaciones || "Sin observaciones.", 180);
-  doc.text(splitText, 15, currentY + 8);
+  // --- TRABAJOS REALIZADOS ---
+  const trabajosY = (doc as any).lastAutoTable.finalY + 15;
+  doc.setFont('helvetica', 'bold');
+  doc.text("TRABAJOS REALIZADOS / OBSERVACIONES:", marginX, trabajosY);
+  
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  const splitObservaciones = doc.splitTextToSize(data.trabajos_realizados || "No se registraron observaciones adicionales.", 180);
+  doc.text(splitObservaciones, marginX, trabajosY + 7);
 
-  // Firmas
-  const footerY = doc.internal.pageSize.height - 40;
-  if (data.firmaCliente) doc.addImage(data.firmaCliente, 'PNG', 130, footerY - 25, 50, 20);
-  doc.line(15, footerY, 80, footerY); doc.line(130, footerY, 195, footerY);
-  doc.text("FIRMA TÉCNICO", 35, footerY + 5);
-  doc.text(`RECIBE: ${data.recibidoPor || 'CLIENTE'}`, 140, footerY + 5);
+  // --- FIRMAS (PROTEGIDAS) ---
+  // Solo intentamos dibujar la firma si existe el string Base64 o URL
+  const finalY = trabajosY + 40;
+  
+  if (data.inspectorSignatureUrl) {
+    try {
+      doc.addImage(data.inspectorSignatureUrl, 'PNG', 20, finalY, 50, 25);
+      doc.line(20, finalY + 26, 70, finalY + 26);
+      doc.text("Firma Inspector", 35, finalY + 31);
+    } catch (e) { console.warn("No se pudo cargar firma inspector"); }
+  }
 
-  doc.save(`RTS_${type}_${finalID}.pdf`);
+  if (data.clientSignatureUrl) {
+    try {
+      doc.addImage(data.clientSignatureUrl, 'PNG', 130, finalY, 50, 25);
+      doc.line(130, finalY + 26, 180, finalY + 26);
+      doc.text(data.clienteNombre || "Firma Cliente", 145, finalY + 31);
+    } catch (e) { console.warn("No se pudo cargar firma cliente"); }
+  }
+
+  // Dibujar Pie de página
+  drawPdfFooter(doc);
+
+  return doc;
 };

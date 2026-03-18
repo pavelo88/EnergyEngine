@@ -77,7 +77,7 @@ export default function ImportPage() {
         ) : (
           <div className="py-10 animate-in zoom-in duration-300">
             {processState === 'loading' ? <Loader2 className="mx-auto h-16 w-16 animate-spin text-primary" /> : processState === 'success' ? <CheckCircle className="mx-auto h-16 w-16 text-emerald-500" /> : <AlertTriangle className="mx-auto h-16 w-16 text-red-500" />}
-            <h3 className="mt-6 text-2xl font-black text-slate-800 uppercase tracking-tighter">{processState === 'loading' ? 'Procesando...' : processState === 'success' ? '�xito' : 'Error'}</h3>
+            <h3 className="mt-6 text-2xl font-black text-slate-800 uppercase tracking-tighter">{processState === 'loading' ? 'Procesando...' : processState === 'success' ? 'Éxito' : 'Error'}</h3>
             <p className="mt-2 text-slate-500 font-bold uppercase text-xs tracking-widest">{message}</p>
             {processState !== 'loading' && (
                  <button onClick={() => setProcessState('idle')} className="mt-8 bg-slate-900 text-white font-black px-8 py-3 rounded-xl uppercase text-xs tracking-widest shadow-xl shadow-slate-200 active:scale-95 transition-all">Nueva Carga</button>

@@ -212,7 +212,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
                 Sin resultados
               </p>
               <p className="text-slate-400 text-[10px] font-bold leading-relaxed px-4 mt-1 uppercase tracking-widest">
-                {searchTerm ? 'Prueba con otro t�rmino de b�squeda.' : `No hay informes registrados en esta secci�n.`}
+                {searchTerm ? 'Prueba con otro t¿rmino de b¿squeda.' : `No hay informes registrados en esta secci¿n.`}
               </p>
             </div>
           </div>

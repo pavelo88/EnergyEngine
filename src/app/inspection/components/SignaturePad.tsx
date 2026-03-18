@@ -109,7 +109,9 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
 
   const handleSave = () => {
     if (canvasRef.current && hasContent) {
-      const dataUrl = canvasRef.current.toDataURL('image/png');
+      // CAMBIO AQUÍ: Pasamos de 'image/png' a 'image/jpeg' con 0.5 de calidad. 
+      // Esto reduce el peso de la firma de 5 MB a unos 30 KB.
+      const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.5);
       onSignatureEnd(dataUrl);
     }
     setIsFullScreen(false);

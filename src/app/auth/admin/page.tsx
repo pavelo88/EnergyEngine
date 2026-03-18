@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import { Logo } from '@/components/icons';
 import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { Checkbox } from '@/components/ui/checkbox';
+import { fetchAdminCandidatesByEmail, hasAdminRole, normalizeAdminEmail } from '@/lib/admin-access';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -27,41 +28,35 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!isUserLoading && user) {
-      const checkUserRole = async () => {
-        if (user && user.email && firestore && auth) {
-          try {
-            // 1. Forzamos minúsculas para que coincida con el ID de Firestore
-            const normalizedEmail = user.email.toLowerCase();
-            const userDocRef = doc(firestore, 'usuarios', normalizedEmail);
-            const userDocSnap = await getDoc(userDocRef);
+    if (isUserLoading || !user) return;
 
-            if (userDocSnap.exists()) {
-              const userData = userDocSnap.data();
+    const checkUserRole = async () => {
+      if (!user.email || !firestore || !auth) return;
 
-              // 2. Verificamos los permisos (soporta tanto un Array "roles" como un String "role")
-              const hasAdminArray = userData.roles && Array.isArray(userData.roles) && userData.roles.includes('admin');
-              const hasAdminString = userData.role && userData.role === 'admin';
+      try {
+        const candidates = await fetchAdminCandidatesByEmail(firestore, user.email);
 
-              if (hasAdminArray || hasAdminString) {
-                router.push('/admin');
-              } else {
-                await auth.signOut();
-                setError("No tienes permisos de administrador (Rol insuficiente).");
-              }
-            } else {
-              await auth.signOut();
-              setError("Usuario no encontrado en la base de datos.");
-            }
-          } catch (e) {
-            console.error("Error checking admin role:", e);
-            await auth.signOut();
-            setError("Ocurrió un error al verificar tus permisos.");
-          }
+        if (candidates.length === 0) {
+          await auth.signOut();
+          setError('Usuario no encontrado en la base de datos.');
+          return;
         }
-      };
-      checkUserRole();
-    }
+
+        if (candidates.some((userData) => hasAdminRole(userData))) {
+          router.replace('/admin');
+          return;
+        }
+
+        await auth.signOut();
+        setError('No tienes permisos de administrador (Rol insuficiente).');
+      } catch (e) {
+        console.error('Error checking admin role:', e);
+        await auth.signOut();
+        setError('Ocurrio un error al verificar tus permisos.');
+      }
+    };
+
+    void checkUserRole();
   }, [user, isUserLoading, router, firestore, auth]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -69,62 +64,72 @@ export default function AdminLoginPage() {
     setLoading(true);
     setError(null);
 
-    if (!email || !password) {
-      setError("El correo y la contraseña no pueden estar vacíos.");
+    const normalizedEmail = normalizeAdminEmail(email);
+
+    if (!normalizedEmail || !password) {
+      setError('El correo y la contrasena no pueden estar vacios.');
       setLoading(false);
       return;
     }
 
     if (!auth || !firestore) {
-      setError("Servicios de Firebase no disponibles.");
+      setError('Servicios de Firebase no disponibles.');
       setLoading(false);
       return;
     }
 
     try {
-      // 1. Try to sign in normally
-      await signInWithEmailAndPassword(auth, email, password);
-      // On success, the useEffect hook will redirect to /admin
+      await signInWithEmailAndPassword(auth, normalizedEmail, password);
+      // El useEffect redirige segun rol.
     } catch (authError: any) {
-      // 2. If sign-in fails (e.g., user not found in Auth), try DNI/first-login flow
-      if (authError.code === 'auth/invalid-credential' || authError.code === 'auth/user-not-found') {
-        try {
-          // Check Firestore for a user matching email and DNI (password)
-          const q = query(
-            collection(firestore, 'usuarios'),
-            where('email', '==', email),
-            where('dni', '==', password)
-          );
-          const querySnapshot = await getDocs(q);
+      const code = authError?.code;
 
-          if (!querySnapshot.empty) {
-            // User found in DB, attempt to create them in Auth, which also signs them in
-            await createUserWithEmailAndPassword(auth, email, password);
-            // On success, the useEffect will handle redirection.
+      if (
+        code === 'auth/invalid-credential' ||
+        code === 'auth/user-not-found' ||
+        code === 'auth/invalid-login-credentials'
+      ) {
+        try {
+          const emailCandidates = Array.from(new Set([email.trim(), normalizedEmail])).filter(Boolean);
+          let matchedByDni = false;
+
+          for (const emailCandidate of emailCandidates) {
+            const q = query(
+              collection(firestore, 'usuarios'),
+              where('email', '==', emailCandidate),
+              where('dni', '==', password)
+            );
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+              matchedByDni = true;
+              break;
+            }
+          }
+
+          if (matchedByDni) {
+            await createUserWithEmailAndPassword(auth, normalizedEmail, password);
           } else {
-            // No user found with those credentials in DB either
-            setError('Credenciales incorrectas. Verifica tu correo y contraseña/DNI.');
+            setError('Credenciales incorrectas. Verifica tu correo y contrasena/DNI.');
           }
         } catch (creationError: any) {
-          // Handle specific errors during the creation attempt
           if (creationError.code === 'auth/email-already-in-use') {
-            setError('Este correo ya está registrado, pero la contraseña es incorrecta. Si ya estableciste una clave personal, úsala.');
+            setError('Este correo ya esta registrado, pero la contrasena es incorrecta. Si ya estableciste una clave personal, usala.');
           } else if (creationError.code === 'auth/weak-password') {
-            setError('La contraseña (DNI) es demasiado débil. Debe tener al menos 6 caracteres.');
+            setError('La contrasena (DNI) es demasiado debil. Debe tener al menos 6 caracteres.');
           } else if (creationError.code === 'auth/invalid-email') {
-            setError('El formato del correo electrónico no es válido.');
+            setError('El formato del correo electronico no es valido.');
           } else {
-            console.error("Firestore query or Auth creation error:", creationError);
+            console.error('Firestore query or Auth creation error:', creationError);
             setError('Error al consultar la base de datos o crear el usuario.');
           }
         }
-      } else if (authError.code === 'auth/invalid-email') {
-        setError('El formato del correo electrónico no es válido.');
-      } else if (authError.code === 'auth/wrong-password') {
-        setError('La contraseña es incorrecta. Por favor, inténtalo de nuevo.');
+      } else if (code === 'auth/invalid-email') {
+        setError('El formato del correo electronico no es valido.');
+      } else if (code === 'auth/wrong-password') {
+        setError('La contrasena es incorrecta. Por favor, intentalo de nuevo.');
       } else {
-        console.error("Authentication error:", authError);
-        setError('Ha ocurrido un error inesperado durante el inicio de sesión.');
+        console.error('Authentication error:', authError);
+        setError('Ha ocurrido un error inesperado durante el inicio de sesion.');
       }
     } finally {
       setLoading(false);
@@ -146,8 +151,8 @@ export default function AdminLoginPage() {
           <div className="mx-auto mb-2 flex justify-center">
             <Logo />
           </div>
-          <CardTitle className="text-2xl font-black text-white tracking-tighter uppercase italic font-headline">¡Bienvenido de nuevo!</CardTitle>
-          <CardDescription className="text-slate-400 font-medium">Panel de administración local.</CardDescription>
+          <CardTitle className="text-2xl font-black text-white tracking-tighter uppercase italic font-headline">Bienvenido de nuevo</CardTitle>
+          <CardDescription className="text-slate-400 font-medium">Panel de administracion local.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
@@ -164,11 +169,11 @@ export default function AdminLoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-slate-300 font-bold uppercase text-[10px] tracking-widest px-1">Contraseña o DNI</Label>
+              <Label htmlFor="password" className="text-slate-300 font-bold uppercase text-[10px] tracking-widest px-1">Contrasena o DNI</Label>
               <div className="relative">
                 <Input
                   id="password"
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -189,8 +194,8 @@ export default function AdminLoginPage() {
                 <Checkbox id="remember-me-admin" className="border-white/20 data-[state=checked]:bg-primary" />
                 <Label htmlFor="remember-me-admin" className="text-slate-400 font-bold uppercase tracking-tighter cursor-pointer">Recordarme</Label>
               </div>
-              <Link href="/auth/forgot-password" title="Olvidaste tu contraseña" className="text-slate-400 font-bold uppercase tracking-tighter hover:text-primary transition-colors">
-                ¿Olvidaste tu contraseña?
+              <Link href="/auth/forgot-password" title="Olvidaste tu contrasena" className="text-slate-400 font-bold uppercase tracking-tighter hover:text-primary transition-colors">
+                Olvidaste tu contrasena?
               </Link>
             </div>
 
@@ -200,13 +205,15 @@ export default function AdminLoginPage() {
                 <p>{error}</p>
               </div>
             )}
+
             <Button type="submit" className="w-full h-12 font-black uppercase tracking-widest text-xs rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg active:scale-[0.98] transition-all" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? 'Verificando...' : 'Iniciar Sesión'}
+              {loading ? 'Verificando...' : 'Iniciar sesion'}
             </Button>
+
             <div className="pt-4 text-center">
               <Link href="/auth/inspection" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors">
-                Ir al Módulo de Inspectores
+                Ir al modulo de inspectores
               </Link>
             </div>
           </form>

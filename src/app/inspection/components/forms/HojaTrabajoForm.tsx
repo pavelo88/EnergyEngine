@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
@@ -20,6 +20,8 @@ import StableInput from '../StableInput';
 import { generateReportId, fileToBase64 } from '@/lib/offline-utils';
 import { resolveInspectorEmail } from '@/lib/inspection-mode';
 import { getNextSequenceForUser } from '@/lib/sequence-manager';
+import { addImageSafely, getPdfFileName } from '@/lib/pdf-utils';
+import { MAX_IMAGES_PER_REPORT } from '@/lib/report-limits';
 
 const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
   <div className="flex flex-col items-center gap-1">
@@ -67,7 +69,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
         [{ content: 'MOTOR:', styles: { fontStyle: 'bold' } }, report.motor, { content: 'H. ASISTENCIA:', styles: { fontStyle: 'bold' } }, report.h_asistencia],
         [{ content: 'Nº MOTOR:', styles: { fontStyle: 'bold' } }, report.n_motor, { content: 'TIPO DE SERVICIO:', styles: { fontStyle: 'bold' } }, report.tipo_servicio],
         [{ content: 'GRUPO:', styles: { fontStyle: 'bold' } }, report.grupo, { content: 'KMS.:', styles: { fontStyle: 'bold' } }, report.kms],
-        [{ content: 'Nº GRUPO:', styles: { fontStyle: 'bold' } }, report.n_grupo, { content: 'DIETA:', styles: { fontStyle: 'bold' } }, `${report.dieta} Ã¢â€šÂ¬ ${report.media_dieta ? `(1/2 Cant: ${report.media_dieta_cantidad})` : ''}`],
+        [{ content: 'Nº GRUPO:', styles: { fontStyle: 'bold' } }, report.n_grupo, { content: 'DIETA:', styles: { fontStyle: 'bold' } }, `${report.dieta} € ${report.media_dieta ? `(1/2 Cant: ${report.media_dieta_cantidad})` : ''}`],
         [{ content: 'Nº DE PEDIDO:', styles: { fontStyle: 'bold' } }, report.n_pedido, '', ''],
       ],
       theme: 'grid',
@@ -123,15 +125,16 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text("PARÃMETROS TÃ‰CNICOS", leftMargin, currentY);
+    doc.text("PARÁMETROS TÉCNICOS", leftMargin, currentY);
     currentY += 4;
 
     autoTable(doc, {
       startY: currentY,
       body: [
-        [`Horas: ${report.parametrosTecnicos.horas || ''}`, `Presión Aceite: ${report.parametrosTecnicos.presionAceite || ''}`, `Tensión: ${report.parametrosTecnicos.tension || ''}`],
-        [`Tª (°C): ${report.parametrosTecnicos.temperatura || ''}`, `Nivel Combustible (%): ${report.parametrosTecnicos.nivelCombustible || ''}`, `Frecuencia (Hz): ${report.parametrosTecnicos.frecuencia || ''}`],
-        [{ content: `Tensión de baterías (V): ${report.parametrosTecnicos.tensionBaterias || ''}`, colSpan: 3 }],
+        // PROTECCIÓN 1: Agregar ?. a todos los accesos de parametrosTecnicos
+        [`Horas: ${report.parametrosTecnicos?.horas || ''}`, `Presión Aceite: ${report.parametrosTecnicos?.presionAceite || ''}`, `Tensión: ${report.parametrosTecnicos?.tension || ''}`],
+        [`Tª (°C): ${report.parametrosTecnicos?.temperatura || ''}`, `Nivel Combustible (%): ${report.parametrosTecnicos?.nivelCombustible || ''}`, `Frecuencia (Hz): ${report.parametrosTecnicos?.frecuencia || ''}`],
+        [{ content: `Tensión de baterías (V): ${report.parametrosTecnicos?.tensionBaterias || ''}`, colSpan: 3 }],
       ],
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 1.5, minCellHeight: 8 },
@@ -148,16 +151,17 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Potencia con carga: ${report.potenciaConCarga.potencia || ''}`, leftMargin, currentY);
+    // PROTECCIÓN 2: Agregar ?. a todos los accesos de potenciaConCarga
+    doc.text(`Potencia con carga: ${report.potenciaConCarga?.potencia || ''}`, leftMargin, currentY);
     currentY += 3;
 
     autoTable(doc, {
       startY: currentY,
       head: [['Tensión', 'Intensidad', 'Potencia (kW)']],
       body: [
-        [`RS: ${report.potenciaConCarga.tensionRS || ''}`, `R: ${report.potenciaConCarga.intensidadR || ''}`, { rowSpan: 3, content: report.potenciaConCarga.potenciaKW || '', styles: { valign: 'middle', halign: 'center' } }],
-        [`ST: ${report.potenciaConCarga.tensionST || ''}`, `S: ${report.potenciaConCarga.intensidadS || ''}`],
-        [`RT: ${report.potenciaConCarga.tensionRT || ''}`, `T: ${report.potenciaConCarga.intensidadT || ''}`],
+        [`RS: ${report.potenciaConCarga?.tensionRS || ''}`, `R: ${report.potenciaConCarga?.intensidadR || ''}`, { rowSpan: 3, content: report.potenciaConCarga?.potenciaKW || '', styles: { valign: 'middle', halign: 'center' } }],
+        [`ST: ${report.potenciaConCarga?.tensionST || ''}`, `S: ${report.potenciaConCarga?.intensidadS || ''}`],
+        [`RT: ${report.potenciaConCarga?.tensionRT || ''}`, `T: ${report.potenciaConCarga?.intensidadT || ''}`],
       ],
       theme: 'grid',
       styles: { fontSize: 9, cellPadding: 1.5, minCellHeight: 8 },
@@ -177,16 +181,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
 
-    if (report.inspectorSignatureUrl) {
-      doc.addImage(report.inspectorSignatureUrl, 'PNG', 25, currentY, 60, 25);
-    }
+    addImageSafely(doc, report.inspectorSignatureUrl, 25, currentY, 60, 25);
     doc.line(25, currentY + 25, 85, currentY + 25);
     doc.text("Firma técnico:", 25, currentY + 30);
     doc.text(inspectorName || '', 25, currentY + 35);
 
-    if (report.clientSignatureUrl) {
-      doc.addImage(report.clientSignatureUrl, 'PNG', 125, currentY, 60, 25);
-    }
+    addImageSafely(doc, report.clientSignatureUrl, 125, currentY, 60, 25);
     doc.line(125, currentY + 25, 185, currentY + 25);
     doc.text("Conforme cliente:", 125, currentY + 30);
     doc.text(report.recibidoPor || '', 125, currentY + 35);
@@ -278,7 +278,6 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
   useEffect(() => {
     const fetchData = async () => {
       if (inspectorEmail) {
-        // Primero intentamos local (offline-first)
         const cachedSecurity = await dbLocal.table('seguridad').get(inspectorEmail);
         if (cachedSecurity && cachedSecurity.nombre) {
           setInspectorName(cachedSecurity.nombre);
@@ -293,7 +292,6 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
           setFormData(p => ({ ...p, tecnicos: fallbackName }));
         }
 
-        // Luego intentamos Firebase si está online para refrescar
         if (canUseCloud && firestore && user?.email) {
           const userDocSnap = await getDoc(doc(firestore, 'usuarios', user.email));
           if (userDocSnap.exists()) {
@@ -401,47 +399,73 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
     }
   };
 
+// ########## FUNCIÓN CORREGIDA ##########
   const handlePdfAction = (forceDownload = false, docIdOverride?: string) => {
+    // Verificación básica para evitar PDFs vacíos
     if (!formData.clienteId) {
-      toast({ variant: 'destructive', title: 'Faltan Datos', description: 'Seleccione un Cliente para previsualizar.' });
+      toast({ 
+        variant: 'destructive', 
+        title: 'Faltan Datos', 
+        description: 'Seleccione un Cliente para poder generar el archivo.' 
+      });
       return;
     }
 
     setPdfLoading(true);
-    setTimeout(() => {
-      try {
-        const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: clientSignature };
-        const finalId = docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
-        const docPdf = generatePDF(reportData, inspectorName, finalId);
+    try {
+      const reportData = { 
+        ...formData, 
+        inspectorSignatureUrl: inspectorSignature, 
+        clientSignatureUrl: clientSignature 
+      };
 
-        const rawClientName = formData.clienteNombre || formData.cliente || '';
-        const sanitizedClientName = rawClientName
-          .trim()
-          .replace(/[<>:"/\\|*\u0000-\u001F]/g, '_')
-          .replace(/_+/g, '_')
-          .replace(/^_+|_+$/g, '');
-        const fileNameBase = sanitizedClientName
-          ? `Hoja_Trabajo_${finalId}_${sanitizedClientName}`
-          : `Hoja_Trabajo_${finalId}`;
+      // 1. Determinamos el ID (Si no hay uno oficial, usamos 'BORRADOR')
+      const rawId = (formData as any).numero_informe || docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
+      
+      // 2. Limpiamos el nombre para que el sistema operativo lo acepte (quitamos espacios y puntos)
+      const safeFileName = rawId.replace(/[^a-z0-9]/gi, '_').toUpperCase();
 
-        if (isSaved || forceDownload) {
-          docPdf.save(`${fileNameBase}.pdf`);
-        } else {
-          const blob = docPdf.output('blob');
-          const url = URL.createObjectURL(blob);
-          setPreviewPdfUrl(url);
-        }
-      } catch (e) {
-        console.error("Fallo al generar PDF:", e);
-        toast({ variant: "destructive", title: "Error de PDF", description: "No se pudo generar el documento." });
-      } finally {
-        setPdfLoading(false);
+      // 3. Generamos el documento base
+      const docPdf = generatePDF(reportData, inspectorName, rawId);
+
+      if (isSaved || forceDownload) {
+        // SOLUCIÓN FINAL: Forzamos la extensión .pdf explícitamente
+        docPdf.save(`${safeFileName}.pdf`);
+        
+        toast({
+          title: "Descarga iniciada",
+          description: `Archivo: ${safeFileName}.pdf`
+        });
+      } else {
+        // Para la vista previa usamos un Blob (más estable que datauri)
+        const blob = docPdf.output('blob');
+        const url = URL.createObjectURL(blob);
+        setPreviewPdfUrl(url);
       }
-    }, 500);
+    } catch (e) {
+      console.error("Fallo crítico al generar PDF:", e);
+      toast({ 
+        variant: "destructive", 
+        title: "Error de Generación", 
+        description: "El motor de PDF falló. Revisa que las firmas estén completas." 
+      });
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) setImages(prev => [...prev, ...Array.from(e.target.files!)]);
+    if (!e.target.files) return;
+    const selected = Array.from(e.target.files);
+    if (images.length + selected.length > MAX_IMAGES_PER_REPORT) {
+      toast({
+        variant: 'destructive',
+        title: 'Limite de imagenes',
+        description: `Maximo ${MAX_IMAGES_PER_REPORT} imagenes por informe.`,
+      });
+      return;
+    }
+    setImages((prev) => [...prev, ...selected]);
   };
 
   const handleSave = async () => {
@@ -453,46 +477,49 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
     if (!formData.clienteId || (gpsRequired && !formData.location) || !inspectorSignature || !clientSignature) {
       toast({
         variant: 'destructive',
-        title: 'Datos Incompletos',
+        title: 'Datos incompletos',
         description: gpsRequired
-          ? 'Cliente, Ubicación GPS y ambas firmas son obligatorias.'
+          ? 'Cliente, ubicacion GPS y ambas firmas son obligatorias.'
           : 'Cliente y ambas firmas son obligatorias.'
       });
       return;
     }
 
-    console.log('--- handleSave iniciado --- isOnline:', isOnline);
-    setSaving(true);
+    if (images.length > MAX_IMAGES_PER_REPORT) {
+      toast({
+        variant: 'destructive',
+        title: 'Limite de imagenes',
+        description: `Maximo ${MAX_IMAGES_PER_REPORT} imagenes por informe.`,
+      });
+      return;
+    }
 
-    // Mantener numeración secuencial para PDF (visible)
-    const sequence = await getNextSequenceForUser({
-      type: 'hoja-trabajo',
-      userEmail: inspectorEmail || '',
-      firestore: canUseCloud ? firestore : null,
-      isOnline: canUseCloud,
-    });
-    const sequentialId = `HT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
-    console.log(`Ã°Å¸â€œÅ’ IDs generados: displayId=${sequentialId}`);
+    let didStartSave = false;
+    try {
+      setSaving(true);
+      didStartSave = true;
 
-    // UUID interno para garantizar unicidad en Firestore (evita colisiones)
-    const internalFirebaseId = generateReportId('HT');
-    console.log(`   internalId=${internalFirebaseId}`);
+      const sequence = await getNextSequenceForUser({
+        type: 'hoja-trabajo',
+        userEmail: inspectorEmail || '',
+        firestore: canUseCloud ? firestore : null,
+        isOnline: canUseCloud,
+      });
+      const sequentialId = `HT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
+      const limitedImages = images.slice(0, MAX_IMAGES_PER_REPORT);
+      const internalFirebaseId = generateReportId('HT');
 
-    const saveDataToLocal = async (synced: boolean, firebaseId: string, displayId: string) => {
-      console.log(`💾 saveDataToLocal: synced=${synced}, firebaseId=${firebaseId}, displayId=${displayId}`);
+      const saveDataToLocal = async (synced: boolean, firebaseId: string, displayId: string) => {
+        const localData: any = {
+          ...formData,
+          formType: 'hoja-trabajo',
+          originalJobId: initialData?.id || null,
+          displayId,
+          numero_informe: displayId,
+        };
 
-      const localData = {
-        ...formData,
-        originalJobId: initialData?.id || null,
-        displayId
-      };
-
-      // SIEMPRE guardar imágenes, firmas en IndexedDB offline
-      const imageIds: number[] = [];
-      if (images.length > 0) {
-        console.log(`   Ã°Å¸â€œÂ¸ Guardando ${images.length} imágenes a IndexedDB...`);
-        for (let i = 0; i < images.length; i++) {
-          const image = images[i];
+        const imageIds: number[] = [];
+        for (const image of limitedImages) {
           const base64 = await fileToBase64(image);
           const imgId = await dbLocal.imagenes.add({
             reportId: displayId,
@@ -503,130 +530,103 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
             createdAt: new Date(),
           });
           imageIds.push(imgId);
-          console.log(`     ✅ Imagen guardada: ${image.name} (id=${imgId})`);
         }
-      }
-      (localData as any).imageIds = imageIds;
+        localData.imageIds = imageIds;
 
-      // Guardar firmas en IndexedDB como backup
-      if (inspectorSignature && !synced) {
-        await dbLocal.firmas.put({
-          userEmail: inspectorEmail || '',
-          base64Data: inspectorSignature,
+        if (inspectorSignature && !synced) {
+          await dbLocal.firmas.put({
+            userEmail: inspectorEmail || '',
+            base64Data: inspectorSignature,
+            createdAt: new Date(),
+          });
+        }
+        if (clientSignature && !synced) {
+          await dbLocal.firmas.put({
+            userEmail: `${inspectorEmail}_client`,
+            base64Data: clientSignature,
+            createdAt: new Date(),
+          });
+        }
+
+        await dbLocal.hojas_trabajo.add({
+          firebaseId,
+          synced,
+          data: localData,
           createdAt: new Date(),
         });
-        console.log(`   ✅ Firma inspector guardada`);
-      }
-      if (clientSignature && !synced) {
-        await dbLocal.firmas.put({
-          userEmail: `${inspectorEmail}_client`,
-          base64Data: clientSignature,
-          createdAt: new Date(),
-        });
-        console.log(`   ✅ Firma cliente guardada`);
-      }
 
-      console.log(`   Ã°Å¸â€œÂ¥ Guardando a hojas_trabajo: firebaseId=${firebaseId}, synced=${synced}, dataKeys=${Object.keys(localData).join(',')}`);
-      const recordId = await dbLocal.hojas_trabajo.add({
-        firebaseId,
-        synced,
-        data: localData,
-        createdAt: new Date()
-      });
-      console.log(`   ✅ Guardado en hojas_trabajo con id=${recordId}`);
+        setSavedDocId(firebaseId);
+        setIsSaved(true);
 
-      setSavedDocId(firebaseId);
-      setIsSaved(true);
-      setSaving(false);
+        if (synced) toast({ title: 'Sincronizado', description: `Informe guardado con ID: ${displayId}` });
+        else toast({ title: 'Guardado localmente', description: `Informe registrado como ${displayId}. Se subira al reconectar.` });
 
-      if (synced) toast({ title: '¡Sincronizado!', description: `Informe guardado con ID: ${displayId}` });
-      else toast({ title: 'Guardado Localmente', description: `Informe registrado como ${displayId}. Se subirá al reconectar.` });
-
-      const shouldDownload = window.confirm("¡Informe guardado con éxito! ¿Desea descargar el PDF ahora");
-      if (shouldDownload) {
         handlePdfAction(true, displayId);
-      }
 
-      if (onSuccess) onSuccess();
-    };
+        if (onSuccess) onSuccess();
+      };
 
-    if (canUseCloud && typeof navigator !== 'undefined' && navigator.onLine && firestore && user?.email) {
-      try {
-        console.log('Ã°Å¸Å¸Â¢ MODO ONLINE - Sincronizando a Firestore...');
-        const storage = getStorage();
-
-        // Subir imágenes
-        console.log(`   Ã°Å¸â€œÂ¤ Subiendo ${images.length}imágenes a Storage...`);
-        const imageUrls = await Promise.all(images.map(async (image) => {
-          const imgRef = ref(storage, `informes/${internalFirebaseId}/${image.name}`);
-          await uploadBytes(imgRef, image);
-          const url = await getDownloadURL(imgRef);
-          console.log(`     ✅ Imagen OK: ${image.name}`);
-          return url;
-        }));
-
-        // Subir firmas
-        console.log(`   ??Ã¯Â¿Â½? Subiendo firmas...`);
-        const inspRef = ref(storage, `firmas/${internalFirebaseId}/inspector.png`);
-        await uploadString(inspRef, inspectorSignature!, 'data_url');
-        const inspectorSignatureUrl = await getDownloadURL(inspRef);
-        console.log(`     ✅ Firma inspector OK`);
-
-        const cliRef = ref(storage, `firmas/${internalFirebaseId}/cliente.png`);
-        await uploadString(cliRef, clientSignature!, 'data_url');
-        const clientSignatureUrl = await getDownloadURL(cliRef);
-        console.log(`     ✅ Firma cliente OK`);
-
-        const docData = {
-          ...formData,
-          imageUrls,
-          inspectorSignatureUrl,
-          clientSignatureUrl,
-          inspectorId: inspectorEmail || '',
-          inspectorNombre: inspectorName,
-          inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
-          inspectorNombres: initialData?.inspectorNombres || [inspectorName],
-          fecha_creacion: Timestamp.now(),
-          numero_informe: sequentialId,  // ID visible, clave principal
-          internalId: internalFirebaseId,  // UUID para referencia cruzada
-          estado: 'Completado',
-        };
-
-        console.log(`   💾 Guardando en Firestore 'informes' con docId=${sequentialId} (clave principal)`);
-        console.log(`      internalId=${internalFirebaseId} (referencia cruzada)`);
-        // SIEMPRE usar sequentialId como clave del documento
-        await setDoc(doc(firestore, 'informes', sequentialId), docData);
-        console.log(`   ✅ Guardado en Firestore exitoso`);
-
-        if (initialData?.id) {
-          await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
-          console.log(`   ✅ Orden de trabajo ${initialData.id} actualizada`);
-        }
-
-        // Marcar imágenes como sincronizadas
-        const pendingImages = await dbLocal.imagenes.where('reportId').equals(sequentialId).toArray();
-        for (const img of pendingImages) {
-          await dbLocal.imagenes.update(img.id!, { synced: true });
-        }
-        console.log(`   ✅ Imágenes marcadas como sincronizadas en IndexedDB`);
-
-        // Guardar con sequentialId como clave (no internalId)
-        await saveDataToLocal(true, sequentialId, sequentialId);
-      } catch (error: any) {
-        console.error("[CLOUD ERROR] Fallo al guardar en Firebase:", error.message, error.stack);        // Guardar localmente como fallback incluso si Storage/Firestore cae a mitad del flujo.
+      if (canUseCloud && typeof navigator !== 'undefined' && navigator.onLine && firestore && user?.email) {
         try {
-          console.log("   ?Ã¯Â¿Â½? Guardando localmente como fallback...");
+          const storage = getStorage();
+
+          const imageUrls = await Promise.all(limitedImages.map(async (image) => {
+            const imgRef = ref(storage, `informes/${internalFirebaseId}/${image.name}`);
+            await uploadBytes(imgRef, image);
+            return getDownloadURL(imgRef);
+          }));
+
+          const inspRef = ref(storage, `firmas/${internalFirebaseId}/inspector.png`);
+          await uploadString(inspRef, inspectorSignature!, 'data_url');
+          const inspectorSignatureUrl = await getDownloadURL(inspRef);
+
+          const cliRef = ref(storage, `firmas/${internalFirebaseId}/cliente.png`);
+          await uploadString(cliRef, clientSignature!, 'data_url');
+          const clientSignatureUrl = await getDownloadURL(cliRef);
+
+          const docData = {
+            ...formData,
+            imageUrls,
+            inspectorSignatureUrl,
+            clientSignatureUrl,
+            inspectorId: inspectorEmail || '',
+            inspectorNombre: inspectorName,
+            inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
+            inspectorNombres: initialData?.inspectorNombres || [inspectorName],
+            fecha_creacion: Timestamp.now(),
+            numero_informe: sequentialId,
+            internalId: internalFirebaseId,
+            estado: 'Completado',
+          };
+
+          await setDoc(doc(firestore, 'informes', sequentialId), docData);
+
+          if (initialData?.id) {
+            await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
+          }
+
+          const pendingImages = await dbLocal.imagenes.where('reportId').equals(sequentialId).toArray();
+          for (const img of pendingImages) {
+            await dbLocal.imagenes.update(img.id!, { synced: true });
+          }
+
+          await saveDataToLocal(true, sequentialId, sequentialId);
+        } catch (error) {
+          console.error('[CLOUD ERROR] Fallo al guardar en Firebase:', error);
           await saveDataToLocal(false, sequentialId, sequentialId);
-        } catch (localErr: any) {
-          console.log("--- [FALLBACK] Guardando en base de datos local ---");
-          setSaving(false);
-          toast({ variant: 'destructive', title: 'Error crítico', description: 'No se pudo guardar ni online ni offline.' });
         }
+      } else {
+        await saveDataToLocal(false, sequentialId, sequentialId);
       }
-    } else {
-      // Offline: guardar todo localmente
-      console.log('Ã°Å¸â€Â´ MODO OFFLINE - Guardando a IndexedDB...');
-      await saveDataToLocal(false, sequentialId, sequentialId);
+    } catch (error) {
+      console.error('Error en guardado de hoja de trabajo:', error);
+      toast({
+        variant: 'destructive',
+        title: 'No se pudo guardar',
+        description: 'Intente nuevamente. Si continua, revise conexion y permisos.',
+      });
+    } finally {
+      if (didStartSave) setSaving(false);
     }
   };
 
@@ -639,9 +639,18 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
         }
       }}>
         <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 rounded-[2.5rem] overflow-hidden border border-slate-200 bg-white text-slate-950 light">
-          <DialogHeader className="p-6 border-b border-slate-100 bg-white">
-            <DialogTitle className="font-black uppercase tracking-tighter text-black">Borrador de Informe Técnico</DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">Previsualice el documento antes de realizar el guardado final.</DialogDescription>
+          {/* SOLUCIÓN: Botón en cabecera */}
+          <DialogHeader className="p-6 border-b border-slate-100 bg-white flex flex-row items-center justify-between">
+            <div>
+              <DialogTitle className="font-black uppercase tracking-tighter text-black">Borrador de Hoja de Trabajo</DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">Previsualice el documento antes de realizar el guardado final.</DialogDescription>
+            </div>
+            <button 
+              onClick={() => handlePdfAction(true)} 
+              className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-primary/90 transition-all shadow-sm active:scale-95"
+            >
+              Descargar PDF
+            </button>
           </DialogHeader>
           <div className="flex-1 bg-slate-100">
             {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full object-contain border-none" title="PDF Preview" />}
@@ -673,7 +682,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
               <StableInput label="H. Asistencia" icon={Clock} value={formData.h_asistencia} onChange={(v: any) => handleInputChange('h_asistencia', v)} />
               <StableInput label="Tipo de Servicio" icon={Type} value={formData.tipo_servicio} onChange={(v: any) => handleInputChange('tipo_servicio', v)} />
               <StableInput label="Kilómetros" icon={Car} type="number" value={formData.kms} onChange={(v: any) => handleInputChange('kms', v)} />
-              <StableInput label="Dieta (Ã¢â€šÂ¬)" icon={Euro} type="number" value={formData.dieta} onChange={(v: any) => handleInputChange('dieta', v)} />
+              <StableInput label="Dieta (€)" icon={Euro} type="number" value={formData.dieta} onChange={(v: any) => handleInputChange('dieta', v)} />
               <div className="flex items-center gap-2 pt-1.5">
                 <label className="flex items-center gap-2 text-xs font-black text-slate-600 cursor-pointer">
                   <input type="checkbox" checked={formData.media_dieta} onChange={(e: any) => handleInputChange('media_dieta', e.target.checked)} className="form-checkbox h-4 w-4 text-primary rounded border border-slate-200" />
@@ -696,12 +705,12 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
         </section>
 
         <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-4 border border-slate-100">
-          <h2 className="text-lg font-black flex items-center gap-2 uppercase tracking-tighter text-black"><Settings className="text-primary" size={18} /> PARÃMETROS TÃ‰CNICOS</h2>
+          <h2 className="text-lg font-black flex items-center gap-2 uppercase tracking-tighter text-black"><Settings className="text-primary" size={18} /> PARÁMETROS TÉCNICOS</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             <StableInput icon={Clock} label="Horas" value={formData.parametrosTecnicos.horas} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'horas', v)} />
             <StableInput icon={Gauge} label="Presión Aceite" value={formData.parametrosTecnicos.presionAceite} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'presionAceite', v)} />
             <StableInput icon={Zap} label="Tensión" value={formData.parametrosTecnicos.tension} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'tension', v)} />
-            <StableInput icon={Thermometer} label="Tª (Ã‚°C):" value={formData.parametrosTecnicos.temperatura} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'temperatura', v)} />
+            <StableInput icon={Thermometer} label="Tª (°C):" value={formData.parametrosTecnicos.temperatura} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'temperatura', v)} />
             <StableInput icon={Droplets} label="Nivel Combustible (%):" value={formData.parametrosTecnicos.nivelCombustible} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'nivelCombustible', v)} />
             <StableInput icon={Wind} label="Frecuencia (Hz):" value={formData.parametrosTecnicos.frecuencia} onChange={(v: any) => handleNestedInputChange('parametrosTecnicos', 'frecuencia', v)} />
             <div className="col-span-2">
@@ -791,29 +800,36 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
           </div>
         </section>
 
-        <div className="flex flex-col md:flex-row gap-4 pt-4">
+        {/* SOLUCIÓN: Botones Directos */}
+        <div className="flex flex-col md:flex-row gap-3 pt-4">
           <button
             onClick={() => handlePdfAction(false)}
             disabled={pdfLoading}
-            className="w-full p-5 bg-white border border-slate-200 rounded-[1.5rem] font-bold flex items-center justify-center gap-3 hover:border-primary transition-all text-black shadow-md active:scale-95 disabled:opacity-50 text-sm"
+            className="w-full p-4 bg-white border border-slate-200 rounded-[1.5rem] font-bold flex items-center justify-center gap-2 hover:border-primary transition-all text-slate-600 shadow-sm active:scale-95 disabled:opacity-50 text-xs"
           >
-            {pdfLoading ? <Loader2 className="animate-spin text-primary" size={18} /> : isSaved ? <Printer size={18} className="text-primary" /> : <FileSearch size={18} className="text-primary" />}
-            {pdfLoading ? 'GENERANDO...' : isSaved ? 'IMPRIMIR HOJA FINAL' : 'VISTA PREVIA PDF'}
+            {pdfLoading ? <Loader2 className="animate-spin text-primary" size={16} /> : <FileSearch size={16} className="text-primary" />}
+            VISTA PREVIA
           </button>
+
+          <button
+            onClick={() => handlePdfAction(true)}
+            disabled={pdfLoading}
+            className="w-full p-4 bg-white border border-slate-200 rounded-[1.5rem] font-bold flex items-center justify-center gap-2 hover:border-primary transition-all text-black shadow-md active:scale-95 disabled:opacity-50 text-xs"
+          >
+            {pdfLoading ? <Loader2 className="animate-spin text-primary" size={16} /> : <Printer size={16} className="text-primary" />}
+            {isSaved ? 'DESCARGAR PDF FINAL' : 'DESCARGAR BORRADOR'}
+          </button>
+
           <button
             onClick={handleSave}
             disabled={saving || isSaved}
-            className="w-full p-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-sm flex items-center justify-center gap-3 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
+            className="w-full p-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs flex items-center justify-center gap-2 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
           >
-            {saving ? <Loader2 className="animate-spin text-white" size={18} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={18} /> : <Save className="text-white" size={18} />}
-            {saving ? 'GUARDANDO DATOS...' : isSaved ? 'HOJA GUARDADA' : 'FINALIZAR Y GUARDAR'}
+            {saving ? <Loader2 className="animate-spin text-white" size={16} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={16} /> : <Save className="text-white" size={16} />}
+            {saving ? 'GUARDANDO...' : isSaved ? 'HOJA GUARDADA' : 'FINALIZAR Y GUARDAR'}
           </button>
         </div>
       </main>
     </div>
   );
 }
-
-
-
-
