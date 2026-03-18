@@ -104,7 +104,12 @@ export const generatePDF = (data: any, tecnico: string, reportID: string) => {
   }
 
   // Dibujar Pie de página
-  drawPdfFooter(doc);
-
+// --- DIBUJAR PIE DE PÁGINA CORRECTAMENTE ---
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    drawPdfFooter(doc, i, totalPages);
+  }
+  
   return doc;
 };

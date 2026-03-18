@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { useAdminHeader } from './AdminHeaderContext';
 
-type Gasto = { id: string; fecha: any; inspectorId: string; inspectorNombre: string; clienteNombre: string; descripcion: string; categoria: string; monto: number; estado: string; forma_pago: string, comprobanteUrl?: string };
+type Gasto = { id: string; fecha: any; inspectorId: string; inspectorNombre: string; clienteNombre: string; descripcion: string; categoria: string; monto: number; estado: string; forma_pago: string, comprobanteUrl?: string, total?: number };
 type Inspector = { id: string; nombre: string; };
 
 export default function ExpensesPage() {

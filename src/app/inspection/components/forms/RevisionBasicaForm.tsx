@@ -280,6 +280,7 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
   const [clientSignature, setClientSignature] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [savedDocId, setSavedDocId] = useState('');
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
@@ -441,21 +442,32 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
     setImages((prev) => [...prev, ...selected]);
   };
 
-  const handlePdfAction = (forceDownload = false, docIdOverride?: string) => {
-    const reportData = {
-      ...formData,
-      inspectorSignatureUrl: inspectorSignature,
-      clientSignatureUrl: clientSignature,
-    };
-    const finalId = docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
-    const doc = generatePDF(reportData, inspectorName, finalId);
-    if (isSaved || forceDownload) {
-        // SOLUCIÓN: FORZAR .pdf
-        doc.save(`${finalId}.pdf`);
-    } else {
-        const blob = doc.output('blob');
-        const url = URL.createObjectURL(blob);
-        setPreviewPdfUrl(url);
+const handlePdfAction = (forceDownload = false, docIdOverride?: string) => {
+    setPdfLoading(true);
+    try {
+      const reportData = {
+        ...formData,
+        inspectorSignatureUrl: inspectorSignature,
+        clientSignatureUrl: clientSignature,
+      };
+      
+      const rawId = formData.numero_informe || docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
+      const safeFileName = rawId.replace(/[^a-z0-9]/gi, '_').toUpperCase();
+
+      const docPdf = generatePDF(reportData, inspectorName, rawId);
+      
+      if (isSaved || forceDownload) {
+          docPdf.save(`${safeFileName}.pdf`);
+      } else {
+          const blob = docPdf.output('blob');
+          const url = URL.createObjectURL(blob);
+          setPreviewPdfUrl(url);
+      }
+    } catch (e) {
+      console.error("Fallo PDF:", e);
+      toast({ variant: 'destructive', title: 'Error PDF' });
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -614,7 +626,7 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess }: {
                     </button>
                 </DialogHeader>
                 <div className="flex-1 bg-slate-100">
-                    {previewPdfUrl && <iframe src={previewPdfUrl} className="w-full h-full shadow-lg" title="PDF Preview" />}
+                  {previewPdfUrl && <iframe src={`${previewPdfUrl}#toolbar=0`} className="w-full h-full shadow-lg border-none" title="PDF Preview" />}
                 </div>
             </DialogContent>
         </Dialog>
