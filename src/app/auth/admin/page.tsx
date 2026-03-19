@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -90,6 +90,9 @@ export default function AdminLoginPage() {
         code === 'auth/invalid-login-credentials'
       ) {
         try {
+          // 1. MAGIA: Entramos como anónimos un segundo para que Firestore nos deje leer
+          await signInAnonymously(auth);
+
           const emailCandidates = Array.from(new Set([email.trim(), normalizedEmail])).filter(Boolean);
           let matchedByDni = false;
 
@@ -106,12 +109,19 @@ export default function AdminLoginPage() {
             }
           }
 
+          // 2. Ya leímos la base de datos, nos quitamos el traje de anónimo
+          await auth.signOut();
+
           if (matchedByDni) {
+            // 3. El DNI es correcto, creamos la llave de acceso oficial
             await createUserWithEmailAndPassword(auth, normalizedEmail, password);
           } else {
             setError('Credenciales incorrectas. Verifica tu correo y contrasena/DNI.');
           }
         } catch (creationError: any) {
+          // Por si falla el signOut o el createUser
+          await auth.signOut(); // Aseguramos limpiar la sesión por si acaso
+
           if (creationError.code === 'auth/email-already-in-use') {
             setError('Este correo ya esta registrado, pero la contrasena es incorrecta. Si ya estableciste una clave personal, usala.');
           } else if (creationError.code === 'auth/weak-password') {

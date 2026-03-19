@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -153,80 +153,114 @@ export default function InspectionLoginPage() {
       return;
     }
 
-    try {
-      // 1. Iniciar sesión en Firebase
-      await signInWithEmailAndPassword(auth, cleanEmail, password);
+    // --- FUNCIÓN INTERNA DE ÉXITO (Para no repetir código) ---
+    const processSuccessfulLogin = async () => {
+      if (!firestore) return;
+      const userDocRef = doc(firestore, 'usuarios', cleanEmail);
+      const userDocSnap = await getDoc(userDocRef);
 
-      if (firestore) {
-        const userDocRef = doc(firestore, 'usuarios', cleanEmail);
-        const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        const hasAccessArray = userData.roles && Array.isArray(userData.roles) &&
+          (userData.roles.includes('inspector') || userData.roles.includes('admin'));
+        const hasAccessString = userData.role &&
+          (userData.role === 'inspector' || userData.role === 'admin');
 
-        // 2. Verificar permisos inmediatamente antes de dejarlo pasar
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data();
-          const hasAccessArray = userData.roles && Array.isArray(userData.roles) &&
-            (userData.roles.includes('inspector') || userData.roles.includes('admin'));
-          const hasAccessString = userData.role &&
-            (userData.role === 'inspector' || userData.role === 'admin');
-
-          if (!hasAccessArray && !hasAccessString) {
-            await auth.signOut();
-            setError("No tienes permisos de inspector (Rol insuficiente).");
-            setLoading(false);
-            return; // Bloqueado, no avanza
-          }
-
-          // 3. Si tiene permisos, registramos la sesión
-          const sessionId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-          localStorage.setItem('energy_engine_session_id', sessionId);
-
-          void setDoc(
-            userDocRef,
-            {
-              activeSessionId: sessionId,
-              activeSessionAt: serverTimestamp(),
-              activeSessionDevice: 'inspection-web',
-            },
-            { merge: true }
-          ).catch((e) => console.warn('No se pudo registrar sesión activa:', e));
-
-          // 4. Guardar email y pin en IndexedDB para uso offline futuro
-          try {
-            const existing = await dbLocal.table('seguridad').get(cleanEmail);
-            await dbLocal.table('seguridad').put({
-              email: cleanEmail,
-              createdAt: existing ? existing.createdAt : new Date(),
-              pinHash: userData.pin || null
-            });
-          } catch { /* ignorar */ }
-
-          setStoredOfflineEmail(cleanEmail);
-          setInspectionMode('online');
-          setLoading(false);
-          router.replace('/inspection');
-
-        } else {
+        if (!hasAccessArray && !hasAccessString) {
           await auth.signOut();
-          setError("Usuario no encontrado en la base de datos.");
+          setError("No tienes permisos de inspector (Rol insuficiente).");
           setLoading(false);
           return;
         }
+
+        const sessionId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        localStorage.setItem('energy_engine_session_id', sessionId);
+
+        void setDoc(
+          userDocRef,
+          { activeSessionId: sessionId, activeSessionAt: serverTimestamp(), activeSessionDevice: 'inspection-web' },
+          { merge: true }
+        ).catch((e) => console.warn('No se pudo registrar sesión activa:', e));
+
+        try {
+          const existing = await dbLocal.table('seguridad').get(cleanEmail);
+          await dbLocal.table('seguridad').put({
+            email: cleanEmail,
+            createdAt: existing ? existing.createdAt : new Date(),
+            pinHash: userData.pin || userData.dni || null
+          });
+        } catch { /* ignorar */ }
+
+        setStoredOfflineEmail(cleanEmail);
+        setInspectionMode('online');
+        setLoading(false);
+        router.replace('/inspection');
+      } else {
+        await auth.signOut();
+        setError("Usuario no encontrado en la base de datos.");
+        setLoading(false);
       }
+    };
+    // ---------------------------------------------------------
+
+    try {
+      // 1. Intentamos el login normal
+      await signInWithEmailAndPassword(auth, cleanEmail, password);
+      await processSuccessfulLogin();
+
     } catch (err: any) {
       const code = err.code || '';
+
+      // 2. Si el usuario es nuevo (o hay error de credenciales), intentamos el AUTO-REGISTRO
       if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
-        setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
+        try {
+          // A. Nos ponemos el traje de anónimo para que Firestore nos deje leer
+          await signInAnonymously(auth);
+
+          let matchedByPin = false;
+          if (firestore) {
+            const userDocRef = doc(firestore, 'usuarios', cleanEmail);
+            const userDocSnap = await getDoc(userDocRef);
+
+            if (userDocSnap.exists()) {
+              const userData = userDocSnap.data();
+              // Validamos que lo que escribió coincida con su DNI o PIN en Firestore
+              if (userData.dni === password || userData.pin === password) {
+                matchedByPin = true;
+              }
+            }
+          }
+
+          // B. Nos quitamos el traje de anónimo
+          await auth.signOut();
+
+          if (matchedByPin) {
+            // C. Creamos la cuenta oficial y procesamos el éxito
+            await createUserWithEmailAndPassword(auth, cleanEmail, password);
+            await processSuccessfulLogin();
+          } else {
+            setError('Credenciales incorrectas. Verifica tu correo y contraseña o PIN.');
+            setLoading(false);
+          }
+
+        } catch (autoErr: any) {
+          await auth.signOut();
+          console.error("Error en auto-registro:", autoErr);
+          setError('Error al verificar credenciales en la base de datos.');
+          setLoading(false);
+        }
+
       } else if (code === 'auth/invalid-email') {
         setError('Firebase detecta el correo como inválido. Escríbelo manualmente y sin autocompletar.');
+        setLoading(false);
       } else if (code === 'auth/network-request-failed') {
-        // Redirigimos directamente al PinGate en vez de dar error
         router.replace('/inspection');
       } else {
         setError('Error al iniciar sesión. Inténtalo de nuevo.');
+        setLoading(false);
       }
-      setLoading(false);
     }
   };
 
@@ -257,7 +291,7 @@ export default function InspectionLoginPage() {
       <Card className="w-full max-w-sm rounded-2xl shadow-2xl glass-crystallized">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto mb-2 flex justify-center">
-             <Logo />
+            <Logo />
           </div>
           <CardTitle className="text-2xl font-bold text-slate-800">¡Bienvenido de nuevo!</CardTitle>
           <CardDescription>Portal de Inspección Técnica.</CardDescription>
@@ -312,7 +346,7 @@ export default function InspectionLoginPage() {
                 <p>{error}</p>
               </div>
             )}
-            
+
             <Button type="submit" className="w-full font-bold" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {loading ? 'Verificando...' : 'Iniciar Sesión'}
@@ -334,7 +368,7 @@ export default function InspectionLoginPage() {
                 Ir al Panel de Administración
               </Link>
             </div>
-            
+
             <div className="flex items-center justify-center gap-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest pt-4">
               <Lock size={10} />
               Sin internet, usa tu PIN

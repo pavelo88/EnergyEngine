@@ -10,17 +10,17 @@ service cloud.firestore {
     }
 		
     function userData() {
-      // Usamos keys().contains('email') para evitar errores con usuarios anónimos
-      return (isSignedIn() && request.auth.token.keys().contains('email')) 
+      // Usamos 'in' para buscar de forma segura si el email existe en el token
+      return (isSignedIn() && 'email' in request.auth.token) 
         ? get(/databases/$(database)/documents/usuarios/$(request.auth.token.email)).data 
         : {};
     }
 
     function hasRole(role) {
       return isSignedIn() && 
-             request.auth.token.keys().contains('email') &&
+             'email' in request.auth.token &&
              exists(/databases/$(database)/documents/usuarios/$(request.auth.token.email)) &&
-             role in get(/databases/$(database)/documents/usuarios/$(request.auth.token.email)).data.roles;
+             role in userData().roles; // Aquí usamos userData() para quitar la advertencia
     }
 
     function isAdmin() {
@@ -29,42 +29,24 @@ service cloud.firestore {
 
     // --- 2. Reglas por Colección ---
 
-    // PERFIL DE USUARIO
     match /usuarios/{usuarioId} {
       // Permite leer y crear para que el flujo anónimo funcione
       allow read, create: if isSignedIn(); 
       
       // Solo el dueño (con email vinculado) o el admin pueden actualizar
       allow update: if (isSignedIn() && request.auth.token.email == usuarioId) || isAdmin();
-      
       allow delete: if isAdmin();
     }
 
-    // REGLAS GENERALES PARA DATOS
-    match /clientes/{clienteId} {
-      allow read, write: if isSignedIn();
-    }
+    match /clientes/{clienteId} { allow read, write: if isSignedIn(); }
+    match /trabajos/{trabajoId} { allow read, write: if isSignedIn(); }
+    match /ordenes_trabajo/{ordenId} { allow read, write: if isSignedIn(); }
+    match /gastos/{gastoId} { allow read, write: if isSignedIn(); }
+    match /informes/{informeId} { allow read, write: if isSignedIn(); }
 
-    match /trabajos/{trabajoId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /ordenes_trabajo/{ordenId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /gastos/{gastoId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /informes/{informeId} {
-      allow read, write: if isSignedIn();
-    }
-
-    // CONTACTOS
     match /contactos/{contactoId} {
       allow create: if true;
       allow read, write: if isAdmin();
     }
   }
-} 
+}
