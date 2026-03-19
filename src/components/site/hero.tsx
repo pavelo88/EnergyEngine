@@ -15,7 +15,7 @@ export default function Hero() {
       <h1 className="text-[2.2rem] md:text-6xl font-serif font-medium leading-[1.1] mb-8 tracking-tighter text-white normal-case text-shadow-strong">
         Mantenimiento y <br />
         <span className="text-primary italic drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">Reparación Industrial</span> <br />
-        <span className="block mt-2 text-[20px] md:text-[34px] text-white/90 tracking-tight leading-tight text-shadow-premium">
+        <span className="block mt-3 text-[38px] md:text-[55px] text-white/90 tracking-tight leading-tight text-shadow-premium">
           de Grupos Electrógenos
         </span>
       </h1>

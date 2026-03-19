@@ -70,7 +70,7 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
             </div>
             <div className="hidden md:block overflow-hidden">
               <h1 className="text-sm font-black tracking-tighter leading-none text-white whitespace-nowrap lowercase">energy engine</h1>
-              <p className="text-[10px] font-bold tracking-[0.2em] text-primary whitespace-nowrap uppercase">GRUPOS ELECTROGENOS</p>
+              <p className="text-[10px] font-bold tracking-[0.2em] text-primary whitespace-nowrap uppercase">GRUPOS ELECTRóGENOS</p>
             </div>
           </Link>
           <button onClick={onClose} className="absolute right-4 md:hidden p-2 rounded-xl bg-transparent hover:bg-white/5 transition-colors">
