@@ -20,12 +20,29 @@ import {
   setStoredOfflineEmail,
 } from '@/lib/inspection-mode';
 
-// Función de seguridad: Convierte la contraseña en un Hash indescifrable para guardar localmente
+// 1. SEGURIDAD: Función Hash para el Pingate Local
 const generateHash = async (text: string) => {
   const msgBuffer = new TextEncoder().encode(text);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+// 2. SEGURIDAD: Validación de roles a prueba de errores de tipeo
+const checkIsAuthorized = (userData: any) => {
+  let authorized = false;
+  if (userData.roles && Array.isArray(userData.roles)) {
+    authorized = userData.roles.some((r: any) => {
+      const val = typeof r === 'string' ? r : (r?.value || r?.id || '');
+      const norm = String(val).toLowerCase().trim();
+      return norm === 'inspector' || norm === 'admin';
+    });
+  }
+  if (!authorized && userData.role) {
+    const norm = String(userData.role).toLowerCase().trim();
+    if (norm === 'inspector' || norm === 'admin') authorized = true;
+  }
+  return authorized;
 };
 
 export default function InspectionLoginPage() {
@@ -55,7 +72,7 @@ export default function InspectionLoginPage() {
 
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-  // 1. Detectar conexión y email guardado
+  // Detectar conexión y email guardado
   useEffect(() => {
     const online = navigator.onLine;
     setIsOnline(online);
@@ -93,12 +110,12 @@ export default function InspectionLoginPage() {
     }
   }, [isOnline, checkingOffline]);
 
-  // 2. Protección pasiva (Si recarga la página)
+  // Protección pasiva (Si recarga la página)
   useEffect(() => {
     if (!isUserLoading && user && firestore && user.email && !showPasswordModal && !isPreparingSecurity) {
       const checkRole = async () => {
         try {
-          const cleanEmail = user.email!.toLowerCase();
+          const cleanEmail = user.email!.trim().toLowerCase();
           const userDocRef = doc(firestore, 'usuarios', cleanEmail);
           const userDocSnap = await getDoc(userDocRef);
 
@@ -111,12 +128,7 @@ export default function InspectionLoginPage() {
               return;
             }
 
-            const hasAccessArray = userData.roles && Array.isArray(userData.roles) &&
-              (userData.roles.includes('inspector') || userData.roles.includes('admin'));
-            const hasAccessString = userData.role &&
-              (userData.role === 'inspector' || userData.role === 'admin');
-
-            if (hasAccessArray || hasAccessString) {
+            if (checkIsAuthorized(userData)) {
               router.push('/inspection');
             } else {
               if (auth) await auth.signOut();
@@ -134,24 +146,35 @@ export default function InspectionLoginPage() {
     }
   }, [user, isUserLoading, router, firestore, showPasswordModal, isPreparingSecurity, auth]);
 
-  // 3. Acceso Offline
+  // --- EL PINGATE OFFLINE CORREGIDO Y SEGURO ---
   const handleOfflineAccess = async () => {
-    const cleanEmail = normalizeInspectionEmail(email);
-    if (!isValidEmail(cleanEmail)) {
-      setError('Para modo offline, ingresa un correo válido previamente registrado.');
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!isValidEmail(cleanEmail) || !password) {
+      setError('Para entrar offline, ingresa tu correo y contraseña válida.');
       return;
     }
+
     const security = await dbLocal.table('seguridad').get(cleanEmail);
     if (!security) {
-      setError('Ese correo no tiene acceso offline en este dispositivo. Entra online una vez primero.');
+      setError('Este correo no está autorizado en este dispositivo. Entra con internet la primera vez.');
       return;
     }
+
+    // Validamos que la contraseña ingresada coincida con el Hash guardado
+    const inputHash = await generateHash(password);
+    if (security.pinHash !== inputHash) {
+      setError('Contraseña incorrecta para el modo offline.');
+      return;
+    }
+
     setStoredOfflineEmail(cleanEmail);
     setInspectionMode('offline');
     router.replace('/inspection');
   };
+  // ---------------------------------------------
 
-  // 4. Actualizar Clave (Nube + Local Hash)
+  // Actualizar Clave en Nube y Local Hash
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError(null);
@@ -177,7 +200,6 @@ export default function InspectionLoginPage() {
       const userDocRef = doc(firestore, 'usuarios', pendingUserEmail);
       await updateDoc(userDocRef, { forcePasswordChange: false });
 
-      // PINGATE SEGURO: Guardamos solo el HASH de la nueva clave para uso offline
       const hashedNewPassword = await generateHash(newPassword);
       try {
         const existing = await dbLocal.table('seguridad').get(pendingUserEmail);
@@ -205,7 +227,7 @@ export default function InspectionLoginPage() {
     }
   };
 
-  // 5. Login Principal (Nube)
+  // Login Principal (Nube)
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -218,7 +240,7 @@ export default function InspectionLoginPage() {
     setError(null);
     if (!auth) { setError('Firebase no disponible.'); setLoading(false); return; }
 
-    const cleanEmail = normalizeInspectionEmail(email);
+    const cleanEmail = email.trim().toLowerCase();
     if (!isValidEmail(cleanEmail)) {
       setError('El formato del correo no es válido.');
       setLoading(false);
@@ -232,10 +254,9 @@ export default function InspectionLoginPage() {
 
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
-        const hasAccessArray = userData.roles && Array.isArray(userData.roles) && (userData.roles.includes('inspector') || userData.roles.includes('admin'));
-        const hasAccessString = userData.role && (userData.role === 'inspector' || userData.role === 'admin');
 
-        if (!hasAccessArray && !hasAccessString) {
+        // Usamos la función blindada
+        if (!checkIsAuthorized(userData)) {
           await auth.signOut();
           setError("No tienes permisos de inspector.");
           setLoading(false);
@@ -259,7 +280,6 @@ export default function InspectionLoginPage() {
             setLoading(false);
           }, 1000);
         } else {
-          // Si no necesita cambiar clave, guardamos el hash de la clave actual para offline
           const currentPasswordHash = await generateHash(password);
           try {
             const existing = await dbLocal.table('seguridad').get(cleanEmail);
