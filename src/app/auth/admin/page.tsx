@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -52,7 +52,7 @@ export default function AdminLoginPage() {
       } catch (e) {
         console.error('Error checking admin role:', e);
         await auth.signOut();
-        setError('Ocurrio un error al verificar tus permisos.');
+        setError('Ocurrió un error al verificar tus permisos.');
       }
     };
 
@@ -67,7 +67,7 @@ export default function AdminLoginPage() {
     const normalizedEmail = normalizeAdminEmail(email);
 
     if (!normalizedEmail || !password) {
-      setError('El correo y la contrasena no pueden estar vacios.');
+      setError('El correo y la contraseña no pueden estar vacíos.');
       setLoading(false);
       return;
     }
@@ -78,9 +78,36 @@ export default function AdminLoginPage() {
       return;
     }
 
+    // --- FUNCIÓN INTERNA DE ÉXITO ---
+    const processSuccessfulLogin = async () => {
+      try {
+        const candidates = await fetchAdminCandidatesByEmail(firestore, normalizedEmail);
+        const validAdmin = candidates.find((userData) => hasAdminRole(userData));
+
+        if (validAdmin) {
+          // AQUÍ ESTÁ LA MAGIA: Si en Firestore dice que debe cambiar clave, lo mandamos allá
+          if (validAdmin.forcePasswordChange) {
+            router.replace('/auth/forgot-password');
+          } else {
+            router.replace('/admin');
+          }
+        } else {
+          await auth.signOut();
+          setError('No tienes permisos de administrador (Rol insuficiente).');
+          setLoading(false);
+        }
+      } catch (e) {
+        console.error("Error validando admin tras login", e);
+        await auth.signOut();
+        setError('Error validando tus permisos post-login.');
+        setLoading(false);
+      }
+    }
+    // --------------------------------
+
     try {
       await signInWithEmailAndPassword(auth, normalizedEmail, password);
-      // El useEffect redirige segun rol.
+      await processSuccessfulLogin();
     } catch (authError: any) {
       const code = authError?.code;
 
@@ -90,7 +117,7 @@ export default function AdminLoginPage() {
         code === 'auth/invalid-login-credentials'
       ) {
         try {
-          // 1. MAGIA: Entramos como anónimos un segundo para que Firestore nos deje leer
+          // 1. Entramos como anónimos
           await signInAnonymously(auth);
 
           const emailCandidates = Array.from(new Set([email.trim(), normalizedEmail])).filter(Boolean);
@@ -109,40 +136,48 @@ export default function AdminLoginPage() {
             }
           }
 
-          // 2. Ya leímos la base de datos, nos quitamos el traje de anónimo
-          await auth.signOut();
+          // 2. Destruimos la cuenta anónima para no dejar basura en tu Firebase
+          const anonUser = auth.currentUser;
+          if (anonUser) {
+            await anonUser.delete();
+          } else {
+            await auth.signOut();
+          }
 
           if (matchedByDni) {
             // 3. El DNI es correcto, creamos la llave de acceso oficial
             await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+            await processSuccessfulLogin();
           } else {
-            setError('Credenciales incorrectas. Verifica tu correo y contrasena/DNI.');
+            setError('Credenciales incorrectas. Verifica tu correo y contraseña/DNI.');
+            setLoading(false);
           }
         } catch (creationError: any) {
-          // Por si falla el signOut o el createUser
-          await auth.signOut(); // Aseguramos limpiar la sesión por si acaso
+          await auth.signOut();
 
           if (creationError.code === 'auth/email-already-in-use') {
-            setError('Este correo ya esta registrado, pero la contrasena es incorrecta. Si ya estableciste una clave personal, usala.');
+            setError('Este correo ya está registrado, pero la contraseña es incorrecta.');
           } else if (creationError.code === 'auth/weak-password') {
-            setError('La contrasena (DNI) es demasiado debil. Debe tener al menos 6 caracteres.');
+            setError('La contraseña (DNI) es demasiado débil. Debe tener al menos 6 caracteres.');
           } else if (creationError.code === 'auth/invalid-email') {
-            setError('El formato del correo electronico no es valido.');
+            setError('El formato del correo electrónico no es válido.');
           } else {
             console.error('Firestore query or Auth creation error:', creationError);
             setError('Error al consultar la base de datos o crear el usuario.');
           }
+          setLoading(false);
         }
       } else if (code === 'auth/invalid-email') {
-        setError('El formato del correo electronico no es valido.');
+        setError('El formato del correo electrónico no es válido.');
+        setLoading(false);
       } else if (code === 'auth/wrong-password') {
-        setError('La contrasena es incorrecta. Por favor, intentalo de nuevo.');
+        setError('La contraseña es incorrecta. Por favor, inténtalo de nuevo.');
+        setLoading(false);
       } else {
         console.error('Authentication error:', authError);
-        setError('Ha ocurrido un error inesperado durante el inicio de sesion.');
+        setError('Ha ocurrido un error inesperado durante el inicio de sesión.');
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
     }
   };
 

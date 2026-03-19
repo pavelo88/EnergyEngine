@@ -137,6 +137,7 @@ export default function InspectionLoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 1. PINGATE OFFLINE: Si no hay internet, usa tu lógica local
     if (!navigator.onLine) {
       await handleOfflineAccess();
       return;
@@ -153,7 +154,7 @@ export default function InspectionLoginPage() {
       return;
     }
 
-    // --- FUNCIÓN INTERNA DE ÉXITO (Para no repetir código) ---
+    // --- FUNCIÓN INTERNA DE ÉXITO ---
     const processSuccessfulLogin = async () => {
       if (!firestore) return;
       const userDocRef = doc(firestore, 'usuarios', cleanEmail);
@@ -173,6 +174,7 @@ export default function InspectionLoginPage() {
           return;
         }
 
+        // Control de sesión única
         const sessionId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -184,6 +186,7 @@ export default function InspectionLoginPage() {
           { merge: true }
         ).catch((e) => console.warn('No se pudo registrar sesión activa:', e));
 
+        // PINGATE LOCAL: Guardamos en IndexedDB para cuando no haya internet
         try {
           const existing = await dbLocal.table('seguridad').get(cleanEmail);
           await dbLocal.table('seguridad').put({
@@ -191,12 +194,19 @@ export default function InspectionLoginPage() {
             createdAt: existing ? existing.createdAt : new Date(),
             pinHash: userData.pin || userData.dni || null
           });
-        } catch { /* ignorar */ }
+        } catch { /* ignorar errores locales */ }
 
         setStoredOfflineEmail(cleanEmail);
         setInspectionMode('online');
         setLoading(false);
-        router.replace('/inspection');
+
+        // MEJORA 2: Verificamos si la base de datos exige cambio de contraseña
+        if (userData.forcePasswordChange) {
+          router.replace('/auth/forgot-password');
+        } else {
+          router.replace('/inspection');
+        }
+
       } else {
         await auth.signOut();
         setError("Usuario no encontrado en la base de datos.");
@@ -206,17 +216,17 @@ export default function InspectionLoginPage() {
     // ---------------------------------------------------------
 
     try {
-      // 1. Intentamos el login normal
+      // Intento normal
       await signInWithEmailAndPassword(auth, cleanEmail, password);
       await processSuccessfulLogin();
 
     } catch (err: any) {
       const code = err.code || '';
 
-      // 2. Si el usuario es nuevo (o hay error de credenciales), intentamos el AUTO-REGISTRO
+      // Si falla porque no existe o la clave es incorrecta
       if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
         try {
-          // A. Nos ponemos el traje de anónimo para que Firestore nos deje leer
+          // PINGATE ONLINE: Nos ponemos el traje anónimo para leer Firestore
           await signInAnonymously(auth);
 
           let matchedByPin = false;
@@ -226,18 +236,23 @@ export default function InspectionLoginPage() {
 
             if (userDocSnap.exists()) {
               const userData = userDocSnap.data();
-              // Validamos que lo que escribió coincida con su DNI o PIN en Firestore
+              // Validamos que lo que escribió coincida con el DNI o el PIN de Firestore
               if (userData.dni === password || userData.pin === password) {
                 matchedByPin = true;
               }
             }
           }
 
-          // B. Nos quitamos el traje de anónimo
-          await auth.signOut();
+          // MEJORA 1: Destruimos la cuenta anónima para NO dejar basura en Firebase
+          const anonUser = auth.currentUser;
+          if (anonUser) {
+            await anonUser.delete();
+          } else {
+            await auth.signOut();
+          }
 
           if (matchedByPin) {
-            // C. Creamos la cuenta oficial y procesamos el éxito
+            // El Pingate validó el PIN, creamos cuenta oficial y continuamos
             await createUserWithEmailAndPassword(auth, cleanEmail, password);
             await processSuccessfulLogin();
           } else {
@@ -263,7 +278,6 @@ export default function InspectionLoginPage() {
       }
     }
   };
-
   // Loading inicial
   if (checkingOffline || isUserLoading) {
     return (
@@ -379,4 +393,4 @@ export default function InspectionLoginPage() {
       </Card>
     </div>
   );
-}
+} 
