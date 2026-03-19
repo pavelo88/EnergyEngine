@@ -8,17 +8,19 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
-
-    // Obtiene los datos del documento del usuario usando su email como ID
+		
     function userData() {
-      return get(/databases/$(database)/documents/usuarios/$(request.auth.token.email)).data;
+      // Usamos keys().contains('email') para evitar errores con usuarios anónimos
+      return (isSignedIn() && request.auth.token.keys().contains('email')) 
+        ? get(/databases/$(database)/documents/usuarios/$(request.auth.token.email)).data 
+        : {};
     }
 
-    // Verifica si un rol existe dentro de la lista de roles del usuario
     function hasRole(role) {
       return isSignedIn() && 
+             request.auth.token.keys().contains('email') &&
              exists(/databases/$(database)/documents/usuarios/$(request.auth.token.email)) &&
-             role in userData().roles;
+             role in get(/databases/$(database)/documents/usuarios/$(request.auth.token.email)).data.roles;
     }
 
     function isAdmin() {
@@ -27,13 +29,18 @@ service cloud.firestore {
 
     // --- 2. Reglas por Colección ---
 
-    // PERFIL DE USUARIO: Permite que el usuario lea su propia info al loguearse
+    // PERFIL DE USUARIO
     match /usuarios/{usuarioId} {
-      allow read: if isSignedIn() && (request.auth.token.email == usuarioId || isAdmin());
-      allow write: if isSignedIn() && (request.auth.token.email == usuarioId || isAdmin());
+      // Permite leer y crear para que el flujo anónimo funcione
+      allow read, create: if isSignedIn(); 
+      
+      // Solo el dueño (con email vinculado) o el admin pueden actualizar
+      allow update: if (isSignedIn() && request.auth.token.email == usuarioId) || isAdmin();
+      
+      allow delete: if isAdmin();
     }
 
-    // CLIENTES Y TRABAJOS: Acceso general para usuarios logueados
+    // REGLAS GENERALES PARA DATOS
     match /clientes/{clienteId} {
       allow read, write: if isSignedIn();
     }
@@ -54,7 +61,7 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
-    // CONTACTOS: Público para crear, privado para leer
+    // CONTACTOS
     match /contactos/{contactoId} {
       allow create: if true;
       allow read, write: if isAdmin();
