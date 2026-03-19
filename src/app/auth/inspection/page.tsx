@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously, updatePassword } from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,6 +34,15 @@ export default function InspectionLoginPage() {
   const [isOnline, setIsOnline] = useState(true);
   const [checkingOffline, setCheckingOffline] = useState(true);
 
+  // --- ESTADOS PARA EL MODAL DE CAMBIO DE CLAVE ---
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [pendingUserEmail, setPendingUserEmail] = useState('');
+  // ------------------------------------------------
+
   const isValidEmail = (value: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
@@ -44,7 +53,6 @@ export default function InspectionLoginPage() {
 
     const loadSavedEmail = async () => {
       try {
-        // Buscar si hay una sesión guardada en IndexedDB
         const allSecurity = await dbLocal.table('seguridad').toArray();
         if (allSecurity.length > 0) {
           const firstValid = allSecurity
@@ -53,7 +61,6 @@ export default function InspectionLoginPage() {
           if (firstValid) setEmail(firstValid);
         }
       } catch (e) {
-        // tabla vacía o error ignorar
       } finally {
         setCheckingOffline(false);
       }
@@ -80,7 +87,8 @@ export default function InspectionLoginPage() {
 
   // 3. Si ya hay usuario autenticado en Firebase redirigir (Protección pasiva)
   useEffect(() => {
-    if (!isUserLoading && user && firestore) {
+    // Evitamos el error toLowerCase si user.email aún no está disponible o si el modal está activo
+    if (!isUserLoading && user && firestore && user.email && !showPasswordModal) {
       const checkRole = async () => {
         try {
           const cleanEmail = user.email!.toLowerCase();
@@ -89,6 +97,13 @@ export default function InspectionLoginPage() {
 
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
+
+            if (userData.forcePasswordChange) {
+              // Si recarga la página y aún debe cambiarla, mostramos el modal
+              setPendingUserEmail(cleanEmail);
+              setShowPasswordModal(true);
+              return;
+            }
 
             const hasAccessArray = userData.roles && Array.isArray(userData.roles) &&
               (userData.roles.includes('inspector') || userData.roles.includes('admin'));
@@ -114,7 +129,7 @@ export default function InspectionLoginPage() {
       };
       checkRole();
     }
-  }, [user, isUserLoading, router, firestore]);
+  }, [user, isUserLoading, router, firestore, showPasswordModal]);
 
   const handleOfflineAccess = async () => {
     const cleanEmail = normalizeInspectionEmail(email);
@@ -134,10 +149,58 @@ export default function InspectionLoginPage() {
     router.replace('/inspection');
   };
 
+  // --- FUNCIÓN PARA EJECUTAR EL CAMBIO DE CLAVE DESDE EL MODAL ---
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+
+    if (newPassword.length < 6) {
+      setPasswordError('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('Las contraseñas no coinciden.');
+      return;
+    }
+
+    if (!auth?.currentUser || !firestore) {
+      setPasswordError('Error de conexión. Inténtalo de nuevo.');
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+
+    try {
+      // 1. Actualizamos en Authentication
+      await updatePassword(auth.currentUser, newPassword);
+
+      // 2. Quitamos la restricción en Firestore
+      const userDocRef = doc(firestore, 'usuarios', pendingUserEmail);
+      await updateDoc(userDocRef, {
+        forcePasswordChange: false
+      });
+
+      // 3. Todo listo, cerramos modal y mandamos a trabajar
+      setShowPasswordModal(false);
+      router.replace('/inspection');
+
+    } catch (err: any) {
+      console.error("Error actualizando contraseña:", err);
+      if (err.code === 'auth/requires-recent-login') {
+        setPasswordError('Por seguridad, cierra sesión y vuelve a entrar con tu DNI antes de cambiar la clave.');
+      } else {
+        setPasswordError('Hubo un error al actualizar la contraseña.');
+      }
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+  // --------------------------------------------------------------
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 1. PINGATE OFFLINE: Si no hay internet, usa tu lógica local
     if (!navigator.onLine) {
       await handleOfflineAccess();
       return;
@@ -174,7 +237,6 @@ export default function InspectionLoginPage() {
           return;
         }
 
-        // Control de sesión única
         const sessionId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -186,7 +248,6 @@ export default function InspectionLoginPage() {
           { merge: true }
         ).catch((e) => console.warn('No se pudo registrar sesión activa:', e));
 
-        // PINGATE LOCAL: Guardamos en IndexedDB para cuando no haya internet
         try {
           const existing = await dbLocal.table('seguridad').get(cleanEmail);
           await dbLocal.table('seguridad').put({
@@ -200,9 +261,10 @@ export default function InspectionLoginPage() {
         setInspectionMode('online');
         setLoading(false);
 
-        // MEJORA 2: Verificamos si la base de datos exige cambio de contraseña
+        // AQUÍ ACTIVAMOS EL POPUP EN LUGAR DE REDIRIGIR
         if (userData.forcePasswordChange) {
-          router.replace('/auth/forgot-password');
+          setPendingUserEmail(cleanEmail);
+          setShowPasswordModal(true);
         } else {
           router.replace('/inspection');
         }
@@ -216,17 +278,14 @@ export default function InspectionLoginPage() {
     // ---------------------------------------------------------
 
     try {
-      // Intento normal
       await signInWithEmailAndPassword(auth, cleanEmail, password);
       await processSuccessfulLogin();
 
     } catch (err: any) {
       const code = err.code || '';
 
-      // Si falla porque no existe o la clave es incorrecta
       if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
         try {
-          // PINGATE ONLINE: Nos ponemos el traje anónimo para leer Firestore
           await signInAnonymously(auth);
 
           let matchedByPin = false;
@@ -236,14 +295,12 @@ export default function InspectionLoginPage() {
 
             if (userDocSnap.exists()) {
               const userData = userDocSnap.data();
-              // Validamos que lo que escribió coincida con el DNI o el PIN de Firestore
               if (userData.dni === password || userData.pin === password) {
                 matchedByPin = true;
               }
             }
           }
 
-          // MEJORA 1: Destruimos la cuenta anónima para NO dejar basura en Firebase
           const anonUser = auth.currentUser;
           if (anonUser) {
             await anonUser.delete();
@@ -252,7 +309,6 @@ export default function InspectionLoginPage() {
           }
 
           if (matchedByPin) {
-            // El Pingate validó el PIN, creamos cuenta oficial y continuamos
             await createUserWithEmailAndPassword(auth, cleanEmail, password);
             await processSuccessfulLogin();
           } else {
@@ -278,7 +334,7 @@ export default function InspectionLoginPage() {
       }
     }
   };
-  // Loading inicial
+
   if (checkingOffline || isUserLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-transparent">
@@ -291,6 +347,61 @@ export default function InspectionLoginPage() {
       </div>
     );
   }
+
+  // --- RENDERIZADO DEL MODAL SI ESTÁ ACTIVO ---
+  if (showPasswordModal) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-transparent">
+        <Card className="w-full max-w-sm rounded-2xl shadow-2xl glass-crystallized p-4">
+          <CardHeader className="text-center space-y-4 pb-4">
+            <CardTitle className="text-xl font-bold text-slate-800">Actualiza tu contraseña</CardTitle>
+            <CardDescription className="text-xs">
+              Por seguridad, debes cambiar la contraseña temporal asignada por el administrador.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePasswordUpdate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">Nueva Contraseña</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  required
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="Repite tu contraseña"
+                />
+              </div>
+
+              {passwordError && (
+                <div className="flex items-center gap-2 rounded-md border border-red-300 bg-red-50 p-3 text-xs font-medium text-red-800">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <p>{passwordError}</p>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full font-bold" disabled={isUpdatingPassword}>
+                {isUpdatingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isUpdatingPassword ? 'Actualizando...' : 'Guardar y Entrar'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  // ---------------------------------------------
 
   if (user) {
     return (
@@ -393,4 +504,4 @@ export default function InspectionLoginPage() {
       </Card>
     </div>
   );
-} 
+}

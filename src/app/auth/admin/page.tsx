@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously, updatePassword } from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { collection, query, where, getDocs, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,14 +27,24 @@ export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // --- ESTADOS PARA EL MODAL DE CAMBIO DE CLAVE ---
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [pendingUserEmail, setPendingUserEmail] = useState('');
+  // ------------------------------------------------
+
   useEffect(() => {
-    if (isUserLoading || !user) return;
+    // Evitamos ejecutar si el modal de cambio de clave está activo o si el user.email no ha cargado
+    if (isUserLoading || !user || !user.email || showPasswordModal) return;
 
     const checkUserRole = async () => {
-      if (!user.email || !firestore || !auth) return;
+      if (!firestore || !auth) return;
 
       try {
-        const candidates = await fetchAdminCandidatesByEmail(firestore, user.email);
+        const candidates = await fetchAdminCandidatesByEmail(firestore, user.email!);
 
         if (candidates.length === 0) {
           await auth.signOut();
@@ -42,7 +52,15 @@ export default function AdminLoginPage() {
           return;
         }
 
-        if (candidates.some((userData) => hasAdminRole(userData))) {
+        const validAdmin = candidates.find((userData) => hasAdminRole(userData));
+
+        if (validAdmin) {
+          // Si recarga la página y aún debe cambiarla, mostramos el modal
+          if (validAdmin.forcePasswordChange) {
+            setPendingUserEmail(user.email!);
+            setShowPasswordModal(true);
+            return;
+          }
           router.replace('/admin');
           return;
         }
@@ -57,7 +75,58 @@ export default function AdminLoginPage() {
     };
 
     void checkUserRole();
-  }, [user, isUserLoading, router, firestore, auth]);
+  }, [user, isUserLoading, router, firestore, auth, showPasswordModal]);
+
+
+  // --- FUNCIÓN PARA EJECUTAR EL CAMBIO DE CLAVE DESDE EL MODAL ---
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+
+    if (newPassword.length < 6) {
+      setPasswordError('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('Las contraseñas no coinciden.');
+      return;
+    }
+
+    if (!auth?.currentUser || !firestore) {
+      setPasswordError('Error de conexión. Inténtalo de nuevo.');
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+
+    try {
+      // 1. Actualizamos en Authentication
+      await updatePassword(auth.currentUser, newPassword);
+
+      // 2. Quitamos la restricción en Firestore
+      const userDocRef = doc(firestore, 'usuarios', pendingUserEmail);
+      await updateDoc(userDocRef, {
+        forcePasswordChange: false
+      });
+
+      // 3. Todo listo, cerramos modal y mandamos al panel
+      setShowPasswordModal(false);
+      router.replace('/admin');
+
+    } catch (err: any) {
+      console.error("Error actualizando contraseña:", err);
+      if (err.code === 'auth/requires-recent-login') {
+        setPasswordError('Por seguridad, cierra sesión y vuelve a entrar con tu DNI antes de cambiar la clave.');
+      } else {
+        setPasswordError('Hubo un error al actualizar la contraseña.');
+      }
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+  // --------------------------------------------------------------
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,9 +154,10 @@ export default function AdminLoginPage() {
         const validAdmin = candidates.find((userData) => hasAdminRole(userData));
 
         if (validAdmin) {
-          // AQUÍ ESTÁ LA MAGIA: Si en Firestore dice que debe cambiar clave, lo mandamos allá
+          // AQUÍ ACTIVAMOS EL POPUP EN LUGAR DE REDIRIGIR
           if (validAdmin.forcePasswordChange) {
-            router.replace('/auth/forgot-password');
+            setPendingUserEmail(normalizedEmail);
+            setShowPasswordModal(true);
           } else {
             router.replace('/admin');
           }
@@ -180,6 +250,64 @@ export default function AdminLoginPage() {
       }
     }
   };
+
+  // --- RENDERIZADO DEL MODAL SI ESTÁ ACTIVO ---
+  if (showPasswordModal) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-transparent relative z-10">
+        <Card className="w-full max-w-sm rounded-[2.5rem] shadow-2xl glass-crystallized border-white/10 p-4">
+          <CardHeader className="text-center space-y-4 pb-4">
+            <CardTitle className="text-xl font-black text-white tracking-tighter uppercase italic font-headline">Actualiza tu contraseña</CardTitle>
+            <CardDescription className="text-slate-400 font-medium text-xs">
+              Por seguridad, debes cambiar la contraseña temporal asignada al administrador.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePasswordUpdate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="newPasswordAdmin" className="text-slate-300 font-bold uppercase text-[10px] tracking-widest px-1">Nueva Contraseña</Label>
+                <Input
+                  id="newPasswordAdmin"
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  className="bg-white/5 border-white/10 text-white rounded-xl h-12"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPasswordAdmin" className="text-slate-300 font-bold uppercase text-[10px] tracking-widest px-1">Confirmar Contraseña</Label>
+                <Input
+                  id="confirmPasswordAdmin"
+                  type="password"
+                  required
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="Repite tu contraseña"
+                  className="bg-white/5 border-white/10 text-white rounded-xl h-12"
+                />
+              </div>
+
+              {passwordError && (
+                <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-xs font-bold text-red-500 animate-in fade-in zoom-in duration-300">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <p>{passwordError}</p>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full h-12 font-black uppercase tracking-widest text-xs rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg active:scale-[0.98] transition-all" disabled={isUpdatingPassword}>
+                {isUpdatingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isUpdatingPassword ? 'Actualizando...' : 'Guardar y Entrar'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  // ---------------------------------------------
+
 
   if (isUserLoading || user) {
     return (
