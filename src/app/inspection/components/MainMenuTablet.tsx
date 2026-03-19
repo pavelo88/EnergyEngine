@@ -5,7 +5,6 @@ import {
   ClipboardList, Activity, Receipt, User, ArrowUpRight
 } from 'lucide-react';
 import TABS from '../constants';
-import InstallPwaCard from './InstallPwaCard';
 
 interface MainMenuProps {
   onNavigate: (tab: string) => void;
@@ -61,8 +60,8 @@ const menuItems = [
   },
 ];
 
-export default function MainMenuTablet({ 
-  onNavigate, 
+export default function MainMenuTablet({
+  onNavigate,
   userName,
   onInstall,
   onConfigure,
@@ -76,18 +75,6 @@ export default function MainMenuTablet({
         <h2 className="text-slate-500 text-lg font-bold tracking-wider uppercase">Hola, {userName}</h2>
         <h1 className="text-slate-800 text-6xl font-black mt-1 tracking-tighter">Panel de Control</h1>
       </header>
-
-      {canInstall && onInstall && onConfigure && configStatus && (
-        <section className="max-w-4xl mx-auto w-full mb-8">
-          <InstallPwaCard 
-            onInstall={onInstall}
-            onConfigure={onConfigure}
-            hasPin={configStatus.hasPin}
-            hasSignature={configStatus.hasSignature}
-            isOnline={!!isOnline}
-          />
-        </section>
-      )}
 
       <main className="w-full max-w-4xl mx-auto flex-grow flex items-center justify-center">
         <div className="grid grid-cols-2 gap-12 w-full">

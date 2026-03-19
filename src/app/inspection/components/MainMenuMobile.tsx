@@ -6,7 +6,6 @@ import {
   FileText, Settings, ClipboardCheck, Wrench, Zap, Clock, Plus
 } from 'lucide-react';
 import TABS from '../constants';
-import InstallPwaCard from './InstallPwaCard';
 
 interface MainMenuProps {
   onNavigate: (tab: string) => void;
@@ -52,9 +51,9 @@ const quickInspections = [
   // { id: 'revision-basica', label: 'Rev. Básica', icon: <Activity size={24} />, color: 'from-emerald-600 to-emerald-400' },
 ];
 
-export default function MainMenuMobile({ 
-  onNavigate, 
-  onSelectInspection, 
+export default function MainMenuMobile({
+  onNavigate,
+  onSelectInspection,
   userName,
   onInstall,
   onConfigure,
@@ -76,19 +75,6 @@ export default function MainMenuMobile({
           </div>
         </div>
       </header>
-
-      {canInstall && onInstall && onConfigure && configStatus && (
-        <section className="px-2">
-          <InstallPwaCard 
-            onInstall={onInstall}
-            onConfigure={onConfigure}
-            hasPin={configStatus.hasPin}
-            hasSignature={configStatus.hasSignature}
-            isOnline={!!isOnline}
-            isStandalone={isStandalone}
-          />
-        </section>
-      )}
 
       <section className="space-y-4">
         <div className="flex items-center justify-between px-2">

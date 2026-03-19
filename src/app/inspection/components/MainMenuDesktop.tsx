@@ -6,7 +6,6 @@ import {
   FileText, Settings, ClipboardCheck, Wrench, Zap, Clock, Plus
 } from 'lucide-react';
 import TABS from '../constants';
-import InstallPwaCard from './InstallPwaCard';
 import { cn } from '@/lib/utils';
 
 interface MainMenuProps {
@@ -53,9 +52,9 @@ const quickInspections = [
   // { id: 'revision-basica', label: 'Revisión Básica', icon: <Activity size={28} />, color: 'from-emerald-600 to-emerald-400' },
 ];
 
-export default function MainMenuDesktop({ 
-  onNavigate, 
-  onSelectInspection, 
+export default function MainMenuDesktop({
+  onNavigate,
+  onSelectInspection,
   userName,
   onInstall,
   onConfigure,
@@ -78,19 +77,6 @@ export default function MainMenuDesktop({
         </div>
       </header>
 
-      {canInstall && onInstall && onConfigure && configStatus && (
-        <section>
-          <InstallPwaCard 
-            onInstall={onInstall}
-            onConfigure={onConfigure}
-            hasPin={configStatus.hasPin}
-            hasSignature={configStatus.hasSignature}
-            isOnline={!!isOnline}
-            isStandalone={isStandalone}
-          />
-        </section>
-      )}
-
       <section className="space-y-6">
         <div className="flex items-center justify-between px-2">
           <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -103,14 +89,14 @@ export default function MainMenuDesktop({
             <button
               key={item.id}
               onClick={() => onSelectInspection?.(item.id)}
-                className="group relative flex flex-col items-start p-8 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-white/10 shadow-xl rounded-[2.5rem] transition-all duration-300 hover:scale-[1.02] hover:border-primary/50 overflow-hidden"            >
+              className="group relative flex flex-col items-start p-8 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-white/10 shadow-xl rounded-[2.5rem] transition-all duration-300 hover:scale-[1.02] hover:border-primary/50 overflow-hidden"            >
               <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center text-white shadow-xl mb-6 transition-transform group-hover:scale-110`}>
                 {item.icon}
               </div>
               <div className="text-left">
                 <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-1">Módulo</span>
                 <span className="text-xl font-headline font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
-                    {item.label}
+                  {item.label}
                 </span>
               </div>
               <div className="absolute -right-8 -bottom-8 w-24 h-24 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors" />
@@ -121,7 +107,7 @@ export default function MainMenuDesktop({
 
       <section className="space-y-6 pt-4">
         <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] px-2 flex items-center gap-2">
-           <Activity size={14} /> Gestión Estratégica
+          <Activity size={14} /> Gestión Estratégica
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {navigationItems.map((item) => (
