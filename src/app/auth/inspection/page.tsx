@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously, updatePassword } from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocFromServer, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,20 +28,33 @@ const generateHash = async (text: string) => {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
-// 2. SEGURIDAD: Validación de roles a prueba de errores de tipeo
+// 2. SEGURIDAD: Validación de roles a prueba de errores de tipeo y estructuras (Map/Array)
 const checkIsAuthorized = (userData: any) => {
+  if (!userData) return false;
+
+  console.log("Datos del usuario traídos de Firebase:", userData);
+
   let authorized = false;
-  if (userData.roles && Array.isArray(userData.roles)) {
-    authorized = userData.roles.some((r: any) => {
+
+  // 1. Verificamos 'roles' (Plural)
+  if (userData.roles) {
+    const rolesArray = Array.isArray(userData.roles)
+      ? userData.roles
+      : Object.values(userData.roles);
+
+    authorized = rolesArray.some((r: any) => {
       const val = typeof r === 'string' ? r : (r?.value || r?.id || '');
       const norm = String(val).toLowerCase().trim();
       return norm === 'inspector' || norm === 'admin';
     });
   }
+
+  // 2. Verificamos 'role' (Singular) por si acaso
   if (!authorized && userData.role) {
     const norm = String(userData.role).toLowerCase().trim();
     if (norm === 'inspector' || norm === 'admin') authorized = true;
   }
+
   return authorized;
 };
 
@@ -110,41 +123,58 @@ export default function InspectionLoginPage() {
     }
   }, [isOnline, checkingOffline]);
 
-  // Protección pasiva (Si recarga la página)
+  // Protección pasiva y redirección segura (Con filtro anti-caché)
   useEffect(() => {
-    if (!isUserLoading && user && firestore && user.email && !showPasswordModal && !isPreparingSecurity) {
-      const checkRole = async () => {
-        try {
-          const cleanEmail = user.email!.trim().toLowerCase();
-          const userDocRef = doc(firestore, 'usuarios', cleanEmail);
-          const userDocSnap = await getDoc(userDocRef);
+    if (loading || isUserLoading || isPreparingSecurity || showPasswordModal) return;
+    if (!user || !user.email) return;
 
-          if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
+    let isMounted = true;
 
-            if (userData.forcePasswordChange) {
-              setPendingUserEmail(cleanEmail);
-              setShowPasswordModal(true);
-              return;
-            }
+    const verifyAndRedirect = async () => {
+      try {
+        const cleanEmail = user.email.trim().toLowerCase();
+        const userDocRef = doc(firestore, 'usuarios', cleanEmail);
 
-            if (checkIsAuthorized(userData)) {
-              router.push('/inspection');
-            } else {
-              if (auth) await auth.signOut();
-              setError("No tienes permisos de inspector.");
-            }
+        // 1. Leemos primero normal
+        let userDocSnap = await getDoc(userDocRef);
+        let userData = userDocSnap.data();
+
+        // 2. EL CAZAFANTASMAS 👻
+        if (userDocSnap.exists() && (!userData || !userData.roles)) {
+          console.warn("Documento fantasma detectado en caché. Dando 1.5s a Firebase para sincronizar...");
+
+          // ⏳ LA MAGIA ESTÁ AQUÍ: Pausa para evitar la latencia de Firebase
+          await new Promise(resolve => setTimeout(resolve, 1500));
+
+          userDocSnap = await getDocFromServer(userDocRef);
+          userData = userDocSnap.data();
+        }
+
+        if (userDocSnap.exists() && isMounted) {
+          if (userData.forcePasswordChange) {
+            setPendingUserEmail(cleanEmail);
+            setShowPasswordModal(true);
+            return;
+          }
+
+          if (checkIsAuthorized(userData)) {
+            router.replace('/inspection');
           } else {
             if (auth) await auth.signOut();
-            setError("Usuario no encontrado en la base de datos.");
+            setError("No tienes permisos de inspector.");
           }
-        } catch (error) {
-          console.error("Error al verificar rol:", error);
         }
-      };
-      checkRole();
+      } catch (error) {
+        console.error("Error al verificar rol en protección pasiva:", error);
+      }
+    };
+
+    if (navigator.onLine) {
+      verifyAndRedirect();
     }
-  }, [user, isUserLoading, router, firestore, showPasswordModal, isPreparingSecurity, auth]);
+
+    return () => { isMounted = false; };
+  }, [user, isUserLoading, router, firestore, showPasswordModal, isPreparingSecurity, auth, loading]);
 
   // --- EL PINGATE OFFLINE CORREGIDO Y SEGURO ---
   const handleOfflineAccess = async () => {
@@ -250,11 +280,23 @@ export default function InspectionLoginPage() {
     const processSuccessfulLogin = async () => {
       if (!firestore) return;
       const userDocRef = doc(firestore, 'usuarios', cleanEmail);
-      const userDocSnap = await getDoc(userDocRef);
+
+      // 1. Lectura normal
+      let userDocSnap = await getDoc(userDocRef);
+      let userData = userDocSnap.data();
+
+      // 2. EL CAZAFANTASMAS 👻 (En el login manual)
+      if (userDocSnap.exists() && (!userData || !userData.roles)) {
+        console.warn("Documento fantasma detectado durante el login. Dando 1.5s a Firebase para sincronizar...");
+
+        // ⏳ LA MAGIA ESTÁ AQUÍ: Pausa para evitar la latencia de Firebase
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        userDocSnap = await getDocFromServer(userDocRef);
+        userData = userDocSnap.data();
+      }
 
       if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-
         // Usamos la función blindada
         if (!checkIsAuthorized(userData)) {
           await auth.signOut();
