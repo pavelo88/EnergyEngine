@@ -21,7 +21,7 @@ const navLinks = [
   { href: '/admin/users', label: 'Usuarios', icon: Users },
   { href: '/admin/clients', label: 'Clientes', icon: Building },
   { href: '/admin/jobs', label: 'Trabajos', icon: Wrench },
-  { href: '/admin/expenses', label: 'Gastos', icon: DollarSign },
+  { href: '/admin/expenses', label: 'Bitácora G+H', icon: DollarSign },
   { href: '/admin/web-requests', label: 'Solicitudes Web', icon: Mail },
   { href: '/admin/import', label: 'Importar', icon: Upload },
 ];

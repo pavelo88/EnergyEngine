@@ -20,85 +20,85 @@ const INDUSTRIAL_GENERATOR_BG = "https://images.unsplash.com/photo-1581092160562
 
 export const services: Service[] = [
   {
-    id: 'mantenimiento-preventivo',
-    title: 'Mantenimiento Preventivo y Correctivo',
-    description: 'Planes personalizados de mantenimiento para asegurar la continuidad de sus equipos.',
-    desc: 'Planes personalizados de mantenimiento para asegurar la continuidad de sus equipos.',
-    fullDescription: 'Realizamos mantenimientos preventivos y correctivos exhaustivos, inspecciones técnicas y cambios de consumibles siguiendo los estándares más altos del sector.',
+    id: 'mantenimiento-integral',
+    title: 'Mantenimiento Integral',
+    description: 'Planes personalizados preventivos y correctivos con revisiones flexibles adaptadas a sus protocolos para asegurar la continuidad de sus equipos.',
+    desc: 'Planes personalizados preventivos y correctivos con revisiones flexibles adaptadas a sus protocolos para asegurar la continuidad de sus equipos.',
+    fullDescription: 'Realizamos mantenimientos preventivos y correctivos exhaustivos, incluyendo revisiones flexibles que se adaptan a las necesidades operativas de cada cliente.',
     image: "https://images.unsplash.com/photo-1581092335397-9583eb92d232?q=80&w=600&auto=format&fit=crop",
     icon: Wrench
   },
   {
-    id: 'inspecciones-tecnicas',
-    title: 'Inspecciones y Revisiones Técnicas',
-    description: 'Revisiones detalladas con tecnología avanzada para detectar anomalías antes de que ocurran.',
-    desc: 'Revisiones detalladas con tecnología avanzada para detectar anomalías antes de que ocurran.',
-    fullDescription: 'Evaluamos el estado electromecánico de sus equipos para detectar posibles fallos antes de que ocurran, garantizando una operatividad del 100%.',
+    id: 'inspecciones-pruebas',
+    title: 'Inspecciones y Pruebas de Carga',
+    description: 'Revisiones detalladas con tecnología avanzada y pruebas de banco de carga para certificar el rendimiento crítico ante cualquier fallo de red.',
+    desc: 'Revisiones detalladas con tecnología avanzada y pruebas de banco de carga para certificar el rendimiento crítico ante cualquier fallo de red.',
+    fullDescription: 'Evaluamos el estado electromecánico mediante diagnósticos avanzados y validamos la capacidad real de respuesta con bancos de carga certificados.',
     image: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=600&auto=format&fit=crop",
     icon: ShieldCheck
   },
   {
     id: 'consumibles-fluidos',
-    title: 'Stock Consumibles y Fluidos',
-    description: 'Cambios de aceite, filtros, baterías y anticongelante con productos de primera calidad.',
-    desc: 'Cambios de aceite, filtros, baterías y anticongelante con productos de primera calidad.',
-    fullDescription: 'Mantenemos sus motores en condiciones óptimas mediante la sustitución periódica de componentes críticos y fluidos vitales para la vida útil del motor.',
+    title: 'Consumibles y Fluidos',
+    description: 'Sustitución periódica de aceite, filtros, baterías y anticongelante con productos de alta gama para prolongar la vida útil de sus motores industriales.',
+    desc: 'Sustitución periódica de aceite, filtros, baterías y anticongelante con productos de alta gama para prolongar la vida útil de sus motores industriales.',
+    fullDescription: 'Mantenemos sus motores en condiciones óptimas mediante la gestión integral de fluidos y recambio de componentes críticos según programas de vida útil.',
     image: "https://images.unsplash.com/photo-1615811361523-6bd03d7748e7?q=80&w=600&auto=format&fit=crop",
     icon: Droplets
   },
   {
-    id: 'tarifas-averias',
-    title: 'Tarifas por Averías',
-    description: 'Presupuestos transparentes y competitivos para la reparación de cualquier fallo técnico.',
-    desc: 'Presupuestos transparentes y competitivos para la reparación de cualquier fallo técnico.',
-    fullDescription: 'Ofrecemos diagnósticos precisos y tarifas claras para la resolución de averías, asegurando que su inversión esté siempre protegida y operativa.',
+    id: 'reparacion-averias',
+    title: 'Reparación de Averías',
+    description: 'Diagnóstico técnico preciso y resolución de fallos con tarifas transparentes y presupuestos competitivos para minimizar el tiempo de inactividad.',
+    desc: 'Diagnóstico técnico preciso y resolución de fallos con tarifas transparentes y presupuestos competitivos para minimizar el tiempo de inactividad.',
+    fullDescription: 'Ofrecemos soluciones inmediatas ante averías críticas, con diagnósticos precisos por técnicos cualificados y una estructura de costes clara y sin sorpresas.',
     image: "https://images.unsplash.com/photo-1532007271961-f40a1b5d6e2e?q=80&w=600&auto=format&fit=crop",
     icon: FileText
   },
   {
-    id: 'revisiones-flexibles',
-    title: 'Revisiones Flexibles',
-    description: 'Revisiones con o sin cambios de piezas, ajustándonos estrictamente a lo que solicite el cliente.',
-    desc: 'Revisiones con o sin cambios de piezas, ajustándonos estrictamente a lo que solicite el cliente.',
-    fullDescription: 'Nos adaptamos a sus protocolos internos. Realizamos la inspección y le asesoramos, dejando en sus manos la decisión final sobre las intervenciones.',
-    image: "https://images.unsplash.com/photo-1504917595222-3ad75908e31f?q=80&w=600&auto=format&fit=crop",
-    icon: ClipboardList
-  },
-  {
-    id: 'recambios-originales',
-    title: 'Suministro de Recambios',
-    description: 'Suministro de todo tipo de recambios originales en tiempo récord sin importar la magnitud.',
-    desc: 'Suministro de todo tipo de recambios originales en tiempo récord sin importar la magnitud.',
-    fullDescription: 'Nuestra logística avanzada nos permite entregar componentes críticos de las principales marcas del mercado para minimizar cualquier parada no programada.',
+    id: 'logistica-recambios',
+    title: 'Logística de Recambios',
+    description: 'Suministro ágil de piezas originales de las principales marcas mundiales, garantizando la disponibilidad de componentes críticos en tiempo récord.',
+    desc: 'Suministro ágil de piezas originales de las principales marcas mundiales, garantizando la disponibilidad de componentes críticos en tiempo récord.',
+    fullDescription: 'Nuestra red logística asegura la entrega inmediata de repuestos genuinos certificados para minimizar cualquier parada no programada de su instalación.',
     image: "https://images.unsplash.com/photo-1586528116311-b8c0a4e769c0?q=80&w=600&auto=format&fit=crop",
     icon: Package
   },
   {
-    id: 'mantenimiento-multimarca',
+    id: 'generadores-multimarca',
     title: 'Generadores Multimarca',
-    description: 'Diésel, gas, estacionarios, móviles, abiertos e insonorizados. Servicio integral.',
-    desc: 'Diésel, gas, estacionarios, móviles, abiertos e insonorizados. Servicio integral.',
-    fullDescription: 'Especialistas en motores multimarca (Perkins, Cummins, Volvo, etc.). Atendemos equipos manuales y automáticos con total garantía profesional.',
+    description: 'Especialistas en motores diésel y gas, sistemas estacionarios, móviles e insonorizados de marcas líderes como Perkins, Cummins y Volvo Penta.',
+    desc: 'Especialistas en motores diésel y gas, sistemas estacionarios, móviles e insonorizados de marcas líderes como Perkins, Cummins y Volvo Penta.',
+    fullDescription: 'Servicio técnico experto para una amplia gama de fabricantes, cubriendo sistemas manuales y automáticos con total garantía de compatibilidad y rendimiento.',
     image: "https://images.unsplash.com/photo-1513828583488-b2dc4d9e05d0?q=80&w=600&auto=format&fit=crop",
     icon: Cpu
   },
   {
     id: 'cogeneracion-om',
     title: 'Cogeneración y O&M',
-    description: 'Contratos para plantas de cogeneración con técnicos y electromecánicos altamente cualificados.',
-    desc: 'Contratos para plantas de cogeneración con técnicos y electromecánicos altamente cualificados.',
-    fullDescription: 'Operación y mantenimiento integral de plantas. Solucionamos anomalías mecánicas o eléctricas en bombas, torres, cuadros de control y sistemas de combustible.',
+    description: 'Operación y Mantenimiento especializado para plantas de cogeneración, optimizando el rendimiento electromecánico y la gestión de sistemas auxiliares.',
+    desc: 'Operación y Mantenimiento especializado para plantas de cogeneración, optimizando el rendimiento electromecánico y la gestión de sistemas auxiliares.',
+    fullDescription: 'Gestión integral de plantas industriales, solucionando anomalías en bombas, torres, cuadros de control y optimizando la eficiencia energética global.',
     image: "https://images.unsplash.com/photo-1532601224476-15c79f2f7a51?q=80&w=600&auto=format&fit=crop",
     icon: Factory
   },
   {
     id: 'asistencia-24-7',
     title: 'Asistencia Técnica 24/7',
-    description: 'Servicio los 365 días del año. Cobertura en toda España, islas y Portugal.',
-    desc: 'Servicio los 365 días del año. Cobertura en toda España, islas y Portugal.',
-    fullDescription: 'Disponibilidad inmediata para atender urgencias a cualquier hora del día o de la noche, minimizando el tiempo de inactividad de su instalación.',
+    description: 'Soporte experto disponible los 365 días del año con respuesta inmediata y cobertura total en España y Portugal para cualquier emergencia técnica.',
+    desc: 'Soporte experto disponible los 365 días del año con respuesta inmediata y cobertura total en España y Portugal para cualquier emergencia técnica.',
+    fullDescription: 'Disponibilidad absoluta para atender urgencias críticas a cualquier hora, garantizando la continuidad del suministro energético donde más se necesita.',
     image: "https://images.unsplash.com/photo-1508253730651-e5ace80a7025?q=80&w=600&auto=format&fit=crop",
     icon: PhoneCall
+  },
+  {
+    id: 'modernizacion-telegestion',
+    title: 'Modernización y Telegestión',
+    description: 'Actualización de sistemas obsoletos e implementación de monitorización remota inteligente para el control y supervisión 24/7 de sus activos.',
+    desc: 'Actualización de sistemas obsoletos e implementación de monitorización remota inteligente para el control y supervisión 24/7 de sus activos.',
+    fullDescription: 'Convertimos equipos antiguos en sistemas inteligentes (Retrofitting) con control digital y supervisión remota vía telegestión de última generación.',
+    image: "https://images.unsplash.com/photo-1504917595222-3ad75908e31f?q=80&w=600&auto=format&fit=crop",
+    icon: Settings
   }
 ];
 

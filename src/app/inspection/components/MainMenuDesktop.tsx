@@ -30,7 +30,7 @@ const navigationItems = [
   },
   {
     id: TABS.EXPENSES,
-    label: 'Registro de Gastos',
+    label: 'Bitácora',
     desc: 'ITINERARIO Y CONTROL DE GASTOS',
     icon: <Clock size={28} />,
     classes: 'bg-emerald-600 border-emerald-500 shadow-emerald-600/30',

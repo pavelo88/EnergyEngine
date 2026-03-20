@@ -3,61 +3,51 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-transparent text-slate-900 dark:text-slate-200 antialiased tracking-tight;
-    font-feature-settings: 'cv11', 'ss01';
-  }
-
-  /* Forzar visibilidad en inputs del navegador */
-  input,
-  textarea,
-  select {
-    @apply dark:placeholder:text-slate-500;
-  }
-
   :root {
+    /* MODO CLARO - LIMPIO Y MECÁNICO */
     --background: 0 0% 100% / 0;
-    --foreground: 224 71.4% 4.1%;
+    --foreground: 142 71% 10%;
     --card: 0 0% 100% / 0;
-    --card-foreground: 224 71.4% 4.1%;
+    --card-foreground: 142 71% 10%;
     --popover: 0 0% 100% / 0;
-    --popover-foreground: 224 71.4% 4.1%;
+    --popover-foreground: 142 71% 10%;
     --primary: 142 71% 45%;
-    --primary-foreground: 210 20% 98%;
-    --secondary: 220 14.3% 95.9% / 0;
-    --secondary-foreground: 220.9 39.3% 11%;
-    --muted: 220 14.3% 95.9% / 0;
-    --muted-foreground: 220 8.9% 46.1%;
-    --accent: 220 14.3% 95.9% / 0;
-    --accent-foreground: 220.9 39.3% 11%;
+    --primary-foreground: 142 71% 98%;
+    --secondary: 142 20% 90% / 0;
+    --secondary-foreground: 142 71% 15%;
+    --muted: 142 10% 95% / 0;
+    --muted-foreground: 142 20% 40%;
+    --accent: 142 71% 45% / 0;
+    --accent-foreground: 142 71% 15%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 20% 98%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
+    --border: 142 20% 90%;
+    --input: 142 20% 90%;
     --ring: 142 71% 45%;
     --radius: 1.5rem;
     --energy-green: 142 71% 45%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9% / 0;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9% / 0;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9% / 0;
-    --popover-foreground: 210 40% 98%;
+    /* MODO OSCURO - CARBÓN SÓLIDO Y VERDE INDUSTRIAL */
+    --background: 142 30% 6% / 0;
+    --foreground: 142 20% 95%;
+    --card: 142 30% 8% / 0;
+    --card-foreground: 142 20% 95%;
+    --popover: 142 30% 7% / 0;
+    --popover-foreground: 142 20% 95%;
     --primary: 142 71% 45%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217.2 32.6% 17.5% / 0;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5% / 0;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5% / 0;
-    --accent-foreground: 210 40% 98%;
+    --primary-foreground: 142 80% 5%;
+    --secondary: 142 40% 15% / 0;
+    --secondary-foreground: 142 71% 45%;
+    --muted: 142 25% 12% / 0;
+    --muted-foreground: 142 15% 60%;
+    --accent: 142 71% 45% / 0.15;
+    --accent-foreground: 142 71% 45%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --destructive-foreground: 142 20% 95%;
+    --border: 142 30% 18%;
+    --input: 142 30% 18%;
     --ring: 142 71% 45%;
   }
 
@@ -65,27 +55,43 @@
     @apply border-border;
   }
 
+  body {
+    @apply bg-transparent text-slate-900 dark:text-slate-200 antialiased tracking-tight;
+    font-family: var(--font-sans), sans-serif;
+    font-feature-settings: 'cv11', 'ss01', 'rlig' 1, 'alt' 1;
+  }
+
+  /* ELIMINACIÓN DE CURVAS: Forzamos Space Grotesk en todo lo que sea título o elegante */
   h1,
   h2,
   h3,
   h4,
   h5,
-  h6 {
-    @apply tracking-tight;
+  h6,
+  .font-serif {
+    font-family: var(--font-display), sans-serif !important;
+    @apply tracking-tighter font-black uppercase;
+    font-style: normal !important;
   }
 
-  .font-serif {
-    @apply tracking-normal leading-normal;
+  input,
+  textarea,
+  select {
+    @apply dark:placeholder:text-slate-500;
   }
 }
 
 @layer utilities {
+
+  /* --- TUS CLASES DE CRISTAL Y RUIDO --- */
   .glass {
     @apply bg-white/10 dark:bg-black/25 backdrop-blur-2xl border border-white/10 shadow-2xl;
   }
 
   .glass-card {
-    @apply bg-white/15 dark:bg-black/35 backdrop-blur-3xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)];
+    @apply bg-white/15 dark:bg-black/35 backdrop-blur-3xl border border-white/10;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
+    /* Corregido para evitar errores */
   }
 
   .glass-input {
@@ -171,5 +177,36 @@
 
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* --- MALLA TÉCNICA (MODULARES GM STYLE) --- */
+  .tech-grid-bg-dark {
+    background-size: 50px 50px;
+    background-image: linear-gradient(to right, hsl(var(--primary) / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--primary) / 0.05) 1px, transparent 1px);
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 40%, transparent 100%);
+  }
+
+  .tech-grid-bg-light {
+    background-size: 60px 60px;
+    background-image: linear-gradient(to right, hsl(var(--primary) / 0.02) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--primary) / 0.02) 1px, transparent 1px);
+    mask-image: radial-gradient(ellipse 70% 70% at 50% 0%, black 30%, transparent 100%);
+  }
+
+  .brand-carousel-track {
+    animation: scroll 60s linear infinite;
+    display: flex;
+    width: max-content;
+  }
+}
+
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
   }
 }

@@ -27,14 +27,41 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       }
 
       try {
-        const candidates = await fetchAdminCandidatesByEmail(firestore, user.email);
+        const cleanEmail = user.email.trim().toLowerCase();
 
-        if (candidates.length > 0 && candidates.some((userData) => hasAdminRole(userData))) {
+        // --- 1. VERIFICAMOS SI NECESITA CAMBIAR CLAVE PRIMERO ---
+        // Usamos importación dinámica para las funciones de Firestore
+        const { doc, getDoc, getDocFromServer } = await import('firebase/firestore');
+        const userDocRef = doc(firestore, 'usuarios', cleanEmail);
+
+        let userDocSnap = await getDoc(userDocRef);
+        let userData = userDocSnap.data();
+
+        // 👻 El Cazafantasmas: Por si la caché hace de las suyas
+        if (userDocSnap.exists() && (!userData || !userData.roles)) {
+          console.warn("Layout Admin: Documento fantasma detectado. Dando 1.5s...");
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          userDocSnap = await getDocFromServer(userDocRef);
+          userData = userDocSnap.data();
+        }
+
+        // Si el usuario existe y debe cambiar su clave, lo pateamos AL LOGIN
+        if (userDocSnap.exists() && userData?.forcePasswordChange) {
+          console.warn('Usuario requiere cambio de clave. Redirigiendo a Auth...');
+          router.replace('/auth/admin');
+          return;
+        }
+        // --------------------------------------------------------
+
+        // --- 2. LUEGO VERIFICAMOS SUS ROLES ---
+        const candidates = await fetchAdminCandidatesByEmail(firestore, cleanEmail);
+
+        if (candidates.length > 0 && candidates.some((cData) => hasAdminRole(cData))) {
           setAuthStatus('authorized');
           return;
         }
 
-        console.warn('El usuario existe, pero no tiene rol admin o no se pudo resolver su perfil.');
+        console.warn('El usuario existe, pero no tiene rol admin.');
         setAuthStatus('unauthorized');
         router.replace('/auth/admin');
       } catch (error) {
