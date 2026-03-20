@@ -102,7 +102,7 @@ export default function ClientSelector({ onSelect, selectedClientId }: ClientSel
         toast({
           variant: 'destructive',
           title: 'Sin permisos de nube',
-          description: 'Seguiremos trabajando con clientes en cachÃ© local.',
+          description: 'Seguiremos trabajando con clientes en caché local.',
         });
       }
       console.error("Error fetching clients:", error);

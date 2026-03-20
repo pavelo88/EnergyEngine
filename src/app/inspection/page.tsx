@@ -92,7 +92,7 @@ const InspectionPageContent = () => {
     const checkStandalone = () => {
       const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
       setIsStandalone(isStandaloneMode);
-      
+
       // REGLA: Si NO es standalone (es navegador normal), el PIN se auto-verifica
       if (!isStandaloneMode) {
         setIsPinVerified(true);
@@ -134,7 +134,7 @@ const InspectionPageContent = () => {
       const checkConfig = async () => {
         const signature = !!localStorage.getItem('energy_engine_signature');
         let hasPin = false;
-        
+
         if (user?.email) {
           // 1. Check Local
           const localSecurity = await dbLocal.table('seguridad').get(user.email);
@@ -323,11 +323,11 @@ const InspectionPageContent = () => {
 
   const syncOfflineData = useCallback(async () => {
     if (!canUseCloud || syncInFlightRef.current || !user || !firestore) {
-      console.log('ðŸ”´ syncOfflineData skipped:', { canUseCloud, isSyncing, user: !!user, firestore: !!firestore });
+      console.log('🔴 syncOfflineData skipped:', { canUseCloud, isSyncing, user: !!user, firestore: !!firestore });
       return;
     }
 
-    console.log('ðŸŸ¢ syncOfflineData INICIADA');
+    console.log('🟢 syncOfflineData INICIADA');
     syncInFlightRef.current = true;
     setIsSyncing(true);
     const storage = getStorage(firestore.app);
@@ -338,7 +338,7 @@ const InspectionPageContent = () => {
       // 0. Sincronizar Clientes creados offline
       const pendingClientes = await dbLocal.clientes_pendientes.filter(record => !record.synced).toArray();
       if (pendingClientes.length > 0) didSyncSomething = true;
-      console.log(`ðŸ“¦ Clientes pendientes: ${pendingClientes.length}`);
+      console.log(`📦 Clientes pendientes: ${pendingClientes.length}`);
 
       for (const record of pendingClientes) {
         let retryCount = 0;
@@ -347,12 +347,12 @@ const InspectionPageContent = () => {
         while (retryCount < maxRetries && !synced) {
           try {
             const docId = record.firebaseId || `CLIENT-${Date.now()}`;
-            console.log(`  â†‘ Cliente: ${docId}`);
+            console.log(` ↑ Cliente: ${docId}`);
             await setDoc(doc(firestore, 'clientes', docId), record.data);
             await dbLocal.clientes_cache.put({ id: docId, ...record.data });
             await dbLocal.clientes_pendientes.update(record.id!, { synced: true, firebaseId: docId });
             synced = true;
-            console.log(`  âœ… Cliente OK: ${docId}`);
+            console.log(`  ✅ Cliente OK: ${docId}`);
           } catch (itemError: any) {
             retryCount++;
             console.log(`  ?ï¿½? Cliente error (intento ${retryCount}): ${itemError.message}`);
@@ -360,7 +360,7 @@ const InspectionPageContent = () => {
               const delay = getBackoffDelay(retryCount);
               await new Promise(resolve => setTimeout(resolve, delay));
             } else {
-              console.error(`  ï¿½?ï¿½ Cliente fallido: ${record.id}`);
+              console.error(`Cliente fallido: ${record.id}`);
               break;
             }
           }
@@ -370,7 +370,7 @@ const InspectionPageContent = () => {
       // 1. Sincronizar Hojas de Trabajo CON IMï¿½?GENES
       const pendingHojas = await dbLocal.hojas_trabajo.filter(record => !record.synced).toArray();
       if (pendingHojas.length > 0) didSyncSomething = true;
-      console.log(`ðŸ“¦ Hojas pendientes: ${pendingHojas.length}`);
+      console.log(`📦 Hojas pendientes: ${pendingHojas.length}`);
 
       for (const record of pendingHojas) {
         let retryCount = 0;
@@ -390,7 +390,7 @@ const InspectionPageContent = () => {
         if (record.id && record.firebaseId !== docId) {
           await dbLocal.hojas_trabajo.update(record.id, { firebaseId: docId });
         }
-        console.log(`\nðŸ”„ Procesando hoja: ${docId}`);
+        console.log(`\🔄	 Procesando hoja: ${docId}`);
         console.log(`   secuentialId/claveFBID: ${docId}`);
 
         while (retryCount < maxRetries && !synced) {
@@ -412,7 +412,7 @@ const InspectionPageContent = () => {
               const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
               await uploadString(inspRef, normalizedData.inspectorSignature, 'data_url');
               inspectorSignatureUrl = await getDownloadURL(inspRef);
-              console.log(`   âœ… Firma inspector subida`);
+              console.log(`✅ Firma inspector subida`);
             }
 
             let clientSignatureUrl = normalizedData.clientSignatureUrl;
@@ -420,7 +420,7 @@ const InspectionPageContent = () => {
               const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
               await uploadString(cliRef, normalizedData.clientSignature, 'data_url');
               clientSignatureUrl = await getDownloadURL(cliRef);
-              console.log(`   âœ… Firma cliente subida`);
+              console.log(`✅ Firma cliente subida`);
             }
 
             // Procesar y subir imágenes desde IndexedDB
@@ -438,9 +438,9 @@ const InspectionPageContent = () => {
                     const url = await getDownloadURL(imgRef);
                     imageUrls.push(url);
                     await dbLocal.imagenes.update(imgId, { synced: true, uploadedUrl: url });
-                    console.log(`     âœ… Imagen ${imgRecord.fileName}`);
+                    console.log(`✅ Imagen ${imgRecord.fileName}`);
                   } catch (imgErr: any) {
-                    console.error(`     ï¿½?ï¿½ Error imagen: ${imgErr.message}`);
+                    console.error(`Error imagen: ${imgErr.message}`);
                   }
                 }
               }
@@ -474,7 +474,7 @@ const InspectionPageContent = () => {
 
             console.log(`   ðŸ’¾ Guardando en Firestore con docId=${docId}, numero_informe=${docData.numero_informe}: clienteId=${docData.clienteId}, clienteNombre=${docData.clienteNombre}`);
             await setDoc(doc(firestore, 'informes', docId), docData);
-            console.log(`   âœ… Guardado en Firestore OK`);
+            console.log(`✅ Guardado en Firestore OK`);
 
             if (record.data.originalJobId) {
               await updateDoc(doc(firestore, 'ordenes_trabajo', record.data.originalJobId), { estado: 'Completado' });
@@ -484,16 +484,16 @@ const InspectionPageContent = () => {
 
             await dbLocal.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
             synced = true;
-            console.log(`âœ… Hoja de Trabajo sincronizada: ${docId}`);
+            console.log(`✅ Hoja de Trabajo sincronizada: ${docId}`);
           } catch (itemError: any) {
             retryCount++;
             console.error(`?ï¿½? Error hoja (intento ${retryCount}): ${itemError.message}\n${itemError.stack}`);
             if (isRetryableError(itemError) && retryCount < maxRetries) {
               const delay = getBackoffDelay(retryCount);
-              console.log(`   ï¿½?ï¿½ Reintentando en ${Math.round(delay)}ms...`);
+              console.log(`Reintentando en ${Math.round(delay)}ms...`);
               await new Promise(resolve => setTimeout(resolve, delay));
             } else {
-              console.error(`ï¿½?ï¿½ Hoja fallida: ${record.id}`);
+              console.error(`Hoja fallida: ${record.id}`);
               break;
             }
           }
@@ -503,7 +503,7 @@ const InspectionPageContent = () => {
       // 2. Sincronizar Reportes de Gastos CON COMPROBANTES
       const pendingGastos = await dbLocal.gastos_report.filter(r => !r.synced).toArray();
       if (pendingGastos.length > 0) didSyncSomething = true;
-      console.log(`ðŸ“¦ Gastos pendientes: ${pendingGastos.length}`);
+      console.log(`📦 Gastos pendientes: ${pendingGastos.length}`);
 
       for (const record of pendingGastos) {
         let retryCount = 0;
@@ -524,7 +524,7 @@ const InspectionPageContent = () => {
               const sigRef = ref(storage, `firmas_gastos/${reportId}.png`);
               await uploadString(sigRef, signature, 'data_url');
               firmaUrl = await getDownloadURL(sigRef);
-              console.log(`   âœ… Firma gasto subida`);
+              console.log(`✅ Firma gasto subida`);
             }
 
             const formattedGastos = [];
@@ -537,9 +537,9 @@ const InspectionPageContent = () => {
                   const fRef = ref(storage, `comprobantes_gastos/${reportId}/${Date.now()}_${g.comprobanteFileName}`);
                   await uploadBytes(fRef, blob);
                   cUrl = await getDownloadURL(fRef);
-                  console.log(`   âœ… Comprobante ${g.comprobanteFileName}`);
+                  console.log(`✅ Comprobante ${g.comprobanteFileName}`);
                 } catch (fileErr: any) {
-                  console.error(`   ï¿½?ï¿½ Error comprobante: ${fileErr.message}`);
+                  console.error(`Error comprobante: ${fileErr.message}`);
                 }
               }
 
@@ -565,7 +565,7 @@ const InspectionPageContent = () => {
 
             await dbLocal.gastos_report.update(record.id!, { synced: true, firebaseId: reportId });
             synced = true;
-            console.log(`âœ… Gasto sincronizado: ${restData.id}`);
+            console.log(`✅ Gasto sincronizado: ${restData.id}`);
           } catch (gastoError: any) {
             retryCount++;
             console.error(`?ï¿½? Error gasto (intento ${retryCount}): ${gastoError.message}`);
@@ -573,7 +573,7 @@ const InspectionPageContent = () => {
               const delay = getBackoffDelay(retryCount);
               await new Promise(resolve => setTimeout(resolve, delay));
             } else {
-              console.error(`ï¿½?ï¿½ Gasto fallido`);
+              console.error(`Gasto fallido`);
               break;
             }
           }
@@ -582,10 +582,10 @@ const InspectionPageContent = () => {
 
       console.log(`\nðŸŽ‰ Sincronización completada`);
       if (didSyncSomething) {
-        toast({ title: 'Sincronización completada âœ“', description: 'Todos los datos offline han sido subidos.' });
+        toast({ title: 'Sincronización completada ✅', description: 'Todos los datos offline han sido subidos.' });
       }
     } catch (error: any) {
-      console.error('ï¿½?ï¿½ Error general:', error.message, error.stack);
+      console.error('Error general:', error.message, error.stack);
       toast({ variant: 'destructive', title: 'Error en sincronización', description: 'Se reintentará al reconectar.' });
     } finally {
       syncInFlightRef.current = false;
@@ -630,18 +630,18 @@ const InspectionPageContent = () => {
 
   const handleInstallClick = async () => {
     if (isStandalone) {
-      toast({ 
+      toast({
         variant: "glass",
-        title: "App Descargada", 
-        description: "Ya estás utilizando la aplicación instalada." 
+        title: "App Descargada",
+        description: "Ya estás utilizando la aplicación instalada."
       });
       return;
     }
 
     if (!installPrompt) {
-      toast({ 
+      toast({
         variant: "glass",
-        title: "Instalación en espera", 
+        title: "Instalación en espera",
         description: "El navegador aún no ha detectado la capacidad de instalación. Asegúrate de cumplir los requisitos de PWA.",
       });
       return;
@@ -653,10 +653,10 @@ const InspectionPageContent = () => {
       if (!security || !security.pinHash) {
         setIsSettingUpPinForInstall(true);
         setIsPinVerified(false); // FORZAR VISTA DE PIN PARA SETUP
-        toast({ 
+        toast({
           variant: "glass",
-          title: "Seguridad Requerida", 
-          description: "Configura un PIN antes de instalar para proteger tus datos offline." 
+          title: "Seguridad Requerida",
+          description: "Configura un PIN antes de instalar para proteger tus datos offline."
         });
         return;
       }
@@ -665,10 +665,10 @@ const InspectionPageContent = () => {
     installPrompt.prompt();
     installPrompt.userChoice.then((choiceResult: any) => {
       if (choiceResult.outcome === 'accepted') {
-        toast({ 
+        toast({
           variant: "glass",
-          title: "Instalación Iniciada", 
-          description: "Sigue los pasos de tu navegador." 
+          title: "Instalación Iniciada",
+          description: "Sigue los pasos de tu navegador."
         });
       }
       setInstallPrompt(null);
@@ -729,7 +729,7 @@ const InspectionPageContent = () => {
     try {
       const res = await processDictation({ dictation: text });
       setAiData(res);
-      toast({ title: "Voz Procesada âœ“", description: "Formulario completado." });
+      toast({ title: "Voz Procesada ✅	", description: "Formulario completado." });
     } catch (e) {
       setAiData({ observations_summary: text } as any);
       toast({ variant: "destructive", title: "Error IA", description: "Texto volcado manual." });
@@ -768,7 +768,7 @@ const InspectionPageContent = () => {
     try {
       const res = await processDictation({ dictation: dictationNotebook });
       setAiData(res);
-      toast({ title: "Procesado âœ“", description: "Formulario completado." });
+      toast({ title: "Procesado ✅	", description: "Formulario completado." });
     } catch (e) {
       setAiData({ observations_summary: dictationNotebook } as any);
       toast({ variant: "destructive", title: "Error IA", description: "Texto volcado manual." });
@@ -788,7 +788,7 @@ const InspectionPageContent = () => {
       return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
     }
 
-    // 3. BLOQUEO MAESTRO: Si no ha verificado el PIN, no renderizamos NADA MÃS que el PinGate.
+    // 3. BLOQUEO MAESTRO: Si no ha verificado el PIN, no renderizamos NADA MAS que el PinGate.
     if (!isPinVerified) {
       return (
         <PinGate
@@ -838,9 +838,9 @@ const InspectionPageContent = () => {
     if (activeTab === TABS.NEW_INSPECTION) {
       if (!activeInspectionForm) return (
         <div className="w-full h-full max-w-4xl mx-auto">
-          <InspectionHub 
-            onSelectInspectionType={handleSelectInspectionType} 
-            onInstall={handleInstallClick} 
+          <InspectionHub
+            onSelectInspectionType={handleSelectInspectionType}
+            onInstall={handleInstallClick}
             canInstall={!!installPrompt}
             isStandalone={isStandalone}
             hasPin={configStatus.hasPin}

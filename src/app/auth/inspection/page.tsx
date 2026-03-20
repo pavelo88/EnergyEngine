@@ -132,7 +132,7 @@ export default function InspectionLoginPage() {
 
     const verifyAndRedirect = async () => {
       try {
-        const cleanEmail = user.email.trim().toLowerCase();
+        const cleanEmail = user.email!.trim().toLowerCase();
         const userDocRef = doc(firestore, 'usuarios', cleanEmail);
 
         // 1. Leemos primero normal
@@ -150,7 +150,7 @@ export default function InspectionLoginPage() {
           userData = userDocSnap.data();
         }
 
-        if (userDocSnap.exists() && isMounted) {
+        if (userDocSnap.exists() && userData && isMounted) {
           if (userData.forcePasswordChange) {
             setPendingUserEmail(cleanEmail);
             setShowPasswordModal(true);
@@ -296,7 +296,7 @@ export default function InspectionLoginPage() {
         userData = userDocSnap.data();
       }
 
-      if (userDocSnap.exists()) {
+      if (userDocSnap.exists() && userData) {
         // Usamos la función blindada
         if (!checkIsAuthorized(userData)) {
           await auth.signOut();
