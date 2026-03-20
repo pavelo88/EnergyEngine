@@ -24,20 +24,23 @@ const BrandItem = ({ brand, isCenter }: { brand: Brand; isCenter: boolean }) => 
     const [hasError, setHasError] = useState(false);
 
     return (
-        <div className="flex-shrink-0 w-[200px] flex items-center justify-center px-8 transition-all duration-500">
+        // Reducimos el ancho del contenedor del item (de 200px a 180px)
+        <div className="flex-shrink-0 w-[180px] flex items-center justify-center px-6 transition-all duration-500">
             {hasError ? (
                 <span
                     className={cn(
-                        "text-xl font-bold font-headline uppercase tracking-widest transition-colors duration-500",
-                        isCenter ? "text-primary scale-125" : "text-slate-400 grayscale"
+                        // Eliminamos el efecto serif/italic. Forzamos Space Grotesk técnica.
+                        "text-lg font-bold font-sans uppercase tracking-widest transition-colors duration-500",
+                        isCenter ? "text-primary scale-110" : "text-slate-400 grayscale"
                     )}
                 >
                     {brand.name}
                 </span>
             ) : (
                 <div className={cn(
-                    "relative w-32 h-16 transition-all duration-500",
-                    isCenter ? "grayscale-0 scale-125 brightness-150 contrast-125" : "grayscale opacity-50 hover:opacity-100 brightness-125"
+                    // Reducimos el tamaño de la imagen (de w-32 a w-28) y suavizamos el enfoque central
+                    "relative w-28 h-14 transition-all duration-500",
+                    isCenter ? "grayscale-0 scale-110 brightness-110" : "grayscale opacity-50 hover:opacity-100"
                 )}>
                     <Image
                         src={brand.logoUrl}
@@ -56,12 +59,14 @@ export default function Brands() {
     const [scrollX, setScrollX] = useState(0);
     const containerRef = useRef<HTMLDivElement>(null);
 
+    // Multiplicamos las marcas para el scroll infinito
     const infiniteBrands = [...brands, ...brands, ...brands, ...brands];
 
     useEffect(() => {
         let animationId: number;
         const animate = () => {
-            setScrollX((prev) => (prev + 1) % (brands.length * 200));
+            // Ajustamos el calculo del scroll para el nuevo ancho de item (180px)
+            setScrollX((prev) => (prev + 1) % (brands.length * 180));
             animationId = requestAnimationFrame(animate);
         };
         animationId = requestAnimationFrame(animate);
@@ -71,26 +76,29 @@ export default function Brands() {
     const getIsCenter = (index: number) => {
         if (!containerRef.current) return false;
         const containerWidth = containerRef.current.offsetWidth;
-        const itemWidth = 200;
+        const itemWidth = 180; // Ajustado
         const centerPoint = containerWidth / 2;
         const itemPosition = (index * itemWidth) - scrollX + (itemWidth / 2);
         return Math.abs(itemPosition - centerPoint) < (itemWidth / 2);
     };
 
     return (
-        <div id="marcas" className="relative py-24 overflow-hidden">
-            {/* FORCE light glass belt in BOTH modes - Enclosing title */}
-            <div className="absolute inset-x-4 top-4 bottom-4 bg-white/60 dark:bg-white/60 backdrop-blur-3xl rounded-huge border border-white/20 shadow-premium z-0" />
-            
-            <div className="container mx-auto px-6 mb-12 text-center max-w-5xl relative z-10">
-                <h2 className="text-center text-[1.8rem] md:text-5xl font-serif font-medium mb-12 text-black dark:text-black leading-[1.2] tracking-tight pt-10">
-                    Expertos en el mantenimiento de las <br /> <span className="text-primary italic">principales marcas del mercado</span>
+        // Reducimos el padding vertical total (de py-24 a py-12). Fondo transparente base.
+        <section id="marcas" className="relative py-12 px-6 overflow-hidden bg-transparent">
+            {/* EL CAMBIO CLAVE: Panel de "vidrio blanco esmerilado un poco blanco" UNIFORME */}
+            {/* Usamos inset-2 rounded-2xl para un look más compacto y menos "Apple-huge" */}
+            <div className="absolute inset-2 bg-white/90 backdrop-blur-xl rounded-2xl border border-white/20 shadow-md z-0" />
+
+            <div className="container mx-auto px-6 mb-8 text-center max-w-5xl relative z-10">
+                {/* Reducimos el tamaño del título (de 5xl a 3xl max). Forzamos Space Grotesk. Texto oscuro para el fondo blanco. */}
+                <h2 className="text-center text-xl md:text-2xl lg:text-3xl font-sans font-bold mb-8 text-slate-950 leading-[1.3] tracking-tight">
+                    Expertos en el mantenimiento de las <br /> <span className="text-primary">principales marcas del mercado</span>
                 </h2>
             </div>
 
-            <div className="relative flex overflow-hidden w-full z-10">
+            <div className="relative flex overflow-hidden w-full z-10 container mx-auto" ref={containerRef}>
                 <div
-                    className="flex whitespace-nowrap py-4"
+                    className="flex whitespace-nowrap py-2"
                     style={{ transform: `translateX(-${scrollX}px)` }}
                 >
                     {infiniteBrands.map((brand, idx) => (
@@ -98,6 +106,6 @@ export default function Brands() {
                     ))}
                 </div>
             </div>
-        </div>
+        </section>
     );
 }
