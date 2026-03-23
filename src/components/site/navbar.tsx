@@ -108,6 +108,9 @@ export default function Navbar() {
                 <Button asChild className="w-full bg-primary h-14 rounded-2xl font-display font-black uppercase text-[11px] tracking-widest shadow-lg">
                   <Link href="/admin">Administración</Link>
                 </Button>
+                <Button asChild className="w-full bg-primary h-14 rounded-2xl font-display font-black uppercase text-[11px] tracking-widest shadow-lg">
+                  <Link href="/inspection">Inspección</Link>
+                </Button>
               </div>
             </SheetContent>
           </Sheet>

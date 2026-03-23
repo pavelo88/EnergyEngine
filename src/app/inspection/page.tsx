@@ -1,5 +1,4 @@
-﻿
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, Suspense, useRef, useCallback } from 'react';
 import { useFirebase } from '@/firebase';
@@ -19,7 +18,6 @@ import Footer from './components/Footer';
 import MainMenuDesktop from './components/MainMenuDesktop';
 import MainMenuMobile from './components/MainMenuMobile';
 import InspectionHub from './components/InspectionHub';
-import PinGate from './components/security/PinGate';
 
 import TABS from './constants';
 import { useScreenSize } from '@/hooks/use-screen-size';
@@ -61,13 +59,10 @@ const InspectionPageContent = () => {
   const [hasMounted, setHasMounted] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isPinVerified, setIsPinVerified] = useState(false);
   const [offlineEmail, setOfflineEmail] = useState<string | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
-  const [requiresStandalonePin, setRequiresStandalonePin] = useState(false);
 
   const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const [isSettingUpPinForInstall, setIsSettingUpPinForInstall] = useState(false);
 
   const [isDictating, setIsDictating] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -92,15 +87,10 @@ const InspectionPageContent = () => {
     const checkStandalone = () => {
       const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
       setIsStandalone(isStandaloneMode);
-
-      // REGLA: Si NO es standalone (es navegador normal), el PIN se auto-verifica
-      if (!isStandaloneMode) {
-        setIsPinVerified(true);
-      }
     };
     checkStandalone();
 
-    // Cargar email guardado offline (para PinGate sin sesión Firebase)
+    // Cargar email guardado offline (para uso sin sesión Firebase)
     const cachedOfflineEmail = getStoredOfflineEmail();
     if (cachedOfflineEmail) {
       setOfflineEmail(cachedOfflineEmail);
@@ -130,34 +120,10 @@ const InspectionPageContent = () => {
       };
       window.addEventListener('beforeinstallprompt', handleInstallPrompt);
 
-      // Chequeo de configuración para PWA (PIN y Firma)
+      // Chequeo de configuración para PWA (Firma)
       const checkConfig = async () => {
         const signature = !!localStorage.getItem('energy_engine_signature');
-        let hasPin = false;
-
-        if (user?.email) {
-          // 1. Check Local
-          const localSecurity = await dbLocal.table('seguridad').get(user.email);
-          hasPin = !!localSecurity?.pinHash;
-
-          // 2. Check Cloud (si estamos online y no hay local)
-          if (!hasPin && isOnline && firestore) {
-            try {
-              const userDoc = await getDoc(doc(firestore, 'usuarios', user.email));
-              if (userDoc.exists() && userDoc.data().pinHash) {
-                hasPin = true;
-                // Sincronizar al local para uso offline posterior
-                await dbLocal.table('seguridad').put({
-                  email: user.email,
-                  pinHash: userDoc.data().pinHash,
-                  nombre: user.displayName || userDoc.data().nombre,
-                  updatedAt: new Date()
-                });
-              }
-            } catch (e) { console.error("Error al verificar PIN en nube:", e); }
-          }
-        }
-        setConfigStatus({ hasSignature: signature, hasPin: hasPin });
+        setConfigStatus({ hasSignature: signature, hasPin: true }); // Mantenemos hasPin true por compatibilidad
       };
 
       checkConfig();
@@ -186,7 +152,6 @@ const InspectionPageContent = () => {
 
     const q = query(collection(firestore, 'clientes'), where('status', 'in', ['approved', 'preaprobado']));
 
-    // Usamos onSnapshot para mantener la caché siempre al día mientras esté online
     const unsubscribe = onSnapshot(q, (snapshot: any) => {
       const clientList = snapshot.docs.map((doc: any) => ({
         id: doc.id,
@@ -214,7 +179,6 @@ const InspectionPageContent = () => {
         const userDocSnap = await getDoc(doc(firestore, 'usuarios', user.email!));
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
-          // Guardamos el nombre en la tabla de seguridad para uso offline
           await dbLocal.table('seguridad').update(user.email!, {
             nombre: userData.nombre
           });
@@ -647,21 +611,6 @@ const InspectionPageContent = () => {
       return;
     }
 
-    // Validar si requiere setup de PIN antes de instalar
-    if (user?.email) {
-      const security = await dbLocal.table('seguridad').get(user.email);
-      if (!security || !security.pinHash) {
-        setIsSettingUpPinForInstall(true);
-        setIsPinVerified(false); // FORZAR VISTA DE PIN PARA SETUP
-        toast({
-          variant: "glass",
-          title: "Seguridad Requerida",
-          description: "Configura un PIN antes de instalar para proteger tus datos offline."
-        });
-        return;
-      }
-    }
-
     installPrompt.prompt();
     installPrompt.userChoice.then((choiceResult: any) => {
       if (choiceResult.outcome === 'accepted') {
@@ -788,25 +737,7 @@ const InspectionPageContent = () => {
       return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
     }
 
-    // 3. BLOQUEO MAESTRO: Si no ha verificado el PIN, no renderizamos NADA MAS que el PinGate.
-    if (!isPinVerified) {
-      return (
-        <PinGate
-          userEmail={effectiveEmail}
-          onVerified={() => {
-            setIsPinVerified(true);
-            // Por si venía de un intento de instalación interrumpido
-            if (installPrompt && isSettingUpPinForInstall) {
-              installPrompt.prompt();
-              installPrompt.userChoice.then(() => setInstallPrompt(null));
-              setIsSettingUpPinForInstall(false);
-            }
-          }}
-        />
-      );
-    }
-
-    // 4. A partir de aquí, el usuario ya superó el PIN y renderizamos los menús
+    // 3. Renderizamos directamente los menús sin pasar por el PinGate
     if (activeTab === TABS.MENU) {
       const name = user?.displayName || user?.email?.split('@')[0] || offlineEmail?.split('@')[0] || 'Técnico';
       const menuProps = {
@@ -945,12 +876,3 @@ export default function InspectionPage() {
     </Suspense>
   );
 }
-
-
-
-
-
-
-
-
-
