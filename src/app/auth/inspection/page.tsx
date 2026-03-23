@@ -148,11 +148,15 @@ export default function InspectionLoginPage() {
     setIsUpdatingPassword(true);
 
     try {
-      // REGISTRO FINAL: Vincula la sesión anónima con el correo y nueva clave
+      // 1. REGISTRO FINAL: Crea el usuario real en Authentication (vinculará la sesión anónima)
       await createUserWithEmailAndPassword(auth!, pendingUserEmail, newPassword);
 
-      // Desactiva el flag y borra el DNI (usado como PIN temporal) de Firestore
+      // 2. RETRASO DE SEGURIDAD: Tiempo para que el token se actualice en Firestore y evitar errores de permisos
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       const userDocRef = doc(firestore!, 'usuarios', pendingUserEmail);
+
+      // 3. ACTUALIZACIÓN FIRESTORE: Desactiva flag y limpia el campo 'dni'
       await updateDoc(userDocRef, {
         forcePasswordChange: false,
         dni: null,
