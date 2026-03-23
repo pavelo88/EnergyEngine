@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously, updatePassword } from 'firebase/auth';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInAnonymously,
+  updatePassword,
+  signOut
+} from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { doc, getDoc, getDocFromServer, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -38,7 +44,7 @@ const checkIsAuthorized = (userData: any) => {
     authorized = rolesArray.some((r: any) => {
       const val = typeof r === 'string' ? r : (r?.value || r?.id || '');
       const norm = String(val).toLowerCase().trim();
-      return norm === 'admin' || norm === 'superadmin'; // Exclusivo de Admin
+      return norm === 'admin' || norm === 'superadmin';
     });
   }
 
@@ -83,13 +89,11 @@ export default function AdminLoginPage() {
     const verifyAndRedirect = async () => {
       try {
         const cleanEmail = user.email!.trim().toLowerCase();
-        const userDocRef = doc(firestore, 'usuarios', cleanEmail);
+        const userDocRef = doc(firestore!, 'usuarios', cleanEmail);
 
-        // 1. Leemos primero normal
         let userDocSnap = await getDoc(userDocRef);
         let userData = userDocSnap.data();
 
-        // 2. EL CAZAFANTASMAS 👻
         if (userDocSnap.exists() && (!userData || !userData.roles)) {
           console.warn("Documento fantasma detectado en caché. Dando 1.5s a Firebase...");
           await new Promise(resolve => setTimeout(resolve, 1500));
@@ -137,32 +141,26 @@ export default function AdminLoginPage() {
       setPasswordError('Las contraseñas no coinciden.');
       return;
     }
-    if (!auth || !firestore) {
-      setPasswordError('Error de conexión. Inténtalo de nuevo.');
-      return;
-    }
 
     setIsUpdatingPassword(true);
 
     try {
-      if (auth.currentUser) {
-        // Si ya existe en Firebase Auth, solo actualizamos
-        await updatePassword(auth.currentUser, newPassword);
-      } else {
-        // SI ES LA PRIMERA VEZ: Lo creamos en Firebase Auth
-        await createUserWithEmailAndPassword(auth, pendingUserEmail, newPassword);
-      }
+      // REGISTRO FINAL: Crea el usuario real en Authentication (limpia el anónimo automáticamente)
+      await createUserWithEmailAndPassword(auth!, pendingUserEmail, newPassword);
 
-      const userDocRef = doc(firestore, 'usuarios', pendingUserEmail);
-      // Borramos también el temp_password por seguridad
-      await updateDoc(userDocRef, { forcePasswordChange: false, temp_password: null });
+      const userDocRef = doc(firestore!, 'usuarios', pendingUserEmail);
+
+      await updateDoc(userDocRef, {
+        forcePasswordChange: false,
+        temp_password: null,
+        updatedAt: serverTimestamp()
+      });
 
       const hashedNewPassword = await generateHash(newPassword);
       try {
-        const existing = await dbLocal.table('seguridad').get(pendingUserEmail);
         await dbLocal.table('seguridad').put({
           email: pendingUserEmail,
-          createdAt: existing ? existing.createdAt : new Date(),
+          createdAt: new Date(),
           pinHash: hashedNewPassword
         });
       } catch (localErr) {
@@ -170,21 +168,16 @@ export default function AdminLoginPage() {
       }
 
       setShowPasswordModal(false);
-      router.replace('/admin'); // <-- Redirige a /admin
+      router.replace('/admin');
 
     } catch (err: any) {
       console.error("Error actualizando contraseña:", err);
-      if (err.code === 'auth/requires-recent-login') {
-        setPasswordError('Por seguridad, cierra sesión y vuelve a entrar antes de cambiar la clave.');
-      } else {
-        setPasswordError('Hubo un error al actualizar la contraseña: ' + err.message);
-      }
+      setPasswordError(err.message || 'Error al establecer la nueva contraseña.');
     } finally {
       setIsUpdatingPassword(false);
     }
   };
 
-  // Login Principal (Nube)
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -194,21 +187,13 @@ export default function AdminLoginPage() {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    const processSuccessfulLogin = async () => {
-      if (!firestore) return;
-      const userDocRef = doc(firestore, 'usuarios', cleanEmail);
+    try {
+      // 1. INTENTO NORMAL: Iniciar sesión en Firebase Auth
+      await signInWithEmailAndPassword(auth, cleanEmail, password);
 
-      // 1. Lectura normal
+      const userDocRef = doc(firestore!, 'usuarios', cleanEmail);
       let userDocSnap = await getDoc(userDocRef);
       let userData = userDocSnap.data();
-
-      // 2. EL CAZAFANTASMAS 👻 
-      if (userDocSnap.exists() && (!userData || !userData.roles)) {
-        console.warn("Documento fantasma detectado durante el login. Dando 1.5s...");
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        userDocSnap = await getDocFromServer(userDocRef);
-        userData = userDocSnap.data();
-      }
 
       if (userDocSnap.exists() && userData) {
         if (!checkIsAuthorized(userData)) {
@@ -220,62 +205,42 @@ export default function AdminLoginPage() {
 
         const sessionId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         localStorage.setItem('energy_engine_session_id', sessionId);
-
-        void setDoc(userDocRef, { activeSessionId: sessionId, activeSessionAt: serverTimestamp(), activeSessionDevice: 'admin-web' }, { merge: true }).catch(e => console.warn(e));
+        void setDoc(userDocRef, { activeSessionId: sessionId, activeSessionAt: serverTimestamp(), activeSessionDevice: 'admin-web' }, { merge: true });
 
         if (userData?.forcePasswordChange) {
-          setIsPreparingSecurity(true);
-          setTimeout(() => {
-            setIsPreparingSecurity(false);
-            setPendingUserEmail(cleanEmail);
-            setShowPasswordModal(true);
-            setLoading(false);
-          }, 1000);
+          setPendingUserEmail(cleanEmail);
+          setShowPasswordModal(true);
         } else {
           router.replace('/admin');
         }
-      } else {
-        await auth.signOut();
-        setError("Usuario no encontrado en la base de datos.");
-        setLoading(false);
       }
-    };
-
-    try {
-      // 1. INTENTO NORMAL: Iniciar sesión en Firebase Auth
-      await signInWithEmailAndPassword(auth, cleanEmail, password);
-      await processSuccessfulLogin();
     } catch (err: any) {
-      // 2. SI FALLA: Verificamos si es la Primera Vez (solo existe en Firestore)
+      // 2. FALLA LOGIN: Entramos como ANÓNIMO para validar en Firestore (puente de permisos)
       try {
-        if (firestore) {
-          const userDocRef = doc(firestore, 'usuarios', cleanEmail);
-          const userDocSnap = await getDoc(userDocRef);
+        await signInAnonymously(auth);
 
-          if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
+        const userDocRef = doc(firestore!, 'usuarios', cleanEmail);
+        const userDocSnap = await getDoc(userDocRef);
 
-            // Si requiere cambio y la clave ingresada es la temporal
-            if (userData.forcePasswordChange && userData.temp_password === password) {
-              if (!checkIsAuthorized(userData)) {
-                setError("No tienes permisos de Administrador.");
-                setLoading(false);
-                return;
-              }
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
 
-              setPendingUserEmail(cleanEmail);
-              setShowPasswordModal(true); // Abrimos el modal
-              setLoading(false);
-              return; // Detenemos aquí
-            }
+          const passMatch = userData.temp_password === password;
+          const authMatch = checkIsAuthorized(userData);
+
+          if (userData.forcePasswordChange && passMatch && authMatch) {
+            setPendingUserEmail(cleanEmail);
+            setShowPasswordModal(true);
+            setLoading(false);
+            return;
           }
         }
-      } catch (e) {
-        console.error("Error validando primera vez", e);
+        await signOut(auth);
+      } catch (fsErr) {
+        console.error("Error en flujo anónimo:", fsErr);
       }
 
-      // Si no es la primera vez y falló el login
-      setError('Credenciales incorrectas o error de inicio de sesión.');
+      setError('Credenciales incorrectas o acceso denegado.');
       setLoading(false);
     }
   };
@@ -291,7 +256,6 @@ export default function AdminLoginPage() {
     );
   }
 
-  // --- RENDERIZADO DEL MODAL ---
   if (showPasswordModal) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-transparent relative z-10 p-4">
@@ -299,7 +263,7 @@ export default function AdminLoginPage() {
           <CardHeader className="text-center space-y-2 pb-6">
             <CardTitle className="text-2xl font-black text-slate-900 tracking-tight">Actualiza tu clave</CardTitle>
             <CardDescription className="text-slate-600 font-medium text-sm">
-              Por seguridad, debes cambiar la contraseña temporal asignada.
+              Crea tu acceso definitivo para {pendingUserEmail}.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -349,7 +313,7 @@ export default function AdminLoginPage() {
               <div className="flex flex-col space-y-3 pt-2">
                 <Button type="submit" className="w-full h-12 font-bold uppercase tracking-widest text-xs rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-lg active:scale-[0.98] transition-all" disabled={isUpdatingPassword}>
                   {isUpdatingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isUpdatingPassword ? 'Actualizando...' : 'Guardar y Entrar'}
+                  {isUpdatingPassword ? 'Registrando...' : 'Registrar y Entrar'}
                 </Button>
 
                 <Button
@@ -364,7 +328,7 @@ export default function AdminLoginPage() {
                   disabled={isUpdatingPassword}
                   className="w-full h-10 font-bold uppercase tracking-widest text-[10px] text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
                 >
-                  Cancelar y Cerrar Sesión
+                  Cancelar
                 </Button>
               </div>
             </form>
@@ -374,7 +338,6 @@ export default function AdminLoginPage() {
     );
   }
 
-  // --- RENDERIZADO DEL LOGIN ---
   return (
     <div className="flex min-h-screen w-full items-center justify-center p-4 relative z-10 bg-transparent">
       <Card className="w-full max-w-sm rounded-[2rem] shadow-2xl bg-white/80 backdrop-blur-xl border border-white/50 p-2">
@@ -433,9 +396,9 @@ export default function AdminLoginPage() {
               </div>
             )}
 
-            <Button type="submit" className="w-full h-12 font-bold uppercase tracking-widest text-xs rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-lg active:scale-[0.98] transition-all" disabled={loading || isPreparingSecurity}>
-              {(loading || isPreparingSecurity) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isPreparingSecurity ? 'Preparando seguridad...' : loading ? 'Verificando...' : 'Iniciar Sesión'}
+            <Button type="submit" className="w-full h-12 font-bold uppercase tracking-widest text-xs rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-lg active:scale-[0.98] transition-all" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading ? 'Verificando...' : 'Iniciar Sesión'}
             </Button>
 
             <div className="pt-4 text-center">

@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously, updatePassword } from 'firebase/auth';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInAnonymously,
+  updatePassword,
+  signOut
+} from 'firebase/auth';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { doc, getDoc, getDocFromServer, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -20,7 +26,7 @@ import {
   setStoredOfflineEmail,
 } from '@/lib/inspection-mode';
 
-// 1. SEGURIDAD: Función Hash para guardar la clave localmente de forma segura
+// 1. SEGURIDAD: Función Hash
 const generateHash = async (text: string) => {
   const msgBuffer = new TextEncoder().encode(text);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -71,7 +77,6 @@ export default function InspectionLoginPage() {
 
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-  // Cargar último email guardado
   useEffect(() => {
     const loadSavedEmail = async () => {
       try {
@@ -87,7 +92,6 @@ export default function InspectionLoginPage() {
     loadSavedEmail();
   }, []);
 
-  // Protección pasiva y redirección
   useEffect(() => {
     if (loading || isUserLoading || isPreparingSecurity || showPasswordModal) return;
     if (!user || !user.email) return;
@@ -96,7 +100,7 @@ export default function InspectionLoginPage() {
     const verifyAndRedirect = async () => {
       try {
         const cleanEmail = user.email!.trim().toLowerCase();
-        const userDocRef = doc(firestore, 'usuarios', cleanEmail);
+        const userDocRef = doc(firestore!, 'usuarios', cleanEmail);
 
         let userDocSnap = await getDoc(userDocRef);
         let userData = userDocSnap.data();
@@ -131,37 +135,30 @@ export default function InspectionLoginPage() {
   }, [user, isUserLoading, router, firestore, showPasswordModal, isPreparingSecurity, auth, loading]);
 
 
-  // Actualizar Clave en Nube y Local
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError(null);
 
     if (newPassword.length < 6) { setPasswordError('La contraseña debe tener al menos 6 caracteres.'); return; }
     if (newPassword !== confirmNewPassword) { setPasswordError('Las contraseñas no coinciden.'); return; }
-    if (!auth || !firestore) { setPasswordError('Error de conexión.'); return; }
 
     setIsUpdatingPassword(true);
 
     try {
-      if (auth.currentUser) {
-        // Si ya existía en Auth, solo la actualiza
-        await updatePassword(auth.currentUser, newPassword);
-      } else {
-        // SI ES LA PRIMERA VEZ: Lo crea en Auth Oficialmente
-        await createUserWithEmailAndPassword(auth, pendingUserEmail, newPassword);
-      }
+      await createUserWithEmailAndPassword(auth!, pendingUserEmail, newPassword);
 
-      // Desactiva el flag y borra la contraseña temporal por seguridad
-      const userDocRef = doc(firestore, 'usuarios', pendingUserEmail);
-      await updateDoc(userDocRef, { forcePasswordChange: false, temp_password: null });
+      const userDocRef = doc(firestore!, 'usuarios', pendingUserEmail);
+      await updateDoc(userDocRef, {
+        forcePasswordChange: false,
+        temp_password: null,
+        updatedAt: serverTimestamp()
+      });
 
-      // Guardar la nueva clave localmente para modo offline
       const hashedNewPassword = await generateHash(newPassword);
       try {
-        const existing = await dbLocal.table('seguridad').get(pendingUserEmail);
         await dbLocal.table('seguridad').put({
           email: pendingUserEmail,
-          createdAt: existing ? existing.createdAt : new Date(),
+          createdAt: new Date(),
           pinHash: hashedNewPassword
         });
       } catch (localErr) { }
@@ -169,22 +166,17 @@ export default function InspectionLoginPage() {
       setShowPasswordModal(false);
       router.replace('/inspection');
     } catch (err: any) {
-      if (err.code === 'auth/requires-recent-login') {
-        setPasswordError('Cierra sesión y vuelve a entrar antes de cambiar la clave.');
-      } else {
-        setPasswordError('Hubo un error al actualizar la contraseña: ' + err.message);
-      }
+      console.error("Error actualizando contraseña:", err);
+      setPasswordError(err.message || 'Error al establecer la nueva contraseña.');
     } finally {
       setIsUpdatingPassword(false);
     }
   };
 
-  // LOGIN PRINCIPAL UNIFICADO
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. FLUJO OFFLINE (Sin Internet)
     if (!navigator.onLine) {
       if (!isValidEmail(cleanEmail) || !password) {
         setError('Ingresa tu correo y contraseña para entrar sin conexión.');
@@ -194,7 +186,7 @@ export default function InspectionLoginPage() {
       try {
         const security = await dbLocal.table('seguridad').get(cleanEmail);
         if (!security) {
-          setError('Debes iniciar sesión con internet la primera vez para guardar tu usuario en este dispositivo.');
+          setError('Debes iniciar sesión con internet la primera vez.');
           return;
         }
 
@@ -208,29 +200,22 @@ export default function InspectionLoginPage() {
         setInspectionMode('offline');
         router.replace('/inspection');
       } catch (err) {
-        setError('Error al acceder a los datos guardados en el dispositivo.');
+        setError('Error al acceder a los datos locales.');
       }
       return;
     }
 
-    // 2. FLUJO ONLINE (Con Internet)
     setLoading(true);
     setError(null);
     if (!auth) { setError('Firebase no disponible.'); setLoading(false); return; }
-
     if (!isValidEmail(cleanEmail)) { setError('Formato de correo inválido.'); setLoading(false); return; }
 
-    const processSuccessfulLogin = async () => {
-      if (!firestore) return;
-      const userDocRef = doc(firestore, 'usuarios', cleanEmail);
+    try {
+      await signInWithEmailAndPassword(auth, cleanEmail, password);
+
+      const userDocRef = doc(firestore!, 'usuarios', cleanEmail);
       let userDocSnap = await getDoc(userDocRef);
       let userData = userDocSnap.data();
-
-      if (userDocSnap.exists() && (!userData || !userData.roles)) {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        userDocSnap = await getDocFromServer(userDocRef);
-        userData = userDocSnap.data();
-      }
 
       if (userDocSnap.exists() && userData) {
         if (!checkIsAuthorized(userData)) {
@@ -242,75 +227,53 @@ export default function InspectionLoginPage() {
 
         const sessionId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         localStorage.setItem('energy_engine_session_id', sessionId);
-        void setDoc(userDocRef, { activeSessionId: sessionId, activeSessionAt: serverTimestamp(), activeSessionDevice: 'inspection-web' }, { merge: true }).catch(e => console.warn(e));
+        void setDoc(userDocRef, { activeSessionId: sessionId, activeSessionAt: serverTimestamp(), activeSessionDevice: 'inspection-web' }, { merge: true });
 
         setStoredOfflineEmail(cleanEmail);
         setInspectionMode('online');
 
-        // AQUÍ SE GUARDA LA CONTRASEÑA LOCALMENTE TRAS UN LOGIN ONLINE EXITOSO
         const currentPasswordHash = await generateHash(password);
         try {
-          const existing = await dbLocal.table('seguridad').get(cleanEmail);
           await dbLocal.table('seguridad').put({
             email: cleanEmail,
-            createdAt: existing ? existing.createdAt : new Date(),
+            createdAt: new Date(),
             pinHash: currentPasswordHash
           });
-        } catch (e) { /* ignorar advertencias locales */ }
+        } catch (e) { }
 
         if (userData.forcePasswordChange) {
-          setIsPreparingSecurity(true);
-          setTimeout(() => {
-            setIsPreparingSecurity(false);
-            setPendingUserEmail(cleanEmail);
-            setShowPasswordModal(true);
-            setLoading(false);
-          }, 1000);
+          setPendingUserEmail(cleanEmail);
+          setShowPasswordModal(true);
         } else {
           router.replace('/inspection');
         }
-      } else {
-        await auth.signOut();
-        setError("Usuario no encontrado en la base de datos.");
-        setLoading(false);
       }
-    };
-
-    try {
-      // INTENTO NORMAL (Si ya existe en Firebase Auth)
-      await signInWithEmailAndPassword(auth, cleanEmail, password);
-      await processSuccessfulLogin();
     } catch (err: any) {
-      // SI FALLA, VERIFICAMOS SI ES LA PRIMERA VEZ
       try {
-        if (firestore) {
-          const userDocRef = doc(firestore, 'usuarios', cleanEmail);
-          const userDocSnap = await getDoc(userDocRef);
+        await signInAnonymously(auth);
 
-          if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
+        const userDocRef = doc(firestore!, 'usuarios', cleanEmail);
+        const userDocSnap = await getDoc(userDocRef);
 
-            // Si requiere cambio de clave y la contraseña ingresada es igual a la temporal
-            if (userData.forcePasswordChange && userData.temp_password === password) {
-              if (!checkIsAuthorized(userData)) {
-                setError("No tienes permisos de Inspector.");
-                setLoading(false);
-                return;
-              }
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
 
-              setPendingUserEmail(cleanEmail);
-              setShowPasswordModal(true);
-              setLoading(false);
-              return; // Detenemos la ejecución aquí
-            }
+          const passMatch = userData.temp_password === password;
+          const authMatch = checkIsAuthorized(userData);
+
+          if (userData.forcePasswordChange && passMatch && authMatch) {
+            setPendingUserEmail(cleanEmail);
+            setShowPasswordModal(true);
+            setLoading(false);
+            return;
           }
         }
-      } catch (e) {
-        console.error("Error validando primera vez", e);
+        await signOut(auth);
+      } catch (fsErr) {
+        console.error("Error en flujo de seguridad anónima:", fsErr);
       }
 
-      // Si no fue primera vez o no coincidió la clave
-      setError('Credenciales incorrectas o error al iniciar sesión.');
+      setError('Credenciales incorrectas o acceso no autorizado.');
       setLoading(false);
     }
   };
@@ -326,7 +289,6 @@ export default function InspectionLoginPage() {
     );
   }
 
-  // --- RENDERIZADO DEL MODAL ---
   if (showPasswordModal) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-transparent relative z-10 p-4">
@@ -334,7 +296,7 @@ export default function InspectionLoginPage() {
           <CardHeader className="text-center space-y-2 pb-6">
             <CardTitle className="text-2xl font-black text-slate-900 tracking-tight">Actualiza tu clave</CardTitle>
             <CardDescription className="text-slate-600 font-medium text-sm">
-              Por seguridad, debes cambiar el PIN o contraseña temporal asignada.
+              Crea tu acceso definitivo para {pendingUserEmail}.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -359,7 +321,7 @@ export default function InspectionLoginPage() {
               <div className="flex flex-col space-y-3 pt-2">
                 <Button type="submit" className="w-full h-12 font-bold uppercase tracking-widest text-xs rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-lg active:scale-[0.98] transition-all" disabled={isUpdatingPassword}>
                   {isUpdatingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isUpdatingPassword ? 'Actualizando...' : 'Guardar y Entrar'}
+                  {isUpdatingPassword ? 'Registrando...' : 'Registrar y Entrar'}
                 </Button>
 
                 <Button
@@ -374,7 +336,7 @@ export default function InspectionLoginPage() {
                   disabled={isUpdatingPassword}
                   className="w-full h-10 font-bold uppercase tracking-widest text-[10px] text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
                 >
-                  Cancelar y Cerrar Sesión
+                  Cancelar
                 </Button>
               </div>
             </form>
@@ -384,7 +346,6 @@ export default function InspectionLoginPage() {
     );
   }
 
-  // --- RENDERIZADO DEL LOGIN ---
   return (
     <div className="flex min-h-screen w-full items-center justify-center p-4 relative z-10 bg-transparent">
       <Card className="w-full max-w-sm rounded-[2rem] shadow-2xl bg-white/80 backdrop-blur-xl border border-white/50 p-2">
