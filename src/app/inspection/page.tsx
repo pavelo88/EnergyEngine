@@ -1,11 +1,10 @@
-﻿
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, Suspense, useRef, useCallback } from 'react';
 import { useFirebase } from '@/firebase';
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { collection, query, where, getDocs, setDoc, doc, Timestamp, updateDoc, onSnapshot, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, setDoc, doc, Timestamp, updateDoc, onSnapshot, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { getStorage, ref, getDownloadURL, uploadString, uploadBytes } from 'firebase/storage';
 import { db as dbLocal } from '@/lib/db-local';
 import { getBackoffDelay, isRetryableError, base64ToBlob } from '@/lib/offline-utils';
@@ -19,7 +18,6 @@ import Footer from './components/Footer';
 import MainMenuDesktop from './components/MainMenuDesktop';
 import MainMenuMobile from './components/MainMenuMobile';
 import InspectionHub from './components/InspectionHub';
-import PinGate from './components/security/PinGate';
 
 import TABS from './constants';
 import { useScreenSize } from '@/hooks/use-screen-size';
@@ -54,6 +52,7 @@ const InspectionPageContent = () => {
       setActiveTab(TABS.NEW_INSPECTION);
     }
   }, [searchParams]);
+
   const isOnline = useOnlineStatus();
   const [accessMode, setAccessMode] = useState<InspectionMode>('online');
   const canUseCloud = isOnline && !!firestore && !!user?.email;
@@ -61,19 +60,16 @@ const InspectionPageContent = () => {
   const [hasMounted, setHasMounted] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isPinVerified, setIsPinVerified] = useState(false);
   const [offlineEmail, setOfflineEmail] = useState<string | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
-  const [requiresStandalonePin, setRequiresStandalonePin] = useState(false);
 
   const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const [isSettingUpPinForInstall, setIsSettingUpPinForInstall] = useState(false);
 
   const [isDictating, setIsDictating] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiData, setAiData] = useState<ProcessDictationOutput | null>(null);
   const [dictationNotebook, setDictationNotebook] = useState<string>('');
-  const [configStatus, setConfigStatus] = useState({ hasSignature: false, hasPin: false });
+  const [configStatus, setConfigStatus] = useState({ hasSignature: false });
   const recognitionRef = useRef<any>(null);
   const dictationBufferRef = useRef<string>('');
   const syncInFlightRef = useRef(false);
@@ -92,15 +88,10 @@ const InspectionPageContent = () => {
     const checkStandalone = () => {
       const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
       setIsStandalone(isStandaloneMode);
-
-      // REGLA: Si NO es standalone (es navegador normal), el PIN se auto-verifica
-      if (!isStandaloneMode) {
-        setIsPinVerified(true);
-      }
     };
     checkStandalone();
 
-    // Cargar email guardado offline (para PinGate sin sesión Firebase)
+    // Cargar email guardado offline
     const cachedOfflineEmail = getStoredOfflineEmail();
     if (cachedOfflineEmail) {
       setOfflineEmail(cachedOfflineEmail);
@@ -130,34 +121,10 @@ const InspectionPageContent = () => {
       };
       window.addEventListener('beforeinstallprompt', handleInstallPrompt);
 
-      // Chequeo de configuración para PWA (PIN y Firma)
-      const checkConfig = async () => {
+      // Chequeo de configuración (Firma)
+      const checkConfig = () => {
         const signature = !!localStorage.getItem('energy_engine_signature');
-        let hasPin = false;
-
-        if (user?.email) {
-          // 1. Check Local
-          const localSecurity = await dbLocal.table('seguridad').get(user.email);
-          hasPin = !!localSecurity?.pinHash;
-
-          // 2. Check Cloud (si estamos online y no hay local)
-          if (!hasPin && isOnline && firestore) {
-            try {
-              const userDoc = await getDoc(doc(firestore, 'usuarios', user.email));
-              if (userDoc.exists() && userDoc.data().pinHash) {
-                hasPin = true;
-                // Sincronizar al local para uso offline posterior
-                await dbLocal.table('seguridad').put({
-                  email: user.email,
-                  pinHash: userDoc.data().pinHash,
-                  nombre: user.displayName || userDoc.data().nombre,
-                  updatedAt: new Date()
-                });
-              }
-            } catch (e) { console.error("Error al verificar PIN en nube:", e); }
-          }
-        }
-        setConfigStatus({ hasSignature: signature, hasPin: hasPin });
+        setConfigStatus({ hasSignature: signature });
       };
 
       checkConfig();
@@ -186,7 +153,6 @@ const InspectionPageContent = () => {
 
     const q = query(collection(firestore, 'clientes'), where('status', 'in', ['approved', 'preaprobado']));
 
-    // Usamos onSnapshot para mantener la caché siempre al día mientras esté online
     const unsubscribe = onSnapshot(q, (snapshot: any) => {
       const clientList = snapshot.docs.map((doc: any) => ({
         id: doc.id,
@@ -205,7 +171,7 @@ const InspectionPageContent = () => {
     return () => unsubscribe();
   }, [canUseCloud, firestore, user]);
 
-  // Sincronización del Perfil de Usuario (Nombre del Técnico)
+  // Sincronización del Perfil de Usuario
   useEffect(() => {
     if (!canUseCloud || !firestore || !user?.email) return;
 
@@ -214,7 +180,6 @@ const InspectionPageContent = () => {
         const userDocSnap = await getDoc(doc(firestore, 'usuarios', user.email!));
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
-          // Guardamos el nombre en la tabla de seguridad para uso offline
           await dbLocal.table('seguridad').update(user.email!, {
             nombre: userData.nombre
           });
@@ -352,10 +317,10 @@ const InspectionPageContent = () => {
             await dbLocal.clientes_cache.put({ id: docId, ...record.data });
             await dbLocal.clientes_pendientes.update(record.id!, { synced: true, firebaseId: docId });
             synced = true;
-            console.log(`  ✅ Cliente OK: ${docId}`);
+            console.log(` ✅ Cliente OK: ${docId}`);
           } catch (itemError: any) {
             retryCount++;
-            console.log(`  ?ï¿½? Cliente error (intento ${retryCount}): ${itemError.message}`);
+            console.log(` ⚠️ Cliente error (intento ${retryCount}): ${itemError.message}`);
             if (isRetryableError(itemError) && retryCount < maxRetries) {
               const delay = getBackoffDelay(retryCount);
               await new Promise(resolve => setTimeout(resolve, delay));
@@ -367,7 +332,7 @@ const InspectionPageContent = () => {
         }
       }
 
-      // 1. Sincronizar Hojas de Trabajo CON IMï¿½?GENES
+      // 1. Sincronizar Hojas de Trabajo CON IMÁGENES
       const pendingHojas = await dbLocal.hojas_trabajo.filter(record => !record.synced).toArray();
       if (pendingHojas.length > 0) didSyncSomething = true;
       console.log(`📦 Hojas pendientes: ${pendingHojas.length}`);
@@ -390,8 +355,8 @@ const InspectionPageContent = () => {
         if (record.id && record.firebaseId !== docId) {
           await dbLocal.hojas_trabajo.update(record.id, { firebaseId: docId });
         }
-        console.log(`\🔄	 Procesando hoja: ${docId}`);
-        console.log(`   secuentialId/claveFBID: ${docId}`);
+        console.log(` 🔄 Procesando hoja: ${docId}`);
+        console.log(`    secuentialId/claveFBID: ${docId}`);
 
         while (retryCount < maxRetries && !synced) {
           try {
@@ -406,13 +371,13 @@ const InspectionPageContent = () => {
                 normalizedData.instalacion = cachedClient.direccion || normalizedData.instalacion;
               }
             }
-            console.log(`   ðŸ“Œ Clave documento=${docId}, displayId=${displayId}, imageIds=${imageIds?.length || 0}`);
+            console.log(` 📌 Clave documento=${docId}, displayId=${displayId}, imageIds=${imageIds?.length || 0}`);
             let inspectorSignatureUrl = normalizedData.inspectorSignatureUrl;
             if (normalizedData.inspectorSignature && normalizedData.inspectorSignature.startsWith('data:')) {
               const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
               await uploadString(inspRef, normalizedData.inspectorSignature, 'data_url');
               inspectorSignatureUrl = await getDownloadURL(inspRef);
-              console.log(`✅ Firma inspector subida`);
+              console.log(` ✅ Firma inspector subida`);
             }
 
             let clientSignatureUrl = normalizedData.clientSignatureUrl;
@@ -420,14 +385,14 @@ const InspectionPageContent = () => {
               const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
               await uploadString(cliRef, normalizedData.clientSignature, 'data_url');
               clientSignatureUrl = await getDownloadURL(cliRef);
-              console.log(`✅ Firma cliente subida`);
+              console.log(` ✅ Firma cliente subida`);
             }
 
             // Procesar y subir imágenes desde IndexedDB
             const imageUrls: string[] = [];
             const limitedImageIds = Array.isArray(imageIds) ? imageIds.slice(0, MAX_IMAGES_PER_REPORT) : [];
             if (limitedImageIds.length > 0) {
-              console.log(`   ðŸ“¸ Procesando ${limitedImageIds.length} imágenes...`);
+              console.log(` 📸 Procesando ${limitedImageIds.length} imágenes...`);
               for (const imgId of limitedImageIds) {
                 const imgRecord = await dbLocal.imagenes.get(imgId);
                 if (imgRecord && imgRecord.base64Data) {
@@ -438,7 +403,7 @@ const InspectionPageContent = () => {
                     const url = await getDownloadURL(imgRef);
                     imageUrls.push(url);
                     await dbLocal.imagenes.update(imgId, { synced: true, uploadedUrl: url });
-                    console.log(`✅ Imagen ${imgRecord.fileName}`);
+                    console.log(` ✅ Imagen ${imgRecord.fileName}`);
                   } catch (imgErr: any) {
                     console.error(`Error imagen: ${imgErr.message}`);
                   }
@@ -464,17 +429,15 @@ const InspectionPageContent = () => {
             const docData = {
               ...normalizedData,
               imageUrls,
-              // Si la firma del inspector no está (raro), mandamos null. 
-              // Si la del cliente no existe (normal en Informe Técnico), mandamos null.
               inspectorSignatureUrl: inspectorSignatureUrl || null,
               clientSignatureUrl: clientSignatureUrl || null,
               numero_informe: numeroInformeLocal || displayId || docId,
               fecha_creacion: Timestamp.now()
             };
 
-            console.log(`   ðŸ’¾ Guardando en Firestore con docId=${docId}, numero_informe=${docData.numero_informe}: clienteId=${docData.clienteId}, clienteNombre=${docData.clienteNombre}`);
+            console.log(` 💾 Guardando en Firestore con docId=${docId}, numero_informe=${docData.numero_informe}: clienteId=${docData.clienteId}, clienteNombre=${docData.clienteNombre}`);
             await setDoc(doc(firestore, 'informes', docId), docData);
-            console.log(`✅ Guardado en Firestore OK`);
+            console.log(` ✅ Guardado en Firestore OK`);
 
             if (record.data.originalJobId) {
               await updateDoc(doc(firestore, 'ordenes_trabajo', record.data.originalJobId), { estado: 'Completado' });
@@ -484,10 +447,10 @@ const InspectionPageContent = () => {
 
             await dbLocal.hojas_trabajo.update(record.id!, { synced: true, firebaseId: docId });
             synced = true;
-            console.log(`✅ Hoja de Trabajo sincronizada: ${docId}`);
+            console.log(` ✅ Hoja de Trabajo sincronizada: ${docId}`);
           } catch (itemError: any) {
             retryCount++;
-            console.error(`?ï¿½? Error hoja (intento ${retryCount}): ${itemError.message}\n${itemError.stack}`);
+            console.error(` ⚠️ Error hoja (intento ${retryCount}): ${itemError.message}\n${itemError.stack}`);
             if (isRetryableError(itemError) && retryCount < maxRetries) {
               const delay = getBackoffDelay(retryCount);
               console.log(`Reintentando en ${Math.round(delay)}ms...`);
@@ -509,7 +472,7 @@ const InspectionPageContent = () => {
         let retryCount = 0;
         let synced = false;
 
-        console.log(`\nðŸ’° Procesando gasto: ${record.firebaseId}`);
+        console.log(`\n💰 Procesando gasto: ${record.firebaseId}`);
 
         while (retryCount < maxRetries && !synced) {
           try {
@@ -524,7 +487,7 @@ const InspectionPageContent = () => {
               const sigRef = ref(storage, `firmas_gastos/${reportId}.png`);
               await uploadString(sigRef, signature, 'data_url');
               firmaUrl = await getDownloadURL(sigRef);
-              console.log(`✅ Firma gasto subida`);
+              console.log(` ✅ Firma gasto subida`);
             }
 
             const formattedGastos = [];
@@ -537,7 +500,7 @@ const InspectionPageContent = () => {
                   const fRef = ref(storage, `comprobantes_gastos/${reportId}/${Date.now()}_${g.comprobanteFileName}`);
                   await uploadBytes(fRef, blob);
                   cUrl = await getDownloadURL(fRef);
-                  console.log(`✅ Comprobante ${g.comprobanteFileName}`);
+                  console.log(` ✅ Comprobante ${g.comprobanteFileName}`);
                 } catch (fileErr: any) {
                   console.error(`Error comprobante: ${fileErr.message}`);
                 }
@@ -553,10 +516,10 @@ const InspectionPageContent = () => {
               });
             }
 
-            console.log(`   ðŸ’¾ Guardando gasto en Firestore con docId=${reportId}...`);
+            console.log(` 💾 Guardando gasto en Firestore con docId=${reportId}...`);
             await setDoc(doc(firestore, 'gastos', reportId), {
               ...restData,
-              id: reportId,  // clave principal
+              id: reportId,
               itinerario: stops,
               gastos: formattedGastos,
               firmaUrl,
@@ -565,10 +528,10 @@ const InspectionPageContent = () => {
 
             await dbLocal.gastos_report.update(record.id!, { synced: true, firebaseId: reportId });
             synced = true;
-            console.log(`✅ Gasto sincronizado: ${restData.id}`);
+            console.log(` ✅ Gasto sincronizado: ${restData.id}`);
           } catch (gastoError: any) {
             retryCount++;
-            console.error(`?ï¿½? Error gasto (intento ${retryCount}): ${gastoError.message}`);
+            console.error(` ⚠️ Error gasto (intento ${retryCount}): ${gastoError.message}`);
             if (isRetryableError(gastoError) && retryCount < maxRetries) {
               const delay = getBackoffDelay(retryCount);
               await new Promise(resolve => setTimeout(resolve, delay));
@@ -580,7 +543,7 @@ const InspectionPageContent = () => {
         }
       }
 
-      console.log(`\nðŸŽ‰ Sincronización completada`);
+      console.log(`\n🎉 Sincronización completada`);
       if (didSyncSomething) {
         toast({ title: 'Sincronización completada ✅', description: 'Todos los datos offline han sido subidos.' });
       }
@@ -645,21 +608,6 @@ const InspectionPageContent = () => {
         description: "El navegador aún no ha detectado la capacidad de instalación. Asegúrate de cumplir los requisitos de PWA.",
       });
       return;
-    }
-
-    // Validar si requiere setup de PIN antes de instalar
-    if (user?.email) {
-      const security = await dbLocal.table('seguridad').get(user.email);
-      if (!security || !security.pinHash) {
-        setIsSettingUpPinForInstall(true);
-        setIsPinVerified(false); // FORZAR VISTA DE PIN PARA SETUP
-        toast({
-          variant: "glass",
-          title: "Seguridad Requerida",
-          description: "Configura un PIN antes de instalar para proteger tus datos offline."
-        });
-        return;
-      }
     }
 
     installPrompt.prompt();
@@ -729,7 +677,7 @@ const InspectionPageContent = () => {
     try {
       const res = await processDictation({ dictation: text });
       setAiData(res);
-      toast({ title: "Voz Procesada ✅	", description: "Formulario completado." });
+      toast({ title: "Voz Procesada ✅ ", description: "Formulario completado." });
     } catch (e) {
       setAiData({ observations_summary: text } as any);
       toast({ variant: "destructive", title: "Error IA", description: "Texto volcado manual." });
@@ -768,7 +716,7 @@ const InspectionPageContent = () => {
     try {
       const res = await processDictation({ dictation: dictationNotebook });
       setAiData(res);
-      toast({ title: "Procesado ✅	", description: "Formulario completado." });
+      toast({ title: "Procesado ✅ ", description: "Formulario completado." });
     } catch (e) {
       setAiData({ observations_summary: dictationNotebook } as any);
       toast({ variant: "destructive", title: "Error IA", description: "Texto volcado manual." });
@@ -776,37 +724,17 @@ const InspectionPageContent = () => {
   };
 
   if (isUserLoading) return <div className="flex h-screen items-center justify-center bg-slate-100"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+
   const renderContent = () => {
     if (!hasMounted) return <div className="flex-grow flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
-    // 1. Obtenemos el email, ya sea de la sesión activa de Firebase o del caché offline de IndexedDB
     const effectiveEmail = user?.email || offlineEmail;
 
-    // 2. Si no hay email por ningún lado, lo mandamos al login a que se identifique
     if (!effectiveEmail) {
       if (typeof window !== 'undefined') window.location.href = '/auth/inspection';
       return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
     }
 
-    // 3. BLOQUEO MAESTRO: Si no ha verificado el PIN, no renderizamos NADA MAS que el PinGate.
-    if (!isPinVerified) {
-      return (
-        <PinGate
-          userEmail={effectiveEmail}
-          onVerified={() => {
-            setIsPinVerified(true);
-            // Por si venía de un intento de instalación interrumpido
-            if (installPrompt && isSettingUpPinForInstall) {
-              installPrompt.prompt();
-              installPrompt.userChoice.then(() => setInstallPrompt(null));
-              setIsSettingUpPinForInstall(false);
-            }
-          }}
-        />
-      );
-    }
-
-    // 4. A partir de aquí, el usuario ya superó el PIN y renderizamos los menús
     if (activeTab === TABS.MENU) {
       const name = user?.displayName || user?.email?.split('@')[0] || offlineEmail?.split('@')[0] || 'Técnico';
       const menuProps = {
@@ -843,7 +771,6 @@ const InspectionPageContent = () => {
             onInstall={handleInstallClick}
             canInstall={!!installPrompt}
             isStandalone={isStandalone}
-            hasPin={configStatus.hasPin}
           />
         </div>
       );
@@ -913,11 +840,12 @@ const InspectionPageContent = () => {
         {renderContent()}
       </main>
 
+      {/* MODAL DE SINCRONIZACIÓN CON DISEÑO GLASS */}
       {isSyncing && (
-        <div className="fixed inset-0 z-[120] bg-slate-900/20 backdrop-blur-[1px] flex items-center justify-center">
-          <div className="bg-white rounded-2xl px-5 py-4 shadow-xl border border-slate-100 flex items-center gap-3">
+        <div className="fixed inset-0 z-[120] bg-white/60 backdrop-blur-md flex items-center justify-center">
+          <div className="bg-white/60 backdrop-blur-lg rounded-2xl px-5 py-4 shadow-xl border border-white/50 flex items-center gap-3">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <span className="text-xs font-black uppercase tracking-widest text-slate-600">Sincronizando informes...</span>
+            <span className="text-xs font-black uppercase tracking-widest text-slate-800">Sincronizando informes...</span>
           </div>
         </div>
       )}
@@ -945,12 +873,3 @@ export default function InspectionPage() {
     </Suspense>
   );
 }
-
-
-
-
-
-
-
-
-

@@ -14,7 +14,7 @@ interface MainMenuProps {
   onInstall?: () => void;
   onConfigure?: () => void;
   canInstall?: boolean;
-  configStatus?: { hasSignature: boolean, hasPin: boolean };
+  configStatus?: { hasSignature: boolean };
   isOnline?: boolean;
   isStandalone?: boolean;
 }
