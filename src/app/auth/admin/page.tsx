@@ -20,13 +20,8 @@ import { Loader2, AlertCircle, Eye, EyeOff, Lock, WifiOff } from 'lucide-react';
 import Link from 'next/link';
 import { Checkbox } from '@/components/ui/checkbox';
 import { db as dbLocal } from '@/lib/db-local';
-import {
-  normalizeInspectionEmail,
-  setInspectionMode,
-  setStoredOfflineEmail,
-} from '@/lib/inspection-mode';
 
-// 1. SEGURIDAD: Función Hash para guardar la clave localmente de forma segura
+// 1. SEGURIDAD: Función Hash para guardar la clave localmente (Dexie/seguridad)
 const generateHash = async (text: string) => {
   const msgBuffer = new TextEncoder().encode(text);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -34,7 +29,8 @@ const generateHash = async (text: string) => {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
-// 2. SEGURIDAD: Validación de roles para inspectores
+// 2. SEGURIDAD: Validación de roles EXCLUSIVA para el Panel de Administración
+// Este portal SOLO acepta 'admin' o 'superadmin'. Un inspector será rechazado.
 const checkIsAuthorized = (userData: any) => {
   if (!userData) return false;
   let authorized = false;
@@ -43,16 +39,20 @@ const checkIsAuthorized = (userData: any) => {
     const rolesArray = Array.isArray(userData.roles) ? userData.roles : Object.values(userData.roles);
     authorized = rolesArray.some((r: any) => {
       const val = typeof r === 'string' ? r : (r?.value || r?.id || '');
-      return ['inspector', 'admin', 'superadmin'].includes(String(val).toLowerCase().trim());
+      const norm = String(val).toLowerCase().trim();
+      return norm === 'admin' || norm === 'superadmin';
     });
   }
+
   if (!authorized && userData.role) {
-    if (['inspector', 'admin', 'superadmin'].includes(String(userData.role).toLowerCase().trim())) authorized = true;
+    const norm = String(userData.role).toLowerCase().trim();
+    if (norm === 'admin' || norm === 'superadmin') authorized = true;
   }
+
   return authorized;
 };
 
-export default function InspectionLoginPage() {
+export default function AdminLoginPage() {
   const router = useRouter();
   const auth = useAuth();
   const firestore = useFirestore();
@@ -77,14 +77,14 @@ export default function InspectionLoginPage() {
 
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-  // Cargar último email guardado
+  // Cargar último email guardado en la tabla de seguridad local (Dexie)
   useEffect(() => {
     const loadSavedEmail = async () => {
       try {
         const allSecurity = await dbLocal.table('seguridad').toArray();
         if (allSecurity.length > 0) {
           const firstValid = allSecurity
-            .map((row: any) => normalizeInspectionEmail(String(row.email || '')))
+            .map((row: any) => String(row.email || '').trim().toLowerCase())
             .find((mail: string) => isValidEmail(mail));
           if (firstValid) setEmail(firstValid);
         }
@@ -93,7 +93,7 @@ export default function InspectionLoginPage() {
     loadSavedEmail();
   }, []);
 
-  // Protección pasiva y redirección segura
+  // Protección pasiva: Verifica el rol cada vez que el usuario ya esté logueado
   useEffect(() => {
     if (loading || isUserLoading || isPreparingSecurity || showPasswordModal) return;
     if (!user || !user.email) return;
@@ -107,28 +107,32 @@ export default function InspectionLoginPage() {
         let userDocSnap = await getDoc(userDocRef);
         let userData = userDocSnap.data();
 
+        // EL CAZAFANTASMAS 👻: Si el documento existe pero no tiene roles, reintenta desde el servidor
         if (userDocSnap.exists() && (!userData || !userData.roles)) {
+          console.warn("Documento fantasma detectado. Reintentando...");
           await new Promise(resolve => setTimeout(resolve, 1500));
           userDocSnap = await getDocFromServer(userDocRef);
           userData = userDocSnap.data();
         }
 
         if (userDocSnap.exists() && userData && isMounted) {
+          // Si tiene flag de cambio de clave, forzamos el modal
           if (userData.forcePasswordChange) {
             setPendingUserEmail(cleanEmail);
             setShowPasswordModal(true);
             return;
           }
 
+          // Validación estricta de rol Admin
           if (checkIsAuthorized(userData)) {
-            router.replace('/inspection');
+            router.replace('/admin');
           } else {
             if (auth) await auth.signOut();
-            setError("No tienes permisos de inspector.");
+            setError("Acceso denegado: No tienes permisos de Administrador.");
           }
         }
       } catch (error) {
-        console.error("Error al verificar rol:", error);
+        console.error("Error al verificar rol en protección pasiva:", error);
       }
     };
 
@@ -137,7 +141,7 @@ export default function InspectionLoginPage() {
   }, [user, isUserLoading, router, firestore, showPasswordModal, isPreparingSecurity, auth, loading]);
 
 
-  // Actualizar Clave en Nube y Local
+  // Actualizar Clave definitiva (Admin)
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError(null);
@@ -148,34 +152,34 @@ export default function InspectionLoginPage() {
     setIsUpdatingPassword(true);
 
     try {
-      // 1. REGISTRO FINAL: Crea el usuario real en Authentication (vinculará la sesión anónima)
+      // 1. REGISTRO FINAL: Convierte sesión anónima en usuario real
       await createUserWithEmailAndPassword(auth!, pendingUserEmail, newPassword);
 
-      // 2. RETRASO DE SEGURIDAD: Tiempo para que el token se actualice en Firestore y evitar errores de permisos
+      // 2. RETRASO DE SEGURIDAD (1.5s): Crucial para que Firestore reconozca el nuevo token real
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       const userDocRef = doc(firestore!, 'usuarios', pendingUserEmail);
 
-      // 3. ACTUALIZACIÓN FIRESTORE: Desactiva flag y limpia el campo 'dni'
+      // 3. ACTUALIZACIÓN FIRESTORE: Limpia el campo 'dni' y desactiva el flag de cambio forzado
       await updateDoc(userDocRef, {
         forcePasswordChange: false,
-        dni: null,
+        dni: null, // Se borra el PIN temporal (DNI) para seguridad
         updatedAt: serverTimestamp()
       });
 
-      // Guardar la nueva clave localmente para modo offline
+      // 4. Guardado local de seguridad para ingresos futuros
       const hashedNewPassword = await generateHash(newPassword);
       try {
-        const existing = await dbLocal.table('seguridad').get(pendingUserEmail);
         await dbLocal.table('seguridad').put({
           email: pendingUserEmail,
-          createdAt: existing ? existing.createdAt : new Date(),
+          createdAt: new Date(),
           pinHash: hashedNewPassword
         });
       } catch (localErr) { }
 
       setShowPasswordModal(false);
-      router.replace('/inspection');
+      router.replace('/admin');
+
     } catch (err: any) {
       console.error("Error actualizando contraseña:", err);
       setPasswordError(err.message || 'Error al establecer la nueva contraseña.');
@@ -184,48 +188,17 @@ export default function InspectionLoginPage() {
     }
   };
 
-  // LOGIN PRINCIPAL UNIFICADO
+  // Lógica de Login (Nube y soporte para bridge anónimo)
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanEmail = email.trim().toLowerCase();
-
-    // 1. FLUJO OFFLINE (Sin Internet)
-    if (!navigator.onLine) {
-      if (!isValidEmail(cleanEmail) || !password) {
-        setError('Ingresa tu correo y contraseña para entrar sin conexión.');
-        return;
-      }
-
-      try {
-        const security = await dbLocal.table('seguridad').get(cleanEmail);
-        if (!security) {
-          setError('Debes iniciar sesión con internet la primera vez.');
-          return;
-        }
-
-        const inputHash = await generateHash(password);
-        if (security.pinHash !== inputHash) {
-          setError('Contraseña incorrecta para el modo offline.');
-          return;
-        }
-
-        setStoredOfflineEmail(cleanEmail);
-        setInspectionMode('offline');
-        router.replace('/inspection');
-      } catch (err) {
-        setError('Error al acceder a los datos locales.');
-      }
-      return;
-    }
-
-    // 2. FLUJO ONLINE (Con Internet)
     setLoading(true);
     setError(null);
     if (!auth) { setError('Firebase no disponible.'); setLoading(false); return; }
-    if (!isValidEmail(cleanEmail)) { setError('Formato de correo inválido.'); setLoading(false); return; }
+
+    const cleanEmail = email.trim().toLowerCase();
 
     try {
-      // A. INTENTO DIRECTO: Iniciar sesión en Firebase Auth
+      // A. INTENTO NORMAL EN AUTH: Si el usuario ya se registró alguna vez
       await signInWithEmailAndPassword(auth, cleanEmail, password);
 
       const userDocRef = doc(firestore!, 'usuarios', cleanEmail);
@@ -233,38 +206,34 @@ export default function InspectionLoginPage() {
       let userData = userDocSnap.data();
 
       if (userDocSnap.exists() && userData) {
+        // Validación de rol estricta
         if (!checkIsAuthorized(userData)) {
           await auth.signOut();
-          setError("No tienes permisos de inspector.");
+          setError("Acceso denegado: Portal exclusivo para Administradores.");
           setLoading(false);
           return;
         }
 
+        // Registro de sesión activa
         const sessionId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         localStorage.setItem('energy_engine_session_id', sessionId);
-        void setDoc(userDocRef, { activeSessionId: sessionId, activeSessionAt: serverTimestamp(), activeSessionDevice: 'inspection-web' }, { merge: true });
+        void setDoc(userDocRef, {
+          activeSessionId: sessionId,
+          activeSessionAt: serverTimestamp(),
+          activeSessionDevice: 'admin-web'
+        }, { merge: true });
 
-        setStoredOfflineEmail(cleanEmail);
-        setInspectionMode('online');
-
-        const currentPasswordHash = await generateHash(password);
-        try {
-          await dbLocal.table('seguridad').put({
-            email: cleanEmail,
-            createdAt: new Date(),
-            pinHash: currentPasswordHash
-          });
-        } catch (e) { }
-
-        if (userData.forcePasswordChange) {
+        // Si tiene el flag, mostramos el modal (aunque ya esté en Auth)
+        if (userData?.forcePasswordChange) {
           setPendingUserEmail(cleanEmail);
           setShowPasswordModal(true);
         } else {
-          router.replace('/inspection');
+          router.replace('/admin');
         }
       }
     } catch (err: any) {
       // B. FALLO AUTH: USAR PUENTE ANÓNIMO PARA VALIDAR DNI/ROLES EN FIRESTORE
+      // Esto permite que usuarios nuevos (solo en Firestore) validen su DNI
       try {
         await signInAnonymously(auth);
 
@@ -276,7 +245,7 @@ export default function InspectionLoginPage() {
 
           // VALIDACIÓN: Compara password ingresado con el campo 'dni' de Firestore
           const passMatch = userData.dni === password;
-          const authMatch = checkIsAuthorized(userData);
+          const authMatch = checkIsAuthorized(userData); // Solo permite Admins aquí
 
           if (userData.forcePasswordChange && passMatch && authMatch) {
             setPendingUserEmail(cleanEmail);
@@ -285,7 +254,7 @@ export default function InspectionLoginPage() {
             return;
           }
         }
-        await signOut(auth);
+        await signOut(auth); // Limpiar sesión si no cumple requisitos
       } catch (fsErr) {
         console.error("Error en flujo de seguridad anónima:", fsErr);
       }
@@ -295,7 +264,6 @@ export default function InspectionLoginPage() {
     }
   };
 
-  // Estado de carga inicial
   if (isUserLoading || (user && !showPasswordModal && !isPreparingSecurity)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-transparent">
@@ -307,7 +275,7 @@ export default function InspectionLoginPage() {
     );
   }
 
-  // --- RENDERIZADO DEL MODAL (ESTILO ORIGINAL) ---
+  // --- RENDERIZADO DEL MODAL ---
   if (showPasswordModal) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-transparent relative z-10 p-4">
@@ -365,7 +333,7 @@ export default function InspectionLoginPage() {
     );
   }
 
-  // --- RENDERIZADO DEL LOGIN (ESTILO ORIGINAL) ---
+  // --- RENDERIZADO DEL LOGIN PRINCIPAL ---
   return (
     <div className="flex min-h-screen w-full items-center justify-center p-4 relative z-10 bg-transparent">
       <Card className="w-full max-w-sm rounded-[2rem] shadow-2xl bg-white/80 backdrop-blur-xl border border-white/50 p-2">
@@ -373,17 +341,17 @@ export default function InspectionLoginPage() {
           <div className="mx-auto mb-2 flex justify-center">
             <Logo />
           </div>
-          <CardTitle className="text-2xl font-black text-slate-900 tracking-tighter uppercase font-headline">Portal Inspector</CardTitle>
-          <CardDescription className="text-slate-600 font-medium text-sm">Inspección Técnica Operativa</CardDescription>
+          <CardTitle className="text-2xl font-black text-slate-900 tracking-tighter uppercase font-headline">Panel de Administración</CardTitle>
+          <CardDescription className="text-slate-600 font-medium text-sm">Ingresa tus credenciales locales.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-slate-700 font-bold uppercase text-xs tracking-widest px-1">Email</Label>
-              <Input id="email" type="email" placeholder="inspector@energyengine.es" required value={email} onChange={(e) => setEmail(e.target.value)} className="bg-white/60 border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-xl h-12 focus-visible:ring-slate-400" />
+              <Input id="email" type="email" placeholder="admin@energyengine.es" required value={email} onChange={(e) => setEmail(e.target.value)} className="bg-white/60 border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-xl h-12 focus-visible:ring-slate-400" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-slate-700 font-bold uppercase text-xs tracking-widest px-1">Contraseña o PIN</Label>
+              <Label htmlFor="password" className="text-slate-700 font-bold uppercase text-xs tracking-widest px-1">Contraseña o DNI</Label>
               <div className="relative">
                 <Input id="password" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} className="bg-white/60 border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-xl h-12 pr-10 focus-visible:ring-slate-400" />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-slate-900">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
@@ -400,13 +368,13 @@ export default function InspectionLoginPage() {
 
             {error && (<div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-700 animate-in fade-in zoom-in duration-300"><AlertCircle className="h-4 w-4 shrink-0" /><p>{error}</p></div>)}
 
-            <Button type="submit" className="w-full h-12 font-bold uppercase tracking-widest text-xs rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-lg active:scale-[0.98] transition-all" disabled={loading || isPreparingSecurity}>
-              {(loading || isPreparingSecurity) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isPreparingSecurity ? 'Preparando...' : loading ? 'Verificando...' : 'Iniciar Sesión'}
+            <Button type="submit" className="w-full h-12 font-bold uppercase tracking-widest text-xs rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-lg active:scale-[0.98] transition-all" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading ? 'Verificando...' : 'Iniciar Sesión'}
             </Button>
 
             <div className="pt-4 text-center">
-              <Link href="/auth/admin" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 transition-colors">Ir al Panel de Administración</Link>
+              <Link href="/auth/inspection" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 transition-colors">Ir al Portal Inspector</Link>
             </div>
           </form>
         </CardContent>

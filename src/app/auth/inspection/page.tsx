@@ -34,7 +34,7 @@ const generateHash = async (text: string) => {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
-// 2. SEGURIDAD: Validación de roles para inspectores
+// 2. SEGURIDAD: Validación de roles ESTRICTA para este portal
 const checkIsAuthorized = (userData: any) => {
   if (!userData) return false;
   let authorized = false;
@@ -43,11 +43,12 @@ const checkIsAuthorized = (userData: any) => {
     const rolesArray = Array.isArray(userData.roles) ? userData.roles : Object.values(userData.roles);
     authorized = rolesArray.some((r: any) => {
       const val = typeof r === 'string' ? r : (r?.value || r?.id || '');
-      return ['inspector', 'admin', 'superadmin'].includes(String(val).toLowerCase().trim());
+      // FILTRO: Solo permite 'inspector'. Si un Admin intenta entrar, dará false aquí.
+      return String(val).toLowerCase().trim() === 'inspector';
     });
   }
   if (!authorized && userData.role) {
-    if (['inspector', 'admin', 'superadmin'].includes(String(userData.role).toLowerCase().trim())) authorized = true;
+    if (String(userData.role).toLowerCase().trim() === 'inspector') authorized = true;
   }
   return authorized;
 };
@@ -107,7 +108,9 @@ export default function InspectionLoginPage() {
         let userDocSnap = await getDoc(userDocRef);
         let userData = userDocSnap.data();
 
+        // EL CAZAFANTASMAS 👻
         if (userDocSnap.exists() && (!userData || !userData.roles)) {
+          console.warn("Documento fantasma detectado. Reintentando...");
           await new Promise(resolve => setTimeout(resolve, 1500));
           userDocSnap = await getDocFromServer(userDocRef);
           userData = userDocSnap.data();
@@ -128,7 +131,7 @@ export default function InspectionLoginPage() {
           }
         }
       } catch (error) {
-        console.error("Error al verificar rol:", error);
+        console.error("Error al verificar rol en protección pasiva:", error);
       }
     };
 
@@ -148,10 +151,10 @@ export default function InspectionLoginPage() {
     setIsUpdatingPassword(true);
 
     try {
-      // 1. REGISTRO FINAL: Crea el usuario real en Authentication (vinculará la sesión anónima)
+      // 1. REGISTRO FINAL: Crea el usuario real vinculando la sesión anónima
       await createUserWithEmailAndPassword(auth!, pendingUserEmail, newPassword);
 
-      // 2. RETRASO DE SEGURIDAD: Tiempo para que el token se actualice en Firestore y evitar errores de permisos
+      // 2. RETRASO DE SEGURIDAD: Tiempo para propagación de token y evitar errores de permisos
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       const userDocRef = doc(firestore!, 'usuarios', pendingUserEmail);
@@ -159,7 +162,7 @@ export default function InspectionLoginPage() {
       // 3. ACTUALIZACIÓN FIRESTORE: Desactiva flag y limpia el campo 'dni'
       await updateDoc(userDocRef, {
         forcePasswordChange: false,
-        dni: null,
+        dni: null, // Limpiamos el PIN temporal (DNI)
         updatedAt: serverTimestamp()
       });
 
@@ -195,20 +198,17 @@ export default function InspectionLoginPage() {
         setError('Ingresa tu correo y contraseña para entrar sin conexión.');
         return;
       }
-
       try {
         const security = await dbLocal.table('seguridad').get(cleanEmail);
         if (!security) {
           setError('Debes iniciar sesión con internet la primera vez.');
           return;
         }
-
         const inputHash = await generateHash(password);
         if (security.pinHash !== inputHash) {
           setError('Contraseña incorrecta para el modo offline.');
           return;
         }
-
         setStoredOfflineEmail(cleanEmail);
         setInspectionMode('offline');
         router.replace('/inspection');
@@ -225,7 +225,7 @@ export default function InspectionLoginPage() {
     if (!isValidEmail(cleanEmail)) { setError('Formato de correo inválido.'); setLoading(false); return; }
 
     try {
-      // A. INTENTO DIRECTO: Iniciar sesión en Firebase Auth
+      // A. INTENTO DIRECTO EN AUTH
       await signInWithEmailAndPassword(auth, cleanEmail, password);
 
       const userDocRef = doc(firestore!, 'usuarios', cleanEmail);
@@ -235,7 +235,7 @@ export default function InspectionLoginPage() {
       if (userDocSnap.exists() && userData) {
         if (!checkIsAuthorized(userData)) {
           await auth.signOut();
-          setError("No tienes permisos de inspector.");
+          setError("Acceso denegado: Este portal es solo para inspectores.");
           setLoading(false);
           return;
         }
@@ -246,15 +246,8 @@ export default function InspectionLoginPage() {
 
         setStoredOfflineEmail(cleanEmail);
         setInspectionMode('online');
-
         const currentPasswordHash = await generateHash(password);
-        try {
-          await dbLocal.table('seguridad').put({
-            email: cleanEmail,
-            createdAt: new Date(),
-            pinHash: currentPasswordHash
-          });
-        } catch (e) { }
+        try { await dbLocal.table('seguridad').put({ email: cleanEmail, createdAt: new Date(), pinHash: currentPasswordHash }); } catch (e) { }
 
         if (userData.forcePasswordChange) {
           setPendingUserEmail(cleanEmail);
@@ -264,7 +257,7 @@ export default function InspectionLoginPage() {
         }
       }
     } catch (err: any) {
-      // B. FALLO AUTH: USAR PUENTE ANÓNIMO PARA VALIDAR DNI/ROLES EN FIRESTORE
+      // B. FALLO AUTH: PUENTE ANÓNIMO PARA VALIDAR DNI/ROLES EN FIRESTORE
       try {
         await signInAnonymously(auth);
 
@@ -274,7 +267,7 @@ export default function InspectionLoginPage() {
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
 
-          // VALIDACIÓN: Compara password ingresado con el campo 'dni' de Firestore
+          // VALIDACIÓN: Compara contra el campo 'dni' de Firestore y verifica Rol
           const passMatch = userData.dni === password;
           const authMatch = checkIsAuthorized(userData);
 
@@ -307,7 +300,7 @@ export default function InspectionLoginPage() {
     );
   }
 
-  // --- RENDERIZADO DEL MODAL (ESTILO ORIGINAL) ---
+  // --- RENDERIZADO DEL MODAL (CON ESTILO ORIGINAL) ---
   if (showPasswordModal) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-transparent relative z-10 p-4">
@@ -365,7 +358,7 @@ export default function InspectionLoginPage() {
     );
   }
 
-  // --- RENDERIZADO DEL LOGIN (ESTILO ORIGINAL) ---
+  // --- RENDERIZADO DEL LOGIN (CON ESTILO ORIGINAL) ---
   return (
     <div className="flex min-h-screen w-full items-center justify-center p-4 relative z-10 bg-transparent">
       <Card className="w-full max-w-sm rounded-[2rem] shadow-2xl bg-white/80 backdrop-blur-xl border border-white/50 p-2">
