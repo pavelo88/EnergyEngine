@@ -16,19 +16,20 @@ import {
   serverTimestamp,
   updateDoc
 } from 'firebase/firestore';
-// Usando tus rutas reales de proyecto
-import { useAuth, useFirestore, useUser } from '@/firebase';
+// Usando tus hooks y utilidades reales del proyecto
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { db as dbLocal } from '@/lib/db-local';
-import { Loader2, AlertCircle, Eye, EyeOff, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Logo } from '@/components/icons';
+import { Loader2, AlertCircle, Eye, EyeOff, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { Checkbox } from '@/components/ui/checkbox';
 
-// --- UTILIDADES CON TIPADO PARA EVITAR ERRORES DE TSC ---
+// --- UTILIDADES CON TIPADO ESTRICTO ---
+
 const generateHash = async (text: string): Promise<string> => {
   const msgBuffer = new TextEncoder().encode(text);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -36,6 +37,10 @@ const generateHash = async (text: string): Promise<string> => {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
+/**
+ * VALIDACIÓN ESTRICTA DE ROLES
+ * Bloquea cualquier acceso que no sea admin o superadmin.
+ */
 const checkIsAuthorized = (userData: any): boolean => {
   if (!userData) return false;
   const adminRoles = ['admin', 'superadmin'];
@@ -56,46 +61,47 @@ const checkIsAuthorized = (userData: any): boolean => {
   return authorized;
 };
 
+// --- COMPONENTE PRINCIPAL ---
+
 export default function AdminLoginPage() {
   const router = useRouter();
   const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
 
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
 
-  const [showPasswordModal, setShowPasswordModal] = useState<boolean>(false);
-  const [newPassword, setNewPassword] = useState<string>('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState<string>('');
-  const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
+  // Estados de Modal (Nueva Clave)
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState<boolean>(false);
-  const [pendingUserEmail, setPendingUserEmail] = useState<string>('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [pendingUserEmail, setPendingUserEmail] = useState('');
 
-  const processingAuthRef = useRef<boolean>(false);
+  const processingAuthRef = useRef(false);
 
-  const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-
-  // Carga de email recordado desde tu base de datos local (Dexie)
+  // Carga de email recordado desde Dexie local
   useEffect(() => {
     const loadSavedEmail = async () => {
       try {
         const security = await dbLocal.table('seguridad').toArray();
         if (security.length > 0) {
           const lastEmail = security[security.length - 1].email;
-          if (isValidEmail(lastEmail)) setEmail(lastEmail);
+          if (lastEmail) setEmail(lastEmail);
         }
       } catch (e) { }
     };
     loadSavedEmail();
   }, []);
 
-  // Redirección automática si ya es un administrador logueado
+  // Redirección automática si ya es admin real
   useEffect(() => {
     if (loading || isUserLoading || showPasswordModal || processingAuthRef.current) return;
     if (!user || !user.email || user.isAnonymous) return;
@@ -127,7 +133,7 @@ export default function AdminLoginPage() {
       const currentUser = auth.currentUser;
       const cleanEmail = pendingUserEmail.trim().toLowerCase();
 
-      // Flujo de Registro Real
+      // Transición limpia de Anónimo a Real
       if (currentUser?.isAnonymous) {
         await deleteUser(currentUser);
         await createUserWithEmailAndPassword(auth, cleanEmail, newPassword);
@@ -153,7 +159,7 @@ export default function AdminLoginPage() {
       setShowPasswordModal(false);
       setNewPassword('');
       setConfirmNewPassword('');
-      setError("¡Administrador registrado! Inicia sesión ahora con tu nueva contraseña.");
+      setError("¡Clave actualizada! Por seguridad, inicia sesión con tu nueva contraseña.");
 
     } catch (err: any) {
       console.error(err);
@@ -168,14 +174,12 @@ export default function AdminLoginPage() {
     if (loading || !auth || !firestore) return;
 
     const cleanEmail = email.trim().toLowerCase();
-    if (!isValidEmail(cleanEmail)) { setError("Email inválido."); return; }
-
     setError(null);
     setLoading(true);
     processingAuthRef.current = true;
 
     try {
-      // 1. INTENTO DE ACCESO REAL
+      // 1. INTENTO DE ACCESO CON IDENTIDAD REAL
       try {
         await signInWithEmailAndPassword(auth, cleanEmail, password);
         const userDocRef = doc(firestore, 'usuarios', cleanEmail);
@@ -188,18 +192,19 @@ export default function AdminLoginPage() {
             return;
           } else {
             await signOut(auth);
-            setError("Acceso denegado: No tienes permisos administrativos.");
-            setLoading(false);
-            processingAuthRef.current = false;
+            setError("Acceso denegado: No tienes el rol de administrador.");
             return;
           }
         }
       } catch (authErr: any) {
         const isCredentialError = ['auth/user-not-found', 'auth/wrong-password', 'auth/invalid-credential'].includes(authErr.code);
-        if (!isCredentialError) throw authErr;
+        if (!isCredentialError) {
+          setError("Error de autenticación con el servidor.");
+          return;
+        }
       }
 
-      // 2. PUENTE ANÓNIMO (Validación por DNI)
+      // 2. PUENTE ANÓNIMO (DNI) - SOLO PARA ADMINS
       await signInAnonymously(auth);
       const userDocRef = doc(firestore, 'usuarios', cleanEmail);
       const userDocSnap = await getDocFromServer(userDocRef);
@@ -212,14 +217,12 @@ export default function AdminLoginPage() {
         if (userData.forcePasswordChange && passMatch && authMatch) {
           setPendingUserEmail(cleanEmail);
           setShowPasswordModal(true);
-          setLoading(false);
-          processingAuthRef.current = false;
           return;
         }
       }
 
       await signOut(auth);
-      setError("Credenciales incorrectas o usuario no registrado.");
+      setError("Credenciales incorrectas o acceso no autorizado.");
     } catch (err: any) {
       console.error(err);
       setError("Error de comunicación con el servidor.");
@@ -231,38 +234,40 @@ export default function AdminLoginPage() {
 
   if (isUserLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-white">
+      <div className="flex h-screen items-center justify-center bg-white">
         <Loader2 className="animate-spin text-slate-900" size={40} />
       </div>
     );
   }
 
-  if (showPasswordModal) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center p-4 bg-slate-900/10 backdrop-blur-md z-[100]">
-        <Card className="w-full max-w-sm rounded-[2.5rem] shadow-2xl p-4 bg-white border-none">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-black text-slate-900 uppercase">Nueva Clave</CardTitle>
-            <CardDescription className="font-bold text-slate-600">{pendingUserEmail}</CardDescription>
-          </CardHeader>
-          <CardContent>
+  return (
+    <div className="flex min-h-screen w-full items-center justify-center p-4 bg-slate-200 relative overflow-hidden">
+
+      {/* Modal Nueva Clave */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xl z-[100]">
+          <div className="w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl p-10 space-y-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">Nueva Clave Admin</h2>
+              <p className="text-[11px] font-bold text-slate-500 mt-2 uppercase tracking-widest">{pendingUserEmail}</p>
+            </div>
             <form onSubmit={handlePasswordUpdate} className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-[11px] font-black uppercase tracking-widest text-slate-900 ml-1">Contraseña Nueva</Label>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-black uppercase tracking-widest text-slate-900 ml-1">Clave Nueva</Label>
                 <div className="relative">
                   <Input
                     type={showNewPassword ? 'text' : 'password'}
                     required
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="rounded-2xl h-12 bg-slate-50 border-slate-200 text-slate-900"
+                    className="rounded-2xl h-12 bg-slate-50 border border-slate-200 px-4 text-slate-900 font-bold focus:ring-2 focus:ring-slate-900 outline-none"
                   />
                   <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-4 top-3 text-slate-400">
                     {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label className="text-[11px] font-black uppercase tracking-widest text-slate-900 ml-1">Confirmar Clave</Label>
                 <div className="relative">
                   <Input
@@ -270,88 +275,90 @@ export default function AdminLoginPage() {
                     required
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    className="rounded-2xl h-12 bg-slate-50 border-slate-200 text-slate-900"
+                    className="rounded-2xl h-12 bg-slate-50 border border-slate-200 px-4 text-slate-900 font-bold focus:ring-2 focus:ring-slate-900 outline-none"
                   />
                   <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 top-3 text-slate-400">
                     {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
-              {passwordError && (
-                <div className="p-3 bg-red-50 text-red-700 text-xs font-bold rounded-xl flex items-center gap-2 border border-red-100">
-                  <AlertCircle size={14} /> {passwordError}
-                </div>
-              )}
-              <Button type="submit" disabled={isUpdatingPassword} className="w-full h-12 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-widest text-xs shadow-xl transition-all">
+              {passwordError && <p className="text-red-700 text-[10px] font-black uppercase bg-red-50 p-2 rounded-xl text-center">{passwordError}</p>}
+              <Button
+                type="submit"
+                disabled={isUpdatingPassword}
+                className="w-full h-12 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center"
+              >
                 {isUpdatingPassword ? <Loader2 className="animate-spin" /> : "Registrar y Salir"}
               </Button>
             </form>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+          </div>
+        </div>
+      )}
 
-  return (
-    <div className="flex min-h-screen w-full items-center justify-center p-4 bg-slate-100">
-      <Card className="w-full max-w-sm rounded-[3rem] shadow-2xl bg-white/80 backdrop-blur-2xl border border-white/50 p-4">
-        <CardHeader className="text-center space-y-4">
-          <div className="flex justify-center mb-2"><Logo /></div>
-          <CardTitle className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">Administración</CardTitle>
-          <CardDescription className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Gestión de Alta Ingeniería</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black uppercase tracking-widest text-slate-900 ml-1">Email Corporativo</Label>
+      {/* Login Principal */}
+      <div className="w-full max-w-sm bg-white/90 backdrop-blur-3xl rounded-[3.5rem] shadow-2xl p-10 space-y-8 border-4 border-white relative z-10">
+        <div className="text-center space-y-3">
+          <div className="w-20 h-20 bg-slate-900 rounded-[2rem] mx-auto flex items-center justify-center text-white shadow-2xl">
+            <ShieldAlert size={40} />
+          </div>
+          <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">Admin Portal</h1>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Gestión de Ingeniería</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div className="space-y-1">
+            <Label className="text-[11px] font-black uppercase tracking-widest text-slate-900 ml-1">Email Corporativo</Label>
+            <Input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="rounded-2xl h-14 border-2 border-slate-100 bg-white px-5 text-slate-900 font-bold focus:border-slate-900 outline-none transition-all"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[11px] font-black uppercase tracking-widest text-slate-900 ml-1">Contraseña o DNI</Label>
+            <div className="relative">
               <Input
-                type="email"
+                type={showPassword ? "text" : "password"}
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="rounded-2xl h-14 bg-white border-slate-200 text-slate-900 text-base shadow-sm"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="rounded-2xl h-14 border-2 border-slate-100 bg-white px-5 text-slate-900 font-bold focus:border-slate-900 outline-none transition-all"
               />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-4 text-slate-400">
+                {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
+              </button>
             </div>
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black uppercase tracking-widest text-slate-900 ml-1">Contraseña o DNI</Label>
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="rounded-2xl h-14 bg-white border-slate-200 text-slate-900 text-base shadow-sm"
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-4 text-slate-400">
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
+          </div>
+
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <Checkbox id="rem" className="w-4 h-4 rounded border-slate-300" />
+              <Label htmlFor="rem" className="text-[10px] font-black uppercase text-slate-700 cursor-pointer">Recordarme</Label>
             </div>
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-2">
-                <Checkbox id="rem" className="border-slate-400" />
-                <Label htmlFor="rem" className="text-[10px] font-black uppercase text-slate-700 cursor-pointer">Recordarme</Label>
-              </div>
-              <Link href="/auth/forgot-password" title="Olvide mi clave" className="text-[10px] font-black uppercase text-slate-900 hover:underline">
-                ¿Olvidaste tu clave?
-              </Link>
+            <a href="#" className="text-[10px] font-black uppercase text-slate-900 hover:underline">¿Ayuda?</a>
+          </div>
+
+          {error && (
+            <div className={`p-4 rounded-2xl border-2 text-[10px] font-black flex items-center gap-3 animate-in fade-in duration-300 ${error.includes('actualizada') ? 'bg-blue-50 text-blue-900 border-blue-200' : 'bg-red-50 text-red-900 border-red-200'}`}>
+              <AlertCircle size={20} className="shrink-0" /> {error}
             </div>
-            {error && (
-              <div className={`p-4 text-xs font-black rounded-2xl border flex items-center gap-3 animate-in fade-in zoom-in duration-300 ${error.includes('¡Clave') ? 'bg-blue-50 text-blue-900 border-blue-200' : 'bg-red-50 text-red-900 border-red-200'}`}>
-                <AlertCircle size={18} className="shrink-0" /> {error}
-              </div>
-            )}
-            <Button type="submit" disabled={loading} className="w-full h-14 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-[0.2em] text-xs shadow-2xl transition-all">
-              {loading ? <Loader2 className="animate-spin" /> : "Validar y Entrar"}
-            </Button>
-            <div className="text-center pt-2">
-              <Link href="/auth/inspection" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-900 transition-colors">
-                Portal de Inspección
-              </Link>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+          )}
+
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full h-16 rounded-[2rem] bg-slate-900 text-white font-black uppercase tracking-[0.2em] text-xs shadow-2xl active:scale-95 transition-all flex items-center justify-center"
+          >
+            {loading ? <Loader2 className="animate-spin" /> : "Validar y Entrar"}
+          </Button>
+        </form>
+
+        <div className="text-center pt-2">
+          <Link href="/auth/inspection" className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900">Portal Inspector</Link>
+        </div>
+      </div>
     </div>
   );
 }
