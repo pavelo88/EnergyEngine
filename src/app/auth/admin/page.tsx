@@ -82,7 +82,7 @@ export default function AdminLoginPage() {
 
     const verifyAndRedirect = async () => {
       try {
-        const cleanEmail = user.email!.trim().toLowerCase(); // <-- TypeScript arreglado
+        const cleanEmail = user.email!.trim().toLowerCase();
         const userDocRef = doc(firestore, 'usuarios', cleanEmail);
 
         // 1. Leemos primero normal
@@ -98,14 +98,14 @@ export default function AdminLoginPage() {
         }
 
         if (userDocSnap.exists() && userData && isMounted) {
-          if (userData?.forcePasswordChange) { // <-- TypeScript arreglado
+          if (userData?.forcePasswordChange) {
             setPendingUserEmail(cleanEmail);
             setShowPasswordModal(true);
             return;
           }
 
           if (checkIsAuthorized(userData)) {
-            router.replace('/admin'); // <-- Redirige a /admin
+            router.replace('/admin');
           } else {
             if (auth) await auth.signOut();
             setError("No tienes permisos de Administrador.");
@@ -137,7 +137,7 @@ export default function AdminLoginPage() {
       setPasswordError('Las contraseñas no coinciden.');
       return;
     }
-    if (!auth?.currentUser || !firestore) {
+    if (!auth || !firestore) {
       setPasswordError('Error de conexión. Inténtalo de nuevo.');
       return;
     }
@@ -145,10 +145,17 @@ export default function AdminLoginPage() {
     setIsUpdatingPassword(true);
 
     try {
-      await updatePassword(auth.currentUser, newPassword);
+      if (auth.currentUser) {
+        // Si ya existe en Firebase Auth, solo actualizamos
+        await updatePassword(auth.currentUser, newPassword);
+      } else {
+        // SI ES LA PRIMERA VEZ: Lo creamos en Firebase Auth
+        await createUserWithEmailAndPassword(auth, pendingUserEmail, newPassword);
+      }
 
       const userDocRef = doc(firestore, 'usuarios', pendingUserEmail);
-      await updateDoc(userDocRef, { forcePasswordChange: false });
+      // Borramos también el tempPassword por seguridad
+      await updateDoc(userDocRef, { forcePasswordChange: false, tempPassword: null });
 
       const hashedNewPassword = await generateHash(newPassword);
       try {
@@ -170,7 +177,7 @@ export default function AdminLoginPage() {
       if (err.code === 'auth/requires-recent-login') {
         setPasswordError('Por seguridad, cierra sesión y vuelve a entrar antes de cambiar la clave.');
       } else {
-        setPasswordError('Hubo un error al actualizar la contraseña.');
+        setPasswordError('Hubo un error al actualizar la contraseña: ' + err.message);
       }
     } finally {
       setIsUpdatingPassword(false);
@@ -216,7 +223,7 @@ export default function AdminLoginPage() {
 
         void setDoc(userDocRef, { activeSessionId: sessionId, activeSessionAt: serverTimestamp(), activeSessionDevice: 'admin-web' }, { merge: true }).catch(e => console.warn(e));
 
-        if (userData?.forcePasswordChange) { // <-- TypeScript arreglado
+        if (userData?.forcePasswordChange) {
           setIsPreparingSecurity(true);
           setTimeout(() => {
             setIsPreparingSecurity(false);
@@ -225,7 +232,7 @@ export default function AdminLoginPage() {
             setLoading(false);
           }, 1000);
         } else {
-          router.replace('/admin'); // <-- Redirige a /admin
+          router.replace('/admin');
         }
       } else {
         await auth.signOut();
@@ -235,9 +242,39 @@ export default function AdminLoginPage() {
     };
 
     try {
+      // 1. INTENTO NORMAL: Iniciar sesión en Firebase Auth
       await signInWithEmailAndPassword(auth, cleanEmail, password);
       await processSuccessfulLogin();
     } catch (err: any) {
+      // 2. SI FALLA: Verificamos si es la Primera Vez (solo existe en Firestore)
+      try {
+        if (firestore) {
+          const userDocRef = doc(firestore, 'usuarios', cleanEmail);
+          const userDocSnap = await getDoc(userDocRef);
+
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+
+            // Si requiere cambio y la clave ingresada es la temporal
+            if (userData.forcePasswordChange && userData.tempPassword === password) {
+              if (!checkIsAuthorized(userData)) {
+                setError("No tienes permisos de Administrador.");
+                setLoading(false);
+                return;
+              }
+
+              setPendingUserEmail(cleanEmail);
+              setShowPasswordModal(true); // Abrimos el modal
+              setLoading(false);
+              return; // Detenemos aquí
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error validando primera vez", e);
+      }
+
+      // Si no es la primera vez y falló el login
       setError('Credenciales incorrectas o error de inicio de sesión.');
       setLoading(false);
     }

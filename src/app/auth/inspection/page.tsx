@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Logo } from '@/components/icons';
-import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Loader2, AlertCircle, Eye, EyeOff, Lock, WifiOff } from 'lucide-react';
 import Link from 'next/link';
 import { Checkbox } from '@/components/ui/checkbox';
 import { db as dbLocal } from '@/lib/db-local';
@@ -37,11 +37,11 @@ const checkIsAuthorized = (userData: any) => {
     const rolesArray = Array.isArray(userData.roles) ? userData.roles : Object.values(userData.roles);
     authorized = rolesArray.some((r: any) => {
       const val = typeof r === 'string' ? r : (r?.value || r?.id || '');
-      return ['inspector', 'admin'].includes(String(val).toLowerCase().trim());
+      return ['inspector', 'admin', 'superadmin'].includes(String(val).toLowerCase().trim());
     });
   }
   if (!authorized && userData.role) {
-    if (['inspector', 'admin'].includes(String(userData.role).toLowerCase().trim())) authorized = true;
+    if (['inspector', 'admin', 'superadmin'].includes(String(userData.role).toLowerCase().trim())) authorized = true;
   }
   return authorized;
 };
@@ -138,16 +138,24 @@ export default function InspectionLoginPage() {
 
     if (newPassword.length < 6) { setPasswordError('La contraseña debe tener al menos 6 caracteres.'); return; }
     if (newPassword !== confirmNewPassword) { setPasswordError('Las contraseñas no coinciden.'); return; }
-    if (!auth?.currentUser || !firestore) { setPasswordError('Error de conexión.'); return; }
+    if (!auth || !firestore) { setPasswordError('Error de conexión.'); return; }
 
     setIsUpdatingPassword(true);
 
     try {
-      await updatePassword(auth.currentUser, newPassword);
-      const userDocRef = doc(firestore, 'usuarios', pendingUserEmail);
-      await updateDoc(userDocRef, { forcePasswordChange: false });
+      if (auth.currentUser) {
+        // Si ya existía en Auth, solo la actualiza
+        await updatePassword(auth.currentUser, newPassword);
+      } else {
+        // SI ES LA PRIMERA VEZ: Lo crea en Auth Oficialmente
+        await createUserWithEmailAndPassword(auth, pendingUserEmail, newPassword);
+      }
 
-      // Guardar la nueva clave localmente
+      // Desactiva el flag y borra la contraseña temporal por seguridad
+      const userDocRef = doc(firestore, 'usuarios', pendingUserEmail);
+      await updateDoc(userDocRef, { forcePasswordChange: false, tempPassword: null });
+
+      // Guardar la nueva clave localmente para modo offline
       const hashedNewPassword = await generateHash(newPassword);
       try {
         const existing = await dbLocal.table('seguridad').get(pendingUserEmail);
@@ -164,7 +172,7 @@ export default function InspectionLoginPage() {
       if (err.code === 'auth/requires-recent-login') {
         setPasswordError('Cierra sesión y vuelve a entrar antes de cambiar la clave.');
       } else {
-        setPasswordError('Hubo un error al actualizar la contraseña.');
+        setPasswordError('Hubo un error al actualizar la contraseña: ' + err.message);
       }
     } finally {
       setIsUpdatingPassword(false);
@@ -269,9 +277,39 @@ export default function InspectionLoginPage() {
     };
 
     try {
+      // INTENTO NORMAL (Si ya existe en Firebase Auth)
       await signInWithEmailAndPassword(auth, cleanEmail, password);
       await processSuccessfulLogin();
     } catch (err: any) {
+      // SI FALLA, VERIFICAMOS SI ES LA PRIMERA VEZ
+      try {
+        if (firestore) {
+          const userDocRef = doc(firestore, 'usuarios', cleanEmail);
+          const userDocSnap = await getDoc(userDocRef);
+
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+
+            // Si requiere cambio de clave y la contraseña ingresada es igual a la temporal
+            if (userData.forcePasswordChange && userData.tempPassword === password) {
+              if (!checkIsAuthorized(userData)) {
+                setError("No tienes permisos de Inspector.");
+                setLoading(false);
+                return;
+              }
+
+              setPendingUserEmail(cleanEmail);
+              setShowPasswordModal(true);
+              setLoading(false);
+              return; // Detenemos la ejecución aquí
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error validando primera vez", e);
+      }
+
+      // Si no fue primera vez o no coincidió la clave
       setError('Credenciales incorrectas o error al iniciar sesión.');
       setLoading(false);
     }
@@ -296,12 +334,11 @@ export default function InspectionLoginPage() {
           <CardHeader className="text-center space-y-2 pb-6">
             <CardTitle className="text-2xl font-black text-slate-900 tracking-tight">Actualiza tu clave</CardTitle>
             <CardDescription className="text-slate-600 font-medium text-sm">
-              Por seguridad, debes cambiar el PIN/DNI temporal asignado.
+              Por seguridad, debes cambiar el PIN o contraseña temporal asignada.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handlePasswordUpdate} className="space-y-5">
-              {/* Contenido del form modal igual */}
               <div className="space-y-2">
                 <Label htmlFor="newPassword" className="text-slate-700 font-bold uppercase text-xs tracking-widest px-1">Nueva Contraseña</Label>
                 <div className="relative">
@@ -316,8 +353,30 @@ export default function InspectionLoginPage() {
                   <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-slate-900">{showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                 </div>
               </div>
+
               {passwordError && (<div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700 animate-in fade-in zoom-in duration-300"><AlertCircle className="h-4 w-4 shrink-0" /><p>{passwordError}</p></div>)}
-              <Button type="submit" className="w-full h-12 font-bold uppercase tracking-widest text-xs rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-lg active:scale-[0.98] transition-all" disabled={isUpdatingPassword}>{isUpdatingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{isUpdatingPassword ? 'Actualizando...' : 'Guardar y Entrar'}</Button>
+
+              <div className="flex flex-col space-y-3 pt-2">
+                <Button type="submit" className="w-full h-12 font-bold uppercase tracking-widest text-xs rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-lg active:scale-[0.98] transition-all" disabled={isUpdatingPassword}>
+                  {isUpdatingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isUpdatingPassword ? 'Actualizando...' : 'Guardar y Entrar'}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={async () => {
+                    if (auth) await auth.signOut();
+                    setShowPasswordModal(false);
+                    setPendingUserEmail('');
+                    setPassword('');
+                  }}
+                  disabled={isUpdatingPassword}
+                  className="w-full h-10 font-bold uppercase tracking-widest text-[10px] text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
+                >
+                  Cancelar y Cerrar Sesión
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
@@ -343,7 +402,7 @@ export default function InspectionLoginPage() {
               <Input id="email" type="email" placeholder="inspector@energyengine.es" required value={email} onChange={(e) => setEmail(e.target.value)} className="bg-white/60 border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-xl h-12 focus-visible:ring-slate-400" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-slate-700 font-bold uppercase text-xs tracking-widest px-1">Contraseña</Label>
+              <Label htmlFor="password" className="text-slate-700 font-bold uppercase text-xs tracking-widest px-1">Contraseña o PIN</Label>
               <div className="relative">
                 <Input id="password" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} className="bg-white/60 border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-xl h-12 pr-10 focus-visible:ring-slate-400" />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-slate-900">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
@@ -360,7 +419,6 @@ export default function InspectionLoginPage() {
 
             {error && (<div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-700 animate-in fade-in zoom-in duration-300"><AlertCircle className="h-4 w-4 shrink-0" /><p>{error}</p></div>)}
 
-            {/* UN SOLO BOTÓN PARA TODO */}
             <Button type="submit" className="w-full h-12 font-bold uppercase tracking-widest text-xs rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-lg active:scale-[0.98] transition-all" disabled={loading || isPreparingSecurity}>
               {(loading || isPreparingSecurity) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isPreparingSecurity ? 'Preparando...' : loading ? 'Verificando...' : 'Iniciar Sesión'}
