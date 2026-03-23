@@ -7,7 +7,29 @@ import { Loader2, ShieldAlert } from 'lucide-react';
 import Sidebar from '@/app/admin/components/Sidebar';
 import Header from '@/app/admin/components/Header';
 import { AdminHeaderProvider } from '@/app/admin/components/AdminHeaderContext';
-import { fetchAdminCandidatesByEmail, hasAdminRole } from '@/lib/admin-access';
+// Removidos los imports de admin-access para usar validación local estricta
+
+// Función de validación de roles estricta (igual que en el login)
+const checkIsAuthorizedAdmin = (userData: any) => {
+  if (!userData) return false;
+  let authorized = false;
+
+  if (userData.roles) {
+    const rolesArray = Array.isArray(userData.roles) ? userData.roles : Object.values(userData.roles);
+    authorized = rolesArray.some((r: any) => {
+      const val = typeof r === 'string' ? r : (r?.value || r?.id || '');
+      const norm = String(val).toLowerCase().trim();
+      return norm === 'admin' || norm === 'superadmin';
+    });
+  }
+
+  if (!authorized && userData.role) {
+    const norm = String(userData.role).toLowerCase().trim();
+    if (norm === 'admin' || norm === 'superadmin') authorized = true;
+  }
+
+  return authorized;
+};
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, firestore, isUserLoading } = useFirebase();
@@ -17,61 +39,69 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     const checkAdminAccess = async () => {
       if (isUserLoading) return;
 
       if (!user || !user.email || !firestore) {
-        setAuthStatus('unauthorized');
-        router.replace('/auth/admin');
+        if (isMounted) {
+          setAuthStatus('unauthorized');
+          router.replace('/auth/admin');
+        }
         return;
       }
 
       try {
         const cleanEmail = user.email.trim().toLowerCase();
 
-        // --- 1. VERIFICAMOS SI NECESITA CAMBIAR CLAVE PRIMERO ---
-        // Usamos importación dinámica para las funciones de Firestore
-        const { doc, getDoc, getDocFromServer } = await import('firebase/firestore');
+        // Usamos importación dinámica
+        const { doc, getDocFromServer } = await import('firebase/firestore');
         const userDocRef = doc(firestore, 'usuarios', cleanEmail);
 
-        let userDocSnap = await getDoc(userDocRef);
-        let userData = userDocSnap.data();
+        // FORZAMOS LECTURA DEL SERVIDOR para evitar el bucle de caché de "forcePasswordChange"
+        const userDocSnap = await getDocFromServer(userDocRef);
 
-        // 👻 El Cazafantasmas: Por si la caché hace de las suyas
-        if (userDocSnap.exists() && (!userData || !userData.roles)) {
-          console.warn("Layout Admin: Documento fantasma detectado. Dando 1.5s...");
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          userDocSnap = await getDocFromServer(userDocRef);
-          userData = userDocSnap.data();
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+
+          if (userData?.forcePasswordChange) {
+            console.warn('Usuario requiere cambio de clave. Redirigiendo a Auth...');
+            if (isMounted) router.replace('/auth/admin');
+            return;
+          }
+
+          if (checkIsAuthorizedAdmin(userData)) {
+            if (isMounted) setAuthStatus('authorized');
+            return;
+          }
+
+          console.warn('El usuario existe, pero no tiene rol admin.');
+          if (isMounted) {
+            setAuthStatus('unauthorized');
+            router.replace('/auth/admin');
+          }
+        } else {
+          console.warn('Documento de usuario no encontrado en Firestore.');
+          if (isMounted) {
+            setAuthStatus('unauthorized');
+            router.replace('/auth/admin');
+          }
         }
-
-        // Si el usuario existe y debe cambiar su clave, lo pateamos AL LOGIN
-        if (userDocSnap.exists() && userData?.forcePasswordChange) {
-          console.warn('Usuario requiere cambio de clave. Redirigiendo a Auth...');
-          router.replace('/auth/admin');
-          return;
-        }
-        // --------------------------------------------------------
-
-        // --- 2. LUEGO VERIFICAMOS SUS ROLES ---
-        const candidates = await fetchAdminCandidatesByEmail(firestore, cleanEmail);
-
-        if (candidates.length > 0 && candidates.some((cData) => hasAdminRole(cData))) {
-          setAuthStatus('authorized');
-          return;
-        }
-
-        console.warn('El usuario existe, pero no tiene rol admin.');
-        setAuthStatus('unauthorized');
-        router.replace('/auth/admin');
       } catch (error) {
         console.error('Error verificando acceso admin:', error);
-        setAuthStatus('unauthorized');
-        router.replace('/auth/admin');
+        if (isMounted) {
+          setAuthStatus('unauthorized');
+          router.replace('/auth/admin');
+        }
       }
     };
 
     void checkAdminAccess();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user, isUserLoading, firestore, router]);
 
   if (authStatus === 'loading' || isUserLoading) {
