@@ -153,7 +153,7 @@ export default function InspectionLoginPage() {
 
       // Desactiva el flag y borra la contraseña temporal por seguridad
       const userDocRef = doc(firestore, 'usuarios', pendingUserEmail);
-      await updateDoc(userDocRef, { forcePasswordChange: false, tempPassword: null });
+      await updateDoc(userDocRef, { forcePasswordChange: false, temp_password: null });
 
       // Guardar la nueva clave localmente para modo offline
       const hashedNewPassword = await generateHash(newPassword);
@@ -291,7 +291,7 @@ export default function InspectionLoginPage() {
             const userData = userDocSnap.data();
 
             // Si requiere cambio de clave y la contraseña ingresada es igual a la temporal
-            if (userData.forcePasswordChange && userData.tempPassword === password) {
+            if (userData.forcePasswordChange && userData.temp_password === password) {
               if (!checkIsAuthorized(userData)) {
                 setError("No tienes permisos de Inspector.");
                 setLoading(false);

@@ -154,8 +154,8 @@ export default function AdminLoginPage() {
       }
 
       const userDocRef = doc(firestore, 'usuarios', pendingUserEmail);
-      // Borramos también el tempPassword por seguridad
-      await updateDoc(userDocRef, { forcePasswordChange: false, tempPassword: null });
+      // Borramos también el temp_password por seguridad
+      await updateDoc(userDocRef, { forcePasswordChange: false, temp_password: null });
 
       const hashedNewPassword = await generateHash(newPassword);
       try {
@@ -256,7 +256,7 @@ export default function AdminLoginPage() {
             const userData = userDocSnap.data();
 
             // Si requiere cambio y la clave ingresada es la temporal
-            if (userData.forcePasswordChange && userData.tempPassword === password) {
+            if (userData.forcePasswordChange && userData.temp_password === password) {
               if (!checkIsAuthorized(userData)) {
                 setError("No tienes permisos de Administrador.");
                 setLoading(false);
