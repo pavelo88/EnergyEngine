@@ -26,7 +26,7 @@ import {
   setStoredOfflineEmail,
 } from '@/lib/inspection-mode';
 
-// 1. SEGURIDAD: Función Hash
+// 1. SEGURIDAD: Función Hash para guardar la clave localmente de forma segura
 const generateHash = async (text: string) => {
   const msgBuffer = new TextEncoder().encode(text);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -34,7 +34,7 @@ const generateHash = async (text: string) => {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
-// 2. SEGURIDAD: Validación de roles
+// 2. SEGURIDAD: Validación de roles para inspectores
 const checkIsAuthorized = (userData: any) => {
   if (!userData) return false;
   let authorized = false;
@@ -77,6 +77,7 @@ export default function InspectionLoginPage() {
 
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
+  // Cargar último email guardado
   useEffect(() => {
     const loadSavedEmail = async () => {
       try {
@@ -92,6 +93,7 @@ export default function InspectionLoginPage() {
     loadSavedEmail();
   }, []);
 
+  // Protección pasiva y redirección segura
   useEffect(() => {
     if (loading || isUserLoading || isPreparingSecurity || showPasswordModal) return;
     if (!user || !user.email) return;
@@ -135,6 +137,7 @@ export default function InspectionLoginPage() {
   }, [user, isUserLoading, router, firestore, showPasswordModal, isPreparingSecurity, auth, loading]);
 
 
+  // Actualizar Clave en Nube y Local
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError(null);
@@ -145,20 +148,24 @@ export default function InspectionLoginPage() {
     setIsUpdatingPassword(true);
 
     try {
+      // REGISTRO FINAL: Vincula la sesión anónima con el correo y nueva clave
       await createUserWithEmailAndPassword(auth!, pendingUserEmail, newPassword);
 
+      // Desactiva el flag y borra el DNI (usado como PIN temporal) de Firestore
       const userDocRef = doc(firestore!, 'usuarios', pendingUserEmail);
       await updateDoc(userDocRef, {
         forcePasswordChange: false,
-        temp_password: null,
+        dni: null,
         updatedAt: serverTimestamp()
       });
 
+      // Guardar la nueva clave localmente para modo offline
       const hashedNewPassword = await generateHash(newPassword);
       try {
+        const existing = await dbLocal.table('seguridad').get(pendingUserEmail);
         await dbLocal.table('seguridad').put({
           email: pendingUserEmail,
-          createdAt: new Date(),
+          createdAt: existing ? existing.createdAt : new Date(),
           pinHash: hashedNewPassword
         });
       } catch (localErr) { }
@@ -173,10 +180,12 @@ export default function InspectionLoginPage() {
     }
   };
 
+  // LOGIN PRINCIPAL UNIFICADO
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanEmail = email.trim().toLowerCase();
 
+    // 1. FLUJO OFFLINE (Sin Internet)
     if (!navigator.onLine) {
       if (!isValidEmail(cleanEmail) || !password) {
         setError('Ingresa tu correo y contraseña para entrar sin conexión.');
@@ -205,12 +214,14 @@ export default function InspectionLoginPage() {
       return;
     }
 
+    // 2. FLUJO ONLINE (Con Internet)
     setLoading(true);
     setError(null);
     if (!auth) { setError('Firebase no disponible.'); setLoading(false); return; }
     if (!isValidEmail(cleanEmail)) { setError('Formato de correo inválido.'); setLoading(false); return; }
 
     try {
+      // A. INTENTO DIRECTO: Iniciar sesión en Firebase Auth
       await signInWithEmailAndPassword(auth, cleanEmail, password);
 
       const userDocRef = doc(firestore!, 'usuarios', cleanEmail);
@@ -249,6 +260,7 @@ export default function InspectionLoginPage() {
         }
       }
     } catch (err: any) {
+      // B. FALLO AUTH: USAR PUENTE ANÓNIMO PARA VALIDAR DNI/ROLES EN FIRESTORE
       try {
         await signInAnonymously(auth);
 
@@ -258,7 +270,8 @@ export default function InspectionLoginPage() {
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
 
-          const passMatch = userData.temp_password === password;
+          // VALIDACIÓN: Compara password ingresado con el campo 'dni' de Firestore
+          const passMatch = userData.dni === password;
           const authMatch = checkIsAuthorized(userData);
 
           if (userData.forcePasswordChange && passMatch && authMatch) {
@@ -278,6 +291,7 @@ export default function InspectionLoginPage() {
     }
   };
 
+  // Estado de carga inicial
   if (isUserLoading || (user && !showPasswordModal && !isPreparingSecurity)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-transparent">
@@ -289,6 +303,7 @@ export default function InspectionLoginPage() {
     );
   }
 
+  // --- RENDERIZADO DEL MODAL (ESTILO ORIGINAL) ---
   if (showPasswordModal) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-transparent relative z-10 p-4">
@@ -346,6 +361,7 @@ export default function InspectionLoginPage() {
     );
   }
 
+  // --- RENDERIZADO DEL LOGIN (ESTILO ORIGINAL) ---
   return (
     <div className="flex min-h-screen w-full items-center justify-center p-4 relative z-10 bg-transparent">
       <Card className="w-full max-w-sm rounded-[2rem] shadow-2xl bg-white/80 backdrop-blur-xl border border-white/50 p-2">

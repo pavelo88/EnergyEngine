@@ -150,9 +150,10 @@ export default function AdminLoginPage() {
 
       const userDocRef = doc(firestore!, 'usuarios', pendingUserEmail);
 
+      // Se limpia el campo 'dni' que se usó como PIN temporal
       await updateDoc(userDocRef, {
         forcePasswordChange: false,
-        temp_password: null,
+        dni: null,
         updatedAt: serverTimestamp()
       });
 
@@ -225,7 +226,8 @@ export default function AdminLoginPage() {
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
 
-          const passMatch = userData.temp_password === password;
+          // Se valida contra el campo 'dni' de Firestore
+          const passMatch = userData.dni === password;
           const authMatch = checkIsAuthorized(userData);
 
           if (userData.forcePasswordChange && passMatch && authMatch) {
@@ -340,7 +342,7 @@ export default function AdminLoginPage() {
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center p-4 relative z-10 bg-transparent">
-      <Card className="w-full max-w-sm rounded-[2rem] shadow-2xl bg-white/80 backdrop-blur-xl border border-white/50 p-2">
+      <Card className="w-full max-sm rounded-[2rem] shadow-2xl bg-white/80 backdrop-blur-xl border border-white/50 p-2">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto mb-2 flex justify-center">
             <Logo />
