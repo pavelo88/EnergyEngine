@@ -151,24 +151,30 @@ export default function InspectionLoginPage() {
     setIsUpdatingPassword(true);
 
     try {
-      // 1. REGISTRO FINAL: Crea el usuario real vinculando la sesión anónima
+      // 1. LIMPIEZA: Eliminar el usuario anónimo actual para que no se acumulen
+      const currentUser = auth!.currentUser;
+      if (currentUser && currentUser.isAnonymous) {
+        await currentUser.delete();
+      }
+
+      // 2. REGISTRO FINAL: Crea el usuario real vinculando la sesión anónima
       await createUserWithEmailAndPassword(auth!, pendingUserEmail, newPassword);
 
-      // 2. FORZAR REFRESCO DE TOKEN: Crucial para que las reglas de Firestore sepan que ya somos un usuario Real
+      // 3. FORZAR REFRESCO DE TOKEN: Crucial para que las reglas de Firestore sepan que ya somos un usuario Real
       await auth!.currentUser?.getIdToken(true);
 
-      // 3. RETRASO DE SEGURIDAD: Tiempo extra para propagación
+      // 4. RETRASO DE SEGURIDAD: Tiempo extra para propagación
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       const userDocRef = doc(firestore!, 'usuarios', pendingUserEmail);
 
-      // 4. ACTUALIZACIÓN FIRESTORE: Desactiva flag, PERO NO TOCA EL DNI
+      // 5. ACTUALIZACIÓN FIRESTORE: Desactiva flag, PERO NO TOCA EL DNI
       await updateDoc(userDocRef, {
         forcePasswordChange: false,
         updatedAt: serverTimestamp()
       });
 
-      // Guardar la nueva clave localmente para modo offline
+      // 6. Guardar la nueva clave localmente para modo offline
       const hashedNewPassword = await generateHash(newPassword);
       try {
         const existing = await dbLocal.table('seguridad').get(pendingUserEmail);
