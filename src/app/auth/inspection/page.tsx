@@ -154,15 +154,17 @@ export default function InspectionLoginPage() {
       // 1. REGISTRO FINAL: Crea el usuario real vinculando la sesión anónima
       await createUserWithEmailAndPassword(auth!, pendingUserEmail, newPassword);
 
-      // 2. RETRASO DE SEGURIDAD: Tiempo para propagación de token y evitar errores de permisos
+      // 2. FORZAR REFRESCO DE TOKEN: Crucial para que las reglas de Firestore sepan que ya somos un usuario Real
+      await auth!.currentUser?.getIdToken(true);
+
+      // 3. RETRASO DE SEGURIDAD: Tiempo extra para propagación
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       const userDocRef = doc(firestore!, 'usuarios', pendingUserEmail);
 
-      // 3. ACTUALIZACIÓN FIRESTORE: Desactiva flag y limpia el campo 'dni'
+      // 4. ACTUALIZACIÓN FIRESTORE: Desactiva flag, PERO NO TOCA EL DNI
       await updateDoc(userDocRef, {
         forcePasswordChange: false,
-        dni: null, // Limpiamos el PIN temporal (DNI)
         updatedAt: serverTimestamp()
       });
 

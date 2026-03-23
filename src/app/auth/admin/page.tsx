@@ -155,19 +155,21 @@ export default function AdminLoginPage() {
       // 1. REGISTRO FINAL: Convierte sesión anónima en usuario real
       await createUserWithEmailAndPassword(auth!, pendingUserEmail, newPassword);
 
-      // 2. RETRASO DE SEGURIDAD (1.5s): Crucial para que Firestore reconozca el nuevo token real
+      // 2. FORZAR REFRESCO DE TOKEN: Crucial para que las reglas de Firestore sepan que ya somos un usuario Real
+      await auth!.currentUser?.getIdToken(true);
+
+      // 3. RETRASO DE SEGURIDAD (1.5s): Tiempo extra para propagación
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       const userDocRef = doc(firestore!, 'usuarios', pendingUserEmail);
 
-      // 3. ACTUALIZACIÓN FIRESTORE: Limpia el campo 'dni' y desactiva el flag de cambio forzado
+      // 4. ACTUALIZACIÓN FIRESTORE: Desactiva flag, PERO NO TOCA EL DNI
       await updateDoc(userDocRef, {
         forcePasswordChange: false,
-        dni: null, // Se borra el PIN temporal (DNI) para seguridad
         updatedAt: serverTimestamp()
       });
 
-      // 4. Guardado local de seguridad para ingresos futuros
+      // 5. Guardado local de seguridad para ingresos futuros
       const hashedNewPassword = await generateHash(newPassword);
       try {
         await dbLocal.table('seguridad').put({
