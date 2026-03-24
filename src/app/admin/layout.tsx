@@ -19,13 +19,13 @@ const checkIsAuthorizedAdmin = (userData: any) => {
     authorized = rolesArray.some((r: any) => {
       const val = typeof r === 'string' ? r : (r?.value || r?.id || '');
       const norm = String(val).toLowerCase().trim();
-      return norm === 'admin' || norm === 'superadmin';
+      return norm === 'admin' || norm === 'super';
     });
   }
 
   if (!authorized && userData.role) {
     const norm = String(userData.role).toLowerCase().trim();
-    if (norm === 'admin' || norm === 'superadmin') authorized = true;
+    if (norm === 'admin' || norm === 'super') authorized = true;
   }
 
   return authorized;

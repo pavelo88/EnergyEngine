@@ -6,7 +6,6 @@ import { useFirebase } from '@/firebase';
 import { Loader2 } from 'lucide-react';
 import { getStoredOfflineEmail } from '@/lib/inspection-mode';
 
-// Función estricta para asegurar que solo inspectores entren a esta ruta
 const checkIsAuthorized = (userData: any) => {
   if (!userData) return false;
   let authorized = false;
@@ -15,11 +14,15 @@ const checkIsAuthorized = (userData: any) => {
     const rolesArray = Array.isArray(userData.roles) ? userData.roles : Object.values(userData.roles);
     authorized = rolesArray.some((r: any) => {
       const val = typeof r === 'string' ? r : (r?.value || r?.id || '');
-      return String(val).toLowerCase().trim() === 'inspector';
+      const norm = String(val).toLowerCase().trim();
+      // ✅ AHORA PERMITE AMBOS
+      return norm === 'inspector' || norm === 'super';
     });
   }
+
   if (!authorized && userData.role) {
-    if (String(userData.role).toLowerCase().trim() === 'inspector') authorized = true;
+    const norm = String(userData.role).toLowerCase().trim();
+    if (norm === 'inspector' || norm === 'super') authorized = true;
   }
   return authorized;
 };

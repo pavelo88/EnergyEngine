@@ -14,11 +14,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { useAdminHeader } from './AdminHeaderContext';
 
-// Importaciones extra para crear usuarios en Auth desde el Admin
+// Importaciones para gestión de Auth (Borrado y Creación)
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, deleteUser, signOut } from 'firebase/auth';
 
-// Tu configuración de Firebase desde el .env
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -44,7 +43,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
-  const [isSaving, setIsSaving] = useState(false); // Estado para el botón de guardar
+  const [isSaving, setIsSaving] = useState(false);
   const db = useFirestore();
 
   const { register, handleSubmit, reset, watch, control, formState: { errors } } = useForm<UserFormInputs>({
@@ -98,10 +97,15 @@ export default function UsersPage() {
     setEditingUser(null);
   };
 
-  // --- AQUÍ ESTÁ LA MAGIA CORREGIDA ---
   const onSubmit = async (data: UserFormInputs) => {
     if (!db) return;
     setIsSaving(true);
+
+    // ✅ Lógica de consolidación: Si selecciona ambos, guardamos como 'super'
+    let rolesToSave = [...data.roles];
+    if (rolesToSave.includes('admin') && rolesToSave.includes('inspector')) {
+      rolesToSave = ['super'];
+    }
 
     try {
       if (editingUser) {
@@ -111,7 +115,7 @@ export default function UsersPage() {
           nombre: data.nombre,
           dni: data.dni,
           email: data.email,
-          roles: data.roles,
+          roles: rolesToSave, // Usamos los roles procesados
         };
         if (data.firmaUrl !== undefined) updatePayload.firmaUrl = data.firmaUrl;
         await updateDoc(userDocRef, updatePayload);
@@ -132,6 +136,7 @@ export default function UsersPage() {
         await setDoc(userDocRef, {
           ...data,
           email: cleanEmail,
+          roles: rolesToSave, // Usamos los roles procesados
           activo: true,
           forcePasswordChange: true // Obligamos a cambiar clave
         });
@@ -147,16 +152,31 @@ export default function UsersPage() {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
+
+  // ✅ ELIMINACIÓN CORREGIDA (Auth + Firestore)
+  const handleDeleteUser = async (user: UserData) => {
     if (!db) return;
-    // Nota: Por seguridad, Firebase no permite borrar usuarios de Auth desde el cliente web.
-    // Esto solo borra el perfil de Firestore. El borrado total debe hacerse desde la consola de Firebase.
-    if (window.confirm('¿Seguro que quieres eliminar el perfil de este usuario?')) {
+    if (window.confirm(`¿Seguro que quieres eliminar a ${user.nombre}? Se borrará de Authentication y Firestore.`)) {
+      setLoading(true);
       try {
-        await deleteDoc(doc(db, 'usuarios', userId));
+        const secondaryApp = getApps().length > 1 ? getApps()[1] : initializeApp(firebaseConfig, "SecondaryApp");
+        const secondaryAuth = getAuth(secondaryApp);
+
+        try {
+          // Intentamos borrar de Auth (funciona si la clave sigue siendo el DNI)
+          const userCred = await signInWithEmailAndPassword(secondaryAuth, user.email, user.dni);
+          await deleteUser(userCred.user);
+        } catch (authErr) {
+          console.warn("No se pudo borrar de Auth automáticamente. Es probable que el usuario ya haya cambiado su contraseña.");
+        }
+
+        await deleteDoc(doc(db, 'usuarios', user.id));
         fetchUsers();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error al eliminar el usuario: ", error);
+        alert("Error al eliminar de Firestore: " + error.message);
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -194,7 +214,7 @@ export default function UsersPage() {
                   <td className="py-4 text-right">
                     <div className="flex justify-end gap-1">
                       <button onClick={() => openModalForEdit(user)} className="p-2 text-slate-300 hover:text-primary transition-colors"><Edit className="h-4 w-4" /></button>
-                      <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={() => handleDeleteUser(user)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </td>
                 </tr>

@@ -34,7 +34,7 @@ const checkIsAuthorizedAdmin = (userData: any) => {
   return rolesArray.some((r: any) => {
     const val = typeof r === 'string' ? r : (r?.value || r?.id || '');
     const norm = String(val).toLowerCase().trim();
-    return norm === 'admin' || norm === 'superadmin';
+    return norm === 'admin' || norm === 'super';
   });
 };
 export default function AdminLoginPage() {
@@ -271,7 +271,7 @@ export default function AdminLoginPage() {
               <Input type="email" placeholder="admin@energyengine.es" required value={email} onChange={(e) => setEmail(e.target.value)} className="bg-slate-100/50 border-slate-200 text-slate-900 rounded-xl h-12 focus-visible:ring-slate-300 font-medium shadow-sm" />
             </div>
             <div className="space-y-2">
-              <Label className="text-slate-800 font-black uppercase text-[10px] tracking-widest px-1">Contraseña o DNI</Label>
+              <Label className="text-slate-800 font-black uppercase text-[10px] tracking-widest px-1">Contraseña o DNI 1</Label>
               <div className="relative">
                 <Input type={showPassword ? "text" : "password"} placeholder="••••••••" required value={password} onChange={(e) => setPassword(e.target.value)} className="bg-slate-100/50 border-slate-200 text-slate-900 rounded-xl h-12 pr-10 focus-visible:ring-slate-300 font-medium shadow-sm" />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-4 text-slate-400 hover:text-slate-700 transition-colors">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>

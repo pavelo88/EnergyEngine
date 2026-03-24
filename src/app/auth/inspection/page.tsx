@@ -38,7 +38,6 @@ const checkIsAuthorizedInspector = (userData: any) => {
 
   let rolesArray: any[] = [];
 
-  // Extraer roles sin importar el formato (soporta lo que vimos en tu captura)
   if (Array.isArray(userData.roles)) {
     rolesArray = userData.roles;
   } else if (userData.roles && typeof userData.roles === 'object') {
@@ -47,12 +46,13 @@ const checkIsAuthorizedInspector = (userData: any) => {
     rolesArray = userData.roles.split(',');
   }
 
-  // También revisamos si existe el campo singular 'role'
   if (userData.role) rolesArray.push(userData.role);
 
   return rolesArray.some((r: any) => {
     const val = typeof r === 'string' ? r : (r?.value || r?.id || '');
-    return String(val).toLowerCase().trim() === 'inspector';
+    const norm = String(val).toLowerCase().trim();
+    // ✅ Permite tanto inspectores normales como la llave maestra 'super'
+    return norm === 'inspector' || norm === 'super';
   });
 };
 
@@ -68,7 +68,6 @@ export default function InspectionLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // --- ESTADOS DEL MODAL DE CAMBIO DE CLAVE ---
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -80,7 +79,6 @@ export default function InspectionLoginPage() {
 
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-  // Cargar último email guardado para conveniencia
   useEffect(() => {
     const loadSavedEmail = async () => {
       try {
@@ -96,7 +94,6 @@ export default function InspectionLoginPage() {
     loadSavedEmail();
   }, []);
 
-  // Protección pasiva y redirección
   useEffect(() => {
     if (loading || isUserLoading || showPasswordModal) return;
     if (!user || !user.email) return;
@@ -134,8 +131,6 @@ export default function InspectionLoginPage() {
     return () => { isMounted = false; };
   }, [user, isUserLoading, router, firestore, showPasswordModal, auth, loading]);
 
-
-  // --- ACTUALIZACIÓN DE CLAVE (NATIVA + ACTUALIZACIÓN DEXIE) ---
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError(null);
@@ -153,7 +148,6 @@ export default function InspectionLoginPage() {
       const userDocRef = doc(firestore!, 'usuarios', pendingUserEmail);
       await updateDoc(userDocRef, { forcePasswordChange: false, updatedAt: serverTimestamp() });
 
-      // IMPORTANTE: Actualizar el Hash local para que la nueva clave funcione Offline
       const hashedNewPassword = await generateHash(newPassword);
       await dbLocal.table('seguridad').put({
         email: pendingUserEmail,
@@ -172,72 +166,101 @@ export default function InspectionLoginPage() {
     }
   };
 
-
-  // --- LOGIN PRINCIPAL ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanEmail = email.trim().toLowerCase();
 
-    // A. FLUJO OFFLINE
+    // --- 1. MODO OFFLINE ---
     if (!navigator.onLine) {
       try {
         const security = await dbLocal.table('seguridad').get(cleanEmail);
         if (!security) { setError('Inicia sesión con internet primero.'); return; }
-
         const inputHash = await generateHash(password);
         if (security.pinHash === inputHash) {
           setStoredOfflineEmail(cleanEmail);
           setInspectionMode('offline');
           router.replace('/inspection');
-        } else {
-          setError('Contraseña incorrecta (Modo Offline).');
-        }
+        } else { setError('Contraseña incorrecta (Offline).'); }
       } catch (err) { setError('Error en datos locales.'); }
       return;
     }
 
-    // B. FLUJO ONLINE
+    // --- 2. MODO ONLINE CON REINTENTOS ---
     setLoading(true);
     setError(null);
 
     try {
+      // A. Autenticación inicial
       await signInWithEmailAndPassword(auth!, cleanEmail, password);
 
-      const userDocRef = doc(firestore!, 'usuarios', cleanEmail);
-      const userDocSnap = await getDocFromServer(userDocRef);
+      let userData: any = null;
+      let attempts = 0;
+      const maxAttempts = 3;
 
-      if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
+      // B. Bucle de extracción: Buscamos específicamente el campo 'roles'
+      while (attempts < maxAttempts) {
+        attempts++;
+        console.log(`Intento de extracción ${attempts} para: ${cleanEmail}`);
 
-        if (!checkIsAuthorizedInspector(userData)) {
-          await signOut(auth!);
-          // Mensaje con debug para ver qué está leyendo si falla
-          setError("Acceso denegado. Roles: " + JSON.stringify(userData.roles));
-          setLoading(false);
-          return;
+        const userDocRef = doc(firestore!, 'usuarios', cleanEmail);
+        const userDocSnap = await getDocFromServer(userDocRef);
+
+        if (userDocSnap.exists()) {
+          const data = userDocSnap.data();
+          // Si tiene roles, tenemos el documento completo
+          if (data.roles && data.roles.length > 0) {
+            userData = data;
+            break;
+          }
         }
 
-        if (userData.forcePasswordChange) {
-          setPendingUserEmail(cleanEmail);
-          setShowPasswordModal(true);
-          setLoading(false);
-          return;
+        // Si no los encontró, esperamos 1 segundo antes de reintentar
+        if (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
-
-        // ÉXITO: Guardamos Hash local para futuras sesiones offline
-        const currentHash = await generateHash(password);
-        await dbLocal.table('seguridad').put({
-          email: cleanEmail,
-          createdAt: new Date(),
-          pinHash: currentHash
-        });
-
-        setStoredOfflineEmail(cleanEmail);
-        setInspectionMode('online');
-        router.replace('/inspection');
       }
+
+      // C. Verificación Final de los datos extraídos
+      if (!userData) {
+        await signOut(auth!);
+        setError("Error: El servidor no entregó tus roles de acceso después de 3 intentos.");
+        setLoading(false);
+        return;
+      }
+
+      console.log("Datos finales extraídos con éxito:", userData);
+
+      // D. Lógica de Negocio: Validar Rol
+      if (!checkIsAuthorizedInspector(userData)) {
+        await signOut(auth!);
+        setError(`Acceso denegado. No tienes rol de inspector o super.`);
+        setLoading(false);
+        return;
+      }
+
+      // E. Lógica de Negocio: Cambio de Clave (ForcePasswordChange)
+      if (userData.forcePasswordChange === true) {
+        setPendingUserEmail(cleanEmail);
+        setShowPasswordModal(true);
+        setLoading(false);
+        return;
+      }
+
+      // F. Éxito: Guardar sesión local y entrar
+      const currentHash = await generateHash(password);
+      await dbLocal.table('seguridad').put({
+        email: cleanEmail,
+        createdAt: new Date(),
+        pinHash: currentHash
+      });
+
+      setStoredOfflineEmail(cleanEmail);
+      setInspectionMode('online');
+      router.replace('/inspection');
+
     } catch (err: any) {
-      setError('Credenciales incorrectas o sin permiso.');
+      console.error("Fallo en login:", err);
+      setError('Correo o contraseña incorrectos.');
     } finally {
       setLoading(false);
     }
@@ -251,28 +274,27 @@ export default function InspectionLoginPage() {
     );
   }
 
-  // --- RENDER MODAL ---
   if (showPasswordModal) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-transparent relative z-10 p-4">
-        <Card className="w-full max-w-sm rounded-[2rem] shadow-2xl bg-white/90 backdrop-blur-xl border border-white/50 p-2">
+        <Card className="w-full max-w-sm rounded-[2rem] shadow-2xl bg-white border border-slate-200 p-2">
           <CardHeader className="text-center space-y-2 pb-6">
-            <CardTitle className="text-2xl font-black text-slate-900">Nueva clave</CardTitle>
-            <CardDescription className="text-slate-600 text-xs">Para: {pendingUserEmail}</CardDescription>
+            <CardTitle className="text-2xl font-black text-black uppercase">Nueva clave</CardTitle>
+            <CardDescription className="text-slate-900 font-bold text-xs">Para: {pendingUserEmail}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handlePasswordUpdate} className="space-y-4">
               <div className="space-y-1">
-                <Label className="text-[10px] font-black uppercase tracking-widest px-1">Nueva Contraseña</Label>
+                <Label className="text-[10px] text-black font-black uppercase tracking-widest px-1">Nueva Contraseña</Label>
                 <div className="relative">
-                  <Input type={showNewPassword ? 'text' : 'password'} required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl h-12 pr-10" />
+                  <Input type={showNewPassword ? 'text' : 'password'} required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="rounded-xl h-12 border-slate-200 text-black font-bold" />
                   <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute inset-y-0 right-0 pr-3 text-slate-400">{showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-[10px] font-black uppercase tracking-widest px-1">Confirmar</Label>
+                <Label className="text-[10px] text-black font-black uppercase tracking-widest px-1">Confirmar</Label>
                 <div className="relative">
-                  <Input type={showConfirmPassword ? 'text' : 'password'} required value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className="rounded-xl h-12 pr-10" />
+                  <Input type={showConfirmPassword ? 'text' : 'password'} required value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className="rounded-xl h-12 border-slate-200 text-black font-bold" />
                   <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-3 text-slate-400">{showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                 </div>
               </div>
@@ -287,25 +309,24 @@ export default function InspectionLoginPage() {
     );
   }
 
-  // --- RENDER LOGIN ---
   return (
     <div className="flex min-h-screen w-full items-center justify-center p-4 relative z-10 bg-transparent">
       <Card className="w-full max-w-sm rounded-[2.5rem] shadow-2xl bg-white/95 backdrop-blur-xl border border-white p-4 animate-in fade-in zoom-in duration-500">
         <CardHeader className="text-center space-y-4 pb-2">
           <div className="mx-auto mb-2 flex justify-center"><Logo /></div>
-          <CardTitle className="text-2xl font-black text-slate-900 tracking-tighter uppercase font-headline">Portal Inspector</CardTitle>
-          <CardDescription className="text-slate-500 font-medium text-xs">Inspección Técnica Operativa</CardDescription>
+          <CardTitle className="text-2xl font-black text-slate-950 tracking-tighter uppercase font-headline">Portal Inspector</CardTitle>
+          <CardDescription className="text-slate-600 font-bold text-xs">Inspección Técnica Operativa</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <Label className="text-slate-800 font-black uppercase text-[10px] tracking-widest px-1">Email</Label>
-              <Input type="email" placeholder="inspector@energyengine.es" required value={email} onChange={(e) => setEmail(e.target.value)} className="bg-slate-100/50 border-slate-200 text-slate-900 rounded-xl h-12 font-medium" />
+              <Label className="text-slate-950 font-black uppercase text-[10px] tracking-widest px-1">Email</Label>
+              <Input type="email" placeholder="inspector@energyengine.es" required value={email} onChange={(e) => setEmail(e.target.value)} className="bg-slate-50 border-slate-200 text-slate-900 rounded-xl h-12 font-bold" />
             </div>
             <div className="space-y-2">
-              <Label className="text-slate-800 font-black uppercase text-[10px] tracking-widest px-1">Contraseña o PIN</Label>
+              <Label className="text-slate-950 font-black uppercase text-[10px] tracking-widest px-1">Contraseña o DNI 2</Label>
               <div className="relative">
-                <Input type={showPassword ? "text" : "password"} placeholder="••••••••" required value={password} onChange={(e) => setPassword(e.target.value)} className="bg-slate-100/50 border-slate-200 text-slate-900 rounded-xl h-12 pr-10 font-medium" />
+                <Input type={showPassword ? "text" : "password"} placeholder="••••••••" required value={password} onChange={(e) => setPassword(e.target.value)} className="bg-slate-50 border-slate-200 text-slate-900 rounded-xl h-12 pr-10 font-bold" />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-4 text-slate-400">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
               </div>
             </div>
@@ -313,9 +334,9 @@ export default function InspectionLoginPage() {
             <div className="flex items-center justify-between text-[10px] px-1 pt-1">
               <div className="flex items-center gap-2">
                 <Checkbox id="remember-me" className="border-slate-300 rounded-[4px] data-[state=checked]:bg-slate-900" />
-                <Label htmlFor="remember-me" className="text-slate-600 font-bold uppercase tracking-widest cursor-pointer">Recordarme</Label>
+                <Label htmlFor="remember-me" className="text-slate-950 font-black uppercase tracking-widest cursor-pointer">Recordarme</Label>
               </div>
-              <Link href="/auth/forgot-password" className="text-slate-600 font-bold uppercase tracking-widest hover:text-slate-900 transition-colors">¿Olvidaste tu clave?</Link>
+              <Link href="/auth/forgot-password" title="Recuperar cuenta" className="text-slate-950 font-black uppercase tracking-widest hover:text-primary transition-colors">¿Olvidaste tu clave?</Link>
             </div>
 
             {error && (<div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-[10px] font-bold text-red-600 animate-in fade-in zoom-in duration-300"><AlertCircle className="h-4 w-4 shrink-0" /><p>{error}</p></div>)}
@@ -325,7 +346,7 @@ export default function InspectionLoginPage() {
             </Button>
 
             <div className="pt-2 text-center">
-              <Link href="/auth/admin" className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-700 transition-colors">Ir al Panel de Administración</Link>
+              <Link href="/auth/admin" title="Panel Admin" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-900 transition-colors">Ir al Panel de Administración</Link>
             </div>
           </form>
         </CardContent>
