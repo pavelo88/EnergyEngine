@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
-import { useForm, Controller } from 'react-hook-form'; // <-- Añadido Controller
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Edit, Trash2, UserPlus, Loader2, X, Link as LinkIcon, User } from 'lucide-react';
@@ -14,9 +14,23 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { useAdminHeader } from './AdminHeaderContext';
 
+// Importaciones extra para crear usuarios en Auth desde el Admin
+import { initializeApp, getApps } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+
+// Tu configuración de Firebase desde el .env
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
 const userSchema = z.object({
   nombre: z.string().min(3, 'El nombre es demasiado corto.'),
-  dni: z.string().nonempty('La identificación es requerida.'),
+  dni: z.string().min(6, 'La identificación debe tener al menos 6 caracteres para ser usada como contraseña.'),
   email: z.string().email('El correo electrónico no es válido.'),
   roles: z.array(z.string()).min(1, 'Se debe seleccionar al menos un rol.'),
   firmaUrl: z.string().url('Debe ser una URL válida.').optional().or(z.literal('')),
@@ -30,11 +44,12 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [isSaving, setIsSaving] = useState(false); // Estado para el botón de guardar
   const db = useFirestore();
 
-  const { register, handleSubmit, reset, watch, control, formState: { errors } } = useForm<UserFormInputs>({ // <-- Añadido control aquí
+  const { register, handleSubmit, reset, watch, control, formState: { errors } } = useForm<UserFormInputs>({
     resolver: zodResolver(userSchema),
-    defaultValues: { roles: [] } // Buena práctica para asegurar que inicie como arreglo
+    defaultValues: { roles: [] }
   });
 
   const selectedRoles = watch('roles') || [];
@@ -83,14 +98,15 @@ export default function UsersPage() {
     setEditingUser(null);
   };
 
+  // --- AQUÍ ESTÁ LA MAGIA CORREGIDA ---
   const onSubmit = async (data: UserFormInputs) => {
     if (!db) return;
+    setIsSaving(true);
+
     try {
       if (editingUser) {
-        // Corrección importante: usamos el ID original del usuario editado
+        // ACTUALIZAR USUARIO EXISTENTE
         const userDocRef = doc(db, 'usuarios', editingUser.id);
-
-        // Actualizamos los datos
         const updatePayload: any = {
           nombre: data.nombre,
           dni: data.dni,
@@ -98,23 +114,44 @@ export default function UsersPage() {
           roles: data.roles,
         };
         if (data.firmaUrl !== undefined) updatePayload.firmaUrl = data.firmaUrl;
-
         await updateDoc(userDocRef, updatePayload);
+
       } else {
-        // Cuando creamos uno nuevo, usamos el email como ID en Firestore
-        const userDocRef = doc(db, 'usuarios', data.email.toLowerCase().trim());
-        await setDoc(userDocRef, { ...data, email: data.email.toLowerCase().trim(), activo: true, forcePasswordChange: true });
+        // CREAR USUARIO NUEVO
+        const cleanEmail = data.email.toLowerCase().trim();
+
+        // 1. Crear en Firebase Auth usando la app secundaria
+        const secondaryApp = getApps().length > 1 ? getApps()[1] : initializeApp(firebaseConfig, "SecondaryApp");
+        const secondaryAuth = getAuth(secondaryApp);
+
+        await createUserWithEmailAndPassword(secondaryAuth, cleanEmail, data.dni);
+        await signOut(secondaryAuth); // Cerramos sesión secundaria para limpieza
+
+        // 2. Crear documento en Firestore
+        const userDocRef = doc(db, 'usuarios', cleanEmail);
+        await setDoc(userDocRef, {
+          ...data,
+          email: cleanEmail,
+          activo: true,
+          forcePasswordChange: true // Obligamos a cambiar clave
+        });
       }
+
       closeModal();
       fetchUsers();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al guardar el usuario: ", error);
+      alert(error.message || "Ocurrió un error al crear el usuario. Verifica que el correo no exista ya.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
     if (!db) return;
-    if (window.confirm('¿Seguro que quieres eliminar este usuario?')) {
+    // Nota: Por seguridad, Firebase no permite borrar usuarios de Auth desde el cliente web.
+    // Esto solo borra el perfil de Firestore. El borrado total debe hacerse desde la consola de Firebase.
+    if (window.confirm('¿Seguro que quieres eliminar el perfil de este usuario?')) {
       try {
         await deleteDoc(doc(db, 'usuarios', userId));
         fetchUsers();
@@ -181,11 +218,10 @@ export default function UsersPage() {
                 <InputField id="nombre" label="Nombre Completo" register={register('nombre')} error={errors.nombre} icon={User} />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField id="dni" label="DNI / Pasaporte" register={register('dni')} error={errors.dni} icon={User} />
-                  <InputField id="email" label="Correo Electrónico" type="email" register={register('email')} error={errors.email} icon={User} />
+                  <InputField id="dni" label="DNI / Pasaporte" register={register('dni')} error={errors.dni} icon={User} placeholder="Mínimo 6 caracteres" />
+                  <InputField id="email" label="Correo Electrónico" type="email" register={register('email')} error={errors.email} icon={User} disabled={!!editingUser} />
                 </div>
 
-                {/* --- AQUI ESTA LA MAGIA DE LOS ROLES --- */}
                 <div>
                   <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-3 block">Roles en Plataforma</Label>
                   <Controller
@@ -193,46 +229,35 @@ export default function UsersPage() {
                     control={control}
                     render={({ field }) => (
                       <div className="flex gap-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        {/* Checkbox Administrador */}
                         <div className="flex items-center gap-3">
                           <Checkbox
                             id="role-admin"
                             checked={field.value?.includes("admin")}
                             onCheckedChange={(checked) => {
                               const current = field.value || [];
-                              return checked
-                                ? field.onChange([...current, "admin"])
-                                : field.onChange(current.filter((val) => val !== "admin"));
+                              return checked ? field.onChange([...current, "admin"]) : field.onChange(current.filter((val) => val !== "admin"));
                             }}
                             className="rounded-md border-slate-300 data-[state=checked]:bg-primary"
                           />
-                          <Label htmlFor="role-admin" className="text-xs font-black text-slate-600 uppercase tracking-tighter cursor-pointer">
-                            Administrador
-                          </Label>
+                          <Label htmlFor="role-admin" className="text-xs font-black text-slate-600 uppercase tracking-tighter cursor-pointer">Administrador</Label>
                         </div>
-                        {/* Checkbox Inspector */}
                         <div className="flex items-center gap-3">
                           <Checkbox
                             id="role-inspector"
                             checked={field.value?.includes("inspector")}
                             onCheckedChange={(checked) => {
                               const current = field.value || [];
-                              return checked
-                                ? field.onChange([...current, "inspector"])
-                                : field.onChange(current.filter((val) => val !== "inspector"));
+                              return checked ? field.onChange([...current, "inspector"]) : field.onChange(current.filter((val) => val !== "inspector"));
                             }}
                             className="rounded-md border-slate-300 data-[state=checked]:bg-primary"
                           />
-                          <Label htmlFor="role-inspector" className="text-xs font-black text-slate-600 uppercase tracking-tighter cursor-pointer">
-                            Inspector Técnico
-                          </Label>
+                          <Label htmlFor="role-inspector" className="text-xs font-black text-slate-600 uppercase tracking-tighter cursor-pointer">Inspector Técnico</Label>
                         </div>
                       </div>
                     )}
                   />
                   {errors.roles && <p className="mt-2 text-xs text-red-600 font-bold uppercase">{errors.roles.message}</p>}
                 </div>
-                {/* -------------------------------------- */}
 
                 {selectedRoles.includes('inspector') && (
                   <InputField id="firmaUrl" label="Enlace de Firma Digital" register={register('firmaUrl')} error={errors.firmaUrl} icon={LinkIcon} placeholder="https://..." />
@@ -241,7 +266,10 @@ export default function UsersPage() {
 
               <div className="p-8 bg-slate-50 flex justify-end gap-3 rounded-b-[2.5rem]">
                 <Button type="button" variant="ghost" onClick={closeModal} className="rounded-xl font-bold uppercase text-xs">Cancelar</Button>
-                <Button type="submit" className="rounded-xl font-black uppercase text-xs bg-primary px-8">{editingUser ? 'Guardar Cambios' : 'Crear Usuario'}</Button>
+                <Button type="submit" disabled={isSaving} className="rounded-xl font-black uppercase text-xs bg-primary px-8 text-slate-900 hover:bg-emerald-400">
+                  {isSaving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                  {isSaving ? 'Guardando...' : (editingUser ? 'Guardar Cambios' : 'Crear Usuario')}
+                </Button>
               </div>
             </form>
           </div>
@@ -251,12 +279,12 @@ export default function UsersPage() {
   );
 }
 
-const InputField = ({ id, label, type = 'text', register, error, icon: Icon, ...props }: any) => (
+const InputField = ({ id, label, type = 'text', register, error, icon: Icon, disabled, ...props }: any) => (
   <div className='space-y-2'>
     <Label htmlFor={id} className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</Label>
     <div className="relative">
       {Icon && <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4"><Icon className="h-4 w-4 text-slate-300" /></div>}
-      <Input id={id} type={type} {...register} {...props} className={cn("rounded-xl border-slate-100 bg-slate-50 focus:bg-white font-bold h-12 text-slate-900", Icon ? 'pl-11' : 'pl-4')} />
+      <Input id={id} type={type} disabled={disabled} {...register} {...props} className={cn("rounded-xl border-slate-100 bg-slate-50 focus:bg-white font-bold h-12 text-slate-900 disabled:opacity-50", Icon ? 'pl-11' : 'pl-4')} />
     </div>
     {error && <p className="mt-1 text-xs text-red-600 font-bold uppercase">{error.message}</p>}
   </div>
