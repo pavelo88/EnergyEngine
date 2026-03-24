@@ -315,7 +315,7 @@ export default function InspectionLoginPage() {
                 <Checkbox id="remember-me" className="border-slate-300 rounded-[4px] data-[state=checked]:bg-slate-900" />
                 <Label htmlFor="remember-me" className="text-slate-600 font-bold uppercase tracking-widest cursor-pointer">Recordarme</Label>
               </div>
-              <Link href="/auth/forgot-password" size="sm" className="text-slate-600 font-bold uppercase tracking-widest hover:text-slate-900 transition-colors">¿Olvidaste tu clave?</Link>
+              <Link href="/auth/forgot-password" className="text-slate-600 font-bold uppercase tracking-widest hover:text-slate-900 transition-colors">¿Olvidaste tu clave?</Link>
             </div>
 
             {error && (<div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-[10px] font-bold text-red-600 animate-in fade-in zoom-in duration-300"><AlertCircle className="h-4 w-4 shrink-0" /><p>{error}</p></div>)}
