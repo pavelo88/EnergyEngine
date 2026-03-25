@@ -38,6 +38,13 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      // Añadido para los logos de Wikimedia Commons
+      {
+        protocol: 'https',
+        hostname: 'commons.wikimedia.org',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   async headers() {

@@ -9,50 +9,57 @@ import Stats from './stats';
 
 export default function Hero() {
   return (
-    <section className={cn(
-    )}>
+    <section className="relative min-h-[90vh] flex flex-col justify-center pt-24 pb-20 px-4 md:px-6 z-10">
 
-      {/* CAPA 3: EL CRISTAL ÚNICO - Transparencia real con blur mínimo */}
       <div className={cn(
-        "max-w-7xl w-full mx-auto p-8 md:p-16 rounded-[4rem] border relative z-10 transition-all duration-500 shadow-premium",
-        // Vidrio ultra transparente (1% y 2%) con blur casi imperceptible para que se vea el fondo
-        "bg-white/[0.01] backdrop-blur-[2px] border-white/10 shadow-xl",
-        "dark:bg-slate-950/[0.02] dark:border-white/5 dark:backdrop-blur-[2px]"
+        "max-w-7xl w-full mx-auto p-8 md:p-12 lg:p-16 rounded-[3rem] relative z-10 transition-all duration-500",
+        "bg-white/10 dark:bg-black/20 backdrop-blur-md border border-white/20 dark:border-white/5 shadow-2xl"
       )}>
 
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
 
           {/* LADO IZQUIERDO: TEXTOS */}
-          <div className="flex flex-col items-start text-left">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border text-[10px] font-display font-black mb-8 bg-primary/10 border-primary/20 text-primary uppercase tracking-[0.3em]">
-              <Activity size={14} />
+          <div className="flex flex-col items-start text-left font-body">
+
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold mb-8 bg-primary/10 border-primary/20 text-primary">
+              <Activity size={16} />
               Servicio SAT 24/7 - Disponibilidad Inmediata
             </div>
 
-            {/* Títulos ajustados: Sin text-balance para que no se rompan las líneas */}
-            <h1 className="text-5xl md:text-7xl lg:text-[5.2rem] font-display font-black mb-6 tracking-tighter leading-[1] text-slate-950 dark:text-white uppercase text-shadow-premium">
+            {/* TÍTULO PRINCIPAL: Tamaños reducidos para que respire mejor */}
+            <h1 className="text-4xl md:text-5xl lg:text-[3.5rem] font-headline font-bold mb-6 tracking-tight leading-[1.1] text-slate-900 dark:text-white">
               <span className="block">Mantenimiento y</span>
-              <span className="text-primary italic block">Reparación Industrial</span>
-              <span className="text-slate-950 dark:text-white text-2xl md:text-4xl lg:text-5xl block mt-4 leading-none">de Grupos Electrógenos</span>
+              <span className="text-primary block">Reparación Industrial</span>
+
+              {/* SUBTÍTULO: Tamaño más pequeño y color MUCHO más oscuro en modo claro */}
+              <span className="text-2xl md:text-3xl lg:text-3xl block mt-3 font-semibold text-slate-700 dark:text-slate-200">
+                de Grupos Electrógenos
+              </span>
             </h1>
 
-            <p className="text-base md:text-lg font-sans max-w-xl mb-10 leading-relaxed font-bold text-slate-600 dark:text-white/70">
-              Más de 20 años de experiencia en la operación electromecánica de motores diésel, gas y plantas de cogeneración. <br />
-              <span className="text-slate-900 dark:text-white font-black uppercase text-sm tracking-widest text-shadow-strong">Tu socio estratégico en eficiencia energética.</span>
+            {/* PÁRRAFO: Color oscuro y fuerte en modo claro (slate-800) para máxima legibilidad */}
+            <p className="text-base md:text-lg max-w-xl mb-10 leading-relaxed font-medium text-slate-800 dark:text-slate-200">
+              Más de 20 años de experiencia en la operación electromecánica de motores diésel, gas y plantas de cogeneración. <br className="hidden sm:block" />
+              <span className="text-slate-950 dark:text-white font-bold mt-2 block">
+                Tu socio estratégico en eficiencia energética.
+              </span>
             </p>
 
             <div className="flex flex-col sm:flex-row gap-5 w-full sm:w-auto">
-              <Button asChild size="lg" className="h-16 px-10 text-[11px] font-display font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/30 transition-transform active:scale-95 group">
+              <Button asChild size="lg" className="h-14 px-8 text-base font-bold rounded-xl shadow-lg hover:shadow-primary/25 transition-all group">
                 <Link href="#servicios" className="flex items-center gap-2">
-                  Nuestros Servicios <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                  Nuestros Servicios <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className="h-16 px-10 text-[11px] font-display font-black uppercase tracking-widest border-2 border-slate-200 dark:border-foreground/20 hover:bg-white/5 text-slate-700 dark:text-foreground rounded-2xl transition-all">
+
+              {/* BOTÓN SECUNDARIO: Fondo un poco más visible y texto oscuro en modo claro */}
+              <Button asChild variant="outline" size="lg" className="h-14 px-8 text-base font-bold rounded-xl border-slate-300 dark:border-white/10 hover:bg-white/40 dark:hover:bg-white/5 transition-all bg-white/30 dark:bg-black/10 backdrop-blur-sm text-slate-900 dark:text-white">
                 <Link href="#contacto">Solicitar Cotización</Link>
               </Button>
             </div>
           </div>
 
+          {/* LADO DERECHO: ESTADÍSTICAS */}
           <div className="w-full">
             <Stats />
           </div>

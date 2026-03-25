@@ -29,7 +29,7 @@ const ModernBackground = () => {
     >
       {/* Sharp background - Removed blur for maximum clarity */}
       {/* Sharp background - Removed blur for maximum clarity */}
-      <div className={`absolute inset-0 transition-colors duration-700 ${isDark ? 'bg-slate-950/5' : 'bg-slate-950/5'}`}></div>
+      <div className={`absolute inset-0 transition-colors duration-100 ${isDark ? 'bg-black/40 backdrop-blur-[3px]' : 'bg-white/15 backdrop-blur-[1px]'}`}></div>
     </div>
   );
 };
