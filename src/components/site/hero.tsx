@@ -12,8 +12,10 @@ export default function Hero() {
     <section className="relative min-h-[90vh] flex flex-col justify-center pt-24 pb-20 px-4 md:px-6 z-10">
 
       <div className={cn(
-        "max-w-7xl w-full mx-auto p-8 md:p-12 lg:p-16 rounded-[3rem] relative z-10 transition-all duration-500",
-        "bg-white/10 dark:bg-black/20 backdrop-blur-md border border-white/20 dark:border-white/5 shadow-2xl"
+        "max-w-7xl w-full mx-auto p-8 md:p-12 lg:p-16 rounded-[3rem] relative z-10 transition-all duration-500 shadow-2xl",
+        // Bajamos la opacidad a /5 (5%) y el blur a [2px] o [4px] para que sea más transparente
+        "bg-white/5 backdrop-blur-[4px] border border-white/10",
+        "dark:bg-black/10 dark:border-white/5"
       )}>
 
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">

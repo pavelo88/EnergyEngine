@@ -33,16 +33,16 @@ export const Logo = ({ className, showText = true }: LogoProps) => {
   }
 
   const isDark = resolvedTheme === 'dark';
-  const logoSrc = isDark ? '/logo2.png' : '/logo.png';
+  const logoSrc = isDark ? '/logo.png' : '/logo.png';
 
   return (
     <div className={cn("flex items-center gap-3 transition-all duration-500", className)}>
       <div className="relative w-12 h-12 flex items-center justify-center">
-        <img 
-          src={logoSrc} 
-          alt="energy engine logo" 
-          width={48} 
-          height={48} 
+        <img
+          src={logoSrc}
+          alt="energy engine logo"
+          width={48}
+          height={48}
           className="object-contain transition-opacity duration-300"
           onError={(e) => {
             (e.target as HTMLImageElement).src = logoBase64;
@@ -50,9 +50,14 @@ export const Logo = ({ className, showText = true }: LogoProps) => {
         />
       </div>
       {showText && (
-        <div className="flex flex-col leading-tight">
-          <span className="font-headline text-xl font-black tracking-tighter text-primary italic lowercase">energy engine</span>
-          <span className="text-[10px] font-black text-slate-400 tracking-[0.2em] uppercase">GRUPOS ELECTROGENOS</span>
+        <div className="flex flex-col justify-center leading-none mt-1 font-headline">
+          {/* Ahora es texto puro; el borde se aplicará automáticamente desde el CSS global */}
+          <span className="text-xl md:text-2xl font-bold tracking-tight text-primary lowercase italic">
+            energy engine
+          </span>
+          <span className="text-[10px] font-black text-slate-400 tracking-[0.2em] uppercase mt-0.5">
+            grupos electrogenos
+          </span>
         </div>
       )}
     </div>

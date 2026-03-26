@@ -4,72 +4,56 @@
 
 @layer base {
   :root {
-    /* MODO CLARO - LIMPIO Y CORPORATIVO */
+    /* MODO CLARO - INTACTO (Verde elegante corporativo) */
     --background: 0 0% 100%;
-    /* Blanco puro */
     --foreground: 222 47% 11%;
-    /* Texto oscuro industrial */
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* El Verde vibrante de Energy Engine */
-    --primary: 142 71% 45%;
+    /* VERDE DEL LOGO ORIGINAL */
+    --primary: 148 65% 22%;
     --primary-foreground: 0 0% 100%;
-    /* Texto blanco sobre el verde */
 
-    /* Gris industrial oscuro para elementos secundarios */
     --secondary: 222 47% 11%;
     --secondary-foreground: 0 0% 100%;
-
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
-
     --accent: 210 40% 96%;
     --accent-foreground: 222 47% 11%;
-
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 142 71% 45%;
+    --ring: 148 65% 22%;
     --radius: 0.75rem;
   }
 
   .dark {
-    /* MODO OSCURO - GRIS INDUSTRIAL PROFUNDO (Premium) */
-    --background: 222 47% 11%;
-    /* Fondo oscuro sólido, nada de transparencias */
+    /* MODO OSCURO - Devolvemos el VERDE ORIGINAL EXACTO */
+    --background: 215 10% 18%;
     --foreground: 210 40% 98%;
-    /* Texto blanco humo */
-    --card: 222 47% 14%;
-    /* Tarjetas con un gris ligeramente más claro para dar relieve 3D */
+    --card: 215 10% 22%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 14%;
+    --popover: 215 10% 22%;
     --popover-foreground: 210 40% 98%;
 
-    /* Tu Verde resalta hermoso sobre el fondo oscuro */
-    --primary: 142 71% 45%;
-    --primary-foreground: 222 47% 11%;
-    /* Texto oscuro sobre botones verdes (mejor contraste) */
+    /* AQUÍ REGRESA EL VERDE ORIGINAL DE TU LOGO */
+    --primary: 148 65% 22%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
-
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
-
     --accent: 217 33% 17%;
     --accent-foreground: 210 40% 98%;
-
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
-
     --border: 217 33% 17%;
     --input: 217 33% 17%;
-    --ring: 142 71% 45%;
+    --ring: 148 65% 22%;
   }
 }
 
@@ -83,22 +67,25 @@
   }
 
   body {
-    background-color: var(--background);
     color: var(--foreground);
-    font-feature-settings: 'rlig' 1, 'calt' 1;
+    /* Transparencia total forzada para tu ParticleBackground */
+    background-color: transparent !important;
   }
 }
 
 @layer utilities {
 
-  /* Animación impecable para el carrusel de tus marcas aliadas */
+  /* ESTA ES LA MAGIA QUE PEDISTE: Un borde blanco sólido alrededor de las letras */
+  .text-outline-white {
+    text-shadow: -1px -1px 0 #ffffff, 1px -1px 0 #ffffff, -1px 1px 0 #ffffff, 1px 1px 0 #ffffff;
+  }
+
   .brand-carousel-track {
     animation: scroll 60s linear infinite;
     display: flex;
     width: max-content;
   }
 
-  /* Scrollbar moderna y discreta con el color de tu marca */
   .custom-scroll::-webkit-scrollbar {
     width: 6px;
   }
@@ -108,7 +95,6 @@
     border-radius: 10px;
   }
 
-  /* Utilidad para que los titulares nunca dejen palabras viudas */
   .text-balance {
     text-wrap: balance;
   }
@@ -122,4 +108,9 @@
   100% {
     transform: translateX(-50%);
   }
+}
+
+.dark .text-primary {
+  -webkit-text-stroke: 0.4px #222b26;
+  text-rendering: optimizeLegibility;
 }

@@ -42,28 +42,30 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" suppressHydrationWarning>
+    <html lang="es" suppressHydrationWarning className="bg-transparent">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="mobile-web-app-capable" content="yes" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
       </head>
 
-      {/* Agregamos bg-transparent para asegurar que el fondo del body no tape la imagen */}
+      {/* TRANSPARENCIA TOTAL: 
+          - bg-transparent elimina cualquier color de fondo sólido.
+          - relative z-10 asegura que el contenido flote sobre los fondos animados.
+      */}
       <body className={cn(
-        'min-h-screen font-body antialiased bg-transparent',
+        'min-h-screen font-body antialiased bg-transparent text-foreground relative',
         fontBody.variable
       )}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <FirebaseClientProvider>
+
+            {/* Los fondos se renderizan detrás de todo */}
             <ParticleBackground />
             <ModernBackground />
 
-            {/* El contenido fluye libremente sobre el ModernBackground */}
-            <main className="relative z-10 flex-grow">
+            {/* z-10 para que el texto sea legible y cliqueable */}
+            <main className="relative z-10 flex flex-col min-h-screen">
               {children}
             </main>
 

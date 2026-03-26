@@ -52,8 +52,7 @@ export default function Contact() {
 
   return (
     // CONTENEDOR DE LA SECCIÓN (Totalmente transparente para dejar ver la imagen de fondo)
-    <section id="contacto" className="py-20 md:py-32 relative z-10 px-4 md:px-6">
-
+    <section id="contacto" className="pt-12 pb-20 relative z-10 px-4 md:px-6">
       {/* ======================================================== */}
       {/* CRISTAL PRINCIPAL (PADRE): Envuelve título y columnas      */}
       {/* Opacidad muy baja (10% claro, 20% oscuro) para que se vea el fondo */}

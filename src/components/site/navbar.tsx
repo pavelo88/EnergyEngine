@@ -33,27 +33,32 @@ export default function Navbar() {
     <header
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-500 border-b",
-        // CUANDO ARRANCA: Vidrio muy sutil para que no sea "totalmente transparente"
+        // CUANDO ARRANCA: Vidrio sutil
         !isScrolled && "bg-white/5 dark:bg-black/10 backdrop-blur-sm py-5 border-transparent",
-        // AL HACER SCROLL: Se vuelve sólido (Blanco o Negro según el modo)
-        isScrolled && "bg-white/80 dark:bg-slate-950/90 backdrop-blur-xl py-3 border-slate-200/50 dark:border-white/10 shadow-lg"
+        // AL HACER SCROLL: Cristal elegante igual que el Footer
+        isScrolled && "bg-white/80 dark:bg-slate-950/80 backdrop-blur-md py-3 border-slate-200 dark:border-white/10 shadow-lg"
       )}
     >
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-        <Link href="/" className="transition-transform hover:scale-105 active:scale-95">
+
+        {/* LOGO AGRANDADO: Le dimos un ancho fijo mayor y forzamos al SVG a ocupar ese espacio */}
+        <Link
+          href="/"
+          className="block w-100 md:w-72 transition-transform hover:scale-105 active:scale-95 [&>svg]:w-full [&>svg]:h-auto"
+        >
           <Logo />
         </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden lg:flex items-center gap-1">
+        <div className="hidden lg:flex items-center gap-2">
           {navLinks.map((link) => (
             <Button
               key={link.href}
               variant="ghost"
               asChild
               className={cn(
-                "font-display font-black uppercase text-[11px] tracking-[0.2em] transition-colors px-4",
-                "text-slate-950 dark:text-white hover:text-primary dark:hover:text-primary"
+                "font-bold text-sm tracking-wide transition-colors px-4",
+                "text-slate-900 dark:text-slate-200 hover:text-primary dark:hover:text-primary"
               )}
             >
               <Link href={link.href}>{link.label}</Link>
@@ -64,16 +69,22 @@ export default function Navbar() {
             <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button className="bg-primary hover:bg-primary/90 text-white rounded-2xl px-8 font-display font-black uppercase text-[11px] tracking-widest shadow-xl shadow-primary/20 transition-all active:scale-95">
+                {/* Botón Intranet: Tipografía limpia y tamaño normal */}
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl px-6 text-sm font-bold shadow-lg transition-all active:scale-95">
                   Intranet
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-slate-200 dark:border-white/10 shadow-2xl rounded-2xl p-2 min-w-[200px]">
-                <DropdownMenuItem asChild className="focus:bg-primary/10 rounded-xl cursor-pointer">
-                  <Link href="/admin" className="font-display font-black text-slate-950 dark:text-white uppercase text-[10px] tracking-widest p-3 block">Administración</Link>
+              <DropdownMenuContent align="end" className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 shadow-xl rounded-xl p-2 min-w-[200px]">
+                <DropdownMenuItem asChild className="focus:bg-primary/10 rounded-lg cursor-pointer">
+                  {/* Menú: Texto normal legible */}
+                  <Link href="/admin" className="font-bold text-sm text-slate-900 dark:text-white p-3 block">
+                    Administración
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild className="focus:bg-primary/10 rounded-xl cursor-pointer">
-                  <Link href="/inspection" className="font-display font-black text-slate-950 dark:text-white uppercase text-[10px] tracking-widest p-3 block">Inspección</Link>
+                <DropdownMenuItem asChild className="focus:bg-primary/10 rounded-lg cursor-pointer">
+                  <Link href="/inspection" className="font-bold text-sm text-slate-900 dark:text-white p-3 block">
+                    Inspección
+                  </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -85,30 +96,32 @@ export default function Navbar() {
           <ThemeToggle />
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-slate-950 dark:text-white">
+              <Button variant="ghost" size="icon" className="text-slate-900 dark:text-white">
                 <Menu size={28} />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="bg-white/95 dark:bg-slate-950/98 border-l border-slate-200 dark:border-white/10 backdrop-blur-3xl p-8">
+            <SheetContent side="right" className="bg-white/95 dark:bg-slate-950/95 border-l border-slate-200 dark:border-white/10 backdrop-blur-xl p-8">
               <SheetHeader>
-                <SheetTitle className="font-display font-black text-slate-950 dark:text-white uppercase tracking-tighter text-2xl pt-8">Menú</SheetTitle>
+                <SheetTitle className="font-bold text-slate-900 dark:text-white text-2xl pt-8 text-left">
+                  Menú
+                </SheetTitle>
                 <SheetDescription className='sr-only'>Navegación móvil</SheetDescription>
               </SheetHeader>
-              <div className="flex flex-col gap-8 mt-16">
+              <div className="flex flex-col gap-6 mt-12">
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="font-display font-black text-slate-950 dark:text-white/80 uppercase text-xs tracking-[0.2em] hover:text-primary transition-colors"
+                    className="font-bold text-slate-800 dark:text-slate-200 text-lg hover:text-primary transition-colors"
                   >
                     {link.label}
                   </Link>
                 ))}
                 <div className="h-px bg-slate-200 dark:bg-white/10 my-4" />
-                <Button asChild className="w-full bg-primary h-14 rounded-2xl font-display font-black uppercase text-[11px] tracking-widest shadow-lg">
+                <Button asChild className="w-full bg-primary text-primary-foreground h-14 rounded-xl text-base font-bold shadow-md">
                   <Link href="/admin">Administración</Link>
                 </Button>
-                <Button asChild className="w-full bg-primary h-14 rounded-2xl font-display font-black uppercase text-[11px] tracking-widest shadow-lg">
+                <Button asChild className="w-full bg-primary text-primary-foreground h-14 rounded-xl text-base font-bold shadow-md">
                   <Link href="/inspection">Inspección</Link>
                 </Button>
               </div>

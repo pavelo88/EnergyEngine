@@ -19,32 +19,25 @@ export default function Services() {
   );
 
   return (
-    <section id="servicios" className="py-24 relative z-10 overflow-hidden px-4 md:px-6">
+    <section id="servicios" className="py-24 relative z-10 overflow-hidden">
 
-      {/* CAPA 1: IMAGEN DE FONDO (Al fondo de todo) */}
-      <Image
-        src="/images/bg-industrial-section.jpg" // Asegúrate de tener esta imagen en public/images/
-        alt="Background"
-        fill
-        className="object-cover z-[-2] pointer-events-none"
-        priority
-      />
-
-      {/* CAPA 2 y 3: EL CRISTAL ÚNICO (Envuelve todo el contenido) */}
+      {/* CAPA 2: EL CRISTAL / PELÍCULA (Encima de la imagen, debajo de las cards) */}
       <div className={cn(
-        "max-w-7xl w-full mx-auto py-16 px-6 md:px-12 rounded-[3rem] relative z-10 transition-all duration-500 shadow-2xl",
-        // Vidrio CASI TRANSPARENTE: Opacidad mínima y blur muy bajo (2px o 4px máximo)
-        "bg-white/5 backdrop-blur-[2px] border border-white/10",
-        "dark:bg-black/10 dark:border-white/5"
-      )}>
+        "absolute inset-0 z-[-1] pointer-events-none transition-all duration-500",
+        // MODO CLARO: Vidrio blanco ultra transparente
+        "bg-white/5 backdrop-blur-[2px]",
+        // MODO OSCURO: Película negra ligerísima
+        "dark:bg-black/20 dark:backdrop-blur-none"
+      )} />
 
-        {/* Cabecera limpia, sin brutalismo */}
-        <div className="text-center mb-16 max-w-2xl mx-auto">
-          <h2 className="text-4xl md:text-5xl font-headline font-bold text-foreground tracking-tight leading-[1.2]">
+      <div className="max-w-[1260px] mx-auto px-6 md:px-12 relative z-10">
+        {/* Cabecera con tipografía cuadrada técnica */}
+        <div className="text-center mb-20">
+          <h2 className="text-center text-[2.2rem] md:text-5xl font-display font-black mb-8 text-slate-950 dark:text-white leading-[1.1] tracking-tighter uppercase">
             Nuestros <span className="text-primary">Servicios</span>
           </h2>
-          <p className="text-muted-foreground mt-4 text-base md:text-lg leading-relaxed font-medium">
-            Soluciones electromecánicas de alta precisión. Disponibilidad <span className="text-foreground font-bold">24/7/365</span>.
+          <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto text-base md:text-lg leading-relaxed font-bold">
+            Soluciones electromecánicas de alta precisión. Disponibilidad <span className="text-slate-900 dark:text-white font-black">24/7/365</span>.
           </p>
         </div>
 
@@ -84,35 +77,34 @@ function ServiceCard({ service }: { service: any }) {
   return (
     <ReactLink href="/#contacto" className="group block w-full outline-none">
       <Card className={cn(
-        "relative aspect-[1.08/1] overflow-hidden flex flex-col rounded-[2.5rem] transition-all duration-700 shadow-lg border-none",
-        // Las tarjetas internas son casi invisibles para no tapar la imagen de la tarjeta
-        "bg-transparent"
+        "relative aspect-[1.08/1] overflow-hidden flex flex-col rounded-[2.5rem] transition-all duration-700 shadow-2xl border-none",
+        "bg-white/10 backdrop-blur-sm border border-white/10", // Card casi invisible
+        "dark:bg-slate-900/40"
       )}>
-        {/* IMAGEN DE LA CARD: Limpia */}
+        {/* IMAGEN DE LA CARD: Limpia, sin película oscura */}
         <Image
           src={service.image}
           alt={service.title}
           fill
-          className="object-cover z-0 transition-transform duration-1000 group-hover:scale-110 opacity-90 group-hover:opacity-100"
+          className="object-cover z-0 transition-transform duration-1000 group-hover:scale-110 opacity-80 group-hover:opacity-100"
           sizes="(max-width: 768px) 100vw, 33vw"
         />
 
-        {/* Degradado solo en la base para leer el texto blanco */}
-        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10" />
+        {/* Solo degradado en la base para que se lea el texto */}
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
 
-        <div className="absolute inset-x-0 bottom-0 p-6 md:p-8 z-20 flex flex-col justify-end">
+        <div className="absolute inset-x-0 bottom-0 p-8 z-20 flex flex-col justify-end">
           {IconComponent && (
-            <div className="mb-4 w-12 h-12 flex items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-white transition-all group-hover:bg-primary group-hover:border-primary shrink-0 shadow-sm">
+            <div className="mb-4 w-12 h-12 flex items-center justify-center rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/20 text-white transition-all group-hover:bg-primary group-hover:border-primary">
               <IconComponent className="w-6 h-6" />
             </div>
           )}
 
-          <div className="space-y-1.5">
-            {/* Título de la tarjeta: Sans-serif bold, sin uppercase */}
-            <h3 className="text-xl md:text-2xl font-headline font-bold text-white tracking-tight leading-none group-hover:text-primary transition-colors">
+          <div className="space-y-1">
+            <h3 className="text-xl md:text-2xl font-display font-black text-white tracking-tighter uppercase leading-none group-hover:text-primary transition-colors">
               {service.title}
             </h3>
-            <p className="text-white/80 text-sm leading-relaxed line-clamp-2 font-medium">
+            <p className="text-white/70 text-xs md:text-sm leading-relaxed line-clamp-2 font-medium">
               {service.desc}
             </p>
           </div>

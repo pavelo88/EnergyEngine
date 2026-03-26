@@ -11,38 +11,40 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'placehold.co',
-        port: '',
         pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
-        port: '',
         pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'picsum.photos',
-        port: '',
         pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'logo.clearbit.com',
-        port: '',
         pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'cdn.worldvectorlogo.com',
-        port: '',
         pathname: '/**',
       },
-      // Añadido para los logos de Wikimedia Commons
+
+      // ✅ CORRECTO para Wikipedia
       {
         protocol: 'https',
-        hostname: 'commons.wikimedia.org',
-        port: '',
+        hostname: 'upload.wikimedia.org',
+        pathname: '/**',
+      },
+
+      // ✅ Para SimpleIcons
+      {
+        protocol: 'https',
+        hostname: 'cdn.simpleicons.org',
         pathname: '/**',
       },
     ],
@@ -54,7 +56,6 @@ const nextConfig = {
         source: "/:path*",
         headers: [
           { key: "Access-Control-Allow-Credentials", value: "true" },
-          { key: "Access-Control-Allow-Origin", value: "*" },
           { key: "Access-Control-Allow-Methods", value: "GET,DELETE,PATCH,POST,PUT" },
           { key: "Access-Control-Allow-Headers", value: "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version" },
         ]

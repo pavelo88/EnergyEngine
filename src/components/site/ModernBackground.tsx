@@ -27,9 +27,12 @@ const ModernBackground = () => {
         backgroundRepeat: 'no-repeat'
       }}
     >
-      {/* Sharp background - Removed blur for maximum clarity */}
-      {/* Sharp background - Removed blur for maximum clarity */}
-      <div className={`absolute inset-0 transition-colors duration-100 ${isDark ? 'bg-black/40 backdrop-blur-[3px]' : 'bg-white/15 backdrop-blur-[1px]'}`}></div>
+      {/* ANTES: Tenías bg-black/40 (muy oscuro) y backdrop-blur-[3px].
+         AHORA: Bajamos a bg-black/10 y backdrop-blur-[1px] para que sea 
+         idéntico al modo claro y se vea el motor nítido.
+      */}
+      <div className={`absolute inset-0 transition-colors duration-100 ${isDark ? 'bg-black/10 backdrop-blur-[1px]' : 'bg-white/10 backdrop-blur-[1px]'
+        }`}></div>
     </div>
   );
 };
