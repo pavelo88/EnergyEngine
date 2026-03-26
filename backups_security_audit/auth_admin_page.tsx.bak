@@ -117,32 +117,14 @@ export default function AdminLoginPage() {
       // Paso A: Login directo en Auth
       await signInWithEmailAndPassword(auth, cleanEmail, password);
 
-      // Paso B: Traer datos de Firestore con triple validación (delay asíncrono)
-      let attempts = 0;
-      let userData: any = null;
-      const maxAttempts = 3;
+      // Paso B: Traer datos de Firestore
       const userDocRef = doc(firestore, 'usuarios', cleanEmail);
+      const userDocSnap = await getDocFromServer(userDocRef);
 
-      while (attempts < maxAttempts) {
-        const userDocSnap = await getDocFromServer(userDocRef);
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
 
-        if (userDocSnap.exists()) {
-          const rawData = userDocSnap.data();
-          // Verificar si ya llegaron los roles (en cualquier formato) o el rol tradicional
-          if (rawData.roles && (Array.isArray(rawData.roles) ? rawData.roles.length > 0 : Object.keys(rawData.roles).length > 0) || rawData.role) {
-            userData = rawData;
-            break;
-          } else {
-            userData = rawData; // Guardar temporalmente por si nunca llegan
-          }
-        }
-        attempts++;
-        if (attempts < maxAttempts) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
-      }
-
-      if (userData) {
+        // Paso C: Validar Rol
         if (!checkIsAuthorizedAdmin(userData)) {
           await signOut(auth);
           setError("Acceso denegado: Portal exclusivo para Administradores.");

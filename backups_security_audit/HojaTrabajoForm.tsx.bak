@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
@@ -526,7 +526,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
             base64Data: base64,
             fileName: image.name,
             mimeType: image.type,
-            synced: synced,
+            synced: false,
             createdAt: new Date(),
           });
           imageIds.push(imgId);
@@ -570,8 +570,8 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
         try {
           const storage = getStorage();
 
-          const imageUrls = await Promise.all(limitedImages.map(async (image, index) => {
-            const imgRef = ref(storage, `informes/${internalFirebaseId}/${Date.now()}_${index}_${image.name}`);
+          const imageUrls = await Promise.all(limitedImages.map(async (image) => {
+            const imgRef = ref(storage, `informes/${internalFirebaseId}/${image.name}`);
             await uploadBytes(imgRef, image);
             return getDownloadURL(imgRef);
           }));
