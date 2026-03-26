@@ -55,7 +55,7 @@ export const Logo = ({ className, showText = true }: LogoProps) => {
           <span className="text-xl md:text-2xl font-bold tracking-tight text-primary lowercase italic">
             energy engine
           </span>
-          <span className="text-[10px] font-black text-slate-400 tracking-[0.2em] uppercase mt-0.5">
+          <span className="text-[10px] font-black text-slate-400 tracking-[0.2em] uppercase mt-0.5 whitespace-nowrap">
             grupos electrogenos
           </span>
         </div>
