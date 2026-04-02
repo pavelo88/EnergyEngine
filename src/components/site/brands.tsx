@@ -22,7 +22,7 @@ const brands: Brand[] = [
     { name: 'Himoinsa', logoUrl: '/logos_svg/HIMOINSA.png' },
     { name: 'HiPower', logoUrl: '/logos_svg/HiPower50.png' },
     { name: 'Isuzu', logoUrl: '/logos_svg/Isuzu.svg' },
-    { name: 'Iveco', logoUrl: '/logos_svg/Iveco.svg' },
+    { name: 'Iveco', logoUrl: '/logos_svg/Iveco.png' },
     { name: 'John Deere', logoUrl: '/logos_svg/John.png' },
     { name: 'Kohler', logoUrl: '/logos_svg/Kohler.png' },
     { name: 'Kubota', logoUrl: '/logos_svg/Kubota.png' },
@@ -36,8 +36,8 @@ const brands: Brand[] = [
     { name: 'Scania', logoUrl: '/logos_svg/Scania.png' },
     { name: 'Socomec', logoUrl: '/logos_svg/Socomec.svg' },
     { name: 'Stamford', logoUrl: '/logos_svg/Stamford_.png' },
-    { name: 'Volvo Penta', logoUrl: '/logos_svg/Volvo_Penta.svg' },
-    { name: 'Yanmar', logoUrl: '/logos_svg/Yanmar.png' }
+    { name: 'Volvo Penta', logoUrl: '/logos_svg/volvopenta.png' },
+    { name: 'Yanmar', logoUrl: '/logos_svg/Yanmar.svg' }
 ];
 
 const BrandItem = ({ brand }: { brand: Brand }) => {
