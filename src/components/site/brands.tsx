@@ -8,42 +8,36 @@ interface Brand {
     logoUrl: string;
 }
 
-// RESPETANDO TU LISTA TAL CUAL (Locales y Externos alternados)
 const brands: Brand[] = [
-    { name: 'Aksa Power Generation', logoUrl: '/logos_svg/Aksa.svg' },
-    { name: 'Baudouin', logoUrl: 'https://logo.clearbit.com/baudouin.com' },
+
     { name: 'Atlas Copco', logoUrl: '/logos_svg/Atlas_Copco.svg' },
-    { name: 'Siemens', logoUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Siemens-logo.svg' },
+    { name: 'Baudouin', logoUrl: '/logos_svg/Baudouin.png' },
     { name: 'Caterpillar', logoUrl: '/logos_svg/Caterpillar.svg' },
-    { name: 'Leroy-Somer', logoUrl: 'https://logo.clearbit.com/leroy-somer.com' },
     { name: 'Cummins', logoUrl: '/logos_svg/Cummins.svg' },
-    { name: 'Pramac', logoUrl: 'https://logo.clearbit.com/pramac.com' },
     { name: 'Deutz', logoUrl: '/logos_svg/Deutz.svg' },
     { name: 'Doosan', logoUrl: '/logos_svg/Doosan.svg' },
-    { name: 'J.L. Metric', logoUrl: 'https://placehold.co/200x100?text=J.L.+Metric' },
+    { name: 'FPT', logoUrl: '/logos_svg/FPT.png' },
     { name: 'Generac', logoUrl: '/logos_svg/Generac.svg' },
-    { name: 'Stamford', logoUrl: 'https://logo.clearbit.com/stamford-avk.com' },
+    { name: 'Guascor Energy', logoUrl: '/logos_svg/GUASCOR.png' },
+    { name: 'Himoinsa', logoUrl: '/logos_svg/HIMOINSA.png' },
+    { name: 'HiPower', logoUrl: '/logos_svg/HiPower50.png' },
     { name: 'Isuzu', logoUrl: '/logos_svg/Isuzu.svg' },
-    { name: 'Hipower', logoUrl: 'https://logo.clearbit.com/hipowersystems.com' },
     { name: 'Iveco', logoUrl: '/logos_svg/Iveco.svg' },
-    { name: 'JCB', logoUrl: '/logos_svg/JCB.svg' },
-    { name: 'Himoinsa', logoUrl: 'https://logo.clearbit.com/himoinsa.com' },
-    { name: 'John Deere', logoUrl: '/logos_svg/John_Deere.svg' },
-    { name: 'Yanmar Energy Systems', logoUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Yanmar_logo.svg' },
-    { name: 'Kohler', logoUrl: '/logos_svg/Kohler.svg' },
-    { name: 'Grupel', logoUrl: 'https://logo.clearbit.com/grupel.eu' },
-    { name: 'Kubota', logoUrl: '/logos_svg/Kubota.svg' },
+    { name: 'John Deere', logoUrl: '/logos_svg/John.png' },
+    { name: 'Kohler', logoUrl: '/logos_svg/Kohler.png' },
+    { name: 'Kubota', logoUrl: '/logos_svg/Kubota.png' },
+    { name: 'Leroy-Somer', logoUrl: '/logos_svg/leroy-somer.png' },
+    { name: 'Mecc Alte', logoUrl: '/logos_svg/Meccalte.png' },
+    { name: 'Mosa', logoUrl: '/logos_svg/Mosa.png' },
     { name: 'MTU', logoUrl: '/logos_svg/MTU.svg' },
-    { name: 'FPT', logoUrl: 'https://logo.clearbit.com/fptindustrial.com' },
-    { name: 'Scania', logoUrl: '/logos_svg/Scania.svg' },
     { name: 'Perkins', logoUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Perkins-Logo.svg' },
+    { name: 'Pramac', logoUrl: '/logos_svg/pramac.png' },
+    { name: 'Rolls Royce', logoUrl: '/logos_svg/rollsRoyce.png' },
+    { name: 'Scania', logoUrl: '/logos_svg/Scania.png' },
     { name: 'Socomec', logoUrl: '/logos_svg/Socomec.svg' },
-    { name: 'Cummins Power Generation', logoUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Cummins_logo.svg' },
+    { name: 'Stamford', logoUrl: '/logos_svg/Stamford_.png' },
     { name: 'Volvo Penta', logoUrl: '/logos_svg/Volvo_Penta.svg' },
-    { name: 'Mosa', logoUrl: 'https://logo.clearbit.com/mosa.it' },
-    { name: 'Yanmar', logoUrl: '/logos_svg/Yanmar.svg' },
-    { name: 'Linz Electric', logoUrl: 'https://logo.clearbit.com/linzelectric.com' },
-    { name: 'Mecc Alte', logoUrl: 'https://logo.clearbit.com/meccalte.com' },
+    { name: 'Yanmar', logoUrl: '/logos_svg/Yanmar.png' }
 ];
 
 const BrandItem = ({ brand }: { brand: Brand }) => {
@@ -76,11 +70,9 @@ export default function Brands() {
 
     return (
         <section id="marcas" className="relative py-14 overflow-hidden">
-            {/* FONDO BLANCO RESALTADO PARA AMBOS MODOS (Cristalino pero claro) */}
             <div className="absolute inset-y-2 inset-x-0 bg-white/80 backdrop-blur-md border-y border-white/40 shadow-lg z-0" />
 
             <div className="container mx-auto px-6 mb-10 text-center max-w-5xl relative z-10">
-                {/* LETRAS NEGRAS Y GRANDES */}
                 <h2 className="text-3xl md:text-4xl lg:text-5xl font-headline font-black text-black tracking-tighter leading-none uppercase">
                     Mantenimiento para las <br />
                     <span className="text-primary">marcas líderes del mercado</span>

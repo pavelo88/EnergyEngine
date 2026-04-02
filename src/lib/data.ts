@@ -103,7 +103,14 @@ export const services: Service[] = [
 ];
 
 // Datos adicionales para el header/footer y estadísticas (sin cambios)
-export const brands: string[] = ["Perkins", "Guascor", "Cummins", "Iveco", "Ruggerini", "Volvo Penta", "Lombardini", "MAN", "Rolls-Royce", "MTU", "Deif"];
+export const brands: string[] = [
+  "Perkins", "Guascor", "Cummins", "Iveco", "Ruggerini", "Volvo Penta", 
+  "Lombardini", "MAN", "Rolls-Royce", "MTU", "Deif", "Baudouin", 
+  "Atlas Copco", "Caterpillar", "Leroy-Somer", "Pramac", "Deutz", 
+  "Doosan", "J.L. Metric", "Generac", "Stamford", "Isuzu", "Hipower", 
+  "Himoinsa", "John Deere", "Kohler", "Kubota", "FPT", "Scania", 
+  "Socomec", "Mosa", "Yanmar", "Mecc Alte"
+];
 
 export const contactInfo = {
   address: "C/Miguel Lopez Bravo, 6 (Nave), Yepes (Toledo) CP:45313",

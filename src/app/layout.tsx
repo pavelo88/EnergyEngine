@@ -7,6 +7,7 @@ import { FirebaseClientProvider } from '@/firebase';
 import { ThemeProvider } from '@/components/site/theme-provider';
 import ParticleBackground from '@/components/site/ParticleBackground';
 import ModernBackground from '@/components/site/ModernBackground';
+import SEOStructuredData from '@/components/site/seo-structured-data';
 
 const fontBody = Inter({
   subsets: ['latin'],
@@ -14,17 +15,54 @@ const fontBody = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'energy engine',
-  applicationName: 'energy engine',
-  description: 'Especialistas en mantenimiento industrial para infraestructuras de alta exigencia.',
+  title: 'Energy Engine | Mantenimiento Industrial y Grupos Electrógenos',
+  applicationName: 'Energy Engine',
+  description: 'Expertos en mantenimiento integral, reparación de averías y pruebas de carga para grupos electrógenos. Servicio técnico oficial multimarca: Perkins, Cummins, Volvo Penta y más. Asistencia 24/7.',
+  keywords: [
+    'mantenimiento industrial',
+    'grupos electrógenos',
+    'Perkins', 'Guascor', 'Cummins', 'Iveco', 'Volvo Penta', 'MAN', 'Rolls-Royce', 'MTU', 'Deif',
+    'Baudouin', 'Atlas Copco', 'Caterpillar', 'Pramac', 'Deutz', 'Doosan', 'Generac', 'Stamford',
+    'Isuzu', 'Himoinsa', 'John Deere', 'Kohler', 'Kubota', 'FPT', 'Scania', 'Socomec', 'Mosa', 'Yanmar',
+    'mantenimiento preventivo',
+    'reparación de averías',
+    'bancos de carga',
+    'cogeneración',
+    'asistencia técnica 24/7',
+    'repuestos originales',
+    'España',
+    'Portugal'
+  ],
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'energy engine',
+    title: 'Energy Engine',
   },
   icons: {
-    apple: '/icon-192x192.png',
+    apple: '/icon-192.png',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'es_ES',
+    url: 'https://energyengine.es',
+    title: 'Energy Engine | Especialistas en Energía y Mantenimiento',
+    description: 'Servicios especializados de mantenimiento, repuestos y asistencia 24/7 para grupos electrógenos y plantas de cogeneración.',
+    siteName: 'Energy Engine',
+    images: [
+      {
+        url: '/hero.png',
+        width: 1200,
+        height: 630,
+        alt: 'Energy Engine - Mantenimiento Industrial',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Energy Engine | Mantenimiento de Grupos Electrógenos',
+    description: 'Soluciones integrales de energía, mantenimiento multimarca y soporte técnico 24/7.',
+    images: ['/hero.png'],
   },
 };
 
@@ -63,6 +101,7 @@ export default function RootLayout({
             {/* Los fondos se renderizan detrás de todo */}
             <ParticleBackground />
             <ModernBackground />
+            <SEOStructuredData />
 
             {/* z-10 para que el texto sea legible y cliqueable */}
             <main className="relative z-10 flex flex-col min-h-screen">

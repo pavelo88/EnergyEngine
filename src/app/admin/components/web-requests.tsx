@@ -4,16 +4,17 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useAdminHeader } from './AdminHeaderContext';
-import { 
-  Loader2, 
-  Search, 
-  Mail, 
-  Clock, 
-  CheckCircle2, 
+import {
+  Loader2,
+  Search,
+  Mail,
+  Clock,
+  CheckCircle2,
   AlertCircle,
   Pencil,
   Download,
-  MessageSquare
+  MessageSquare,
+  PhoneCall // Añadido para el icono
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,7 @@ import * as XLSX from 'xlsx';
 type ContactRequest = {
   id: string;
   name: string;
+  phone: string; // CORREGIDO: Ahora acepta el teléfono
   email: string;
   technicalRequest: string;
   status: 'Pendiente' | 'En Gestión' | 'Atendido';
@@ -44,6 +46,7 @@ export default function WebRequests() {
     const dataToExport = requests.map(r => ({
       Fecha: r.createdAt?.toDate().toLocaleString('es-ES') || 'N/A',
       Nombre: r.name,
+      Telefono: r.phone || 'No provisto', // CORREGIDO: Exporta el teléfono
       Email: r.email,
       Requerimiento: r.technicalRequest,
       Estado: r.status,
@@ -57,8 +60,8 @@ export default function WebRequests() {
 
   const headerAction = useMemo(() => (
     <Button onClick={handleExport} variant="outline" className="rounded-xl font-bold uppercase text-xs tracking-widest border-slate-200 hover:bg-slate-50 text-slate-800 dark:text-white">
-        <Download className="mr-2" size={16} />
-        Exportar Historial
+      <Download className="mr-2" size={16} />
+      Exportar Historial
     </Button>
   ), [handleExport]);
 
@@ -66,7 +69,8 @@ export default function WebRequests() {
 
   useEffect(() => {
     if (!db) return;
-    const q = query(collection(db, 'contactos'), orderBy('createdAt', 'desc'));
+    // CORREGIDO: 'contact_requests' para que coincida con el formulario
+    const q = query(collection(db, 'contact_requests'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContactRequest));
       setRequests(list);
@@ -75,9 +79,10 @@ export default function WebRequests() {
     return () => unsubscribe();
   }, [db]);
 
-  const filteredRequests = requests.filter(r => 
-    r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredRequests = requests.filter(r =>
+    r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.phone?.includes(searchTerm) || // Ahora también puedes buscar por teléfono
     r.technicalRequest.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -90,7 +95,8 @@ export default function WebRequests() {
     const observations = formData.get('observations') as string;
 
     try {
-      await updateDoc(doc(db, 'contactos', editingRequest.id), {
+      // CORREGIDO: 'contact_requests' aquí también
+      await updateDoc(doc(db, 'contact_requests', editingRequest.id), {
         status,
         observations
       });
@@ -113,8 +119,8 @@ export default function WebRequests() {
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       <div className="relative group">
         <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" size={20} />
-        <Input 
-          placeholder="Buscar solicitudes por nombre, email o contenido del mensaje..." 
+        <Input
+          placeholder="Buscar por nombre, teléfono, email o mensaje..."
           className="pl-14 h-16 rounded-[1.5rem] bg-white border-slate-100 shadow-sm font-bold text-slate-700 placeholder:text-slate-300 outline-none focus-visible:ring-primary focus-visible:ring-2"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -148,13 +154,19 @@ export default function WebRequests() {
                         <span className="text-xs font-black text-slate-700">{req.createdAt?.toDate().toLocaleDateString('es-ES') || 'N/A'}</span>
                       </div>
                       <div className="text-[10px] font-bold text-slate-400 uppercase ml-5">
-                        {req.createdAt?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        {req.createdAt?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </td>
                     <td className="p-6">
                       <div className="font-black text-slate-800 leading-tight text-sm uppercase tracking-tight">{req.name}</div>
-                      <div className="text-xs font-bold text-slate-400 flex items-center gap-1.5 mt-1.5">
-                        <Mail size={12} className="text-primary/60"/> {req.email}
+
+                      {/* CORREGIDO: Muestra el teléfono debajo del nombre */}
+                      <div className="text-[11px] font-bold text-primary flex items-center gap-1.5 mt-1">
+                        <PhoneCall size={10} /> {req.phone || 'Sin teléfono'}
+                      </div>
+
+                      <div className="text-xs font-bold text-slate-400 flex items-center gap-1.5 mt-1">
+                        <Mail size={12} className="text-primary/60" /> {req.email}
                       </div>
                     </td>
                     <td className="p-6">
@@ -168,7 +180,7 @@ export default function WebRequests() {
                       </span>
                     </td>
                     <td className="p-6 text-right">
-                      <button 
+                      <button
                         onClick={() => setEditingRequest(req)}
                         className="bg-white border border-slate-200 p-3 rounded-2xl text-slate-400 hover:text-primary hover:border-primary/30 hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95"
                         title="Gestionar Solicitud"
@@ -178,20 +190,6 @@ export default function WebRequests() {
                     </td>
                   </tr>
                 ))}
-                {filteredRequests.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="p-32 text-center">
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-200 border border-slate-50">
-                          <Search size={40} />
-                        </div>
-                        <p className="text-slate-400 font-black uppercase text-xs tracking-widest">
-                          No se han encontrado registros en esta vista.
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
@@ -209,19 +207,22 @@ export default function WebRequests() {
                 </h2>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-2 border-l-2 border-primary pl-3">REQUERIMIENTO ID: {editingRequest.id}</p>
               </div>
-              <button 
-                onClick={() => setEditingRequest(null)} 
+              <button
+                onClick={() => setEditingRequest(null)}
                 className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all active:scale-90"
               >
-                <AlertCircle size={24}/>
+                <AlertCircle size={24} />
               </button>
             </div>
 
             <div className="space-y-8">
               <div className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mensaje del Cliente</span>
-                  <span className="text-[9px] font-black bg-white px-3 py-1 rounded-full text-slate-500 border border-slate-100">{editingRequest.name}</span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Datos del Cliente</span>
+                  <div className="flex gap-2">
+                    <span className="text-[9px] font-black bg-white px-3 py-1 rounded-full text-slate-500 border border-slate-100">{editingRequest.name}</span>
+                    <span className="text-[9px] font-black bg-primary/10 px-3 py-1 rounded-full text-primary border border-primary/20">{editingRequest.phone}</span>
+                  </div>
                 </div>
                 <p className="text-sm text-slate-700 font-medium leading-relaxed italic border-l-4 border-slate-200 pl-4">"{editingRequest.technicalRequest}"</p>
               </div>
@@ -243,8 +244,8 @@ export default function WebRequests() {
 
                 <div className="space-y-3">
                   <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Observaciones de Gestión (Notas de Ingeniería)</Label>
-                  <Textarea 
-                    name="observations" 
+                  <Textarea
+                    name="observations"
                     defaultValue={editingRequest.observations || ''}
                     placeholder="Escriba aquí los pasos realizados (ej. se llamó al cliente, se envió presupuesto, pendiente de piezas)..."
                     className="min-h-[160px] rounded-[1.5rem] border-slate-100 bg-slate-50 focus:bg-white font-medium text-slate-700 p-6 shadow-inner transition-all focus:ring-primary"

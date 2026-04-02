@@ -4,18 +4,15 @@
 
 @layer base {
   :root {
-    /* MODO CLARO - INTACTO (Verde elegante corporativo) */
+    /* MODO CLARO */
     --background: 0 0% 100%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-
-    /* VERDE DEL LOGO ORIGINAL */
     --primary: 148 65% 22%;
     --primary-foreground: 0 0% 100%;
-
     --secondary: 222 47% 11%;
     --secondary-foreground: 0 0% 100%;
     --muted: 210 40% 96%;
@@ -31,18 +28,15 @@
   }
 
   .dark {
-    /* MODO OSCURO - Devolvemos el VERDE ORIGINAL EXACTO */
+    /* MODO OSCURO */
     --background: 215 10% 18%;
     --foreground: 210 40% 98%;
     --card: 215 10% 22%;
     --card-foreground: 210 40% 98%;
     --popover: 215 10% 22%;
     --popover-foreground: 210 40% 98%;
-
-    /* AQUÍ REGRESA EL VERDE ORIGINAL DE TU LOGO */
     --primary: 148 65% 22%;
     --primary-foreground: 0 0% 100%;
-
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217 33% 17%;
@@ -68,18 +62,11 @@
 
   body {
     color: var(--foreground);
-    /* Transparencia total forzada para tu ParticleBackground */
     background-color: transparent !important;
   }
 }
 
 @layer utilities {
-
-  /* ESTA ES LA MAGIA QUE PEDISTE: Un borde blanco sólido alrededor de las letras */
-  .text-outline-white {
-    text-shadow: -1px -1px 0 #ffffff, 1px -1px 0 #ffffff, -1px 1px 0 #ffffff, 1px 1px 0 #ffffff;
-  }
-
   .brand-carousel-track {
     animation: scroll 60s linear infinite;
     display: flex;
@@ -108,9 +95,4 @@
   100% {
     transform: translateX(-50%);
   }
-}
-
-.dark .text-primary {
-  -webkit-text-stroke: 0.4px #222b26;
-  text-rendering: optimizeLegibility;
 }
