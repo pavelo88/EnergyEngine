@@ -37,7 +37,7 @@ export default function SEOStructuredData() {
       "closes": "18:00"
     },
     "sameAs": [
-      "https://www.linkedin.com/company/energy-engine-grupos-electrogenos/"
+      "https://www.linkedin.com/in/energy-engine-grupos-electrogenos-74529270/?originalSubdomain=es"
     ],
     "hasOfferCatalog": {
       "@type": "OfferCatalog",
