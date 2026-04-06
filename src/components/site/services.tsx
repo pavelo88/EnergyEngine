@@ -3,8 +3,9 @@
 import React from 'react';
 import ReactLink from 'next/link';
 import Image from 'next/image';
-import { services } from '@/lib/data';
+import { Service, services } from '@/lib/data';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import Autoplay from 'embla-carousel-autoplay';
 import { cn } from '@/lib/utils';
 import {
@@ -12,6 +13,15 @@ import {
   CarouselContent,
   CarouselItem,
 } from "@/components/ui/carousel";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export default function Services() {
   const plugin = React.useRef(
@@ -71,45 +81,84 @@ export default function Services() {
   );
 }
 
-function ServiceCard({ service }: { service: any }) {
+function ServiceCard({ service }: { service: Service }) {
   const IconComponent = service.icon;
 
   return (
-    <ReactLink href="/#contacto" className="group block w-full outline-none">
-      <Card className={cn(
-        "relative aspect-[1.08/1] overflow-hidden flex flex-col rounded-[2.5rem] transition-all duration-700 shadow-2xl border-none",
-        "bg-white/10 backdrop-blur-sm border border-white/10", // Card casi invisible
-        "dark:bg-slate-900/40"
-      )}>
-        {/* IMAGEN DE LA CARD: Limpia, sin película oscura */}
-        <Image
-          src={service.image}
-          alt={service.title}
-          fill
-          className="object-cover z-0 transition-transform duration-1000 group-hover:scale-110 opacity-80 group-hover:opacity-100"
-          sizes="(max-width: 768px) 100vw, 33vw"
-        />
+    <Dialog>
+      <div className="group block w-full outline-none">
+        <DialogTrigger asChild>
+          <button type="button" className="block w-full text-left">
+            <Card className={cn(
+              "relative overflow-hidden flex flex-col rounded-[2.5rem] transition-all duration-700 shadow-2xl border-none",
+              "h-[32rem] md:h-[26rem] lg:h-[27rem] md:group-hover:h-[30rem]",
+              "bg-white/10 backdrop-blur-sm border border-white/10",
+              "dark:bg-slate-900/40"
+            )}>
+              <Image
+                src={service.image}
+                alt={service.title}
+                fill
+                className="object-cover object-center z-0 transition-all duration-1000 opacity-80 group-hover:opacity-100 md:group-hover:scale-110"
+                sizes="(max-width: 768px) 100vw, 33vw"
+              />
 
-        {/* Solo degradado en la base para que se lea el texto */}
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
+              <div className="absolute inset-x-0 bottom-0 h-[70%] bg-gradient-to-t from-black/95 via-black/40 to-transparent z-10" />
 
-        <div className="absolute inset-x-0 bottom-0 p-8 z-20 flex flex-col justify-end">
-          {IconComponent && (
-            <div className="mb-4 w-12 h-12 flex items-center justify-center rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/20 text-white transition-all group-hover:bg-primary group-hover:border-primary">
-              <IconComponent className="w-6 h-6" />
-            </div>
-          )}
+              <div className="absolute inset-x-0 bottom-0 p-8 z-20 flex flex-col justify-end">
+                {IconComponent && (
+                  <div className="mb-4 w-12 h-12 flex items-center justify-center rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/20 text-white transition-all group-hover:bg-primary group-hover:border-primary">
+                    <IconComponent className="w-6 h-6" />
+                  </div>
+                )}
 
-          <div className="space-y-1">
-            <h3 className="text-xl md:text-2xl font-display font-black text-white tracking-tighter uppercase leading-none group-hover:text-primary transition-colors">
-              {service.title}
-            </h3>
-            <p className="text-white/70 text-xs md:text-sm leading-relaxed line-clamp-2 font-medium">
-              {service.desc}
-            </p>
-          </div>
+                <div className="space-y-3">
+                  <h3 className="text-xl md:text-2xl font-display font-black text-white tracking-tighter uppercase leading-none group-hover:text-primary transition-colors">
+                    {service.title}
+                  </h3>
+                  <p className="text-white/90 text-sm leading-relaxed font-medium">
+                    {service.desc ?? service.description}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </button>
+        </DialogTrigger>
+
+      </div>
+
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-display font-black tracking-tight uppercase">
+            {service.title}
+          </DialogTitle>
+          <DialogDescription className="text-sm leading-relaxed">
+            {service.description}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="relative h-52 w-full overflow-hidden rounded-2xl">
+          <Image
+            src={service.image}
+            alt={service.title}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 512px"
+          />
         </div>
-      </Card>
-    </ReactLink>
+
+        <CardContent className="p-0">
+          <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+            {service.fullDescription}
+          </p>
+        </CardContent>
+
+        <DialogFooter className="sm:justify-start">
+          <Button asChild className="rounded-full">
+            <ReactLink href="/#contacto">Solicitar este servicio</ReactLink>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
