@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, MapPin, Facebook, Instagram, Linkedin, MessageCircle, Mail } from 'lucide-react';
+import { Loader2, MapPin, Facebook, Instagram, Linkedin, MessageCircle, Mail, Send, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,7 +14,6 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import Link from 'next/link';
 
-// ESQUEMA DE VALIDACIÓN
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Mínimo 2 caracteres.' }),
   phone: z.string().min(6, { message: 'Número de contacto inválido.' }),
@@ -45,143 +44,132 @@ export default function Contact() {
       form.reset();
     } catch (error) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Error de Envío', description: 'Intenta usar los correos directos o WhatsApp.' });
+      toast({ variant: 'destructive', title: 'Error de Envío', description: 'Intenta llamar directamente o envíanos un mensaje.' });
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <section id="contacto" className="pt-10 pb-16 relative z-10 px-4 md:px-6">
+    <section id="contacto" className="pt-12 pb-20 relative z-10 px-4 md:px-6 scroll-mt-14">
+      {/* CONTENEDOR MAESTRO CON EFECTO VIDRIO (GLASS) */}
+      <div className="max-w-7xl mx-auto bg-white/50 dark:bg-black/20 backdrop-blur-2xl border border-white/50 dark:border-white/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] rounded-[2.5rem] md:rounded-[3rem] p-4 sm:p-8 md:p-12 flex flex-col gap-10">
 
-      {/* CONTENEDOR PRINCIPAL CON EFECTO GLASS RECUPERADO */}
-      <div className="max-w-7xl mx-auto bg-white/50 dark:bg-black/20 backdrop-blur-2xl border border-white/50 dark:border-white/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] rounded-[2.5rem] md:rounded-[3rem] p-4 sm:p-6 md:p-8 flex flex-col gap-6">
-
-        {/* TÍTULO PRINCIPAL */}
         <div className="text-center px-2">
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-headline font-black text-slate-900 dark:text-white tracking-tighter leading-[1.1] uppercase">
-            ¿Necesitas <span className="text-emerald-600 dark:text-emerald-500">asistencia técnica?</span>
+            ¿Necesitas <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-emerald-500">asistencia técnica?</span>
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 items-stretch">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-stretch">
 
           {/* ======================================================== */}
           {/* COLUMNA IZQUIERDA: CANALES DE ATENCIÓN Y MAPA            */}
           {/* ======================================================== */}
-          <div className="bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-xl flex flex-col gap-5 font-body h-full">
+          <div className="bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 rounded-[2rem] p-5 sm:p-8 shadow-xl flex flex-col gap-6 h-full">
 
-            {/* Título de la tarjeta CENTRADO */}
-            <div className="flex items-center justify-center gap-3 w-full px-4 py-2 bg-white/90 dark:bg-black/40 border border-white/60 dark:border-white/5 rounded-xl shadow-sm mb-1">
-              <h3 className="text-lg font-black font-headline text-slate-900 dark:text-white uppercase tracking-wider text-center">
+            <div className="flex items-center justify-center w-full px-4 py-3 bg-white/90 dark:bg-black/40 border border-white/60 dark:border-white/5 rounded-2xl shadow-sm">
+              <h3 className="text-lg font-black font-headline text-slate-900 dark:text-white uppercase tracking-wider">
                 Canales de Atención
               </h3>
             </div>
 
-            {/* Cuadrícula interna */}
-            <div className="grid grid-cols-1 sm:grid-cols-[1.2fr_1fr] gap-4 sm:gap-6 items-stretch flex-grow">
+            <div className="grid grid-cols-1 sm:grid-cols-[1.3fr_1fr] gap-4 items-stretch flex-grow">
 
-              {/* Lado Izquierdo: Correos y Redes (Las 3 cajas se estiran equitativamente con flex-1) */}
-              <div className="flex flex-col gap-3 h-full">
-                {/* Correo Administración */}
-                <a href="mailto:administracion@energyengine.es" className="flex-1 flex items-center gap-3 p-3 rounded-xl bg-white/90 dark:bg-black/40 border border-white/60 dark:border-white/5 hover:border-emerald-500/50 hover:shadow-md transition-all group">
-                  <Mail size={18} className="text-emerald-600 dark:text-emerald-500 shrink-0" />
-                  <p className="text-xs sm:text-[12.5px] font-bold text-slate-700 dark:text-slate-300 group-hover:text-emerald-600 break-all leading-tight">
+              {/* Lado Correos y Redes */}
+              <div className="flex flex-col gap-3">
+                <a href="mailto:administracion@energyengine.es" className="flex-1 flex items-center gap-3 p-3 rounded-2xl bg-white/90 dark:bg-black/40 border border-white/60 hover:border-emerald-500 hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden">
+                  <Mail size={16} className="text-emerald-500 shrink-0" />
+                  <p className="text-[10px] sm:text-[11.5px] font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
                     administracion@energyengine.es
                   </p>
                 </a>
 
-                {/* Correo Servicio Técnico */}
-                <a href="mailto:serviciotecnico@energyengine.es" className="flex-1 flex items-center gap-3 p-3 rounded-xl bg-white/90 dark:bg-black/40 border border-white/60 dark:border-white/5 hover:border-emerald-500/50 hover:shadow-md transition-all group">
-                  <Mail size={18} className="text-emerald-600 dark:text-emerald-500 shrink-0" />
-                  <p className="text-xs sm:text-[12.5px] font-bold text-slate-700 dark:text-slate-300 group-hover:text-emerald-600 break-all leading-tight">
+                <a href="mailto:serviciotecnico@energyengine.es" className="flex-1 flex items-center gap-3 p-3 rounded-2xl bg-white/90 dark:bg-black/40 border border-white/60 hover:border-emerald-500 hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden">
+                  <Mail size={16} className="text-emerald-500 shrink-0" />
+                  <p className="text-[10px] sm:text-[11.5px] font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
                     serviciotecnico@energyengine.es
                   </p>
                 </a>
 
-                {/* Redes Sociales - Ahora en una caja de la misma altura */}
-                <div className="flex-1 flex items-center justify-center gap-6 p-3 rounded-xl bg-white/90 dark:bg-black/40 border border-white/60 dark:border-white/5 shadow-inner">
-                  <Link href="https://facebook.com/energyenginees" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-500 transition-all hover:scale-110">
+                <div className="flex-1 flex items-center justify-center gap-6 p-3 rounded-2xl bg-white/90 dark:bg-black/40 border border-white/60 shadow-inner">
+                  <Link href="https://facebook.com/energyenginees" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-primary transition-all duration-300 hover:scale-110">
                     <Facebook size={20} />
                   </Link>
-                  <Link href="https://instagram.com/energyenginees" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-500 transition-all hover:scale-110">
+                  <Link href="https://instagram.com/energyenginees" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-primary transition-all duration-300 hover:scale-110">
                     <Instagram size={20} />
                   </Link>
-                  <Link href="https://linkedin.com/company/energy-engine-es" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-500 transition-all hover:scale-110">
+                  <Link href="https://linkedin.com/company/energy-engine-es" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-primary transition-all duration-300 hover:scale-110">
                     <Linkedin size={20} />
                   </Link>
                 </div>
               </div>
 
-              {/* Lado Derecho: Teléfonos (flex-1 para igualar a la izquierda) */}
-              <div className="flex flex-col gap-3 h-full">
-                <a href="https://wa.me/34925154354" target="_blank" className="flex-1 flex items-center justify-between p-3 rounded-xl bg-white/90 dark:bg-black/40 border border-white/60 dark:border-white/5 hover:border-emerald-500/50 hover:shadow-md transition-all group">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">Oficina Central</span>
-                    <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-emerald-600">925 15 43 54</span>
+              {/* Lado Teléfonos */}
+              <div className="flex flex-col gap-3">
+                {/* OFICINA CENTRAL - CAMBIADO A LLAMADA tel: */}
+                <a href="tel:+34925154354" className="flex-1 flex items-center justify-between p-3 rounded-2xl bg-white/90 dark:bg-black/40 border border-white/60 hover:border-emerald-500/50 hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden">
+                  <div className="flex flex-col min-w-0 pr-2">
+                    <p className="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-tighter">Oficina Central</p>
+                    <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors whitespace-nowrap">925 15 43 54</p>
                   </div>
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 shrink-0 group-hover:scale-110 transition-transform">
-                    <MessageCircle size={16} />
-                  </div>
+                  <Phone size={16} className="text-emerald-500 shrink-0" />
                 </a>
 
-                <a href="https://wa.me/34683775208" target="_blank" className="flex-1 flex items-center justify-between p-3 rounded-xl bg-white/90 dark:bg-black/40 border border-white/60 dark:border-white/5 hover:border-emerald-500/50 hover:shadow-md transition-all group">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">Delegación Norte</span>
-                    <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-emerald-600">683 77 52 08</span>
+                {/* DELEGACIONES - WHATSAPP */}
+                <a href="https://wa.me/34683775208" target="_blank" className="flex-1 flex items-center justify-between p-3 rounded-2xl bg-white/90 dark:bg-black/40 border border-white/60 hover:border-emerald-500/50 hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden">
+                  <div className="flex flex-col min-w-0 pr-2">
+                    <p className="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-tighter">Delegación Norte</p>
+                    <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors whitespace-nowrap">683 77 52 08</p>
                   </div>
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 shrink-0 group-hover:scale-110 transition-transform">
-                    <MessageCircle size={16} />
-                  </div>
+                  <MessageCircle size={16} className="text-emerald-500 shrink-0" />
                 </a>
 
-                <a href="https://wa.me/34635120510" target="_blank" className="flex-1 flex items-center justify-between p-3 rounded-xl bg-white/90 dark:bg-black/40 border border-white/60 dark:border-white/5 hover:border-emerald-500/50 hover:shadow-md transition-all group">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">Delegación Sur</span>
-                    <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-emerald-600">635 12 05 10</span>
+                <a href="https://wa.me/34635120510" target="_blank" className="flex-1 flex items-center justify-between p-3 rounded-2xl bg-white/90 dark:bg-black/40 border border-white/60 hover:border-emerald-500/50 hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden">
+                  <div className="flex flex-col min-w-0 pr-2">
+                    <p className="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-tighter">Delegación Sur</p>
+                    <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors whitespace-nowrap">635 12 05 10</p>
                   </div>
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 shrink-0 group-hover:scale-110 transition-transform">
-                    <MessageCircle size={16} />
-                  </div>
+                  <MessageCircle size={16} className="text-emerald-500 shrink-0" />
                 </a>
               </div>
-
             </div>
 
-            {/* Mapa y Dirección */}
+            {/* MAPA - CON TU NUEVA UBICACIÓN ACTUALIZADA */}
             <div className="flex flex-col gap-3 mt-auto pt-4 border-t border-white/40 dark:border-white/10">
-              <div className="w-full h-[200px] rounded-xl overflow-hidden relative bg-slate-200 dark:bg-muted/20 border border-white/60 dark:border-white/10">
+              <div className="w-full h-[180px] sm:h-[220px] rounded-2xl overflow-hidden relative bg-slate-200 dark:bg-muted/20 border border-white/60 dark:border-white/10 shadow-inner group">
                 <iframe
-                  src="https://maps.google.com/maps?q=Calle%20Miguel%20Lopez%20Bravo,%206,%20Yepes,%20Toledo&t=&z=15&ie=UTF8&iwloc=&output=embed"
-                  className="w-full h-full border-0"
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3060.5558853974057!2d-3.6226846999999998!3d39.9065746!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd69fd9fcbbb692b%3A0x28b5ff2cac42084!2sC.%20Miguel%20L%C3%B3pez%20Bravo%2C%206%2C%2045313%20Yepes%2C%20Toledo%2C%20Espa%C3%B1a!5e0!3m2!1ses-419!2sec!4v1775714087311!5m2!1ses-419!2sec"
+                  className="w-full h-full border-0 transition-all duration-[1.5s] filter grayscale-[0.8] contrast-125 sepia-[0.3] hue-rotate-[130deg] dark:invert dark:hue-rotate-180 group-hover:grayscale-0 group-hover:sepia-0 group-hover:dark:invert-0"
                   allowFullScreen
                   loading="lazy"
                   title="Ubicación Energy Engine Yepes"
                 ></iframe>
               </div>
-              <div className="flex items-center justify-center gap-2 px-1">
-                <MapPin className="text-emerald-600 shrink-0" size={16} />
-                <p className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+              <div className="flex items-center justify-center gap-3 px-3">
+                <MapPin className="text-primary shrink-0" size={18} />
+                <p className="text-[10px] sm:text-[11px] font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                   C/Miguel Lopez Bravo, 6, Yepes (Toledo) 45313
                 </p>
               </div>
             </div>
-
           </div>
 
           {/* ======================================================== */}
           {/* COLUMNA DERECHA: FORMULARIO                              */}
           {/* ======================================================== */}
-          <div className="bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-xl h-full flex flex-col gap-6">
+          <div className="bg-white/70 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 rounded-[2rem] p-6 sm:p-10 shadow-xl h-full flex flex-col gap-6 relative overflow-hidden">
 
-            <h3 className="text-xl sm:text-2xl font-black font-headline text-slate-900 dark:text-white uppercase tracking-tighter">
-              Déjanos tu requerimiento
-            </h3>
+            {/* TÍTULO DERECHO EN RECUADRO GLASS */}
+            <div className="flex items-center justify-center w-full px-4 py-3 bg-white/90 dark:bg-black/40 border border-white/60 dark:border-white/5 rounded-2xl shadow-sm">
+              <h3 className="text-xl sm:text-2xl font-black font-headline text-slate-900 dark:text-white uppercase tracking-tighter text-center">
+                DÉJANOS TU REQUERIMIENTO
+              </h3>
+            </div>
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 flex-grow flex flex-col">
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex-grow flex flex-col">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="name"
@@ -189,13 +177,12 @@ export default function Contact() {
                       <FormItem>
                         <FormLabel className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-300 tracking-widest">Nombre / Empresa</FormLabel>
                         <FormControl>
-                          <Input placeholder="Ej. Juan Pérez" {...field} className="h-12 rounded-xl bg-white/90 dark:bg-black/40 border-white/60 dark:border-white/10 focus-visible:ring-emerald-500 text-slate-900 dark:text-white shadow-sm" />
+                          <Input placeholder="Ej. Juan Pérez" {...field} className="h-12 rounded-2xl bg-white/80 dark:bg-black/40 border-white/60 dark:border-white/10 focus-visible:ring-primary/50 text-slate-900 dark:text-white shadow-sm" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-
                   <FormField
                     control={form.control}
                     name="phone"
@@ -203,7 +190,7 @@ export default function Contact() {
                       <FormItem>
                         <FormLabel className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-300 tracking-widest">Teléfono</FormLabel>
                         <FormControl>
-                          <Input type="tel" placeholder="Ej. 600 123 456" {...field} className="h-12 rounded-xl bg-white/90 dark:bg-black/40 border-white/60 dark:border-white/10 focus-visible:ring-emerald-500 text-slate-900 dark:text-white shadow-sm" />
+                          <Input type="tel" placeholder="Ej. 600 123 456" {...field} className="h-12 rounded-2xl bg-white/80 dark:bg-black/40 border-white/60 dark:border-white/10 focus-visible:ring-primary/50 text-slate-900 dark:text-white shadow-sm" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -218,7 +205,7 @@ export default function Contact() {
                     <FormItem>
                       <FormLabel className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-300 tracking-widest">Correo Electrónico</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="tu@empresa.com" {...field} className="h-12 rounded-xl bg-white/90 dark:bg-black/40 border-white/60 dark:border-white/10 focus-visible:ring-emerald-500 text-slate-900 dark:text-white shadow-sm" />
+                        <Input type="email" placeholder="tu@empresa.com" {...field} className="h-12 rounded-2xl bg-white/80 dark:bg-black/40 border-white/60 dark:border-white/10 focus-visible:ring-primary/50 text-slate-900 dark:text-white shadow-sm" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -233,9 +220,9 @@ export default function Contact() {
                       <FormLabel className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-300 tracking-widest">Detalle su requerimiento</FormLabel>
                       <FormControl className="flex-grow">
                         <Textarea
-                          placeholder="Ej. Mantenimiento preventivo..."
+                          placeholder="Ej. Mantenimiento preventivo para motor diésel..."
                           {...field}
-                          className="h-full min-h-[140px] rounded-xl bg-white/90 dark:bg-black/40 border-white/60 dark:border-white/10 focus-visible:ring-emerald-500 resize-none p-4 text-slate-900 dark:text-white leading-relaxed shadow-sm"
+                          className="flex-grow min-h-[120px] sm:min-h-[140px] rounded-2xl bg-white/80 dark:bg-black/40 border-white/60 dark:border-white/10 focus-visible:ring-primary/50 resize-none p-4 text-slate-900 dark:text-white leading-relaxed shadow-sm"
                         />
                       </FormControl>
                       <FormMessage />
@@ -243,14 +230,14 @@ export default function Contact() {
                   )}
                 />
 
-                <Button type="submit" disabled={isSubmitting} className="w-full h-14 text-sm font-black uppercase tracking-widest rounded-xl shadow-[0_10px_30px_-10px_rgba(16,185,129,0.4)] hover:shadow-[0_15px_40px_-10px_rgba(16,185,129,0.6)] hover:-translate-y-1 transition-all bg-[#0f5b3a] hover:bg-[#0c4a2e] text-white border-none mt-2">
-                  {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                <Button type="submit" disabled={isSubmitting} className="w-full h-14 sm:h-16 text-sm sm:text-base font-black uppercase tracking-widest rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all bg-[#0f5b3a] hover:bg-[#0c4a2e] text-white border-none mt-2">
+                  {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                   {isSubmitting ? 'Procesando...' : 'Enviar Solicitud'}
                 </Button>
               </form>
             </Form>
-
           </div>
+
         </div>
       </div>
     </section>

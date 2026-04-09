@@ -11,6 +11,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
+  SheetClose, // <--- 1. Importamos esto para cerrar el menú
 } from '@/components/ui/sheet';
 import { Logo } from '@/components/icons';
 import { cn } from '@/lib/utils';
@@ -44,7 +45,6 @@ export default function Navbar() {
       >
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 flex items-center justify-between gap-2">
 
-          {/* LOGO: Más pequeño en móviles (w-44) para evitar que desborde */}
           <Link
             href="/"
             className="block w-44 sm:w-64 md:w-80 transition-transform hover:scale-[1.02] active:scale-95 relative group shrink-0"
@@ -129,25 +129,33 @@ export default function Navbar() {
 
                 <div className="flex flex-col gap-2 flex-grow">
                   {navLinks.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className="group flex items-center p-3 sm:p-4 rounded-2xl hover:bg-primary/10 transition-colors"
-                    >
-                      <span className="font-black text-slate-900 dark:text-slate-200 text-lg sm:text-xl uppercase tracking-wider group-hover:text-primary transition-colors">
-                        {link.label}
-                      </span>
-                    </Link>
+                    // 2. Envolvemos cada Link con SheetClose
+                    <SheetClose asChild key={link.href}>
+                      <Link
+                        href={link.href}
+                        className="group flex items-center p-3 sm:p-4 rounded-2xl hover:bg-primary/10 transition-colors"
+                      >
+                        <span className="font-black text-slate-900 dark:text-slate-200 text-lg sm:text-xl uppercase tracking-wider group-hover:text-primary transition-colors">
+                          {link.label}
+                        </span>
+                      </Link>
+                    </SheetClose>
                   ))}
                 </div>
 
                 <div className="mt-8 space-y-3 pt-6 border-t border-slate-200 dark:border-white/10">
-                  <Button asChild className="w-full h-14 sm:h-16 bg-slate-200 text-slate-900 hover:bg-slate-300 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800 rounded-2xl text-sm sm:text-base font-black uppercase tracking-widest">
-                    <Link href="/admin"><Cpu className="mr-2 w-4 h-4 sm:w-5 sm:h-5" /> Administración</Link>
-                  </Button>
-                  <Button asChild className="w-full h-14 sm:h-16 bg-primary text-primary-foreground hover:bg-primary/90 rounded-2xl text-sm sm:text-base font-black uppercase tracking-widest shadow-[0_10px_30px_-10px_rgba(16,185,129,0.5)]">
-                    <Link href="/inspection"><Activity className="mr-2 w-4 h-4 sm:w-5 sm:h-5" /> Inspectores</Link>
-                  </Button>
+                  {/* 3. También aplicamos SheetClose a los botones de abajo */}
+                  <SheetClose asChild>
+                    <Button asChild className="w-full h-14 sm:h-16 bg-slate-200 text-slate-900 hover:bg-slate-300 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800 rounded-2xl text-sm sm:text-base font-black uppercase tracking-widest">
+                      <Link href="/admin"><Cpu className="mr-2 w-4 h-4 sm:w-5 sm:h-5" /> Administración</Link>
+                    </Button>
+                  </SheetClose>
+
+                  <SheetClose asChild>
+                    <Button asChild className="w-full h-14 sm:h-16 bg-primary text-primary-foreground hover:bg-primary/90 rounded-2xl text-sm sm:text-base font-black uppercase tracking-widest shadow-[0_10px_30px_-10px_rgba(16,185,129,0.5)]">
+                      <Link href="/inspection"><Activity className="mr-2 w-4 h-4 sm:w-5 sm:h-5" /> Inspectores</Link>
+                    </Button>
+                  </SheetClose>
                 </div>
               </SheetContent>
             </Sheet>
