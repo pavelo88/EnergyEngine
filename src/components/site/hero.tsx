@@ -38,7 +38,7 @@ export default function Hero() {
             </div>
 
             <h1 className="text-[2.5rem] sm:text-4xl md:text-5xl lg:text-[4rem] font-headline font-black mb-4 sm:mb-6 tracking-tighter leading-[1.05] text-slate-900 dark:text-white drop-shadow-sm">
-              <span className="block opacity-90">Potencia que</span>
+              <span className="block opacity-90">Energía que</span>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-emerald-500 block mt-1">
                 nunca se detiene
               </span>

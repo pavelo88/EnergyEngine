@@ -70,7 +70,7 @@ export default function Contact() {
 
             <div className="flex items-center justify-center w-full px-4 py-3 bg-white/90 dark:bg-black/40 border border-white/60 dark:border-white/5 rounded-2xl shadow-sm">
               <h3 className="text-lg font-black font-headline text-slate-900 dark:text-white uppercase tracking-wider">
-                Canales de Atención
+                Canales de Comunicación
               </h3>
             </div>
 
@@ -116,18 +116,8 @@ export default function Contact() {
                   <Phone size={16} className="text-emerald-500 shrink-0" />
                 </a>
 
-                {/* DELEGACIONES - WHATSAPP */}
-                <a href="https://wa.me/34683775208" target="_blank" className="flex-1 flex items-center justify-between p-3 rounded-2xl bg-white/90 dark:bg-black/40 border border-white/60 hover:border-emerald-500/50 hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden">
-                  <div className="flex flex-col min-w-0 pr-2">
-                    <p className="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-tighter">Delegación Norte</p>
-                    <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors whitespace-nowrap">683 77 52 08</p>
-                  </div>
-                  <MessageCircle size={16} className="text-emerald-500 shrink-0" />
-                </a>
-
                 <a href="https://wa.me/34635120510" target="_blank" className="flex-1 flex items-center justify-between p-3 rounded-2xl bg-white/90 dark:bg-black/40 border border-white/60 hover:border-emerald-500/50 hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden">
                   <div className="flex flex-col min-w-0 pr-2">
-                    <p className="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-tighter">Delegación Sur</p>
                     <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors whitespace-nowrap">635 12 05 10</p>
                   </div>
                   <MessageCircle size={16} className="text-emerald-500 shrink-0" />
@@ -163,7 +153,7 @@ export default function Contact() {
             {/* TÍTULO DERECHO EN RECUADRO GLASS */}
             <div className="flex items-center justify-center w-full px-4 py-3 bg-white/90 dark:bg-black/40 border border-white/60 dark:border-white/5 rounded-2xl shadow-sm">
               <h3 className="text-xl sm:text-2xl font-black font-headline text-slate-900 dark:text-white uppercase tracking-tighter text-center">
-                DÉJANOS TU REQUERIMIENTO
+                DÉJANOS TU CONSULTA
               </h3>
             </div>
 
