@@ -93,13 +93,16 @@ export default function Contact() {
                 </a>
 
                 <div className="flex-1 flex items-center justify-center gap-6 p-3 rounded-2xl bg-white/90 dark:bg-black/40 border border-white/60 shadow-inner">
-                  <Link href="https://facebook.com/energyenginees" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-primary transition-all duration-300 hover:scale-110">
-                    <Facebook size={20} />
-                  </Link>
-                  <Link href="https://instagram.com/energyenginees" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-primary transition-all duration-300 hover:scale-110">
-                    <Instagram size={20} />
-                  </Link>
-                  <Link href="https://linkedin.com/company/energy-engine-es" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-primary transition-all duration-300 hover:scale-110">
+                 {/* 
+                    <Link href="https://facebook.com/energyenginees" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-primary transition-all duration-300 hover:scale-110">
+                      <Facebook size={20} />
+                    </Link>
+                    <Link href="https://instagram.com/energyenginees" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-primary transition-all duration-300 hover:scale-110">
+                      <Instagram size={20} />
+                    </Link> 
+                  */}
+
+                  <Link href="https://www.linkedin.com/in/energy-engine-grupos-electrogenos-74529270" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-primary transition-all duration-300 hover:scale-110">
                     <Linkedin size={20} />
                   </Link>
                 </div>
@@ -118,6 +121,7 @@ export default function Contact() {
 
                 <a href="https://wa.me/34635120510" target="_blank" className="flex-1 flex items-center justify-between p-3 rounded-2xl bg-white/90 dark:bg-black/40 border border-white/60 hover:border-emerald-500/50 hover:shadow-lg hover:-translate-y-1 transition-all group overflow-hidden">
                   <div className="flex flex-col min-w-0 pr-2">
+                    <p className="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-tighter">WhatsApp</p>
                     <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors whitespace-nowrap">635 12 05 10</p>
                   </div>
                   <MessageCircle size={16} className="text-emerald-500 shrink-0" />
