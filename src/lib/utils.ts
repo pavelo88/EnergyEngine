@@ -29,3 +29,20 @@ export function formatSafeDate(dateValue: any, formatStr: string = 'dd/MM/yyyy H
     return 'N/A';
   }
 }
+
+export function timeToDecimal(timeStr: string): number {
+  if (!timeStr) return 0;
+  if (!timeStr.includes(':')) return Number(timeStr) || 0;
+  const parts = timeStr.split(':');
+  const hours = Number(parts[0]) || 0;
+  const minutes = Number(parts[1]) || 0;
+  return hours + (minutes / 60);
+}
+
+export function decimalToTime(decimal: number): string {
+  if (isNaN(decimal) || decimal < 0) return "00:00";
+  const hours = Math.floor(decimal);
+  const minutes = Math.round((decimal - hours) * 60);
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+

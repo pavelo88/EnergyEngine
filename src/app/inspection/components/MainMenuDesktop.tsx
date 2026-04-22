@@ -26,28 +26,28 @@ const navigationItems = [
     label: 'Historial',
     desc: 'REPORTES GENERADOS',
     icon: <ClipboardList size={28} />,
-    classes: 'bg-indigo-600 border-indigo-500 shadow-indigo-600/30',
+    classes: 'bg-[#062113] border-emerald-900 shadow-emerald-900/30 text-[#10b981]',
+  },
+  {
+    id: TABS.HOURS,
+    label: 'Bitácora Horas',
+    desc: 'ITINERARIO DIARIO',
+    icon: <Clock size={28} />,
+    classes: 'bg-[#10b981] border-[#10b981] shadow-[#10b981]/30 text-white',
   },
   {
     id: TABS.EXPENSES,
-    label: 'Bitácora',
-    desc: 'ITINERARIO Y CONTROL DE GASTOS',
-    icon: <Clock size={28} />,
-    classes: 'bg-emerald-600 border-emerald-500 shadow-emerald-600/30',
-  },
-  {
-    id: TABS.PROFILE,
-    label: 'Mi Perfil',
-    desc: 'ESTADO CUENTA',
-    icon: <User size={28} />,
-    classes: 'bg-slate-700 border-slate-600 shadow-slate-700/30',
+    label: 'Bitácora Gastos',
+    desc: 'CONTROL FINANCIERO',
+    icon: <Receipt size={28} />,
+    classes: 'bg-emerald-700 border-emerald-600 shadow-emerald-700/30 text-white',
   },
 ];
 
 const quickInspections = [
-  { id: 'hoja-trabajo', label: 'Hoja de Trabajo', icon: <FileText size={28} />, color: 'from-blue-600 to-blue-400' },
-  { id: 'informe-tecnico', label: 'Informe Técnico', icon: <Settings size={28} />, color: 'from-indigo-600 to-indigo-400' },
-  { id: 'informe-revision', label: 'Informe de Revisión', icon: <ClipboardCheck size={28} />, color: 'from-violet-600 to-violet-400' },
+  { id: 'hoja-trabajo', label: 'Hoja de Trabajo', icon: <FileText size={28} />, color: 'from-emerald-600 to-emerald-400' },
+  { id: 'informe-tecnico', label: 'Informe Técnico', icon: <Settings size={28} />, color: 'from-emerald-700 to-emerald-500' },
+  { id: 'informe-revision', label: 'Informe de Revisión', icon: <ClipboardCheck size={28} />, color: 'from-teal-600 to-teal-400' },
   { id: 'informe-simplificado', label: 'Informe Simplificado', icon: <Wrench size={28} />, color: 'from-amber-600 to-amber-400' },
   // { id: 'revision-basica', label: 'Revisión Básica', icon: <Activity size={28} />, color: 'from-emerald-600 to-emerald-400' },
 ];
@@ -67,7 +67,7 @@ export default function MainMenuDesktop({
     <div className="w-full font-sans py-10 space-y-12">
       <header className="px-2">
         <div className="flex items-center gap-6">
-          <div className="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-white shadow-2xl shadow-primary/20 transform -rotate-3">
+          <div className="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-[#062113] to-emerald-900 flex items-center justify-center text-[#10b981] shadow-2xl shadow-[#10b981]/20 transform -rotate-3">
             <User size={40} />
           </div>
           <div>

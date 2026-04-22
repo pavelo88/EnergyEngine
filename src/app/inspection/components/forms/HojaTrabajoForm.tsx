@@ -17,11 +17,12 @@ import { useGpsRequired } from '@/hooks/use-gps-required';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ClientSelector from '../ClientSelector';
 import StableInput from '../StableInput';
-import { generateReportId, fileToBase64 } from '@/lib/offline-utils';
 import { resolveInspectorEmail } from '@/lib/inspection-mode';
 import { getNextSequenceForUser } from '@/lib/sequence-manager';
 import { addImageSafely, getPdfFileName } from '@/lib/pdf-utils';
 import { MAX_IMAGES_PER_REPORT } from '@/lib/report-limits';
+import { timeToDecimal, decimalToTime } from '@/lib/utils';
+import { generateReportId, fileToBase64 } from '@/lib/offline-utils';
 
 const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
   <div className="flex flex-col items-center gap-1">
@@ -38,7 +39,7 @@ const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
 export const generatePDF = (report: any, inspectorName: string, reportId: string | null) => {
   const doc = new jsPDF();
   const finalID = reportId || 'BORRADOR';
-  const darkColor = '#0f172a';
+  const darkColor = '#165a30';
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
 
@@ -204,7 +205,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   return doc;
 };
 
-export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { initialData: any, aiData: any, onSuccess: () => void }) {
+export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmin = false }: { initialData: any, aiData: any, onSuccess: () => void, isAdmin?: boolean }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const isOnline = useOnlineStatus();
@@ -275,6 +276,9 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const gpsRequired = useGpsRequired();
 
+  // Detect if we're editing an existing completed/preapproved report
+  const isEditingExisting = !!(initialData?.estado && ['Completado', 'Preaprobado', 'Aprobado'].includes(initialData.estado) && (initialData?.numero_informe || initialData?.firebaseId || initialData?.id));
+
   useEffect(() => {
     const fetchData = async () => {
       if (inspectorEmail) {
@@ -311,16 +315,36 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
 
   useEffect(() => {
     if (initialData) {
-      setFormData((prev: any) => ({
-        ...prev,
-        clienteId: initialData.clienteId || prev.clienteId,
-        clienteNombre: initialData.clienteNombre || initialData.cliente || prev.clienteNombre,
-        cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
-        instalacion: initialData.instalacion || prev.instalacion,
-        motor: initialData.modelo || prev.motor,
-        n_motor: initialData.n_motor || prev.n_motor,
-        trabajos_realizados: initialData.descripcion || prev.trabajos_realizados,
-      }));
+      if (initialData.estado && ['Completado', 'Preaprobado', 'Aprobado'].includes(initialData.estado)) {
+        // Editing existing completed report - populate ALL fields
+        setFormData((prev: any) => ({
+          ...prev,
+          ...initialData,
+          clienteId: initialData.clienteId || prev.clienteId,
+          cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
+          clienteNombre: initialData.clienteNombre || initialData.cliente || prev.clienteNombre,
+          // Convert decimal hours back to time format for display
+          h_asistencia: typeof initialData.h_asistencia === 'number' ? decimalToTime(initialData.h_asistencia) : initialData.h_asistencia || '',
+          parametrosTecnicos: {
+            ...initialData.parametrosTecnicos,
+            horas: typeof initialData.parametrosTecnicos?.horas === 'number' ? decimalToTime(initialData.parametrosTecnicos.horas) : initialData.parametrosTecnicos?.horas || '',
+          }
+        }));
+        if (initialData.inspectorSignatureUrl) setInspectorSignature(initialData.inspectorSignatureUrl);
+        if (initialData.clientSignatureUrl) setClientSignature(initialData.clientSignatureUrl);
+        setSavedDocId(initialData.numero_informe || initialData.id || '');
+      } else {
+        setFormData((prev: any) => ({
+          ...prev,
+          cliente: initialData.clienteNombre || prev.cliente,
+          instalacion: initialData.instalacion || prev.instalacion,
+          motor: initialData.modelo || prev.motor,
+          n_motor: initialData.n_motor || prev.n_motor,
+          grupo: initialData.grupo || prev.grupo,
+          n_grupo: initialData.n_grupo || prev.n_grupo,
+          h_asistencia: typeof initialData.h_asistencia === 'number' ? decimalToTime(initialData.h_asistencia) : initialData.h_asistencia || prev.h_asistencia,
+        }));
+      }
     }
   }, [initialData]);
 
@@ -399,29 +423,29 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
     }
   };
 
-// ########## FUNCIÓN CORREGIDA ##########
+  // ########## FUNCIÓN CORREGIDA ##########
   const handlePdfAction = (forceDownload = false, docIdOverride?: string) => {
     // Verificación básica para evitar PDFs vacíos
     if (!formData.clienteId) {
-      toast({ 
-        variant: 'destructive', 
-        title: 'Faltan Datos', 
-        description: 'Seleccione un Cliente para poder generar el archivo.' 
+      toast({
+        variant: 'destructive',
+        title: 'Faltan Datos',
+        description: 'Seleccione un Cliente para poder generar el archivo.'
       });
       return;
     }
 
     setPdfLoading(true);
     try {
-      const reportData = { 
-        ...formData, 
-        inspectorSignatureUrl: inspectorSignature, 
-        clientSignatureUrl: clientSignature 
+      const reportData = {
+        ...formData,
+        inspectorSignatureUrl: inspectorSignature,
+        clientSignatureUrl: clientSignature
       };
 
       // 1. Determinamos el ID (Si no hay uno oficial, usamos 'BORRADOR')
       const rawId = (formData as any).numero_informe || docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
-      
+
       // 2. Limpiamos el nombre para que el sistema operativo lo acepte (quitamos espacios y puntos)
       const safeFileName = rawId.replace(/[^a-z0-9]/gi, '_').toUpperCase();
 
@@ -431,7 +455,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
       if (isSaved || forceDownload) {
         // SOLUCIÓN FINAL: Forzamos la extensión .pdf explícitamente
         docPdf.save(`${safeFileName}.pdf`);
-        
+
         toast({
           title: "Descarga iniciada",
           description: `Archivo: ${safeFileName}.pdf`
@@ -444,10 +468,10 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
       }
     } catch (e) {
       console.error("Fallo crítico al generar PDF:", e);
-      toast({ 
-        variant: "destructive", 
-        title: "Error de Generación", 
-        description: "El motor de PDF falló. Revisa que las firmas estén completas." 
+      toast({
+        variant: "destructive",
+        title: "Error de Generación",
+        description: "El motor de PDF falló. Revisa que las firmas estén completas."
       });
     } finally {
       setPdfLoading(false);
@@ -499,6 +523,60 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
       setSaving(true);
       didStartSave = true;
 
+      // --- EDITING AN EXISTING COMPLETED/PRE-APPROVED REPORT ---
+      if (isEditingExisting && savedDocId && canUseCloud && firestore) {
+        const existingDocId = savedDocId;
+        const storage = getStorage();
+
+        let inspectorSignatureUrl = (formData as any).inspectorSignatureUrl || inspectorSignature;
+        if (inspectorSignature && inspectorSignature.startsWith('data:')) {
+          const inspRef = ref(storage, `firmas/${existingDocId}/inspector.png`);
+          await uploadString(inspRef, inspectorSignature, 'data_url');
+          inspectorSignatureUrl = await getDownloadURL(inspRef);
+        }
+
+        let clientSignatureUrl = (formData as any).clientSignatureUrl || clientSignature;
+        if (clientSignature && clientSignature.startsWith('data:')) {
+          const cliRef = ref(storage, `firmas/${existingDocId}/cliente.png`);
+          await uploadString(cliRef, clientSignature, 'data_url');
+          clientSignatureUrl = await getDownloadURL(cliRef);
+        }
+
+        const updatePayload = {
+          ...formData,
+          // Convert hours to decimal for mathematical operations in admin
+          h_asistencia: timeToDecimal(formData.h_asistencia),
+          parametrosTecnicos: {
+            ...formData.parametrosTecnicos,
+            horas: timeToDecimal(formData.parametrosTecnicos.horas)
+          },
+          inspectorSignatureUrl,
+          clientSignatureUrl,
+          estado: isAdmin ? 'Aprobado' : 'Preaprobado',
+          ultimaModificacion: Timestamp.now(),
+          modificadoPorId: inspectorEmail,
+          modificadoPorNombre: inspectorName,
+        };
+
+        if (isAdmin) {
+          (updatePayload as any).fecha_aprobacion = Timestamp.now();
+          (updatePayload as any).aprobadoPor = 'Admin';
+        }
+
+
+        await updateDoc(doc(firestore, 'informes', existingDocId), updatePayload);
+
+        setIsSaved(true);
+        toast({
+          title: '¡Documento Actualizado!',
+          description: `El informe ${existingDocId} ha sido enviado para pre-aprobación.`
+        });
+        handlePdfAction(true, existingDocId);
+        if (onSuccess) onSuccess();
+        return;
+      }
+
+      // --- CREATING A NEW REPORT ---
       const sequence = await getNextSequenceForUser({
         type: 'hoja-trabajo',
         userEmail: inspectorEmail || '',
@@ -586,6 +664,12 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
 
           const docData = {
             ...formData,
+            // Convert hours to decimal
+            h_asistencia: timeToDecimal(formData.h_asistencia),
+            parametrosTecnicos: {
+              ...formData.parametrosTecnicos,
+              horas: timeToDecimal(formData.parametrosTecnicos.horas)
+            },
             imageUrls,
             inspectorSignatureUrl,
             clientSignatureUrl,
@@ -594,6 +678,8 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
             inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
             inspectorNombres: initialData?.inspectorNombres || [inspectorName],
             fecha_creacion: Timestamp.now(),
+            formType: formData.formType || 'hoja-trabajo',
+            id: sequentialId,
             numero_informe: sequentialId,
             internalId: internalFirebaseId,
             estado: 'Completado',
@@ -645,8 +731,8 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
               <DialogTitle className="font-black uppercase tracking-tighter text-black">Borrador de Hoja de Trabajo</DialogTitle>
               <DialogDescription className="text-xs text-slate-500">Previsualice el documento antes de realizar el guardado final.</DialogDescription>
             </div>
-            <button 
-              onClick={() => handlePdfAction(true)} 
+            <button
+              onClick={() => handlePdfAction(true)}
               className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-primary/90 transition-all shadow-sm active:scale-95"
             >
               Descargar PDF
@@ -774,7 +860,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
             <Camera size={32} className="text-slate-300 mb-1.5 group-hover:text-primary transition-colors" />
             <span className="font-black text-slate-400 group-hover:text-slate-300 uppercase tracking-widest text-[10px]">Adjuntar Imágenes del Trabajo</span>
           </label>
-          <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange} />
+          <input id="image-upload" type="file" multiple accept="image/*" capture="environment" className="hidden" onChange={handleImageChange} />
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
             {images.map((img, i) => (
               <div key={i} className="aspect-square relative group overflow-hidden rounded-xl border border-slate-100 shadow-sm">
@@ -822,11 +908,11 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess }: { in
 
           <button
             onClick={handleSave}
-            disabled={saving || isSaved}
+            disabled={saving || (isSaved && !isEditingExisting)}
             className="w-full p-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs flex items-center justify-center gap-2 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
           >
-            {saving ? <Loader2 className="animate-spin text-white" size={16} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={16} /> : <Save className="text-white" size={16} />}
-            {saving ? 'GUARDANDO...' : isSaved ? 'HOJA GUARDADA' : 'FINALIZAR Y GUARDAR'}
+            {saving ? <Loader2 className="animate-spin text-white" size={16} /> : isSaved && !isEditingExisting ? <CheckCircle2 className="text-emerald-400" size={16} /> : <Save className="text-white" size={16} />}
+            {saving ? 'GUARDANDO DATOS...' : isSaved && !isEditingExisting ? 'GUARDADO' : isEditingExisting ? (isAdmin ? 'GUARDAR COMO APROBADO' : 'GUARDAR CAMBIOS (PRE-APROBADO)') : 'GUARDAR HOJA'}
           </button>
         </div>
       </main>

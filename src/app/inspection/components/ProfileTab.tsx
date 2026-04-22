@@ -47,7 +47,7 @@ export default function ProfileTab() {
 
       ctx.lineWidth = 3;
       ctx.lineCap = 'round';
-      ctx.strokeStyle = '#0f172a';
+      ctx.strokeStyle = '#165a30';
     }
   }, []);
 

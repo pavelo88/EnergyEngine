@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
-import { Loader2, FileText, AlertTriangle, Printer, Download, MapPin } from 'lucide-react';
+import { Loader2, FileText, AlertTriangle, Printer, Download } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -18,6 +18,15 @@ import { generatePDF as generateHojaTrabajoPDF } from '@/app/inspection/componen
 import { generatePDF as generateInformeRevisionPDF } from '@/app/inspection/components/forms/InformeRevisionForm';
 import { generatePDF as generateInformeTecnicoPDF } from '@/app/inspection/components/forms/InformeTecnicoForm';
 import { generatePDF as generateInformeSimplificadoPDF } from '@/app/inspection/components/forms/InformeSimplificadoForm';
+import { generatePDF as generateRevisionBasicaPDF } from '@/app/inspection/components/forms/RevisionBasicaForm';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
+// Importar los formularios para edición
+import HojaTrabajoForm from '@/app/inspection/components/forms/HojaTrabajoForm';
+import InformeRevisionForm from '@/app/inspection/components/forms/InformeRevisionForm';
+import InformeTecnicoForm from '@/app/inspection/components/forms/InformeTecnicoForm';
+import InformeSimplificadoForm from '@/app/inspection/components/forms/InformeSimplificadoForm';
+import RevisionBasicaForm from '@/app/inspection/components/forms/RevisionBasicaForm';
 
 interface Report {
   id: string;
@@ -34,10 +43,23 @@ interface Report {
   [key: string]: any; 
 }
 
+const getReportTitle = (type: string | undefined) => {
+  switch (type) {
+    case 'hoja-trabajo': return 'Hoja de Trabajo';
+    case 'informe-revision': return 'Informe de Revisión';
+    case 'informe-tecnico': return 'Informe Técnico';
+    case 'revision-basica': return 'Revisión Básica';
+    case 'informe-simplificado': return 'Informe Simplificado';
+    default: return 'Informe General';
+  }
+};
+
 export default function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const db = useFirestore();
 
   const handleExport = () => {
@@ -85,7 +107,7 @@ export default function ReportsPage() {
       }
     };
     fetchAllReports();
-  }, [db]);
+  }, [db, isEditDialogOpen]);
 
   const handleReprintPDF = (report: Report) => {
     let doc: jsPDF | null = null;
@@ -110,6 +132,9 @@ export default function ReportsPage() {
         case 'informe-simplificado':
           doc = generateInformeSimplificadoPDF(reportForPdf, inspectorName, report.id);
           break;
+        case 'revision-basica':
+          doc = generateRevisionBasicaPDF(reportForPdf, inspectorName, report.id);
+          break;
         default:
           alert('El formato de este documento no soporta reimpresion automatica.');
           return;
@@ -120,14 +145,26 @@ export default function ReportsPage() {
       console.error('Error al reimprimir PDF maestro:', e);
     }
   };
-  
-  const getReportTitle = (formType: Report['formType']) => {
-    switch(formType) {
-        case 'hoja-trabajo': return 'Hoja de Trabajo';
-        case 'informe-revision': return 'Informe de Revisión';
-        case 'informe-tecnico': return 'Informe Técnico';
-        case 'informe-simplificado': return 'Informe Simplificado';
-        default: return 'Registro Técnico';
+
+  const renderForm = () => {
+    if (!selectedReport) return null;
+    const props = {
+       initialData: selectedReport,
+       aiData: null,
+       onSuccess: () => {
+         setIsEditDialogOpen(false);
+         setSelectedReport(null);
+       },
+       isAdmin: true
+    };
+
+    switch(selectedReport.formType) {
+      case 'hoja-trabajo': return <HojaTrabajoForm {...props} />;
+      case 'informe-revision': return <InformeRevisionForm {...props} />;
+      case 'informe-tecnico': return <InformeTecnicoForm {...props} />;
+      case 'informe-simplificado': return <InformeSimplificadoForm {...props} />;
+      case 'revision-basica': return <RevisionBasicaForm {...props} />;
+      default: return <p className="p-10 text-center font-bold">Tipo de formulario no soportado para edición directa.</p>;
     }
   };
 
@@ -154,8 +191,9 @@ export default function ReportsPage() {
                 <th className="pb-4">Cliente / Instalación</th>
                 <th className="pb-4">Equipo / Modelo</th>
                 <th className="pb-4">Inspector</th>
+                <th className="pb-4 text-center">Estado</th> 
                 <th className="pb-4">Fecha Registro</th>
-                <th className="pb-4 text-right">Acción</th>
+                <th className="pb-4 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -176,17 +214,33 @@ export default function ReportsPage() {
                   <td className="py-4">
                     <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">{report.tecnicoNombre || report.inspectorNombres?.join(', ')}</div>
                   </td>
+                  <td className="py-4 text-center">
+                    <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border
+                        ${report.estado === 'Preaprobado' ? 'bg-pink-50 text-pink-600 border-pink-100' : 
+                          report.estado === 'Aprobado' ? 'bg-cyan-50 text-cyan-700 border-cyan-100' : 
+                          'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                      {report.estado || 'Enviado'}
+                    </span>
+                  </td>
                   <td className="py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
                     {formatSafeDate(report.fecha_creacion, 'dd/MM/yyyy')}
                   </td>
                   <td className="py-4 text-right">
-                    <button 
-                      onClick={() => handleReprintPDF(report)} 
-                      className="bg-slate-900 hover:bg-primary text-white font-black py-2 px-4 rounded-xl transition-all flex items-center gap-2 text-[9px] uppercase tracking-[0.1em] ml-auto shadow-lg shadow-slate-200 active:scale-95"
-                    >
-                      <Printer size={14} />
-                      PDF
-                    </button>
+                    <div className="flex gap-2 justify-end">
+                      <button 
+                        onClick={() => { setSelectedReport(report); setIsEditDialogOpen(true); }}
+                        className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-black py-2 px-4 rounded-xl transition-all flex items-center gap-2 text-[9px] uppercase tracking-widest shadow-sm active:scale-95"
+                      >
+                        Modificar
+                      </button>
+                      <button 
+                        onClick={() => handleReprintPDF(report)} 
+                        className="bg-slate-900 hover:bg-primary text-white font-black py-2 px-4 rounded-xl transition-all flex items-center gap-2 text-[9px] uppercase tracking-[0.1em] shadow-lg shadow-slate-200 active:scale-95"
+                      >
+                        <Printer size={14} />
+                        PDF
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -194,7 +248,22 @@ export default function ReportsPage() {
           </table>
         )}
       </div>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-[95vw] w-full max-h-[95vh] overflow-y-auto p-0 rounded-[2.5rem] bg-white text-slate-950 border-none shadow-2xl">
+          <DialogHeader className="p-8 border-b border-slate-50 sticky top-0 bg-white/80 backdrop-blur-md z-10">
+            <DialogTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                 <FileText size={20} />
+              </div>
+              Revisión Administrativa: {selectedReport?.id}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-4 md:p-8">
+             {renderForm()}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-

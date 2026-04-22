@@ -38,7 +38,7 @@ const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
 export const generatePDF = (report: any, inspectorName: string, reportId: string | null) => {
   const doc = new jsPDF();
   const finalID = reportId || 'BORRADOR';
-  const darkColor = '#0f172a';
+  const darkColor = '#165a30';
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
 

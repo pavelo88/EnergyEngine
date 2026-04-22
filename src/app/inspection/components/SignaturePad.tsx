@@ -26,22 +26,22 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     const initCanvas = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      
+
       const ctx = canvas.getContext('2d', { alpha: false });
       if (!ctx) return;
 
       const rect = canvas.getBoundingClientRect();
       const scale = window.devicePixelRatio || 1;
-      
+
       canvas.width = rect.width * scale;
       canvas.height = rect.height * scale;
-      
+
       ctx.scale(scale, scale);
-      
+
       // Configuración para trazo suave y redondeado (Etapa 1)
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#0f172a'; // Slate-900 para máxima legibilidad
+      ctx.strokeStyle = '#165a30'; // Slate-900 para máxima legibilidad
       ctx.lineWidth = 2.5; // Grosor óptimo para firmas
       ctx.fillStyle = '#ffffff'; // Fondo blanco obligatorio para PDF
       ctx.fillRect(0, 0, rect.width, rect.height);
@@ -67,7 +67,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   }, [isFullScreen, signature]);
 
   const pointsRef = useRef<{ x: number, y: number }[]>([]);
- 
+
   const getPos = (e: React.PointerEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
@@ -76,31 +76,31 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       y: e.clientY - rect.top
     };
   };
- 
+
   const startDrawing = (e: React.PointerEvent) => {
     if (!contextRef.current) return;
     const pos = getPos(e);
-    
+
     contextRef.current.beginPath();
     contextRef.current.moveTo(pos.x, pos.y);
     setIsDrawing(true);
     setHasContent(true);
   };
- 
+
   const draw = (e: React.PointerEvent) => {
     if (!isDrawing || !contextRef.current) return;
-    
+
     const pos = getPos(e);
     const ctx = contextRef.current;
 
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
-    
+
     // We keep move to for next segment but don't need point history for simple lines
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
   };
- 
+
   const stopDrawing = () => {
     if (isDrawing) {
       setIsDrawing(false);
@@ -130,8 +130,8 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   return (
     <div className="space-y-1.5">
       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{title}</label>
-      
-      <div 
+
+      <div
         onClick={() => setIsFullScreen(true)}
         className={cn(
           "w-full h-32 bg-slate-50 dark:bg-slate-900/50 border border-dashed border-slate-200 dark:border-white/10 rounded-2xl flex items-center justify-center cursor-pointer hover:border-primary transition-all overflow-hidden relative group",
@@ -176,14 +176,14 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
           </div>
 
           <div className="flex gap-3 mt-4">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               className="flex-1 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold text-xs"
               onClick={handleClear}
             >
               <Trash2 size={16} className="mr-2" /> LIMPIAR
             </Button>
-            <Button 
+            <Button
               className="flex-1 h-12 rounded-xl bg-primary text-white hover:bg-primary/90 font-black text-sm shadow-lg active:scale-95 transition-transform"
               onClick={handleSave}
             >

@@ -5,6 +5,7 @@ export const TABS = {
   MENU: 'menu',
   TASKS: 'home',
   NEW_INSPECTION: 'new',
+  HOURS: 'hours',
   EXPENSES: 'expenses',
   PROFILE: 'profile'
 };

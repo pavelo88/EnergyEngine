@@ -106,7 +106,8 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
     if (filter === 'pending') {
       filtered = filtered.filter(t => t.estado === 'Pendiente' || t.estado === 'En Progreso');
     } else {
-      filtered = filtered.filter(t => t.estado === 'Completado');
+      // Include all non-pending: Completado, Preaprobado, Aprobado
+      filtered = filtered.filter(t => t.estado !== 'Pendiente' && t.estado !== 'En Progreso');
     }
 
     if (searchTerm) {
@@ -122,6 +123,15 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
 
     return filtered;
   }, [tasks, filter, searchTerm]);
+
+  const getEstadoBadge = (estado: string) => {
+    switch (estado) {
+      case 'Preaprobado': return 'bg-blue-50 text-blue-600';
+      case 'Aprobado': return 'bg-emerald-50 text-emerald-600';
+      case 'Completado': return 'bg-slate-50 text-slate-500';
+      default: return 'bg-orange-50 text-orange-600';
+    }
+  };
 
   const getReportTitle = (formType: any) => {
     switch(formType) {
@@ -163,12 +173,12 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
         ) : filteredTasks.length > 0 ? (
           filteredTasks.map((task) => {
             const displayId = task.firebaseId || task.id || `Borrador #${task.id}`;
+            const isCompleted = filter === 'completed';
             return (
               <button 
                 key={task.id}
                 onClick={() => onStartInspection(task)}
-                disabled={filter === 'completed'}
-                className="w-full bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center justify-between group active:scale-[0.98] transition-all text-left disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center justify-between group active:scale-[0.98] transition-all text-left hover:shadow-md"
               >
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -182,6 +192,11 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
                         : <Clock size={10} className="text-orange-500"/>}
                       {task.synced ? 'Sincronizado' : 'Solo Local'}
                     </span>
+                    {task.estado && (
+                      <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase ${getEstadoBadge(task.estado)}`}>
+                        {task.estado}
+                      </span>
+                    )}
                   </div>
                   
                   <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none uppercase">
@@ -194,11 +209,12 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
                   </div>
                 </div>
 
-                {filter === 'pending' && (
-                  <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors text-slate-300 shadow-inner">
-                    <ArrowRight size={20} />
-                  </div>
-                )}
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors shadow-inner
+                  ${isCompleted 
+                    ? 'bg-blue-50 text-blue-400 group-hover:bg-blue-500 group-hover:text-white' 
+                    : 'bg-slate-50 text-slate-300 group-hover:bg-primary group-hover:text-white'}`}>
+                  <ArrowRight size={20} />
+                </div>
               </button>
             );
           })

@@ -18,7 +18,7 @@ export default function Footer({ activeTab, onNavigate }: FooterProps) {
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
-    
+
     if (!window.confirm('¿Cerrar sesión ahora? Asegúrate de haber guardado tus trabajos.')) return;
 
     setIsLoggingOut(true);
@@ -53,7 +53,8 @@ export default function Footer({ activeTab, onNavigate }: FooterProps) {
 
   return (
     <footer className="fixed bottom-0 left-0 w-full z-40 pb-[env(safe-area-inset-bottom)] px-4">
-      <div className="glass-carbon rounded-t-[2.5rem] border-t border-white/10 shadow-2xl">
+      {/* Fondo corporativo Deep Forest con alto contraste para asegurar visibilidad */}
+      <div className="bg-[#062113] rounded-t-[2.5rem] border-t border-[#10b981]/20 shadow-[0_-10px_40px_rgba(16,185,129,0.15)]">
         <div className="max-w-md md:max-w-2xl mx-auto flex justify-around items-center h-20 px-4 relative">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -87,7 +88,8 @@ export default function Footer({ activeTab, onNavigate }: FooterProps) {
                 onClick={() => onNavigate(item.id)}
                 className={cn(
                   'flex flex-col items-center justify-center gap-1 w-14 transition-all duration-300',
-                  isActive ? 'text-primary' : 'text-slate-400 hover:text-white transition-colors'
+                  // El texto inactivo ahora tiene más contraste para no ser "invisible"
+                  isActive ? 'text-[#10b981]' : 'text-slate-300 hover:text-white transition-colors'
                 )}
               >
                 <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />

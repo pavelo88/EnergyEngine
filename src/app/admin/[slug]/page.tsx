@@ -15,6 +15,7 @@ const componentMap: { [key: string]: React.ComponentType } = {
   clients: Clients,
   jobs: Jobs,
   expenses: Expenses,
+  hours: Expenses,
   reports: Reports,
   import: Import,
   'web-requests': WebRequests,

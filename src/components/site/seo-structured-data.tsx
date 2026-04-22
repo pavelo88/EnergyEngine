@@ -57,7 +57,12 @@ export default function SEOStructuredData() {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "Energy Engine",
-    "knowsAbout": brands
+    "knowsAbout": [
+      ...brands,
+      "Motores Energy",
+      "Sistemas de Generación de Energía",
+      "Mantenimiento Multimarca Industrial"
+    ]
   };
 
   return (

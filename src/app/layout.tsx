@@ -15,23 +15,18 @@ const fontBody = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Energy Engine | Mantenimiento Industrial y Grupos Electrógenos',
+  title: 'Motores Energy & Grupos Electrógenos | Energy Engine España',
   applicationName: 'Energy Engine',
-  description: 'Expertos en mantenimiento integral, reparación de averías y pruebas de carga para grupos electrógenos. Servicio técnico oficial multimarca: Perkins, Cummins, Volvo Penta y más. Asistencia 24/7.',
+  description: 'Expertos en Motores Energy, mantenimiento integral, reparación de averías y pruebas de carga para grupos electrógenos. Servicio técnico oficial multimarca: Perkins, Guascor, Cummins, Volvo Penta y más. Asistencia 24/7.',
   keywords: [
-    'mantenimiento industrial',
-    'grupos electrógenos',
-    'Perkins', 'Guascor', 'Cummins', 'Iveco', 'Volvo Penta', 'MAN', 'Rolls-Royce', 'MTU', 'Deif',
-    'Baudouin', 'Atlas Copco', 'Caterpillar', 'Pramac', 'Deutz', 'Doosan', 'Generac', 'Stamford',
-    'Isuzu', 'Himoinsa', 'John Deere', 'Kohler', 'Kubota', 'FPT', 'Scania', 'Socomec', 'Mosa', 'Yanmar',
-    'mantenimiento preventivo',
-    'reparación de averías',
-    'bancos de carga',
-    'cogeneración',
-    'asistencia técnica 24/7',
-    'repuestos originales',
-    'España',
-    'Portugal'
+    'motores energy', 'mantenimiento motores energy', 'grupos electrógenos', 
+    'Perkins', 'Guascor', 'Siemens Energy', 'Guascor Energy', 'Cummins', 'Iveco', 'Ruggerini', 'Volvo Penta', 
+    'Lombardini', 'MAN', 'Rolls-Royce', 'MTU', 'Deif', 'Baudouin', 'Atlas Copco', 'Caterpillar', 
+    'Leroy-Somer', 'Pramac', 'Deutz', 'Doosan', 'J.L. Metric', 'Generac', 'Stamford', 'Isuzu', 
+    'Hipower', 'Himoinsa', 'John Deere', 'Kohler', 'Kubota', 'FPT', 'Scania', 'Socomec', 
+    'Mosa', 'Yanmar', 'Mecc Alte', 'mantenimiento industrial', 'reparación de averías', 
+    'bancos de carga', 'cogeneración', 'asistencia técnica 24/7', 'repuestos originales', 
+    'España', 'Portugal'
   ],
   manifest: '/manifest.json',
   appleWebApp: {

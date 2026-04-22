@@ -4,7 +4,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   Save, Loader2, Euro, Trash2, Plus, FileText, ClipboardSignature,
   Camera, Calendar as CalendarIcon, MapPin, CheckCircle2, Check,
-  MapPinned, Eye, Play, StopCircle, Clock
+  MapPinned, Eye, Play, StopCircle, Clock, Pencil
 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
@@ -18,26 +18,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader, DialogFooter } from "@/components/ui/dialog";
+import { decimalToTime, timeToDecimal } from '@/lib/utils';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db as dbLocal } from '@/lib/db-local';
 import { useToast } from '@/hooks/use-toast';
 import SignaturePad from './SignaturePad';
 import { fileToBase64 } from '@/lib/offline-utils';
 import { resolveInspectorEmail } from '@/lib/inspection-mode';
-
-// --- HELPER DE TIEMPOS ---
-const timeToDecimal = (timeStr: string): number => {
-  if (!timeStr) return 0;
-  const [h, m] = timeStr.split(':').map(Number);
-  return (h || 0) + ((m || 0) / 60);
-};
-
-const decimalToTime = (dec: number): string => {
-  if (!dec) return "00:00";
-  const h = Math.floor(dec);
-  const m = Math.round((dec - h) * 60);
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-};
 
 // --- TIPOS DE DATOS ---
 type GastoItem = {
@@ -60,7 +47,7 @@ type ActiveStop = {
 
 const initialGastoState = { rubro: 'Combustible', monto: '', descripcion: '', forma_pago: 'Tarjeta Empresa', hora: format(new Date(), 'HH:mm'), comprobanteFile: undefined };
 
-export default function RegistroGastoForm() {
+export default function RegistroGastoForm({ initialMode = 'ambos' }: { initialMode?: 'horas' | 'gastos' | 'ambos' }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const storage = firestore ? getStorage(firestore.app) : null;
@@ -77,8 +64,18 @@ export default function RegistroGastoForm() {
   const [activeStop, setActiveStop] = useState<ActiveStop | null>(null);
 
   // Estado temporal para los inputs de horas cuando se va a marcar salida
-  const [tempHours, setTempHours] = useState({ normales: '00:00', extras: '00:00', especiales: '00:00', motorFile: undefined as File | undefined });
+  const [tempHours, setTempHours] = useState({ normales: '', extras: '', especiales: '', motorFile: undefined as File | undefined });
   const stopFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTimeChange = (val: string, field: 'normales' | 'extras' | 'especiales') => {
+    let cleaned = val.replace(/\D/g, '');
+    if (cleaned.length > 4) cleaned = cleaned.substring(0, 4);
+    let formatted = cleaned;
+    if (cleaned.length >= 3) {
+      formatted = cleaned.substring(0, 2) + ':' + cleaned.substring(2);
+    }
+    setTempHours({ ...tempHours, [field]: formatted });
+  };
 
   // Estado temporal para iniciar la llegada
   const [startConfig, setStartConfig] = useState({ clienteId: '', clienteNombre: '', actividad: 'Inspección' });
@@ -185,7 +182,7 @@ export default function RegistroGastoForm() {
         horaLlegada: format(new Date(), 'HH:mm'),
         ubicacionLlegada: ubicacion
       });
-      setTempHours({ normales: '00:00', extras: '00:00', especiales: '00:00', motorFile: undefined });
+      setTempHours({ normales: '', extras: '', especiales: '', motorFile: undefined });
       toast({ title: 'LLEGADA REGISTRADA', description: 'El contador de tiempo ha iniciado.' });
     };
 
@@ -244,11 +241,31 @@ export default function RegistroGastoForm() {
       motorBase64: base64, motorFileName: fName, motorMimeType: fType,
     };
 
-    setStops([...stops, newStop]);
+    const newStopsArray = [...stops, newStop];
+    setStops(newStopsArray);
     setActiveStop(null); // Cierra la parada
     setStartConfig({ clienteId: '', clienteNombre: '', actividad: 'Inspección' });
     if (stopFileInputRef.current) stopFileInputRef.current.value = '';
     toast({ title: 'SALIDA REGISTRADA', description: `Se han sumado ${totalDigitado.toFixed(1)}h a tu jornada.` });
+    
+    // Auto-guardado en segundo plano
+    saveBorrador(newStopsArray, gastos);
+  };
+
+  const handleEditStop = (s: Stop) => {
+    setActiveStop({
+      clienteId: s.clienteId, clienteNombre: s.clienteNombre, actividad: s.actividad,
+      horaLlegada: s.horaLlegada, ubicacionLlegada: s.ubicacionLlegada
+    });
+    setTempHours({
+      normales: s.hNormalesStr,
+      extras: s.hExtrasStr,
+      especiales: s.hEspecialesStr,
+      motorFile: undefined
+    });
+    const updatedStops = stops.filter(st => st.id !== s.id);
+    setStops(updatedStops);
+    saveBorrador(updatedStops, gastos);
   };
 
   // --- LÓGICA DE GASTOS ---
@@ -264,14 +281,55 @@ export default function RegistroGastoForm() {
       gastoToAdd.comprobanteFileName = currentGasto.comprobanteFile.name;
       gastoToAdd.comprobanteMimeType = currentGasto.comprobanteFile.type;
     }
-    setGastos([...gastos, gastoToAdd]);
+    const newGastosArray = [...gastos, { ...gastoToAdd, hora: currentGasto.hora }];
+    setGastos(newGastosArray);
     setCurrentGasto(initialGastoState);
     if (fileInputRef.current) fileInputRef.current.value = '';
     toast({ title: 'GASTO REGISTRADO', description: `Añadido: ${gastoToAdd.monto}€` });
+    
+    // Auto-guardar
+    saveBorrador(stops, newGastosArray);
   };
 
   const totalGastosSesion = useMemo(() => gastos.reduce((acc, curr) => acc + curr.monto, 0), [gastos]);
   const totalHorasSesion = useMemo(() => stops.reduce((acc, curr) => acc + curr.horasNormales + curr.horasExtras + curr.horasEspeciales, 0), [stops]);
+
+  // --- AUTOGUARDADO DE BORRADOR EN SEGUNDO PLANO ---
+  const saveBorrador = async (draftStops: Stop[], draftGastos: GastoItem[]) => {
+    if (!canUseCloud || !firestore || !inspectorEmail) return;
+    const fechaID = format(reportDate, 'yyyy-MM-dd');
+    const reportId = `GASTO-${inspectorEmail.replace(/[^a-zA-Z0-9]/g, '')}-${fechaID}`;
+    
+    try {
+      const docRef = doc(firestore, "gastos", reportId);
+      const docSnap = await getDoc(docRef);
+      
+      const formattedStops = draftStops.map(s => ({
+        ...s, hora: `${s.horaLlegada} - ${s.horaSalida}` // Retrocompatibilidad
+      }));
+      const formattedGastos = draftGastos.map(g => ({
+        ...g, horaGasto: g.hora, fecha: reportDate
+      }));
+      const tGastos = draftGastos.reduce((acc, curr) => acc + curr.monto, 0);
+
+      // Si existe, actualiza los arrays de itinerario y gastos silenciosamente
+      if (docSnap.exists()) {
+        await updateDoc(docRef, {
+          itinerario: formattedStops,
+          gastos: formattedGastos,
+          total: tGastos,
+          ultimaActualizacion: serverTimestamp(),
+        });
+      } else {
+        // En caso contrario y no hay firma, se inicializa como Borrador
+        await setDoc(docRef, {
+          id: reportId, inspectorId: inspectorEmail, inspectorNombre: user?.displayName || inspectorEmail,
+          fecha: reportDate, itinerario: formattedStops, gastos: formattedGastos,
+          total: tGastos, estado: 'En Progreso', fecha_creacion: serverTimestamp()
+        });
+      }
+    } catch(e) { console.error("Error auto-guardado:", e); }
+  };
 
   // --- GUARDADO GENERAL FIREBASE ---
   const handleSaveReport = async () => {
@@ -429,7 +487,7 @@ export default function RegistroGastoForm() {
                   mode="single"
                   selected={reportDate}
                   onSelect={(date) => date && setReportDate(date)}
-                  disabled={(date) => isAfter(date, new Date()) || isBefore(date, startOfDay(subDays(new Date(), 7)))}
+                  disabled={(date) => isAfter(date, new Date()) || isBefore(date, startOfDay(subDays(new Date(), 60)))}
                   initialFocus
                 />
               </PopoverContent>
@@ -437,7 +495,8 @@ export default function RegistroGastoForm() {
           </div>
         </section>
 
-        {/* --- RELOJ CHECADOR --- */}
+        {/* --- RELOJ CHECADOR (SOLO MODO HORAS O AMBOS) --- */}
+        {(initialMode === 'horas' || initialMode === 'ambos') && (
         <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
           <div className="flex items-center gap-2 mb-2">
             <MapPinned size={20} className="text-emerald-500" />
@@ -470,7 +529,7 @@ export default function RegistroGastoForm() {
                 </Select>
               </div>
               <div className="flex items-end">
-                <Button onClick={handleMarcarLlegada} className="w-full h-14 bg-slate-900 text-emerald-400 rounded-2xl font-black hover:bg-slate-800 active:scale-95 transition-all flex gap-2 shadow-lg">
+                <Button onClick={handleMarcarLlegada} className="w-full h-14 bg-[#062113] text-[#10b981] rounded-2xl font-black hover:bg-[#10b981] hover:text-white active:scale-95 transition-all flex gap-2 shadow-xl border-2 border-[#10b981]">
                   <Play size={20} /> MARCAR LLEGADA
                 </Button>
               </div>
@@ -492,15 +551,15 @@ export default function RegistroGastoForm() {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-1 text-left block">H. Normales</label>
-                <Input type="time" value={tempHours.normales} onChange={e => setTempHours({ ...tempHours, normales: e.target.value })} className="h-14 rounded-2xl border-slate-200 bg-white font-black text-slate-900" />
+                <Input type="text" inputMode="numeric" placeholder="--:--" value={tempHours.normales} onChange={e => handleTimeChange(e.target.value, 'normales')} className="h-14 rounded-2xl border-slate-200 bg-white font-black text-slate-900" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-amber-600 uppercase tracking-widest ml-1 text-left block">H. Extras</label>
-                <Input type="time" value={tempHours.extras} onChange={e => setTempHours({ ...tempHours, extras: e.target.value })} className="h-14 rounded-2xl border-amber-200 bg-white font-black text-amber-600 focus-visible:ring-amber-500" />
+                <Input type="text" inputMode="numeric" placeholder="--:--" value={tempHours.extras} onChange={e => handleTimeChange(e.target.value, 'extras')} className="h-14 rounded-2xl border-amber-200 bg-white font-black text-amber-600 focus-visible:ring-amber-500" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest ml-1 text-left block">H. Especiales</label>
-                <Input type="time" value={tempHours.especiales} onChange={e => setTempHours({ ...tempHours, especiales: e.target.value })} className="h-14 rounded-2xl border-emerald-200 bg-white font-black text-emerald-600 focus-visible:ring-emerald-500" />
+                <Input type="text" inputMode="numeric" placeholder="--:--" value={tempHours.especiales} onChange={e => handleTimeChange(e.target.value, 'especiales')} className="h-14 rounded-2xl border-emerald-200 bg-white font-black text-emerald-600 focus-visible:ring-emerald-500" />
               </div>
 
               <div className="flex gap-2 md:col-span-3 pt-2">
@@ -508,7 +567,7 @@ export default function RegistroGastoForm() {
                   <Camera size={18} className="mr-2" /> {tempHours.motorFile ? 'FOTO OK' : 'FOTO EQUIPO (Opcional)'}
                   <input type="file" ref={stopFileInputRef} onChange={(e) => e.target.files?.[0] && setTempHours({ ...tempHours, motorFile: e.target.files[0] })} accept="image/*" capture="environment" className="hidden" />
                 </Button>
-                <Button onClick={handleMarcarSalida} className="flex-[2] h-14 bg-emerald-500 text-slate-900 rounded-2xl font-black hover:bg-emerald-400 active:scale-95 transition-all flex gap-2 shadow-lg">
+                <Button onClick={handleMarcarSalida} className="flex-[2] h-14 bg-[#10b981] text-[#062113] rounded-2xl font-black hover:bg-[#062113] hover:text-[#10b981] transition-all flex gap-2 shadow-xl border-2 border-[#10b981]">
                   <StopCircle size={20} /> MARCAR SALIDA
                 </Button>
               </div>
@@ -531,13 +590,22 @@ export default function RegistroGastoForm() {
                     </div>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setStops(stops.filter(st => st.id !== s.id))} className="text-red-400 hover:text-red-600 rounded-full"><Trash2 size={20} /></Button>
+                <div className="flex flex-col gap-2">
+                  <Button variant="outline" size="icon" onClick={() => handleEditStop(s)} className="h-10 w-10 bg-slate-800 border-slate-800 rounded-xl text-white hover:bg-[#062113] hover:border-[#062113] transition-all shadow-sm">
+                    <Pencil size={18} />
+                  </Button>
+                  <Button variant="outline" size="icon" onClick={() => setStops(stops.filter(st => st.id !== s.id))} className="h-10 w-10 bg-red-600 border-red-600 rounded-xl text-white hover:bg-red-700 hover:border-red-700 transition-all shadow-sm">
+                    <Trash2 size={18} />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
         </section>
+        )}
 
-        {/* GASTOS INDEPENDIENTES */}
+        {/* GASTOS INDEPENDIENTES (SOLO MODO GASTOS O AMBOS) */}
+        {(initialMode === 'gastos' || initialMode === 'ambos') && (
         <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
           <div className="flex justify-between items-center">
             <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter"><Euro size={18} className="text-emerald-500" /> Gastos y Tickets</h3>
@@ -604,6 +672,7 @@ export default function RegistroGastoForm() {
             ))}
           </div>
         </section>
+        )}
 
         {/* VALIDACIÓN Y BOTONES FINALES */}
         <section className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm space-y-6 border border-slate-100">
@@ -668,13 +737,13 @@ export default function RegistroGastoForm() {
                 {stops.map(s => (
                   <div key={s.id} className="flex justify-between items-center">
                     <span className="font-bold text-slate-700 text-xs uppercase">{s.clienteNombre}</span>
-                    <span className="font-black text-slate-900 text-xs">{(s.horasNormales + s.horasExtras + s.horasEspeciales).toFixed(2)}h Totales</span>
+                    <span className="font-black text-slate-900 text-xs">{decimalToTime(s.horasNormales + s.horasExtras + s.horasEspeciales)} Totales</span>
                   </div>
                 ))}
               </div>
               <div className="bg-slate-50 p-4 rounded-xl text-center">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">TOTAL HORAS SESIÓN</p>
-                <p className="text-2xl font-black text-slate-900">{totalHorasSesion.toFixed(2)}h</p>
+                <p className="text-2xl font-black text-slate-900">{decimalToTime(totalHorasSesion)}</p>
               </div>
             </div>
 

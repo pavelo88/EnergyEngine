@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 
 interface AdminHeaderState {
   title: string;
@@ -49,14 +49,21 @@ export function useAdminHeaderRaw() {
   return { ...state, ...setters };
 }
 
-export function useAdminHeader(newTitle: string, newAction: ReactNode | null = null) {
+export function useAdminHeader(newTitle?: string, newAction: ReactNode | null = null) {
   const { setTitle, setAction } = useAdminHeaderSetters();
 
   useEffect(() => {
-    setTitle(newTitle);
+    if (newTitle) setTitle(newTitle);
   }, [newTitle, setTitle]);
 
   useEffect(() => {
-    setAction(newAction);
+    if (newAction !== null) setAction(newAction);
   }, [newAction, setAction]);
+
+  const setHeaderProps = useCallback(({ title, action }: { title: string, action?: ReactNode }) => {
+    setTitle(title);
+    if (action !== undefined) setAction(action);
+  }, [setTitle, setAction]);
+
+  return { setHeaderProps };
 }

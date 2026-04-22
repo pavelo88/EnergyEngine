@@ -114,66 +114,46 @@ export default function Navbar() {
                   <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-[85vw] sm:max-w-md bg-white/95 dark:bg-[#0d1117] border-l-[3px] border-l-transparent p-0 flex flex-col overflow-hidden"
+              <SheetContent side="right" className="w-[85vw] sm:max-w-md bg-white/95 dark:bg-[#0d1117] border-l-[3px] border-l-transparent p-0 flex flex-col"
                 style={{ borderImage: 'linear-gradient(to bottom, #22d3ee, #d946ef) 1' }}>
 
-                <div className="flex flex-col h-full p-6 relative">
+                {/* Cambio clave: overflow-y-auto para que nada se corte */}
+                <div className="flex flex-col h-full p-6 relative overflow-y-auto">
                   <SheetHeader className="text-left mb-6 mt-4">
-                    <SheetTitle className="font-black text-slate-900 dark:text-white text-3xl uppercase tracking-tighter">
-                      Menú
-                    </SheetTitle>
-                    <SheetDescription className='text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px] tracking-widest'>Navegación principal del sitio.</SheetDescription>
+                    <SheetTitle className="font-black text-slate-900 dark:text-white text-3xl uppercase tracking-tighter">Menú</SheetTitle>
+                    <SheetDescription className='text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px] tracking-widest'>Navegación principal.</SheetDescription>
                   </SheetHeader>
 
-                  {/* Links de navegación con SEPARADORES NEÓN */}
                   <div className="flex flex-col">
-                    {/* Línea decorativa inicial */}
                     <div className="h-[2px] w-full bg-gradient-to-r from-cyan-400 to-fuchsia-500 opacity-50 mb-4" />
-
-                    {navLinks.map((link, index) => (
+                    {navLinks.map((link) => (
                       <div key={link.href} className="flex flex-col">
                         <SheetClose asChild>
-                          <Link
-                            href={link.href}
-                            className="group flex items-center py-4 rounded-xl transition-all"
-                          >
-                            <span className="font-black text-slate-900 dark:text-slate-200 text-xl uppercase tracking-wider group-hover:text-cyan-500 transition-colors">
-                              {link.label}
-                            </span>
+                          <Link href={link.href} className="group flex items-center py-4 rounded-xl transition-all">
+                            <span className="font-black text-slate-900 dark:text-slate-200 text-xl uppercase tracking-wider group-hover:text-cyan-500">{link.label}</span>
                           </Link>
                         </SheetClose>
-                        {/* Separador neón después de cada link */}
                         <div className="h-[1px] w-full bg-gradient-to-r from-cyan-400/50 via-fuchsia-500/50 to-transparent mb-1" />
                       </div>
                     ))}
                   </div>
 
-                  {/* IMAGEN DEL MOTOR CENTRADA */}
-                  <div className="relative w-full flex-grow flex items-center justify-center my-4">
-                    <div className="relative w-full h-full max-h-[220px] drop-shadow-[0_0_15px_rgba(34,211,238,0.4)]">
-                      <Image
-                        src="/hamburguesa.png"
-                        alt="Energy Engine Motor"
-                        fill
-                        className="object-contain"
-                        priority
-                      />
-                    </div>
+                  {/* Imagen reducida para dar espacio a los botones */}
+                  <div className="relative w-full flex-shrink-0 flex items-center justify-center my-4 h-40">
+                    <img src="/hamburguesa.png" alt="Energy Engine" className="max-h-full object-contain drop-shadow-[0_0_15px_rgba(34,211,238,0.4)]" />
                   </div>
 
-                  {/* Botones de acción - CON EFECTO GLOW */}
-                  <div className="mt-auto space-y-4 pt-6">
+                  <div className="mt-auto space-y-4 pt-6 pb-4">
                     <SheetClose asChild>
-                      <Button asChild className="w-full h-14 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl border border-cyan-500/30 shadow-[0_0_15px_-5px_rgba(34,211,238,0.3)]">
+                      <Button asChild className="w-full h-14 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl border border-cyan-500/30">
                         <Link href="/admin" className="flex items-center justify-center gap-3">
                           <LayoutDashboard className="w-5 h-5 text-cyan-400" />
                           <span className="text-[11px] font-black uppercase tracking-widest">Gestión Administrativa</span>
                         </Link>
                       </Button>
                     </SheetClose>
-
                     <SheetClose asChild>
-                      <Button asChild className="w-full h-14 bg-[#0a2e1f] dark:bg-[#052e16] text-emerald-400 hover:text-emerald-300 border border-emerald-500/50 rounded-2xl shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)]">
+                      <Button asChild className="w-full h-14 bg-[#0a2e1f] text-emerald-400 border border-emerald-500/50 rounded-2xl">
                         <Link href="/inspection" className="flex items-center justify-center gap-3">
                           <Wrench className="w-5 h-5" />
                           <span className="text-[11px] font-black uppercase tracking-widest">Despliegue Técnico</span>

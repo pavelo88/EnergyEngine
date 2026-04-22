@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
@@ -19,11 +19,13 @@ import StableInput from '../StableInput';
 import { resolveInspectorEmail } from '@/lib/inspection-mode';
 import { getNextSequenceForUser } from '@/lib/sequence-manager';
 import { addImageSafely, getPdfFileName } from '@/lib/pdf-utils';
+import { MAX_IMAGES_PER_REPORT } from '@/lib/report-limits';
+import { timeToDecimal, decimalToTime } from '@/lib/utils';
 
 export const generatePDF = (report: any, inspectorName: string, reportId: string | null) => {
   const doc = new jsPDF();
   const finalID = reportId || 'BORRADOR';
-  const darkColor = '#0f172a';
+  const darkColor = '#165a30';
   const pageHeight = doc.internal.pageSize.height;
   const pageWidth = doc.internal.pageSize.width;
 
@@ -124,7 +126,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
 };
 
 
-export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: { initialData: any, aiData: any, onSuccess: () => void }) {
+export default function InformeTecnicoForm({ initialData, aiData, onSuccess, isAdmin = false }: { initialData: any, aiData: any, onSuccess: () => void, isAdmin?: boolean }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const isOnline = useOnlineStatus();
@@ -146,6 +148,7 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
     location: null as { lat: number, lon: number } | null,
     fecha: new Date().toISOString().split('T')[0],
     reportContent: '',
+    parametrosTecnicos: { horas: '' },
   });
 
   const [inspectorSignature, setInspectorSignature] = useState<string | null>(() => {
@@ -154,6 +157,7 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
     }
     return null;
   });
+  const [clientSignature, setClientSignature] = useState<string | null>(null);
 
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -163,6 +167,9 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const gpsRequired = useGpsRequired();
+
+  // Detect if we're editing an existing completed/preapproved report
+  const isEditingExisting = !!(initialData?.estado && ['Completado', 'Preaprobado', 'Aprobado'].includes(initialData.estado) && (initialData?.numero_informe || initialData?.firebaseId || initialData?.id));
 
   useEffect(() => {
     if (canUseCloud && user?.email && firestore) {
@@ -179,17 +186,35 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
 
   useEffect(() => {
     if (initialData) {
-      const combinedContent = [initialData.antecedentes, initialData.intervencion, initialData.resumen, initialData.observaciones, initialData.descripcion].filter(Boolean).join('\n\n');
-      setFormData((prev: any) => ({
-        ...prev,
-        cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
-        motor: initialData.modelo || prev.motor,
-        modelo: initialData.n_motor || prev.modelo,
-        n_motor: initialData.n_motor || prev.n_motor,
-        grupo: initialData.grupo || prev.grupo,
-        instalacion: initialData.instalacion || prev.instalacion,
-        reportContent: combinedContent || prev.reportContent,
-      }));
+      if (initialData.estado && ['Completado', 'Preaprobado', 'Aprobado'].includes(initialData.estado)) {
+        // Editing existing completed report - populate ALL fields
+        setFormData((prev: any) => ({
+          ...prev,
+          ...initialData,
+          clienteId: initialData.clienteId || prev.clienteId,
+          cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
+          clienteNombre: initialData.clienteNombre || initialData.cliente || prev.clienteNombre,
+          numero_informe: initialData.numero_informe || initialData.firebaseId || initialData.id || prev.numero_informe,
+          parametrosTecnicos: {
+            ...initialData.parametrosTecnicos,
+            horas: typeof initialData.parametrosTecnicos?.horas === 'number' ? decimalToTime(initialData.parametrosTecnicos.horas) : initialData.parametrosTecnicos?.horas || '',
+          }
+        }));
+        if (initialData.inspectorSignatureUrl) setInspectorSignature(initialData.inspectorSignatureUrl);
+        if (initialData.clientSignatureUrl) setClientSignature(initialData.clientSignatureUrl);
+        setSavedDocId(initialData.numero_informe || initialData.firebaseId || initialData.id || '');
+      } else {
+        setFormData((prev: any) => ({
+          ...prev,
+          cliente: initialData.clienteNombre || prev.cliente,
+          instalacion: initialData.instalacion || prev.instalacion,
+          motor: initialData.modelo || prev.motor,
+          n_motor: initialData.n_motor || prev.n_motor,
+          n_grupo: initialData.n_grupo || prev.n_grupo,
+          potencia: initialData.potencia || prev.potencia,
+          observaciones: initialData.descripcion || prev.observaciones,
+        }));
+      }
     }
   }, [initialData]);
 
@@ -277,7 +302,6 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
         const docPdf = generatePDF(reportData, inspectorName, finalId);
 
         if (isSaved || forceDownload) {
-          // SOLUCIÓN: FORZAR .pdf
           docPdf.save(`${finalId}.pdf`);
         } else {
           const blob = docPdf.output('blob');
@@ -319,6 +343,35 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
       const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
       setSaving(true);
       didStartSave = true;
+
+      // --- EDITING AN EXISTING COMPLETED/PRE-APPROVED REPORT ---
+      if (isEditingExisting && savedDocId && canUseCloud && firestore) {
+        const existingDocId = savedDocId;
+        const storage = getStorage();
+        let inspectorSignatureUrl = (formData as any).inspectorSignatureUrl || inspectorSignature;
+        if (inspectorSignature && inspectorSignature.startsWith('data:')) {
+          const signatureRef = ref(storage, `firmas/${existingDocId}/inspector.png`);
+          await uploadString(signatureRef, inspectorSignature, 'data_url');
+          inspectorSignatureUrl = await getDownloadURL(signatureRef);
+        }
+        await updateDoc(doc(firestore, 'informes', existingDocId), {
+          ...formData,
+          parametrosTecnicos: {
+            ...formData.parametrosTecnicos,
+            horas: timeToDecimal(formData.parametrosTecnicos.horas)
+          },
+          inspectorSignatureUrl,
+          clientSignatureUrl: clientSignature || null,
+          estado: isAdmin ? 'Aprobado' : 'Preaprobado',
+          ultimaModificacion: Timestamp.now(),
+          ...(isAdmin ? { aprobadoPor: 'Admin', fecha_aprobacion: Timestamp.now() } : {})
+        });
+        setIsSaved(true);
+        toast({ title: '¡Documento Actualizado!', description: `Informe ${existingDocId} enviado para pre-aprobación.` });
+        handlePdfAction(true, existingDocId);
+        if (onSuccess) onSuccess();
+        return;
+      }
 
       const sequence = await getNextSequenceForUser({
         type: 'informe-tecnico',
@@ -366,8 +419,13 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
 
           const docData = {
             ...formData,
+            parametrosTecnicos: {
+              ...formData.parametrosTecnicos,
+              horas: timeToDecimal(formData.parametrosTecnicos.horas)
+            },
+            imageUrls: [],
             inspectorSignatureUrl,
-            clientSignatureUrl: null,
+            clientSignatureUrl: clientSignature || null,
             inspectorId: inspectorEmail || '',
             inspectorNombre: inspectorName,
             inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
@@ -417,8 +475,8 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
               <DialogTitle className="font-black uppercase tracking-tighter text-black">Borrador Informe Técnico</DialogTitle>
               <DialogDescription className="text-xs text-slate-500">Documento profesional para validación de intervenciones.</DialogDescription>
             </div>
-            <button 
-              onClick={() => handlePdfAction(true)} 
+            <button
+              onClick={() => handlePdfAction(true)}
               className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-primary/90 transition-all shadow-sm active:scale-95"
             >
               Descargar PDF
@@ -510,11 +568,11 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess }: {
 
         <button
           onClick={handleSave}
-          disabled={saving || isSaved}
+          disabled={saving || (isSaved && !isEditingExisting)}
           className="w-full p-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs flex items-center justify-center gap-2 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
         >
-          {saving ? <Loader2 className="animate-spin text-white" size={16} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={16} /> : <Save className="text-white" size={16} />}
-          {saving ? 'GUARDANDO DATOS...' : isSaved ? 'GUARDADO' : 'GUARDAR INFORME'}
+          {saving ? <Loader2 className="animate-spin text-white" size={16} /> : isSaved && !isEditingExisting ? <CheckCircle2 className="text-emerald-400" size={16} /> : <Save className="text-white" size={16} />}
+          {saving ? 'GUARDANDO DATOS...' : isSaved && !isEditingExisting ? 'GUARDADO' : isEditingExisting ? (isAdmin ? 'GUARDAR COMO APROBADO' : 'GUARDAR CAMBIOS (PRE-APROBADO)') : 'GUARDAR INFORME'}
         </button>
       </div>
     </main>

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/firebase';
 import { signOut, User } from 'firebase/auth';
-import { GanttChartSquare, Users, Wrench, DollarSign, LayoutDashboard, Building, Upload, LogOut, X, Mail } from 'lucide-react';
+import { GanttChartSquare, Users, Wrench, DollarSign, LayoutDashboard, Building, Upload, LogOut, X, Mail, Clock } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
@@ -21,7 +21,8 @@ const navLinks = [
   { href: '/admin/users', label: 'Usuarios', icon: Users },
   { href: '/admin/clients', label: 'Clientes', icon: Building },
   { href: '/admin/jobs', label: 'Trabajos', icon: Wrench },
-  { href: '/admin/expenses', label: 'Bitácora G+H', icon: DollarSign },
+  { href: '/admin/hours', label: 'Bitácora Horas', icon: Clock },
+  { href: '/admin/expenses', label: 'Bitácora Gastos', icon: DollarSign },
   { href: '/admin/web-requests', label: 'Solicitudes Web', icon: Mail },
   { href: '/admin/import', label: 'Importar', icon: Upload },
 ];
@@ -57,20 +58,18 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
 
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex h-full w-[85%] transform flex-col bg-slate-950/80 backdrop-blur-xl border-r border-white/5 text-slate-100 shadow-2xl transition-all duration-500 ease-in-out md:relative md:w-64 md:translate-x-0',
-          // Light mode (Comentado):
-          // 'bg-white border-r border-slate-200 text-slate-900', 
+          'fixed inset-y-0 left-0 z-50 flex h-full w-[85%] transform flex-col bg-[#062113] backdrop-blur-xl border-r border-white/5 text-slate-100 shadow-2xl transition-all duration-500 ease-in-out md:relative md:w-64 md:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         <div className="flex h-24 items-center px-6 border-b border-white/5">
           <Link href="/admin" className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center p-2 border border-white/10 transition-all hover:bg-white/10 overflow-hidden shrink-0">
+            <div className="flex items-center justify-center p-2 transition-all overflow-hidden shrink-0">
               <Logo showText={false} className="w-8 h-8 object-contain" />
             </div>
             <div className="hidden md:block overflow-hidden">
               <h1 className="text-sm font-black tracking-tighter leading-none text-white whitespace-nowrap lowercase">energy engine</h1>
-              <p className="text-[10px] font-bold tracking-[0.2em] text-primary whitespace-nowrap uppercase">GRUPOS ELECTRóGENOS</p>
+              <p className="text-[10px] font-bold tracking-[0.2em] text-[#10b981] whitespace-nowrap uppercase">GRUPOS ELECTRóGENOS</p>
             </div>
           </Link>
           <button onClick={onClose} className="absolute right-4 md:hidden p-2 rounded-xl bg-transparent hover:bg-white/5 transition-colors">
@@ -89,7 +88,7 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
                 className={cn(
                   'relative group px-4 py-3 rounded-2xl transition-all duration-300 flex items-center gap-4',
                   isActive
-                    ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                    ? 'bg-[#10b981] text-white shadow-lg shadow-[#10b981]/20'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 )}
               >
@@ -105,7 +104,7 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
             <div className="flex items-center gap-4 px-2">
               <Avatar className="h-10 w-10 border-2 border-white/10 shadow-xl shrink-0">
                 <AvatarImage src={user.photoURL || ''} alt={user.displayName || 'Avatar'} />
-                <AvatarFallback className='font-black bg-white/5 text-slate-400 text-xs'>{getInitials(user.displayName)}</AvatarFallback>
+                <AvatarFallback className='font-black bg-white/5 text-slate-400 text-xs text-shor'>{getInitials(user.displayName)}</AvatarFallback>
               </Avatar>
               <div className="hidden md:block overflow-hidden">
                 <p className="text-[10px] font-black uppercase tracking-tighter text-white truncate">{user.displayName || 'Admin'}</p>

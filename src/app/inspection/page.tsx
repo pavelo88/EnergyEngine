@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, Suspense, useRef, useCallback } from 'react';
 import { useFirebase } from '@/firebase';
@@ -35,6 +35,7 @@ import {
   InformeSimplificadoFormLazy,
   RevisionBasicaFormLazy
 } from './lazy-tabs';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 type FormType = 'hoja-trabajo' | 'informe-tecnico' | 'informe-revision' | 'informe-simplificado' | 'revision-basica';
 
@@ -58,6 +59,8 @@ const InspectionPageContent = () => {
   const screenSize = useScreenSize();
   const [hasMounted, setHasMounted] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
+  const [showCheckInPrompt, setShowCheckInPrompt] = useState(false);
+  const [hasShownPrompt, setHasShownPrompt] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [offlineEmail, setOfflineEmail] = useState<string | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -136,6 +139,16 @@ const InspectionPageContent = () => {
       window.removeEventListener('inspection-mode-changed', handleModeChange as EventListener);
     };
   }, [user, isOnline]);
+
+  useEffect(() => {
+    if (hasMounted && user?.email && !hasShownPrompt) {
+      const timer = setTimeout(() => {
+        setShowCheckInPrompt(true);
+        setHasShownPrompt(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasMounted, user, hasShownPrompt]);
 
   useEffect(() => {
     if (isOnline && user?.email && accessMode !== 'online') {
@@ -575,6 +588,15 @@ const InspectionPageContent = () => {
   };
 
   const handleStartInspectionFromTask = (task: any) => {
+    // Bloquear edición solo si el trabajo está Aprobado por un administrador
+    if (task.estado && ['Aprobado'].includes(task.estado)) {
+      toast({
+        variant: "destructive",
+        title: "Informe Bloqueado",
+        description: "Este informe ya ha sido aprobado y facturado. Solo puede ser modificado por un supervisor.",
+      });
+      return;
+    }
     setSelectedTask(task);
     setActiveInspectionForm(task.formType || 'informe-tecnico');
     setActiveTab(TABS.NEW_INSPECTION);
@@ -791,8 +813,8 @@ const InspectionPageContent = () => {
     } else {
       switch (activeTab) {
         case TABS.TASKS: Component = TasksTabLazy; props = { onStartInspection: handleStartInspectionFromTask }; break;
-        case TABS.EXPENSES: Component = RegistroGastoForm; break;
-        case TABS.PROFILE: Component = ProfileTabLazy; break;
+        case TABS.HOURS: Component = () => <RegistroGastoForm initialMode="horas" />; break;
+        case TABS.EXPENSES: Component = () => <RegistroGastoForm initialMode="gastos" />; break;
         default: return <p className="text-center py-20 text-slate-400">Componente no encontrado</p>;
       }
     }
@@ -865,6 +887,30 @@ const InspectionPageContent = () => {
       )}
 
       <Footer activeTab={activeTab} onNavigate={handleNavigate} />
+
+      {/* PROMPT DE BIENVENIDA / CHECK-IN */}
+      <AlertDialog open={showCheckInPrompt} onOpenChange={setShowCheckInPrompt}>
+        <AlertDialogContent className="rounded-[2.5rem] p-8 border-none bg-slate-900 text-white shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-3xl font-black uppercase tracking-tighter text-emerald-400">¡Bienvenido!</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-300 font-bold text-sm leading-relaxed">
+              ¿Deseas registrar tu ingreso a un cliente ahora? Recuerda que puedes registrar varios clientes durante el día en tu bitácora.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 gap-3">
+            <AlertDialogCancel className="rounded-2xl border-2 border-white/10 bg-white/5 text-white font-black uppercase text-[10px] tracking-widest hover:bg-white/10 transition-all h-14">Más tarde</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                handleNavigate(TABS.EXPENSES);
+                setShowCheckInPrompt(false);
+              }}
+              className="rounded-2xl bg-emerald-500 text-slate-900 font-black uppercase text-[10px] tracking-widest hover:bg-emerald-400 transition-all h-14 shadow-lg shadow-emerald-500/20"
+            >
+              Sí, Registrar Ingreso
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -20,29 +20,28 @@ export const Logo = ({ className, showText = true }: LogoProps) => {
 
   if (!mounted) {
     return (
-      <div className={cn("flex items-center gap-3", className)}>
-        <div className="w-12 h-12 bg-slate-200/20 rounded-md animate-pulse" />
+      <div className={cn("flex items-center gap-4", className)}>
+        <div className="w-14 h-14 bg-slate-200/20 rounded-md animate-pulse" />
         {showText && (
           <div className="flex flex-col leading-none">
-            <div className="h-5 w-32 bg-slate-200/20 animate-pulse rounded" />
-            <div className="h-3 w-20 bg-slate-200/20 animate-pulse rounded mt-1" />
+            <div className="h-6 w-36 bg-slate-200/20 animate-pulse rounded" />
+            <div className="h-3 w-24 bg-slate-200/20 animate-pulse rounded mt-1" />
           </div>
         )}
       </div>
     );
   }
 
-  const isDark = resolvedTheme === 'dark';
-  const logoSrc = isDark ? '/logo.png' : '/logo.png';
+  const logoSrc = '/logo.png';
 
   return (
-    <div className={cn("flex items-center gap-3 transition-all duration-500", className)}>
-      <div className="relative w-12 h-12 flex items-center justify-center">
+    <div className={cn("flex items-center gap-4 transition-all duration-500", className)}>
+      <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
         <img
           src={logoSrc}
           alt="energy engine logo"
-          width={48}
-          height={48}
+          width={56}
+          height={56}
           className="object-contain transition-opacity duration-300"
           onError={(e) => {
             (e.target as HTMLImageElement).src = logoBase64;
@@ -51,11 +50,11 @@ export const Logo = ({ className, showText = true }: LogoProps) => {
       </div>
       {showText && (
         <div className="flex flex-col justify-center leading-none mt-1 font-headline">
-          {/* Ahora es texto puro; el borde se aplicará automáticamente desde el CSS global */}
-          <span className="text-xl md:text-2xl font-bold tracking-tight text-primary lowercase italic">
+          <span className="text-2xl md:text-3xl font-bold tracking-tight text-primary lowercase italic">
             energy engine
           </span>
-          <span className="text-[10px] font-black text-slate-400 tracking-[0.2em] uppercase mt-0.5 whitespace-nowrap">
+          {/* CAMBIO: Ahora es blanco puro en modo oscuro */}
+          <span className="text-[11px] font-black text-slate-400 dark:text-white tracking-[0.2em] uppercase mt-0.5 whitespace-nowrap">
             grupos electrógenos
           </span>
         </div>

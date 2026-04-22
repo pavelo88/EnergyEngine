@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
@@ -21,6 +21,7 @@ import { resolveInspectorEmail } from '@/lib/inspection-mode';
 import { getNextSequenceForUser } from '@/lib/sequence-manager';
 import { addImageSafely, getPdfFileName } from '@/lib/pdf-utils';
 import { MAX_IMAGES_PER_REPORT } from '@/lib/report-limits';
+import { timeToDecimal, decimalToTime } from '@/lib/utils';
 
 const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
   <div className="flex flex-col items-center gap-1">
@@ -35,7 +36,7 @@ const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
 export const generatePDF = (report: any, inspectorName: string, reportId: string | null) => {
   const doc = new jsPDF();
   const finalID = reportId || 'BORRADOR';
-  const darkColor = '#0f172a';
+  const darkColor = '#165a30';
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
 
@@ -222,7 +223,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
   return doc;
 };
 
-export default function InformeRevisionForm({ initialData, aiData, onSuccess }: { initialData: any, aiData: ProcessDictationOutput | null, onSuccess: () => void }) {
+export default function InformeRevisionForm({ initialData, aiData, onSuccess, isAdmin = false }: { initialData: any, aiData: ProcessDictationOutput | null, onSuccess: () => void, isAdmin?: boolean }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const isOnline = useOnlineStatus();
@@ -250,6 +251,9 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const gpsRequired = useGpsRequired();
 
+  // Detect if we're editing an existing completed/preapproved report
+  const isEditingExisting = !!(initialData?.estado && ['Completado', 'Preaprobado', 'Aprobado'].includes(initialData.estado) && (initialData?.numero_informe || initialData?.firebaseId || initialData?.id));
+
   useEffect(() => {
     if (canUseCloud && user?.email && firestore) {
       getDoc(doc(firestore, 'usuarios', user.email))
@@ -269,18 +273,37 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
 
   useEffect(() => {
     if (initialData) {
-      setFormData((prev: any) => ({
-        ...prev,
-        cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
-        instalacion: initialData.instalacion || prev.instalacion,
-        direccion: initialData.direccion || prev.direccion,
-        motor: initialData.modelo || prev.motor,
-        modelo: initialData.n_motor || prev.modelo,
-        n_motor: initialData.n_motor || prev.n_motor,
-        n_grupo: initialData.n_grupo || prev.n_grupo,
-        potencia: initialData.potencia || prev.potencia,
-        observaciones: initialData.descripcion || prev.observaciones,
-      }));
+      if (initialData.estado && ['Completado', 'Preaprobado', 'Aprobado'].includes(initialData.estado)) {
+        // Editing existing completed report - populate ALL fields
+        setFormData((prev: any) => ({
+          ...prev,
+          ...initialData,
+          clienteId: initialData.clienteId || prev.clienteId,
+          cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
+          clienteNombre: initialData.clienteNombre || initialData.cliente || prev.clienteNombre,
+          numero_informe: initialData.numero_informe || initialData.firebaseId || initialData.id || prev.numero_informe,
+          parametrosTecnicos: {
+            ...initialData.parametrosTecnicos,
+            horas: typeof initialData.parametrosTecnicos?.horas === 'number' ? decimalToTime(initialData.parametrosTecnicos.horas) : initialData.parametrosTecnicos?.horas || '',
+          }
+        }));
+        if (initialData.inspectorSignatureUrl) setInspectorSignature(initialData.inspectorSignatureUrl);
+        if (initialData.clientSignatureUrl) setClientSignature(initialData.clientSignatureUrl);
+        setSavedDocId(initialData.numero_informe || initialData.firebaseId || initialData.id || '');
+      } else {
+        setFormData((prev: any) => ({
+          ...prev,
+          cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
+          instalacion: initialData.instalacion || prev.instalacion,
+          direccion: initialData.direccion || prev.direccion,
+          motor: initialData.modelo || prev.motor,
+          modelo: initialData.n_motor || prev.modelo,
+          n_motor: initialData.n_motor || prev.n_motor,
+          n_grupo: initialData.n_grupo || prev.n_grupo,
+          potencia: initialData.potencia || prev.potencia,
+          observaciones: initialData.descripcion || prev.observaciones,
+        }));
+      }
     }
   }, [initialData]);
 
@@ -381,7 +404,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
         };
         const finalId = docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
         const doc = generatePDF(reportData, inspectorName, finalId);
-        
+
         if (isSaved || forceDownload) {
           // SOLUCIÓN: FORZAR .pdf
           doc.save(`${finalId}.pdf`);
@@ -418,7 +441,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
       toast({ variant: 'destructive', title: 'Inspector no identificado', description: 'Inicia online una vez para habilitar el modo offline.' });
       return;
     }
-    if (isSaved) return;
+    if (isSaved && !isEditingExisting) return;
 
     const missing = [];
     if (!formData.cliente) missing.push('Cliente');
@@ -451,6 +474,41 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
       const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
       setSaving(true);
       didStartSave = true;
+
+      // --- EDITING AN EXISTING COMPLETED/PRE-APPROVED REPORT ---
+      if (isEditingExisting && savedDocId && canUseCloud && firestore) {
+        const existingDocId = savedDocId;
+        const storage = getStorage();
+        let inspectorSignatureUrl = (formData as any).inspectorSignatureUrl || inspectorSignature;
+        if (inspectorSignature && inspectorSignature.startsWith('data:')) {
+          const sRef = ref(storage, `firmas/${existingDocId}/inspector.png`);
+          await uploadString(sRef, inspectorSignature, 'data_url');
+          inspectorSignatureUrl = await getDownloadURL(sRef);
+        }
+        let clientSignatureUrl = (formData as any).clientSignatureUrl || clientSignature;
+        if (clientSignature && clientSignature.startsWith('data:')) {
+          const cRef = ref(storage, `firmas/${existingDocId}/cliente.png`);
+          await uploadString(cRef, clientSignature, 'data_url');
+          clientSignatureUrl = await getDownloadURL(cRef);
+        }
+        await updateDoc(doc(firestore, 'informes', existingDocId), {
+          ...formData,
+          parametrosTecnicos: {
+            ...formData.parametrosTecnicos,
+            horas: timeToDecimal(formData.parametrosTecnicos.horas)
+          },
+          inspectorSignatureUrl,
+          clientSignatureUrl,
+          estado: isAdmin ? 'Aprobado' : 'Preaprobado',
+          ultimaModificacion: Timestamp.now(),
+          ...(isAdmin ? { aprobadoPor: 'Admin', fecha_aprobacion: Timestamp.now() } : {})
+        });
+        setIsSaved(true);
+        toast({ title: '¡Documento Actualizado!', description: `Informe ${existingDocId} enviado para pre-aprobación.` });
+        handlePdfAction(true, existingDocId);
+        if (onSuccess) onSuccess();
+        return;
+      }
 
       const sequence = await getNextSequenceForUser({
         type: 'informe-revision',
@@ -514,6 +572,10 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
 
           const docData = {
             ...formData,
+            parametrosTecnicos: {
+              ...formData.parametrosTecnicos,
+              horas: timeToDecimal(formData.parametrosTecnicos.horas)
+            },
             imageUrls,
             inspectorSignatureUrl,
             clientSignatureUrl,
@@ -522,7 +584,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
             inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
             inspectorNombres: initialData?.inspectorNombres || [inspectorName],
             fecha_creacion: Timestamp.now(),
-            formType: 'informe-revision',
+            formType: formData.formType || 'informe-revision',
             id: docId,
             numero_informe: docId,
             estado: 'Completado'
@@ -570,15 +632,15 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
               <DialogTitle className="font-black uppercase tracking-tighter text-black">Vista Previa Informe de Revisión</DialogTitle>
               <DialogDescription className="text-xs text-slate-500">Documento temporal generado para verificación de datos.</DialogDescription>
             </div>
-            <button 
-              onClick={() => handlePdfAction(true)} 
+            <button
+              onClick={() => handlePdfAction(true)}
               className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-primary/90 transition-all shadow-sm active:scale-95"
             >
               Descargar PDF
             </button>
           </DialogHeader>
           <div className="flex-1 bg-slate-100">
-          {previewPdfUrl && <iframe src={`${previewPdfUrl}#toolbar=0`} className="w-full h-full border-none" title="PDF Preview" />}
+            {previewPdfUrl && <iframe src={`${previewPdfUrl}#toolbar=0`} className="w-full h-full border-none" title="PDF Preview" />}
           </div>
         </DialogContent>
       </Dialog>
@@ -670,7 +732,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
               <Camera size={28} className="text-slate-300 mb-1.5 group-hover:text-primary transition-colors" />
               <span className="font-black text-slate-400 uppercase text-[10px] tracking-widest">Añadir Fotos de Evidencia</span>
             </label>
-            <input id="image-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange} />
+            <input id="image-upload" type="file" multiple accept="image/*" capture="environment" className="hidden" onChange={handleImageChange} />
           </div>
           {images.length > 0 && (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
@@ -723,11 +785,11 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess }: 
 
           <button
             onClick={handleSave}
-            disabled={saving || isSaved}
+            disabled={saving || (isSaved && !isEditingExisting)}
             className="w-full p-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs flex items-center justify-center gap-2 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
           >
-            {saving ? <Loader2 className="animate-spin text-white" size={16} /> : isSaved ? <CheckCircle2 className="text-emerald-400" size={16} /> : <Save className="text-white" size={16} />}
-            {saving ? 'GUARDANDO...' : isSaved ? 'INFORME GUARDADO' : 'FINALIZAR REVISIÓN'}
+            {saving ? <Loader2 className="animate-spin text-white" size={16} /> : isSaved && !isEditingExisting ? <CheckCircle2 className="text-emerald-400" size={16} /> : <Save className="text-white" size={16} />}
+            {saving ? 'GUARDANDO DATOS...' : isSaved && !isEditingExisting ? 'GUARDADO' : isEditingExisting ? (isAdmin ? 'GUARDAR COMO APROBADO' : 'GUARDAR CAMBIOS (PRE-APROBADO)') : 'GUARDAR REVISIÓN'}
           </button>
         </div>
       </main>

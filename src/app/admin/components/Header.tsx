@@ -11,26 +11,25 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const { title, action } = useAdminHeaderRaw();
 
   return (
-    <header className="flex h-24 items-center justify-between bg-slate-950/50 backdrop-blur-xl border-b border-white/5 px-4 md:px-10 sticky top-0 z-40">
-      {/* Light mode (Comentado): bg-white/80 backdrop-blur-md border-b border-slate-100 */}
+    <header className="flex h-24 items-center justify-between bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 md:px-10 sticky top-0 z-40 shadow-sm">
       <div className="flex items-center gap-6">
         {/* Botón de Menú para móvil */}
         <button 
           onClick={onMenuClick} 
-          className="md:hidden p-3 rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-all shadow-lg"
+          className="md:hidden p-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-400 hover:text-[#062113] transition-all"
         >
           <Menu className="h-6 w-6" />
         </button>
         <div className="space-y-1">
-            <h1 className="text-2xl font-black text-white tracking-widest uppercase italic font-headline">{title}</h1>
-            <div className="h-1 w-12 bg-primary rounded-full glow-primary"></div>
+            <h1 className="text-2xl font-black text-[#0f172a] tracking-widest uppercase italic font-headline">{title}</h1>
+            <div className="h-1 w-12 bg-[#10b981] rounded-full"></div>
         </div>
       </div>
       
       {/* Botón de acción dinámico (Inyectado por cada sección) */}
       <div className="flex items-center gap-6">
-        <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+        <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse"></div>
             Node: Terminal-01
         </div>
         {action && (
