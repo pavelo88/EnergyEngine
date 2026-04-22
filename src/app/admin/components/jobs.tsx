@@ -301,7 +301,7 @@ export default function JobsPage() {
     const unsubInspectors = onSnapshot(qInspectors, (snapshot: any) => {
       const inspectorList = snapshot.docs
         .map((doc: any) => ({ id: doc.id, ...doc.data() }))
-        .filter((user: any) => user.roles && user.roles.includes('inspector'));
+        .filter((user: any) => user.roles && (user.roles.includes('inspector') || user.roles.includes('super')));
       setInspectors(inspectorList.map((user: any) => ({ id: user.id, nombre: user.nombre })));
     });
 

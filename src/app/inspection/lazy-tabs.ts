@@ -1,5 +1,6 @@
-﻿import HistoryTab from './components/HistoryTab';
+import HistoryTab from './components/HistoryTab';
 import RegistroGastoForm from './components/RegistroGastoForm';
+import BitacoraVisitasForm from './components/BitacoraVisitasForm';
 import ProfileTab from './components/ProfileTab';
 
 // --- FORMULARIOS DE INSPECCIÓN ---
@@ -10,7 +11,7 @@ import InformeSimplificadoForm from './components/forms/InformeSimplificadoForm'
 import RevisionBasicaForm from './components/forms/RevisionBasicaForm';
 
 export { HistoryTab as TasksTabLazy };
-export { RegistroGastoForm };
+export { RegistroGastoForm, BitacoraVisitasForm };
 export { ProfileTab as ProfileTabLazy };
 
 export { HojaTrabajoForm as HojaTrabajoFormLazy };

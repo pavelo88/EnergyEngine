@@ -28,6 +28,7 @@ import { useSearchParams } from 'next/navigation';
 import {
   TasksTabLazy,
   RegistroGastoForm,
+  BitacoraVisitasForm,
   ProfileTabLazy,
   HojaTrabajoFormLazy,
   InformeTecnicoFormLazy,
@@ -674,8 +675,20 @@ const InspectionPageContent = () => {
     };
 
     recognition.onerror = (e: any) => {
-      if (e.error === 'aborted' || e.error === 'not-allowed') return;
-      if (isDictatingRef.current) {
+      console.error("Speech Recognition Error:", e.error);
+      if (e.error === 'not-allowed') {
+        toast({ variant: "destructive", title: "Micrófono Bloqueado", description: "Permite el acceso al micrófono en tu navegador." });
+        setIsDictating(false);
+        isDictatingRef.current = false;
+      } else if (e.error === 'network') {
+        toast({ variant: "destructive", title: "Error de Red", description: "La transcripción de voz requiere conexión a internet." });
+        setIsDictating(false);
+        isDictatingRef.current = false;
+      } else if (e.error === 'no-speech') {
+        // Silently ignore or show subtle hint
+      }
+      
+      if (isDictatingRef.current && e.error !== 'not-allowed') {
         setTimeout(() => {
           if (isDictatingRef.current) {
             try { recognition.start(); } catch (err) { }
@@ -813,9 +826,10 @@ const InspectionPageContent = () => {
     } else {
       switch (activeTab) {
         case TABS.TASKS: Component = TasksTabLazy; props = { onStartInspection: handleStartInspectionFromTask }; break;
-        case TABS.HOURS: Component = () => <RegistroGastoForm initialMode="horas" />; break;
-        case TABS.EXPENSES: Component = () => <RegistroGastoForm initialMode="gastos" />; break;
-        default: return <p className="text-center py-20 text-slate-400">Componente no encontrado</p>;
+        case TABS.HOURS: Component = BitacoraVisitasForm; break;
+        case TABS.EXPENSES: Component = RegistroGastoForm; break;
+        case TABS.PROFILE: Component = ProfileTabLazy; break;
+        default: return <p className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest animate-pulse">Componente no encontrado</p>;
       }
     }
 

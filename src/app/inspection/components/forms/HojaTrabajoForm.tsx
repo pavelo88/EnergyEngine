@@ -55,7 +55,7 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.setTextColor(darkColor);
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text("HOJA DE TRABAJOS", leftMargin, currentY);
+    doc.text("HOJA DE TRABAJO", leftMargin, currentY);
 
     doc.setFontSize(10);
     doc.text(`Nº: ${finalID}`, pageWidth - rightMargin, currentY, { align: 'right' });
