@@ -265,9 +265,9 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
     let filtered = tasks;
 
     if (filter === 'asignado') {
-      filtered = filtered.filter(t => t.estado === 'Pendiente' || t.estado === 'En Progreso');
+      filtered = filtered.filter(t => t.estado === 'Asignado');
     } else if (filter === 'registrado') {
-      filtered = filtered.filter(t => t.estado === 'Completado' || t.estado === 'Preaprobado' || t.estado === 'Registrado');
+      filtered = filtered.filter(t => t.estado === 'Registrado');
     } else {
       filtered = filtered.filter(t => t.estado === 'Aprobado');
     }
@@ -288,11 +288,9 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
   const getEstadoBadge = (estado: string) => {
     switch (estado) {
       case 'Aprobado': return 'bg-emerald-50 text-emerald-600';
-      case 'Preaprobado':
-      case 'Registrado':
-      case 'Completado': return 'bg-blue-50 text-blue-600';
-      case 'En Progreso': return 'bg-yellow-50 text-yellow-600';
-      default: return 'bg-orange-50 text-orange-600';
+      case 'Registrado': return 'bg-blue-50 text-blue-600';
+      case 'Asignado': return 'bg-orange-50 text-orange-600';
+      default: return 'bg-slate-50 text-slate-600';
     }
   };
 
@@ -367,7 +365,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
                 <button
                   key={task.id}
                   onClick={() => {
-                    if (filter === 'asignado') {
+                    if (filter === 'asignado' || filter === 'registrado') {
                       onStartInspection(task);
                     } else {
                       setSelectedTask(task);

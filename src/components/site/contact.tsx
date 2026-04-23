@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, MapPin, Facebook, Instagram, Linkedin, MessageCircle, Mail, Send, Phone } from 'lucide-react';
+import { Loader2, MapPin, BookOpen, PlayCircle, Linkedin, MessageCircle, Mail, Send, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -93,14 +93,14 @@ export default function Contact() {
                 </a>
 
                 <div className="flex-1 flex items-center justify-center gap-6 p-3 rounded-2xl bg-white/90 dark:bg-black/40 border border-white/60 shadow-inner">
-                 {/* 
-                    <Link href="https://facebook.com/energyenginees" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-primary transition-all duration-300 hover:scale-110">
-                      <Facebook size={20} />
-                    </Link>
-                    <Link href="https://instagram.com/energyenginees" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-primary transition-all duration-300 hover:scale-110">
-                      <Instagram size={20} />
-                    </Link> 
-                  */}
+
+                  <Link href="https://heyzine.com/flip-book/9c1719c192.html" target="_blank" title="Ver Catálogo" className="text-slate-600 dark:text-slate-400 hover:text-primary transition-all duration-300 hover:scale-110">
+                    <BookOpen size={20} />
+                  </Link>
+                  <Link href="/presentacion.mp4" target="_blank" title="Ver Video Presentación" className="text-slate-600 dark:text-slate-400 hover:text-primary transition-all duration-300 hover:scale-110">
+                    <PlayCircle size={20} />
+                  </Link>
+
 
                   <Link href="https://www.linkedin.com/in/energy-engine-grupos-electrogenos-74529270" target="_blank" className="text-slate-600 dark:text-slate-400 hover:text-primary transition-all duration-300 hover:scale-110">
                     <Linkedin size={20} />

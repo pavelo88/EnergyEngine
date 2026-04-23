@@ -136,7 +136,7 @@ type Job = {
   inspectorIds: string[];
   inspectorNombres?: string[];
   tecnicoNombre?: string;
-  estado: 'Pendiente' | 'En Progreso' | 'Completado' | 'Preaprobado' | 'Aprobado';
+  estado: 'Asignado' | 'Registrado' | 'Aprobado';
   fecha_creacion?: any;
   formType?: 'hoja-trabajo' | 'informe-revision' | 'informe-tecnico' | 'informe-simplificado' | 'revision-basica' | 'job' | string;
   tecnicoId?: string;
@@ -165,8 +165,8 @@ export default function JobsPage() {
   const [aiSuggestions, setAiSuggestions] = useState<any>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  const [selectedStatus, setSelectedStatus] = useState<Job['estado']>('Pendiente');
-  
+  const [selectedStatus, setSelectedStatus] = useState<Job['estado']>('Asignado');
+
   // Form/Modal states (for adding/editing)
   const [selectedFormType, setSelectedFormType] = useState('');
   const [selectedFormLabel, setSelectedFormLabel] = useState('');
@@ -206,7 +206,7 @@ export default function JobsPage() {
         } else {
           let val = obj[key];
           if (val && typeof val === 'object' && (val.seconds || val._seconds)) {
-             val = formatSafeDate(val, 'dd/MM/yyyy HH:mm');
+            val = formatSafeDate(val, 'dd/MM/yyyy HH:mm');
           }
           flattened[`${prefix}${key}`] = val;
         }
@@ -220,10 +220,10 @@ export default function JobsPage() {
 
       const dataToExport = filteredByForm.map((job: any) => {
         const flat = flattenObject(job);
-        
+
         // --- ORDENAMIENTO LÓGICO DE COLUMNAS (Prioridad del Admin) ---
         const ordered: any = {};
-        
+
         // 1. Metadatos Generales
         ordered['N° INFORME'] = job.numero_informe || job.id;
         ordered['FECHA'] = formatSafeDate(job.fecha_creacion, 'dd/MM/yyyy HH:mm');
@@ -240,9 +240,9 @@ export default function JobsPage() {
         Object.keys(flat).forEach(key => {
           const upperKey = key.toUpperCase();
           if (!['ID', 'NUMERO_INFORME', 'FECHA_CREACION', 'TECNICONOMBRE', 'INSPECTORNOMBRES', 'ESTADO', 'CLIENTE', 'CLIENTENOMBRE', 'INSTALACION', 'FORMTYPE', 'SOURCECOLLECTION'].includes(upperKey)) {
-             if (!upperKey.includes('IMAGE') && !upperKey.includes('OBSERVAC')) {
-                ordered[upperKey] = flat[key];
-             }
+            if (!upperKey.includes('IMAGE') && !upperKey.includes('OBSERVAC')) {
+              ordered[upperKey] = flat[key];
+            }
           }
         });
 
@@ -250,7 +250,7 @@ export default function JobsPage() {
         if (job.location?.lat && job.location?.lon) {
           ordered['UBICACIÓN_MAPS'] = `https://www.google.com/maps?q=${job.location.lat},${job.location.lon}`;
         }
-        
+
         Object.keys(flat).forEach(key => {
           if (key.toLowerCase().includes('image')) {
             ordered[key.toUpperCase()] = flat[key];
@@ -344,13 +344,13 @@ export default function JobsPage() {
 
   const jobsFiltrados = useMemo(() => {
     return jobs.filter(job => {
-      const matchQuery = !filterQuery || 
+      const matchQuery = !filterQuery ||
         (job.numero_informe?.toLowerCase().includes(filterQuery.toLowerCase())) ||
         (job.clienteNombre?.toLowerCase().includes(filterQuery.toLowerCase())) ||
         (job.descripcion?.toLowerCase().includes(filterQuery.toLowerCase()));
-      
-      const matchInspector = filterInspectorId === 'all' || 
-        job.inspectorIds?.includes(filterInspectorId) || 
+
+      const matchInspector = filterInspectorId === 'all' ||
+        job.inspectorIds?.includes(filterInspectorId) ||
         job.tecnicoId === filterInspectorId;
 
       const matchClient = filterClientId === 'all' || job.clienteId === filterClientId;
@@ -381,13 +381,11 @@ export default function JobsPage() {
       setSelectedFormLabel(ft?.label || editingJob.descripcion || '');
       setSelectedInspectorId(editingJob.inspectorIds?.[0] || '');
       setSelectedClientId(editingJob.clienteId || '');
-      setSelectedStatus(editingJob.estado || 'Pendiente');
     } else {
       setSelectedFormType('');
       setSelectedFormLabel('');
       setSelectedInspectorId('');
       setSelectedClientId('');
-      setSelectedStatus('Pendiente');
     }
   }, [editingJob]);
 
@@ -428,7 +426,7 @@ export default function JobsPage() {
       clienteNombre: selectedClient?.nombre || 'N/A',
       inspectorIds: selectedInspectorId ? [selectedInspectorId] : [],
       inspectorNombres: selectedInspector ? [selectedInspector.nombre] : [],
-      estado: selectedStatus,
+      estado: 'Asignado',
       formType: selectedFormType,
     };
 
@@ -529,11 +527,11 @@ export default function JobsPage() {
           <Label className="text-[10px] font-black text-slate-400 ml-2 uppercase">Buscador</Label>
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <Input 
-              value={filterQuery} 
-              onChange={e => setFilterQuery(e.target.value)} 
-              placeholder="N° Informe, Cliente..." 
-              className="pl-9 h-10 rounded-xl border-slate-200 bg-white text-slate-900 text-xs font-bold" 
+            <Input
+              value={filterQuery}
+              onChange={e => setFilterQuery(e.target.value)}
+              placeholder="N° Informe, Cliente..."
+              className="pl-9 h-10 rounded-xl border-slate-200 bg-white text-slate-900 text-xs font-bold"
             />
           </div>
         </div>
@@ -573,88 +571,90 @@ export default function JobsPage() {
 
       <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
         {loading ? <p className="text-center font-black uppercase text-slate-200 py-20">Analizando Trabajos...</p> : (
-          <table className="w-full text-left">
-            <thead className="bg-[#062113]">
-              <tr className="text-[9px] font-black text-white uppercase tracking-[0.15em] text-center border-b border-white/10">
-                <th className="px-5 py-5 text-left rounded-tl-2xl">Informe</th>
-                <th className="px-5 py-5 text-left">Descripción / Tipo</th>
-                <th className="px-5 py-5 text-left">Cliente / Instalación</th>
-                <th className="px-5 py-5">Especificaciones</th>
-                <th className="px-5 py-5">Técnicos</th>
-                <th className="px-5 py-5">Estado</th>
-                <th className="px-5 py-5 text-right rounded-tr-2xl">Gestión</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {jobsFiltrados.map(job => (
-                <tr key={job.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                  <td className="px-5 py-4 font-black text-[#0f172a] text-sm">{job.numero_informe || '—'}</td>
-                  <td className="px-5 py-4">
-                    <div className="font-black text-slate-900 text-xs uppercase tracking-tight">{getJobTitle(job)}</div>
-                    <div className="text-[9px] font-bold text-slate-400">{job.formType || 'GENERAL'}</div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="font-black text-slate-700 text-xs uppercase">{job.clienteNombre || job.cliente}</div>
-                    <div className="text-[9px] font-black text-[#10b981] uppercase tracking-tighter">{job.instalacion || ''}</div>
-                  </td>
-                  <td className="px-5 py-4 text-center">
-                    <div className="text-[8px] font-black text-slate-400 uppercase leading-tight">
-                      {job.modelo && <div>MOD: {job.modelo}</div>}
-                      {job.n_motor && <div>S/N: {job.n_motor}</div>}
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 text-center">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-tight">{job.inspectorNombres?.join(', ') || job.tecnicoNombre || 'Pendiente'}</span>
-                  </td>
-                  <td className="px-5 py-4 text-center">
-                    <div className={`px-3 py-1.5 text-[8px] font-black rounded-md inline-block uppercase tracking-widest
-                          ${job.estado === 'Pendiente' ? 'bg-amber-50 text-amber-600 border border-amber-100' : ''}
-                          ${job.estado === 'En Progreso' ? 'bg-blue-50 text-blue-600 border border-blue-100' : ''}
-                          ${job.estado === 'Completado' || job.estado === 'Preaprobado' || job.estado === 'Aprobado' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : ''}
-                    `}>
-                      {job.estado}
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    <div className="flex justify-end gap-1">
-                      {(job.estado === 'Preaprobado' || job.estado === 'Completado') && (
-                        <Button 
-                          onClick={() => handleApproveJob(job)} 
-                          variant="outline" size="icon" 
-                          className="h-8 w-8 bg-[#10b981] border-[#10b981] rounded-lg text-white hover:bg-emerald-600 transition-all shadow-sm"
-                          title="Aprobar Definitivamente"
-                        >
-                          <CheckCircle2 size={14} />
-                        </Button>
-                      )}
-                      {canReprint(job) && (
-                        <Button onClick={() => handleReprintSavedPdf(job)} variant="outline" size="icon" className="h-8 w-8 bg-slate-800 border-slate-800 rounded-lg text-white hover:bg-[#10b981] hover:border-[#10b981] transition-all" title="Reimprimir PDF">
-                          <Download size={14} />
-                        </Button>
-                      )}
-                      <Button onClick={() => { 
-                        if (job.formType === 'job' || !job.formType) {
-                          setEditingJob(job); 
-                          setIsModalOpen(true); 
-                        } else {
-                          setSelectedReportForEdit(job);
-                          setIsReportEditorOpen(true);
-                        }
-                      }} variant="outline" size="icon" className="h-8 w-8 bg-slate-800 border-slate-800 rounded-lg text-white hover:bg-[#062113] hover:border-[#062113] transition-all" title="Editar">
-                        <Pencil size={14} />
-                      </Button>
-                      <Button onClick={() => handleDeleteJob(job)} variant="outline" size="icon" className="h-8 w-8 bg-red-600 border-red-600 rounded-lg text-white hover:bg-red-700 hover:border-red-700 transition-all" title="Eliminar">
-                        <Trash2 size={14} />
-                      </Button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto custom-scroll">
+            <table className="w-full text-left">
+              <thead className="bg-[#062113]">
+                <tr className="text-[9px] font-black text-white uppercase tracking-[0.15em] text-center border-b border-white/10">
+                  <th className="px-5 py-5 text-left rounded-tl-2xl">Informe</th>
+                  <th className="px-5 py-5 text-left">Descripción / Tipo</th>
+                  <th className="px-5 py-5 text-left">Cliente / Instalación</th>
+                  <th className="px-5 py-5">Especificaciones</th>
+                  <th className="px-5 py-5">Técnicos</th>
+                  <th className="px-5 py-5">Estado</th>
+                  <th className="px-5 py-5 text-right rounded-tr-2xl">Gestión</th>
                 </tr>
-              ))}
-              {jobsFiltrados.length === 0 && (
-                <tr><td colSpan={7} className="py-10 text-center text-slate-400 font-bold uppercase text-xs">No se registran trabajos con estos filtros.</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {jobsFiltrados.map(job => (
+                  <tr key={job.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                    <td className="px-5 py-4 font-black text-[#0f172a] text-sm">{job.numero_informe || '—'}</td>
+                    <td className="px-5 py-4">
+                      <div className="font-black text-slate-900 text-xs uppercase tracking-tight">{getJobTitle(job)}</div>
+                      <div className="text-[9px] font-bold text-slate-400">{job.formType || 'GENERAL'}</div>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="font-black text-slate-700 text-xs uppercase">{job.clienteNombre || job.cliente}</div>
+                      <div className="text-[9px] font-black text-[#10b981] uppercase tracking-tighter">{job.instalacion || ''}</div>
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <div className="text-[8px] font-black text-slate-400 uppercase leading-tight">
+                        {job.modelo && <div>MOD: {job.modelo}</div>}
+                        {job.n_motor && <div>S/N: {job.n_motor}</div>}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-tight">{job.inspectorNombres?.join(', ') || job.tecnicoNombre || 'Pendiente'}</span>
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <div className={`px-3 py-1.5 text-[8px] font-black rounded-md inline-block uppercase tracking-widest
+                          ${job.estado === 'Asignado' ? 'bg-amber-50 text-amber-600 border border-amber-100' : ''}
+                          ${job.estado === 'Registrado' ? 'bg-blue-50 text-blue-600 border border-blue-100' : ''}
+                          ${job.estado === 'Aprobado' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : ''}
+                    `}>
+                        {job.estado}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <div className="flex justify-end gap-1">
+                        {job.estado === 'Registrado' && (
+                          <Button
+                            onClick={() => handleApproveJob(job)}
+                            variant="outline" size="icon"
+                            className="h-8 w-8 bg-[#10b981] border-[#10b981] rounded-lg text-white hover:bg-emerald-600 transition-all shadow-sm"
+                            title="Aprobar Definitivamente"
+                          >
+                            <CheckCircle2 size={14} />
+                          </Button>
+                        )}
+                        {canReprint(job) && (
+                          <Button onClick={() => handleReprintSavedPdf(job)} variant="outline" size="icon" className="h-8 w-8 bg-slate-800 border-slate-800 rounded-lg text-white hover:bg-[#10b981] hover:border-[#10b981] transition-all" title="Reimprimir PDF">
+                            <Download size={14} />
+                          </Button>
+                        )}
+                        <Button onClick={() => {
+                          if (job.formType === 'job' || !job.formType) {
+                            setEditingJob(job);
+                            setIsModalOpen(true);
+                          } else {
+                            setSelectedReportForEdit(job);
+                            setIsReportEditorOpen(true);
+                          }
+                        }} variant="outline" size="icon" className="h-8 w-8 bg-slate-800 border-slate-800 rounded-lg text-white hover:bg-[#062113] hover:border-[#062113] transition-all" title="Editar">
+                          <Pencil size={14} />
+                        </Button>
+                        <Button onClick={() => handleDeleteJob(job)} variant="outline" size="icon" className="h-8 w-8 bg-red-600 border-red-600 rounded-lg text-white hover:bg-red-700 hover:border-red-700 transition-all" title="Eliminar">
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {jobsFiltrados.length === 0 && (
+                  <tr><td colSpan={7} className="py-10 text-center text-slate-400 font-bold uppercase text-xs">No se registran trabajos con estos filtros.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -734,19 +734,6 @@ export default function JobsPage() {
                 )}
               />
 
-              {/* ESTADO */}
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado Operativo</Label>
-                <Select required value={selectedStatus} onValueChange={(v: any) => setSelectedStatus(v)}>
-                  <SelectTrigger className="rounded-xl border-slate-200 bg-slate-50 font-bold h-12 text-slate-900"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-xl shadow-xl">
-                    <SelectItem value="Pendiente">🟡 Pendiente</SelectItem>
-                    <SelectItem value="En Progreso">🔵 En Progreso</SelectItem>
-                    <SelectItem value="Completado">🟢 Completado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={closeModal} className="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors">Cancelar</button>
                 <Button
@@ -768,12 +755,12 @@ export default function JobsPage() {
           <DialogHeader className="p-8 border-b border-slate-50 sticky top-0 bg-white/80 backdrop-blur-md z-10">
             <DialogTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3 text-left">
               <div className="w-10 h-10 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
-                 <FileText size={20} />
+                <FileText size={20} />
               </div>
               Revisión Administrativa: {selectedReportForEdit?.numero_informe || selectedReportForEdit?.id}
             </DialogTitle>
             <div className="flex gap-2">
-              <Button 
+              <Button
                 onClick={async () => {
                   if (!selectedReportForEdit) return;
                   setIsAiLoading(true);
@@ -794,28 +781,28 @@ export default function JobsPage() {
             </div>
           </DialogHeader>
           <div className="p-4 md:p-8">
-             {(() => {
-                if (!selectedReportForEdit) return null;
-                const props = {
-                  initialData: selectedReportForEdit,
-                  aiData: aiSuggestions,
-                  onSuccess: () => {
-                    setIsReportEditorOpen(false);
-                    setSelectedReportForEdit(null);
-                    setAiSuggestions(null);
-                  },
-                  isAdmin: true
-                };
+            {(() => {
+              if (!selectedReportForEdit) return null;
+              const props = {
+                initialData: selectedReportForEdit,
+                aiData: aiSuggestions,
+                onSuccess: () => {
+                  setIsReportEditorOpen(false);
+                  setSelectedReportForEdit(null);
+                  setAiSuggestions(null);
+                },
+                isAdmin: true
+              };
 
-                switch(selectedReportForEdit.formType) {
-                  case 'hoja-trabajo': return <HojaTrabajoForm {...props} />;
-                  case 'informe-revision': return <InformeRevisionForm {...props} />;
-                  case 'informe-tecnico': return <InformeTecnicoForm {...props} />;
-                  case 'informe-simplificado': return <InformeSimplificadoForm {...props} />;
-                  case 'revision-basica': return <RevisionBasicaForm {...props} />;
-                  default: return <p className="p-10 text-center font-bold">Tipo de formulario no soportado para edición directa.</p>;
-                }
-             })()}
+              switch (selectedReportForEdit.formType) {
+                case 'hoja-trabajo': return <HojaTrabajoForm {...props} />;
+                case 'informe-revision': return <InformeRevisionForm {...props} />;
+                case 'informe-tecnico': return <InformeTecnicoForm {...props} />;
+                case 'informe-simplificado': return <InformeSimplificadoForm {...props} />;
+                case 'revision-basica': return <RevisionBasicaForm {...props} />;
+                default: return <p className="p-10 text-center font-bold">Tipo de formulario no soportado para edición directa.</p>;
+              }
+            })()}
           </div>
         </DialogContent>
       </Dialog>

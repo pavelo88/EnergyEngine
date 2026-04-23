@@ -129,7 +129,24 @@ export default function HoursPage() {
     });
   }, [setHeaderProps, filteredRecords]);
 
-  const handleExportExcel = () => { /* Excel logic */ };
+  const handleExportExcel = () => {
+    const dataToExport = records.map(r => ({
+      Inspector: r.inspectorNombre,
+      Fecha: format(r.fecha?.toDate ? r.fecha.toDate() : new Date(r.fecha), 'dd/MM/yyyy'),
+      Cliente: r.clienteNombre,
+      Actividad: r.actividad,
+      'H. Normales': r.horasNormales || 0,
+      'H. Extras': r.horasExtras || 0,
+      'H. Especiales': r.horasEspeciales || 0,
+      Total: (r.horasNormales || 0) + (r.horasExtras || 0) + (r.horasEspeciales || 0),
+      Estado: r.estado
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Horas");
+    XLSX.writeFile(wb, `Reporte_Horas_${format(new Date(), 'yyyyMMdd_HHmmss')}.xlsx`);
+  };
   const handleApprove = async (id: string, currentStatus: string) => { /* Approve logic */ };
   const handleDelete = async (id: string) => { /* Delete logic */ };
 
@@ -177,15 +194,15 @@ export default function HoursPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-[10px] font-black uppercase border-r border-slate-100">Fecha</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase border-r border-slate-100">Técnico</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase border-r border-slate-100">Cliente / Actividad</th>
-                  <th className="px-4 py-4 text-[10px] font-black uppercase text-center border-r border-slate-100 text-emerald-600">Norm.</th>
-                  <th className="px-4 py-4 text-[10px] font-black uppercase text-center border-r border-slate-100 text-amber-600">Extra</th>
-                  <th className="px-4 py-4 text-[10px] font-black uppercase text-center border-r border-slate-100 text-blue-600">Esp.</th>
-                  <th className="px-4 py-4 text-[10px] font-black uppercase text-center border-r border-slate-100 bg-slate-100">Total</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase text-center border-r border-slate-100">Estado</th>
+                <tr className="bg-[#062113] text-white">
+                  <th className="px-6 py-4 text-[10px] font-black uppercase border-r border-white/10">Fecha</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase border-r border-white/10">Técnico</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase border-r border-white/10">Cliente / Actividad</th>
+                  <th className="px-4 py-4 text-[10px] font-black uppercase text-center border-r border-white/10">Norm.</th>
+                  <th className="px-4 py-4 text-[10px] font-black uppercase text-center border-r border-white/10">Extra</th>
+                  <th className="px-4 py-4 text-[10px] font-black uppercase text-center border-r border-white/10">Esp.</th>
+                  <th className="px-4 py-4 text-[10px] font-black uppercase text-center border-r border-white/10 bg-white/5">Total</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase text-center border-r border-white/10">Estado</th>
                   <th className="px-6 py-4 text-[10px] font-black uppercase text-right">Acciones</th>
                 </tr>
               </thead>

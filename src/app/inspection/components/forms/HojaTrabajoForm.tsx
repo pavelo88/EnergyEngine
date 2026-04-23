@@ -277,7 +277,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
   const gpsRequired = useGpsRequired();
 
   // Detect if we're editing an existing completed/preapproved report
-  const isEditingExisting = !!(initialData?.estado && ['Completado', 'Preaprobado', 'Aprobado'].includes(initialData.estado) && (initialData?.numero_informe || initialData?.firebaseId || initialData?.id));
+  const isEditingExisting = !!(initialData?.estado && ['Registrado', 'Aprobado'].includes(initialData.estado) && (initialData?.numero_informe || initialData?.firebaseId || initialData?.id));
 
   useEffect(() => {
     const fetchData = async () => {
@@ -315,7 +315,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
 
   useEffect(() => {
     if (initialData) {
-      if (initialData.estado && ['Completado', 'Preaprobado', 'Aprobado'].includes(initialData.estado)) {
+      if (initialData.estado && ['Registrado', 'Aprobado'].includes(initialData.estado)) {
         // Editing existing completed report - populate ALL fields
         setFormData((prev: any) => ({
           ...prev,
@@ -336,7 +336,9 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
       } else {
         setFormData((prev: any) => ({
           ...prev,
-          cliente: initialData.clienteNombre || prev.cliente,
+          clienteId: initialData.clienteId || prev.clienteId,
+          clienteNombre: initialData.clienteNombre || initialData.cliente || prev.clienteNombre,
+          cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
           instalacion: initialData.instalacion || prev.instalacion,
           motor: initialData.modelo || prev.motor,
           n_motor: initialData.n_motor || prev.n_motor,
@@ -552,7 +554,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
           },
           inspectorSignatureUrl,
           clientSignatureUrl,
-          estado: isAdmin ? 'Aprobado' : 'Preaprobado',
+          estado: isAdmin ? 'Aprobado' : 'Registrado',
           ultimaModificacion: Timestamp.now(),
           modificadoPorId: inspectorEmail,
           modificadoPorNombre: inspectorName,
@@ -569,7 +571,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
         setIsSaved(true);
         toast({
           title: '¡Documento Actualizado!',
-          description: `El informe ${existingDocId} ha sido enviado para pre-aprobación.`
+          description: `El informe ${existingDocId} ha sido guardado como Registrado.`
         });
         handlePdfAction(true, existingDocId);
         if (onSuccess) onSuccess();
@@ -682,13 +684,13 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
             id: sequentialId,
             numero_informe: sequentialId,
             internalId: internalFirebaseId,
-            estado: 'Completado',
+            estado: 'Registrado',
           };
 
           await setDoc(doc(firestore, 'informes', sequentialId), docData);
 
           if (initialData?.id) {
-            await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
+            await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Registrado' });
           }
 
           const pendingImages = await dbLocal.imagenes.where('reportId').equals(sequentialId).toArray();
@@ -912,7 +914,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
             className="w-full p-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs flex items-center justify-center gap-2 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
           >
             {saving ? <Loader2 className="animate-spin text-white" size={16} /> : isSaved && !isEditingExisting ? <CheckCircle2 className="text-emerald-400" size={16} /> : <Save className="text-white" size={16} />}
-            {saving ? 'GUARDANDO DATOS...' : isSaved && !isEditingExisting ? 'GUARDADO' : isEditingExisting ? (isAdmin ? 'GUARDAR COMO APROBADO' : 'GUARDAR CAMBIOS (PRE-APROBADO)') : 'GUARDAR HOJA'}
+            {saving ? 'GUARDANDO DATOS...' : isSaved && !isEditingExisting ? 'GUARDADO' : isEditingExisting ? (isAdmin ? 'GUARDAR COMO APROBADO' : 'GUARDAR CAMBIOS (REGISTRADO)') : 'REGISTRAR TRABAJO'}
           </button>
         </div>
       </main>

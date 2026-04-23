@@ -252,7 +252,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess, is
   const gpsRequired = useGpsRequired();
 
   // Detect if we're editing an existing completed/preapproved report
-  const isEditingExisting = !!(initialData?.estado && ['Completado', 'Preaprobado', 'Aprobado'].includes(initialData.estado) && (initialData?.numero_informe || initialData?.firebaseId || initialData?.id));
+  const isEditingExisting = !!(initialData?.estado && ['Registrado', 'Aprobado'].includes(initialData.estado) && (initialData?.numero_informe || initialData?.firebaseId || initialData?.id));
 
   useEffect(() => {
     if (canUseCloud && user?.email && firestore) {
@@ -273,7 +273,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess, is
 
   useEffect(() => {
     if (initialData) {
-      if (initialData.estado && ['Completado', 'Preaprobado', 'Aprobado'].includes(initialData.estado)) {
+      if (initialData.estado && ['Registrado', 'Aprobado'].includes(initialData.estado)) {
         // Editing existing completed report - populate ALL fields
         setFormData((prev: any) => ({
           ...prev,
@@ -293,7 +293,9 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess, is
       } else {
         setFormData((prev: any) => ({
           ...prev,
+          clienteId: initialData.clienteId || prev.clienteId,
           cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
+          clienteNombre: initialData.clienteNombre || initialData.cliente || prev.clienteNombre,
           instalacion: initialData.instalacion || prev.instalacion,
           direccion: initialData.direccion || prev.direccion,
           motor: initialData.modelo || prev.motor,
@@ -499,12 +501,12 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess, is
           },
           inspectorSignatureUrl,
           clientSignatureUrl,
-          estado: isAdmin ? 'Aprobado' : 'Preaprobado',
+          estado: isAdmin ? 'Aprobado' : 'Registrado',
           ultimaModificacion: Timestamp.now(),
           ...(isAdmin ? { aprobadoPor: 'Admin', fecha_aprobacion: Timestamp.now() } : {})
         });
         setIsSaved(true);
-        toast({ title: '¡Documento Actualizado!', description: `Informe ${existingDocId} enviado para pre-aprobación.` });
+        toast({ title: '¡Documento Actualizado!', description: `Informe ${existingDocId} guardado como Registrado.` });
         handlePdfAction(true, existingDocId);
         if (onSuccess) onSuccess();
         return;
@@ -587,13 +589,13 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess, is
             formType: formData.formType || 'informe-revision',
             id: docId,
             numero_informe: docId,
-            estado: 'Completado'
+            estado: 'Registrado'
           };
 
           await setDoc(doc(firestore, 'informes', docId), docData);
 
           if (initialData?.id) {
-            await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Completado' });
+            await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Registrado' });
           }
 
           await saveDataToLocal(true, docId);
@@ -789,7 +791,7 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess, is
             className="w-full p-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs flex items-center justify-center gap-2 disabled:bg-slate-700 shadow-xl active:scale-95 transition-all"
           >
             {saving ? <Loader2 className="animate-spin text-white" size={16} /> : isSaved && !isEditingExisting ? <CheckCircle2 className="text-emerald-400" size={16} /> : <Save className="text-white" size={16} />}
-            {saving ? 'GUARDANDO DATOS...' : isSaved && !isEditingExisting ? 'GUARDADO' : isEditingExisting ? (isAdmin ? 'GUARDAR COMO APROBADO' : 'GUARDAR CAMBIOS (PRE-APROBADO)') : 'GUARDAR REVISIÓN'}
+            {saving ? 'GUARDANDO DATOS...' : isSaved && !isEditingExisting ? 'GUARDADO' : isEditingExisting ? (isAdmin ? 'GUARDAR COMO APROBADO' : 'GUARDAR CAMBIOS (REGISTRADO)') : 'REGISTRAR TRABAJO'}
           </button>
         </div>
       </main>

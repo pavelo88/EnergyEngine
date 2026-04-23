@@ -126,7 +126,21 @@ export default function ExpensesPage() {
     });
   }, [setHeaderProps, filteredRecords]);
 
-  const handleExportExcel = () => { /* intacto */ };
+  const handleExportExcel = () => {
+    const dataToExport = records.map(r => ({
+      Inspector: r.inspectorNombre,
+      Fecha: format(r.fecha?.toDate ? r.fecha.toDate() : new Date(r.fecha), 'dd/MM/yyyy'),
+      Rubro: r.rubro,
+      Concepto: r.descripcion,
+      Monto: r.monto || 0,
+      Estado: r.estado
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Gastos");
+    XLSX.writeFile(wb, `Reporte_Gastos_${format(new Date(), 'yyyyMMdd_HHmmss')}.xlsx`);
+  };
   const handleApprove = async (id: string, currentStatus: string) => { /* intacto */ };
   const handleDelete = async (id: string) => { /* intacto */ };
 
@@ -174,7 +188,14 @@ export default function ExpensesPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200"><th className="px-6 py-4 text-[10px] font-black uppercase border-r border-slate-100">Fecha</th><th className="px-6 py-4 text-[10px] font-black uppercase border-r border-slate-100">Técnico</th><th className="px-6 py-4 text-[10px] font-black uppercase border-r border-slate-100">Rubro / Concepto</th><th className="px-6 py-4 text-[10px] font-black uppercase text-center border-r border-slate-100">Monto</th><th className="px-6 py-4 text-[10px] font-black uppercase text-center border-r border-slate-100">Estado</th><th className="px-6 py-4 text-[10px] font-black uppercase text-right">Acciones</th></tr>
+                <tr className="bg-[#062113] text-white">
+                  <th className="px-6 py-4 text-[10px] font-black uppercase border-r border-white/10">Fecha</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase border-r border-white/10">Técnico</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase border-r border-white/10">Rubro / Concepto</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase text-center border-r border-white/10">Monto</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase text-center border-r border-white/10">Estado</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase text-center">Acciones</th>
+                </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredRecords.map((r) => (

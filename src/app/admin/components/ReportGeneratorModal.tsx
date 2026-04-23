@@ -155,27 +155,27 @@ export default function ReportGeneratorModal({ isOpen, onClose, reportes, fixedI
           ? [['Fecha', (grouping === 'inspector' ? 'Cliente' : 'Técnico'), 'Actividad', 'Llegada', 'Salida', 'Norm.', 'Ext.', 'Esp.', 'Total']]
           : [['Fecha', 'Rubro', 'Concepto', 'Pago', 'Monto']],
         body: groupRecords.map(r => moduleType === 'horas' ? [
-          getFormattedDate(r.fecha), (grouping === 'inspector' ? r.clienteNombre : r.inspectorNombre?.split('@')[0].toUpperCase()), r.actividad || '–', r.horaLlegada || '–', r.horaSalida || '–', 
-          { content: Number(r.horasNormales).toFixed(2), styles: { halign: 'right' as const } }, 
-          { content: Number(r.horasExtras).toFixed(2), styles: { halign: 'right' as const } }, 
-          { content: Number(r.horasEspeciales).toFixed(2), styles: { halign: 'right' as const } }, 
+          getFormattedDate(r.fecha), (grouping === 'inspector' ? r.clienteNombre : r.inspectorNombre?.split('@')[0].toUpperCase()), r.actividad || '–', r.horaLlegada || '–', r.horaSalida || '–',
+          { content: Number(r.horasNormales).toFixed(2), styles: { halign: 'right' as const } },
+          { content: Number(r.horasExtras).toFixed(2), styles: { halign: 'right' as const } },
+          { content: Number(r.horasEspeciales).toFixed(2), styles: { halign: 'right' as const } },
           { content: (Number(r.horasNormales) + Number(r.horasExtras) + Number(r.horasEspeciales)).toFixed(2), styles: { halign: 'right' as const, fontStyle: 'bold' } }
         ] : [
-          getFormattedDate(r.fecha), r.rubro || '–', r.descripcion || '–', r.forma_pago || '–', 
+          getFormattedDate(r.fecha), r.rubro || '–', r.descripcion || '–', r.forma_pago || '–',
           { content: `${Number(r.monto).toFixed(2)}€`, styles: { halign: 'right' as const, fontStyle: 'bold' } }
         ]),
         foot: [[
           { content: `TOTAL ${groupName}`, colSpan: (moduleType === 'horas' ? 5 : 4), styles: { halign: 'right' as const, fontStyle: 'bold' } },
           ...(moduleType === 'horas' ? [
-            { content: subN.toFixed(2), styles: { halign: 'right' as const } }, 
-            { content: subE.toFixed(2), styles: { halign: 'right' as const } }, 
-            { content: subS.toFixed(2), styles: { halign: 'right' as const } }, 
+            { content: subN.toFixed(2), styles: { halign: 'right' as const } },
+            { content: subE.toFixed(2), styles: { halign: 'right' as const } },
+            { content: subS.toFixed(2), styles: { halign: 'right' as const } },
             { content: (subN + subE + subS).toFixed(2), styles: { halign: 'right' as const } }
           ] : [{ content: `${subMonto.toFixed(2)}€`, styles: { halign: 'right' as const } }])
         ]],
         footStyles: { fillColor: stripeGrey, textColor: darkColor, fontStyle: 'bold' },
-        columnStyles: moduleType === 'horas' ? { 
-          8: { fillColor: '#f0fdf4' } 
+        columnStyles: moduleType === 'horas' ? {
+          8: { fillColor: '#f0fdf4' }
         } : {}
       });
       currentY = (doc as any).lastAutoTable.finalY + 15;
@@ -202,12 +202,12 @@ export default function ReportGeneratorModal({ isOpen, onClose, reportes, fixedI
           body: summaryRows.map(r => [r[0], r[1], r[2], r[3], r[4]]),
           foot: [[{ content: 'GRAN TOTAL DEL PERIODO', styles: { halign: 'right' } }, grandN.toFixed(2), grandE.toFixed(2), grandS.toFixed(2), (grandN + grandE + grandS).toFixed(2)]],
           footStyles: { fillColor: stripeGrey, textColor: darkColor },
-          columnStyles: { 
+          columnStyles: {
             0: { cellWidth: pageWidth * 0.30 },
-            1: { halign: 'right', cellWidth: (pageWidth * 0.40) / 4 }, 
-            2: { halign: 'right', cellWidth: (pageWidth * 0.40) / 4 }, 
-            3: { halign: 'right', cellWidth: (pageWidth * 0.40) / 4 }, 
-            4: { halign: 'right', cellWidth: (pageWidth * 0.40) / 4, fontStyle: 'bold' } 
+            1: { halign: 'right', cellWidth: (pageWidth * 0.40) / 4 },
+            2: { halign: 'right', cellWidth: (pageWidth * 0.40) / 4 },
+            3: { halign: 'right', cellWidth: (pageWidth * 0.40) / 4 },
+            4: { halign: 'right', cellWidth: (pageWidth * 0.40) / 4, fontStyle: 'bold' }
           }
         });
       } else {
@@ -220,7 +220,7 @@ export default function ReportGeneratorModal({ isOpen, onClose, reportes, fixedI
         currentY += 6;
 
         autoTable(doc, {
-          startY: currentY, 
+          startY: currentY,
           theme: 'grid',
           margin: { left: marginX, right: marginX },
           headStyles: { fillColor: darkColor, textColor: '#ffffff', halign: 'center' as const },
@@ -229,9 +229,9 @@ export default function ReportGeneratorModal({ isOpen, onClose, reportes, fixedI
           body: summaryRows.map(r => [r[0], { content: r[5], styles: { halign: 'right' as const } }]),
           foot: [[{ content: 'TOTAL GENERAL', styles: { halign: 'right' as const } }, { content: `${grandMonto.toFixed(2)}€`, styles: { halign: 'right' as const } }]],
           footStyles: { fillColor: stripeGrey, textColor: darkColor },
-          columnStyles: { 
-            0: { cellWidth: col0W }, 
-            1: { cellWidth: col1W, fontStyle: 'bold' as const } 
+          columnStyles: {
+            0: { cellWidth: col0W },
+            1: { cellWidth: col1W, fontStyle: 'bold' as const }
           }
         });
 
@@ -243,7 +243,7 @@ export default function ReportGeneratorModal({ isOpen, onClose, reportes, fixedI
         currentY += 6;
 
         autoTable(doc, {
-          startY: currentY, 
+          startY: currentY,
           theme: 'grid',
           margin: { left: marginX, right: marginX },
           headStyles: { fillColor: darkColor, textColor: '#ffffff', halign: 'center' as const },
@@ -252,9 +252,9 @@ export default function ReportGeneratorModal({ isOpen, onClose, reportes, fixedI
           body: Object.entries(categoryTotals).map(([k, v]) => [k, { content: `${v.toFixed(2)}€`, styles: { halign: 'right' as const } }]),
           foot: [[{ content: 'TOTAL GENERAL', styles: { halign: 'right' as const } }, { content: `${grandMonto.toFixed(2)}€`, styles: { halign: 'right' as const } }]],
           footStyles: { fillColor: stripeGrey, textColor: darkColor },
-          columnStyles: { 
-            0: { cellWidth: col0W }, 
-            1: { cellWidth: col1W, fontStyle: 'bold' as const } 
+          columnStyles: {
+            0: { cellWidth: col0W },
+            1: { cellWidth: col1W, fontStyle: 'bold' as const }
           }
         });
       }
