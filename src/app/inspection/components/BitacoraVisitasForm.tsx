@@ -190,30 +190,18 @@ export default function BitacoraVisitasForm() {
     if (!activeStop || !stopTimeManual) return;
 
     const horaSalida = stopTimeManual;
-    const decN = timeToDecimal(tempHours.normales || '00:00');
-    const decE = timeToDecimal(tempHours.extras || '00:00');
-    const decS = timeToDecimal(tempHours.especiales || '00:00');
-    const totalDigitado = decN + decE + decS;
-
-    // Validación estricta de diferencia de tiempo
+    
+    // El inspector ya no digita, calculamos el total real del cronómetro
     const arrivalDate = parse(activeStop.horaLlegada, 'HH:mm', new Date());
     const stopDate = parse(stopTimeManual, 'HH:mm', new Date());
     const diffMinutes = differenceInMinutes(stopDate, arrivalDate);
-    const diffHoursTotal = diffMinutes > 0 ? diffMinutes / 60 : 0;
+    const totalCalculado = diffMinutes > 0 ? diffMinutes / 60 : 0;
 
-    if (totalDigitado > diffHoursTotal + 0.02) { // 0.02 de margen por redondeo
-      return toast({
-        variant: 'destructive',
-        title: 'Error de Validación',
-        description: `Las horas declaradas (${totalDigitado.toFixed(2)}h) exceden el tiempo real en el sitio (${diffHoursTotal.toFixed(2)}h).`
-      });
+    if (totalCalculado <= 0) {
+      return toast({ variant: 'destructive', title: 'Error', description: 'El tiempo de permanencia debe ser mayor a 0.' });
     }
 
-    if (totalDigitado <= 0) {
-      return toast({ variant: 'destructive', title: 'Error', description: 'Debes declarar al menos algunas horas.' });
-    }
-
-    if (!window.confirm(`¿Guardar visita de ${activeStop.clienteNombre}? Total: ${totalDigitado.toFixed(2)}h`)) return;
+    if (!window.confirm(`¿Guardar visita de ${activeStop.clienteNombre}? Tiempo total: ${totalCalculado.toFixed(2)}h`)) return;
 
     setLoading(true);
     try {
@@ -225,11 +213,12 @@ export default function BitacoraVisitasForm() {
         mUrl = await getDownloadURL(fRef);
       }
 
-      const id = `VIS-${(inspectorEmail || 'tecnico').replace(/[^a-zA-Z0-9]/g, '')}-${Date.now()}`; const docData: VisitaItem = {
+      const id = `VIS-${(inspectorEmail || 'tecnico').replace(/[^a-zA-Z0-9]/g, '')}-${Date.now()}`;
+      const docData: VisitaItem = {
         id, clienteId: activeStop.clienteId, clienteNombre: activeStop.clienteNombre, actividad: activeStop.actividad,
         horaLlegada: activeStop.horaLlegada, horaSalida, ubicacionLlegada: activeStop.ubicacionLlegada,
-        horasNormales: decN, horasExtras: decE, horasEspeciales: decS,
-        hNormalesStr: tempHours.normales || elapsedTime, hExtrasStr: tempHours.extras || '00:00', hEspecialesStr: tempHours.especiales || '00:00',
+        horasNormales: totalCalculado, horasExtras: 0, horasEspeciales: 0,
+        hNormalesStr: totalCalculado.toFixed(2), hExtrasStr: '0.00', hEspecialesStr: '0.00',
         motorUrl: mUrl || undefined, estado: 'Registrado', fecha: reportDate
       };
 
@@ -316,19 +305,9 @@ export default function BitacoraVisitasForm() {
                 <p className="text-[10px] font-black text-slate-400 uppercase">SALIDA: <span className="text-emerald-600">{stopTimeManual}</span></p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-500 uppercase ml-2">Normales</label>
-                  <Input placeholder="--:--" value={tempHours.normales} onChange={e => handleTimeChange(e.target.value, 'normales')} className="h-14 rounded-2xl text-center font-black text-slate-900 border-none bg-white shadow-sm" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-amber-600 uppercase ml-2">Extras</label>
-                  <Input placeholder="--:--" value={tempHours.extras} onChange={e => handleTimeChange(e.target.value, 'extras')} className="h-14 rounded-2xl text-center font-black text-amber-600 border-none bg-white shadow-sm" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-emerald-600 uppercase ml-2">Especiales</label>
-                  <Input placeholder="--:--" value={tempHours.especiales} onChange={e => handleTimeChange(e.target.value, 'especiales')} className="h-14 rounded-2xl text-center font-black text-emerald-600 border-none bg-white shadow-sm" />
-                </div>
+              <div className="bg-white p-6 rounded-3xl border-2 border-emerald-100 shadow-inner flex flex-col items-center">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total a Registrar</p>
+                <p className="text-4xl font-black text-slate-900">{elapsedTime}<span className="text-lg ml-1 text-emerald-500">hrs</span></p>
               </div>
 
               <div className="flex gap-2">
@@ -354,18 +333,11 @@ export default function BitacoraVisitasForm() {
               <p className="font-bold text-slate-800 uppercase text-sm">{v.clienteNombre}</p>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{v.horaLlegada} - {v.horaSalida}</p>
               <div className="flex gap-2 mt-2">
-                <span className="px-2 py-1 bg-slate-50 text-slate-600 rounded-lg text-[9px] font-black border border-slate-100">{v.hNormalesStr}N</span>
-                {v.horasExtras > 0 && <span className="px-2 py-1 bg-amber-50 text-amber-600 rounded-lg text-[9px] font-black border border-amber-100">{v.hExtrasStr}E</span>}
-                {v.horasEspeciales > 0 && <span className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[9px] font-black border border-emerald-100">{v.hEspecialesStr}S</span>}
+                <span className="px-2 py-1 bg-slate-50 text-slate-600 rounded-lg text-[10px] font-black border border-slate-100">{v.hNormalesStr} Horas Totales</span>
               </div>
             </div>
-            <div className="flex items-center gap-1">
-              {v.estado !== 'Aprobado' && (
-                <>
-                  <Button variant="ghost" size="icon" onClick={() => { setCurrentEditVisit(v); setIsEditModalOpen(true); }} className="text-slate-400 hover:text-blue-600 h-12 w-12 rounded-2xl hover:bg-blue-50 transition-all"><Pencil size={20} /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id)} className="text-red-400 hover:text-red-600 h-12 w-12 rounded-2xl hover:bg-red-50 transition-all"><Trash2 size={22} /></Button>
-                </>
-              )}
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={24} className={v.estado === 'Aprobado' ? 'text-emerald-500' : 'text-slate-200'} />
             </div>
           </div>
         ))}
@@ -388,27 +360,12 @@ export default function BitacoraVisitasForm() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Llegada</label>
-                  <Input value={currentEditVisit.horaLlegada} onChange={e => setCurrentEditVisit({ ...currentEditVisit, horaLlegada: e.target.value })} className="h-12 rounded-xl text-center font-bold" />
+                  <label className="text-[10px] font-black text-slate-900 uppercase ml-2 tracking-widest">Hora Llegada</label>
+                  <Input value={currentEditVisit.horaLlegada} onChange={e => setCurrentEditVisit({ ...currentEditVisit, horaLlegada: e.target.value })} className="h-14 rounded-2xl text-center font-black text-slate-900 bg-slate-50 border-slate-200" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Salida</label>
-                  <Input value={currentEditVisit.horaSalida} onChange={e => setCurrentEditVisit({ ...currentEditVisit, horaSalida: e.target.value })} className="h-12 rounded-xl text-center font-bold" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Normal</label>
-                  <Input value={currentEditVisit.horasNormales} onChange={e => setCurrentEditVisit({ ...currentEditVisit, horasNormales: parseFloat(e.target.value) })} type="number" className="h-12 rounded-xl text-center" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-amber-600 uppercase ml-1">Extra</label>
-                  <Input value={currentEditVisit.horasExtras} onChange={e => setCurrentEditVisit({ ...currentEditVisit, horasExtras: parseFloat(e.target.value) })} type="number" className="h-12 rounded-xl text-center" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-emerald-600 uppercase ml-1">Esp.</label>
-                  <Input value={currentEditVisit.horasEspeciales} onChange={e => setCurrentEditVisit({ ...currentEditVisit, horasEspeciales: parseFloat(e.target.value) })} type="number" className="h-12 rounded-xl text-center" />
+                  <label className="text-[10px] font-black text-slate-900 uppercase ml-2 tracking-widest">Hora Salida</label>
+                  <Input value={currentEditVisit.horaSalida} onChange={e => setCurrentEditVisit({ ...currentEditVisit, horaSalida: e.target.value })} className="h-14 rounded-2xl text-center font-black text-slate-900 bg-slate-50 border-slate-200" />
                 </div>
               </div>
 
@@ -417,18 +374,22 @@ export default function BitacoraVisitasForm() {
                   if (!canUseCloud) return toast({ variant: 'destructive', title: 'Sin conexión' });
                   setLoading(true);
                   try {
-                    const total = (currentEditVisit.horasNormales || 0) + (currentEditVisit.horasExtras || 0) + (currentEditVisit.horasEspeciales || 0);
+                    // Recalcular total automáticamente al editar
+                    const arrivalDate = parse(currentEditVisit.horaLlegada, 'HH:mm', new Date());
+                    const stopDate = parse(currentEditVisit.horaSalida, 'HH:mm', new Date());
+                    const diffMinutes = differenceInMinutes(stopDate, arrivalDate);
+                    const total = diffMinutes > 0 ? diffMinutes / 60 : 0;
+
                     const docRef = doc(firestore!, "bitacora_visitas", currentEditVisit.id);
                     await updateDoc(docRef, {
                       horaLlegada: currentEditVisit.horaLlegada,
                       horaSalida: currentEditVisit.horaSalida,
-                      horasNormales: currentEditVisit.horasNormales,
-                      horasExtras: currentEditVisit.horasExtras,
-                      horasEspeciales: currentEditVisit.horasEspeciales,
-                      totalHoras: total,
-                      hNormalesStr: (currentEditVisit.horasNormales || 0).toFixed(2),
-                      hExtrasStr: (currentEditVisit.horasExtras || 0).toFixed(2),
-                      hEspecialesStr: (currentEditVisit.horasEspeciales || 0).toFixed(2)
+                      horasNormales: total,
+                      horasExtras: 0,
+                      horasEspeciales: 0,
+                      hNormalesStr: total.toFixed(2),
+                      hExtrasStr: '0.00',
+                      hEspecialesStr: '0.00'
                     });
 
                     setVisitas(prev => prev.map(v => v.id === currentEditVisit.id ? {

@@ -477,7 +477,7 @@ export default function JobsPage() {
 
   const canReprint = (job: Job) =>
     !!job.formType &&
-    ['Completado', 'Preaprobado', 'Aprobado'].includes(job.estado) &&
+    ['Registrado', 'Aprobado'].includes(job.estado) &&
     ['hoja-trabajo', 'informe-revision', 'informe-tecnico', 'informe-simplificado', 'revision-basica'].includes(job.formType);
 
   const handleReprintSavedPdf = async (job: Job) => {

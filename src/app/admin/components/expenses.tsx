@@ -141,8 +141,22 @@ export default function ExpensesPage() {
     XLSX.utils.book_append_sheet(wb, ws, "Gastos");
     XLSX.writeFile(wb, `Reporte_Gastos_${format(new Date(), 'yyyyMMdd_HHmmss')}.xlsx`);
   };
-  const handleApprove = async (id: string, currentStatus: string) => { /* intacto */ };
-  const handleDelete = async (id: string) => { /* intacto */ };
+  const handleApprove = async (id: string, currentStatus: string) => {
+    if (currentStatus === 'Aprobado') return;
+    if (!window.confirm("¿Validar y aprobar este gasto definitivamente?")) return;
+    try {
+      await updateDoc(doc(db, 'gastos_detalle', id), { estado: 'Aprobado' });
+      fetchData();
+    } catch (e) { console.error("Error approving expense:", e); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("¿Eliminar este gasto permanentemente?")) return;
+    try {
+      await deleteDoc(doc(db, 'gastos_detalle', id));
+      fetchData();
+    } catch (e) { console.error("Error deleting expense:", e); }
+  };
 
   if (loading) return <div className="h-96 flex items-center justify-center"><Loader2 className="animate-spin text-emerald-500" size={40} /></div>;
 
@@ -200,7 +214,16 @@ export default function ExpensesPage() {
               <tbody className="divide-y divide-slate-100">
                 {filteredRecords.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50 group">
-                    <td className="px-6 py-4"><p className="font-bold text-slate-700 text-sm">{format(r.fecha?.toDate ? r.fecha.toDate() : new Date(r.fecha), 'dd/MM/yyyy')}</p></td>
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-slate-700 text-sm">
+                        {(() => {
+                          try {
+                            const d = r.fecha?.toDate ? r.fecha.toDate() : (r.fecha ? new Date(r.fecha) : new Date());
+                            return isNaN(d.getTime()) ? 'Sin Fecha' : format(d, 'dd/MM/yyyy');
+                          } catch (e) { return 'Error Fecha'; }
+                        })()}
+                      </p>
+                    </td>
                     <td className="px-6 py-4 font-black text-slate-800 text-xs uppercase">{r.inspectorNombre?.split('@')[0]}</td>
                     <td className="px-6 py-4"><p className="font-black text-slate-900 text-xs uppercase">{r.rubro}</p><p className="text-[10px] text-slate-500 font-medium truncate max-w-xs">{r.descripcion}</p></td>
                     <td className="px-6 py-4 text-center font-black text-emerald-600 text-lg">{r.monto?.toFixed(2)}€</td>
@@ -273,7 +296,17 @@ export default function ExpensesPage() {
 
 function GastoModal({ isOpen, onClose, record, onSaved, db }: any) {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState(record || { inspectorNombre: 'ADMIN@ENERGYENGINE.ES', fecha: new Date().toISOString().split('T')[0], rubro: 'Otros', monto: '', descripcion: '', forma_pago: 'Empresa' });
+  const [formData, setFormData] = useState(() => {
+    if (record) {
+      let fechaStr = '';
+      try {
+        const d = record.fecha?.toDate ? record.fecha.toDate() : (record.fecha ? new Date(record.fecha) : new Date());
+        fechaStr = isNaN(d.getTime()) ? new Date().toISOString().split('T')[0] : d.toISOString().split('T')[0];
+      } catch (e) { fechaStr = new Date().toISOString().split('T')[0]; }
+      return { ...record, fecha: fechaStr };
+    }
+    return { inspectorNombre: 'ADMIN@ENERGYENGINE.ES', fecha: new Date().toISOString().split('T')[0], rubro: 'Otros', monto: '', descripcion: '', forma_pago: 'Empresa' };
+  });
 
   const handleSave = async () => {
     setLoading(true);
@@ -289,13 +322,45 @@ function GastoModal({ isOpen, onClose, record, onSaved, db }: any) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-lg bg-white rounded-[2rem] p-8 border-none shadow-2xl">
         <DialogHeader><DialogTitle className="text-xl font-black uppercase text-slate-900">{record ? 'Editar' : 'Crear'} Gasto</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          <div className="col-span-2 space-y-1"><label className="text-[10px] font-black uppercase ml-1">Fecha</label><input type="date" value={formData.fecha?.split ? formData.fecha.split('T')[0] : new Date(formData.fecha).toISOString().split('T')[0]} onChange={e => setFormData({ ...formData, fecha: e.target.value })} className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 font-bold outline-none" /></div>
-          <div className="col-span-2 space-y-1"><label className="text-[10px] font-black uppercase ml-1">Concepto</label><Input value={formData.descripcion} onChange={e => setFormData({ ...formData, descripcion: e.target.value })} className="h-12 rounded-xl bg-slate-50 font-bold" /></div>
-          <div className="space-y-1"><label className="text-[10px] font-black uppercase ml-1">Monto (€)</label><Input type="number" step="0.01" value={formData.monto} onChange={e => setFormData({ ...formData, monto: e.target.value })} className="h-12 rounded-xl bg-slate-50 font-bold" /></div>
-          <div className="space-y-1"><label className="text-[10px] font-black uppercase ml-1">Rubro</label><Input value={formData.rubro} onChange={e => setFormData({ ...formData, rubro: e.target.value })} className="h-12 rounded-xl bg-slate-50 font-bold" /></div>
+        <div className="grid grid-cols-2 gap-4 mt-6">
+          <div className="col-span-2 space-y-1">
+            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Fecha del Gasto</label>
+            <input 
+              type="date" 
+              value={formData.fecha} 
+              onChange={e => setFormData({ ...formData, fecha: e.target.value })} 
+              className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 font-black outline-none focus:border-emerald-500 focus:bg-white transition-all text-slate-900" 
+            />
+          </div>
+          <div className="col-span-2 space-y-1">
+            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Concepto / Descripción</label>
+            <Input value={formData.descripcion} onChange={e => setFormData({ ...formData, descripcion: e.target.value })} className="h-12 rounded-xl bg-slate-50 font-black text-slate-900 border-slate-200 shadow-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Monto (€)</label>
+            <Input type="number" step="0.01" value={formData.monto} onChange={e => setFormData({ ...formData, monto: e.target.value })} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-black text-slate-900 shadow-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Categoría / Rubro</label>
+            <Input value={formData.rubro} onChange={e => setFormData({ ...formData, rubro: e.target.value })} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-black text-slate-900 shadow-sm" />
+          </div>
         </div>
-        <DialogFooter className="mt-8 flex gap-3"><Button variant="ghost" onClick={onClose} className="flex-1">Cancelar</Button><Button onClick={handleSave} disabled={loading} className="flex-1 bg-slate-900 text-white">Guardar</Button></DialogFooter>
+        <DialogFooter className="mt-8 flex gap-3">
+          <Button 
+            variant="outline" 
+            onClick={onClose} 
+            className="flex-1 h-12 rounded-xl border-2 border-[#3f624d] bg-white text-[#3f624d] font-black uppercase text-[10px] tracking-widest hover:bg-[#3f624d] hover:text-white transition-all duration-300"
+          >
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleSave} 
+            disabled={loading} 
+            className="flex-1 h-12 rounded-xl border-2 border-[#3f624d] bg-white text-[#3f624d] font-black uppercase text-[10px] tracking-widest hover:bg-[#3f624d] hover:text-white transition-all duration-300 shadow-md"
+          >
+            {loading ? <Loader2 className="animate-spin mr-2" size={16} /> : 'Confirmar Gasto'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

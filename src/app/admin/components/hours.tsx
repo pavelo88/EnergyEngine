@@ -147,8 +147,22 @@ export default function HoursPage() {
     XLSX.utils.book_append_sheet(wb, ws, "Horas");
     XLSX.writeFile(wb, `Reporte_Horas_${format(new Date(), 'yyyyMMdd_HHmmss')}.xlsx`);
   };
-  const handleApprove = async (id: string, currentStatus: string) => { /* Approve logic */ };
-  const handleDelete = async (id: string) => { /* Delete logic */ };
+  const handleApprove = async (id: string, currentStatus: string) => {
+    if (currentStatus === 'Aprobado') return;
+    if (!window.confirm("¿Aprobar definitivamente este registro de horas?")) return;
+    try {
+      await updateDoc(doc(db, 'bitacora_visitas', id), { estado: 'Aprobado' });
+      fetchData();
+    } catch (e) { console.error("Error approving:", e); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("¿Seguro que quieres eliminar este registro de horas?")) return;
+    try {
+      await deleteDoc(doc(db, 'bitacora_visitas', id));
+      fetchData();
+    } catch (e) { console.error("Error deleting:", e); }
+  };
 
   if (loading) return <div className="h-96 flex items-center justify-center"><Loader2 className="animate-spin text-emerald-500" size={40} /></div>;
 
@@ -209,7 +223,17 @@ export default function HoursPage() {
               <tbody className="divide-y divide-slate-100">
                 {filteredRecords.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50 group">
-                    <td className="px-6 py-4"><p className="font-bold text-slate-700 text-sm">{format(r.fecha?.toDate ? r.fecha.toDate() : new Date(r.fecha), 'dd/MM/yyyy')}</p><p className="text-[9px] font-black text-slate-400 uppercase">{r.horaLlegada || '--:--'}</p></td>
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-slate-700 text-sm">
+                        {(() => {
+                          try {
+                            const d = r.fecha?.toDate ? r.fecha.toDate() : (r.fecha ? new Date(r.fecha) : new Date());
+                            return isNaN(d.getTime()) ? 'Sin Fecha' : format(d, 'dd/MM/yyyy');
+                          } catch (e) { return 'Error Fecha'; }
+                        })()}
+                      </p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase">{r.horaLlegada || '--:--'}</p>
+                    </td>
                     <td className="px-6 py-4 font-black text-slate-800 text-xs uppercase">{r.inspectorNombre?.split('@')[0]}</td>
                     <td className="px-6 py-4"><p className="font-black text-slate-900 text-xs uppercase">{r.clienteNombre}</p><p className="text-[10px] text-slate-500 font-medium truncate max-w-xs">{r.actividad}</p></td>
                     <td className="px-4 py-4 text-center font-bold text-slate-700 text-xs">{(r.horasNormales || 0).toFixed(2)}</td>
@@ -278,29 +302,81 @@ export default function HoursPage() {
 
 function HoraModal({ isOpen, onClose, record, onSaved, db }: any) {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState(record || { inspectorNombre: 'ADMIN@ENERGYENGINE.ES', fecha: new Date().toISOString().split('T')[0], clienteNombre: '', actividad: 'Inspección', horaLlegada: '08:00', horaSalida: '10:00', horasNormales: '0.00', horasExtras: '0.00', horasEspeciales: '0.00' });
+  const [formData, setFormData] = useState(() => {
+    if (record) {
+      let fechaStr = '';
+      try {
+        const d = record.fecha?.toDate ? record.fecha.toDate() : (record.fecha ? new Date(record.fecha) : new Date());
+        fechaStr = isNaN(d.getTime()) ? new Date().toISOString().split('T')[0] : d.toISOString().split('T')[0];
+      } catch (e) { fechaStr = new Date().toISOString().split('T')[0]; }
+      return { ...record, fecha: fechaStr };
+    }
+    return { inspectorNombre: 'ADMIN@ENERGYENGINE.ES', fecha: new Date().toISOString().split('T')[0], clienteNombre: '', actividad: 'Inspección', horaLlegada: '08:00', horaSalida: '10:00', horasNormales: '0.00', horasExtras: '0.00', horasEspeciales: '0.00' };
+  });
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      const payload = { ...formData, horasNormales: parseFloat(formData.horasNormales) || 0, horasExtras: parseFloat(formData.horasExtras) || 0, horasEspeciales: parseFloat(formData.horasEspeciales) || 0, fecha: new Date(formData.fecha + 'T12:00:00') };
+      const payload = { 
+        ...formData, 
+        horasNormales: parseFloat(Number(formData.horasNormales || 0).toFixed(2)), 
+        horasExtras: parseFloat(Number(formData.horasExtras || 0).toFixed(2)), 
+        horasEspeciales: parseFloat(Number(formData.horasEspeciales || 0).toFixed(2)), 
+        fecha: new Date(formData.fecha + 'T12:00:00') 
+      };
       if (record) await updateDoc(doc(db, 'bitacora_visitas', record.id), payload);
       else await addDoc(collection(db, 'bitacora_visitas'), { ...payload, estado: 'Registrado', inspectorId: formData.inspectorNombre.toLowerCase(), createdAt: serverTimestamp() });
       onSaved(); onClose();
-    } catch (e) { } finally { setLoading(false); }
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-lg bg-white rounded-[2rem] p-8 border-none shadow-2xl">
         <DialogHeader><DialogTitle className="text-xl font-black uppercase text-slate-900">{record ? 'Editar' : 'Registrar'} Horas</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          <div className="col-span-2 space-y-1"><label className="text-[10px] font-black uppercase ml-1">Fecha</label><input type="date" value={formData.fecha?.split ? formData.fecha.split('T')[0] : new Date(formData.fecha).toISOString().split('T')[0]} onChange={e => setFormData({ ...formData, fecha: e.target.value })} className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 font-bold outline-none" /></div>
-          <div className="col-span-2 space-y-1"><label className="text-[10px] font-black uppercase ml-1">Cliente</label><Input value={formData.clienteNombre} onChange={e => setFormData({ ...formData, clienteNombre: e.target.value })} className="h-12 rounded-xl bg-slate-50 font-bold" /></div>
-          <div className="space-y-1"><label className="text-[10px] font-black uppercase ml-1">Normales</label><Input type="number" step="0.01" value={formData.horasNormales} onChange={e => setFormData({ ...formData, horasNormales: e.target.value })} className="h-12 rounded-xl bg-slate-50 border-emerald-100 font-bold" /></div>
-          <div className="space-y-1"><label className="text-[10px] font-black uppercase ml-1">Extras</label><Input type="number" step="0.01" value={formData.horasExtras} onChange={e => setFormData({ ...formData, horasExtras: e.target.value })} className="h-12 rounded-xl bg-slate-50 border-amber-100 font-bold" /></div>
+        <div className="grid grid-cols-3 gap-4 mt-6">
+          <div className="col-span-3 space-y-1">
+            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Fecha de Registro</label>
+            <input 
+              type="date" 
+              value={formData.fecha} 
+              onChange={e => setFormData({ ...formData, fecha: e.target.value })} 
+              className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 font-black outline-none focus:border-emerald-500 focus:bg-white transition-all text-slate-900" 
+            />
+          </div>
+          <div className="col-span-3 space-y-1">
+            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Cliente / Proyecto</label>
+            <Input value={formData.clienteNombre} onChange={e => setFormData({ ...formData, clienteNombre: e.target.value })} className="h-12 rounded-xl bg-slate-50 font-black text-slate-900 border-slate-200" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Normales</label>
+            <Input type="number" step="0.01" value={formData.horasNormales} onChange={e => setFormData({ ...formData, horasNormales: e.target.value })} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-black text-slate-900" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Extras</label>
+            <Input type="number" step="0.01" value={formData.horasExtras} onChange={e => setFormData({ ...formData, horasExtras: e.target.value })} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-black text-slate-900" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Especiales</label>
+            <Input type="number" step="0.01" value={formData.horasEspeciales} onChange={e => setFormData({ ...formData, horasEspeciales: e.target.value })} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-black text-slate-900" />
+          </div>
         </div>
-        <DialogFooter className="mt-8 flex gap-3"><Button variant="ghost" onClick={onClose} className="flex-1">Cancelar</Button><Button onClick={handleSave} disabled={loading} className="flex-1 bg-slate-900 text-white">Guardar</Button></DialogFooter>
+        <DialogFooter className="mt-8 flex gap-3">
+          <Button 
+            variant="outline" 
+            onClick={onClose} 
+            className="flex-1 h-12 rounded-xl border-2 border-[#3f624d] bg-white text-[#3f624d] font-black uppercase text-[10px] tracking-widest hover:bg-[#3f624d] hover:text-white transition-all duration-300"
+          >
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleSave} 
+            disabled={loading} 
+            className="flex-1 h-12 rounded-xl border-2 border-[#3f624d] bg-white text-[#3f624d] font-black uppercase text-[10px] tracking-widest hover:bg-[#3f624d] hover:text-white transition-all duration-300"
+          >
+            {loading ? <Loader2 className="animate-spin mr-2" size={16} /> : 'Guardar Registro'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
