@@ -1,475 +1,365 @@
-
 'use client';
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  User, PenTool, Trash2, Save, CheckCircle2, LogOut, Clock, TrendingUp,
-  ChevronRight, X, Calendar as CalendarIcon, FileText
+  User, Clock, TrendingUp, ChevronLeft, ChevronRight, Download, CalendarIcon, FileText, CalendarDays, Layers, Loader2
 } from 'lucide-react';
 import { useAuth, useFirestore as useFirebase } from '@/firebase';
-import { signOut } from 'firebase/auth';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { decimalToTime } from '@/lib/utils';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from "@/components/ui/button";
 import ReportGeneratorModal from '@/app/admin/components/ReportGeneratorModal';
 
-// ────────── HOURS DETAIL MODAL ──────────
-function HorasDetailModal({ reportes, onClose }: { reportes: any[]; onClose: () => void }) {
-  const allStops = reportes;
+export default function ProfileTab() {
+  const auth = useAuth();
+  const db = useFirebase();
+  const isOnline = useOnlineStatus();
 
-  const totalN = allStops.reduce((s, p) => s + (p.horasNormales || 0), 0);
-  const totalE = allStops.reduce((s, p) => s + (p.horasExtras || 0), 0);
-  const totalS = allStops.reduce((s, p) => s + (p.horasEspeciales || 0), 0);
+  // Estados de Datos
+  const [allReportes, setAllReportes] = useState<any[]>([]);
+  const [allGastos, setAllGastos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const getFormattedDate = (fecha: any) => {
-    if (!fecha) return '–';
+  // Estados de Interfaz
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [activeTab, setActiveTab] = useState<'horas' | 'gastos'>('horas');
+  const [gastosGrouping, setGastosGrouping] = useState<'rubro' | 'fecha'>('rubro');
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [moduleToReport, setModuleToReport] = useState<'horas' | 'gastos'>('horas');
+
+  // ── FUNCIÓN BLINDADA PARA FECHAS DE FIREBASE ──
+  // Esta función evita el 100% de los pantallazos blancos por fechas corruptas
+  const getSafeDate = (fecha: any): Date => {
+    if (!fecha) return new Date(2000, 0, 1); // Fecha por defecto si viene vacío
     try {
-      if (fecha.toDate) return format(fecha.toDate(), 'dd/MM', { locale: es });
-      if (fecha.seconds) return format(new Date(fecha.seconds * 1000), 'dd/MM', { locale: es });
-      if (typeof fecha === 'string') return format(new Date(fecha), 'dd/MM', { locale: es });
-    } catch { return '–'; }
-    return '–';
+      if (typeof fecha === 'object') {
+        if (typeof fecha.toDate === 'function') return fecha.toDate();
+        if (fecha instanceof Date) return fecha;
+        if ('seconds' in fecha) return new Date(fecha.seconds * 1000);
+      }
+      if (typeof fecha === 'string' || typeof fecha === 'number') {
+        const d = new Date(fecha);
+        if (!isNaN(d.getTime())) return d;
+      }
+      return new Date(2000, 0, 1);
+    } catch {
+      return new Date(2000, 0, 1);
+    }
   };
 
-  return (
-    <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-2xl bg-white rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
-        {/* Header */}
-        <div className="bg-[#062113] text-white p-6 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Mes en Curso</p>
-              <h2 className="text-xl font-black uppercase flex items-center gap-2">
-                <Clock size={20} className="text-emerald-400" /> Bitácora de Horas
-              </h2>
-            </div>
-            <button onClick={onClose} className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20">
-              <X size={14} />
-            </button>
-          </div>
-          {/* Totals strip */}
-          <div className="grid grid-cols-3 gap-3 mt-4">
-            <div className="bg-white/10 rounded-2xl p-3 text-center">
-              <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Normales</p>
-              <p className="text-lg font-black text-white">{decimalToTime(totalN)}</p>
-            </div>
-            <div className="bg-white/10 rounded-2xl p-3 text-center">
-              <p className="text-[9px] font-black text-yellow-400 uppercase tracking-widest">Extras</p>
-              <p className="text-lg font-black text-white">{decimalToTime(totalE)}</p>
-            </div>
-            <div className="bg-white/10 rounded-2xl p-3 text-center">
-              <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Especiales</p>
-              <p className="text-lg font-black text-white">{decimalToTime(totalS)}</p>
-            </div>
-          </div>
-        </div>
+  const getFormattedDate = (fecha: any) => {
+    const d = getSafeDate(fecha);
+    return d.getFullYear() === 2000 ? '–' : format(d, 'dd/MM/yyyy');
+  };
 
-        <div className="overflow-y-auto flex-1">
-          {allStops.length === 0 ? (
-            <div className="p-12 text-center text-slate-300">
-              <Clock size={40} className="mx-auto mb-3" />
-              <p className="font-black text-sm uppercase text-slate-400">Sin horas este mes</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0">
-                  <tr className="bg-slate-100 text-slate-500">
-                    <th className="text-left px-4 py-3 font-black uppercase text-[10px] tracking-widest whitespace-nowrap">Fecha</th>
-                    <th className="text-left px-4 py-3 font-black uppercase text-[10px] tracking-widest whitespace-nowrap">Cliente</th>
-                    <th className="text-left px-4 py-3 font-black uppercase text-[10px] tracking-widest whitespace-nowrap">Actividad</th>
-                    <th className="text-center px-3 py-3 font-black uppercase text-[10px] text-emerald-600 tracking-widest whitespace-nowrap">Norm.</th>
-                    <th className="text-center px-3 py-3 font-black uppercase text-[10px] text-yellow-600 tracking-widest whitespace-nowrap">Extra</th>
-                    <th className="text-center px-3 py-3 font-black uppercase text-[10px] text-blue-600 tracking-widest whitespace-nowrap">Esp.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allStops.map((stop, i) => (
-                    <tr key={i} className={`border-b border-slate-50 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
-                      <td className="px-4 py-3 font-bold text-slate-500 whitespace-nowrap">{getFormattedDate(stop.fecha)}</td>
-                      <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap max-w-[140px] truncate">{stop.clienteNombre || '–'}</td>
-                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap max-w-[120px] truncate">{stop.actividad || '–'}</td>
-                      <td className="px-3 py-3 text-center font-black text-emerald-600 whitespace-nowrap">{decimalToTime(stop.horasNormales || 0)}</td>
-                      <td className="px-3 py-3 text-center font-black text-yellow-600 whitespace-nowrap">{decimalToTime(stop.horasExtras || 0)}</td>
-                      <td className="px-3 py-3 text-center font-black text-blue-600 whitespace-nowrap">{decimalToTime(stop.horasEspeciales || 0)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
+  // 1. Cargar TODOS los datos del técnico
+  useEffect(() => {
+    if (!auth.currentUser?.email || !db || !isOnline) {
+      const timeout = setTimeout(() => { if (!auth.currentUser) setLoading(false); }, 2000);
+      return () => clearTimeout(timeout);
+    }
 
-// ────────── EXPENSES DETAIL MODAL ──────────
-function GastosDetailModal({ gastos, onClose }: { gastos: any[]; onClose: () => void }) {
-  // Group by rubro
-  const byRubro = gastos.reduce((acc: Record<string, any[]>, g: any) => {
+    const fetchAllData = async () => {
+      setLoading(true);
+      try {
+        const email = auth.currentUser!.email!;
+
+        const qVisitas = query(collection(db, "bitacora_visitas"), where("inspectorId", "==", email));
+        const vSnap = await getDocs(qVisitas);
+        const dataV = vSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        // Ordenamiento seguro
+        setAllReportes(dataV.sort((a, b) => getSafeDate(b.fecha).getTime() - getSafeDate(a.fecha).getTime()));
+
+        const qGastos = query(collection(db, "gastos_detalle"), where("inspectorId", "==", email));
+        const gSnap = await getDocs(qGastos);
+        const dataG = gSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        // Ordenamiento seguro
+        setAllGastos(dataG.sort((a, b) => getSafeDate(b.fecha).getTime() - getSafeDate(a.fecha).getTime()));
+
+      } catch (e) {
+        console.error("Error fetching data:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAllData();
+  }, [auth.currentUser, db, isOnline]);
+
+
+  // 2. Filtrar los datos en memoria según el mes seleccionado (Try-Catch para evitar crash)
+  const displayedReportes = useMemo(() => {
+    return allReportes.filter(r => {
+      try { return isSameMonth(getSafeDate(r.fecha), currentMonth); }
+      catch { return false; }
+    });
+  }, [allReportes, currentMonth]);
+
+  const displayedGastos = useMemo(() => {
+    return allGastos.filter(r => {
+      try { return isSameMonth(getSafeDate(r.fecha), currentMonth); }
+      catch { return false; }
+    });
+  }, [allGastos, currentMonth]);
+
+  // 3. Cálculos Seguros de Totales (Number() evita errores si guardaron letras por accidente)
+  const totalN = displayedReportes.reduce((s, p) => s + (Number(p.horasNormales) || 0), 0);
+  const totalE = displayedReportes.reduce((s, p) => s + (Number(p.horasExtras) || 0), 0);
+  const totalS = displayedReportes.reduce((s, p) => s + (Number(p.horasEspeciales) || 0), 0);
+  const totalHoras = totalN + totalE + totalS;
+
+  const totalGastos = displayedGastos.reduce((s, g) => s + (Number(g.monto) || 0), 0);
+
+  const gastosByRubro = displayedGastos.reduce((acc: Record<string, any[]>, g: any) => {
     const rubro = g.rubro || 'Otros';
     if (!acc[rubro]) acc[rubro] = [];
     acc[rubro].push(g);
     return acc;
   }, {});
 
-  const totalGeneral = gastos.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
+  const gastosByFecha = displayedGastos.reduce((acc: Record<string, any[]>, g: any) => {
+    const fecha = getFormattedDate(g.fecha);
+    if (!acc[fecha]) acc[fecha] = [];
+    acc[fecha].push(g);
+    return acc;
+  }, {});
 
-  return (
-    <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-2xl bg-white rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
-        {/* Header */}
-        <div className="bg-[#062113] text-white p-6 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Mes en Curso</p>
-              <h2 className="text-xl font-black uppercase flex items-center gap-2">
-                <TrendingUp size={20} className="text-emerald-400" /> Desglose de Gastos
-              </h2>
-            </div>
-            <button onClick={onClose} className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20">
-              <X size={14} />
-            </button>
-          </div>
-          <div className="mt-4 bg-white/10 rounded-2xl p-3 flex items-center justify-between">
-            <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">Total Liquidado</span>
-            <span className="text-2xl font-black text-emerald-400">{totalGeneral.toFixed(2)}€</span>
-          </div>
+  const handleOpenReport = (type: 'horas' | 'gastos') => {
+    setModuleToReport(type);
+    setIsReportModalOpen(true);
+  };
+
+  // ── PANTALLA DE CARGA (Evita el pantallazo blanco inicial) ──
+  if (loading) {
+    return (
+      <div className="h-[70vh] flex flex-col items-center justify-center space-y-6 animate-in fade-in duration-700">
+        <div className="w-24 h-24 bg-slate-900 rounded-[2.5rem] flex items-center justify-center shadow-2xl relative">
+          <div className="absolute inset-0 bg-emerald-500 rounded-[2.5rem] animate-ping opacity-20"></div>
+          <User size={48} className="text-emerald-400 relative z-10" />
         </div>
-
-        <div className="overflow-y-auto flex-1 p-6 space-y-4">
-          {gastos.length === 0 ? (
-            <div className="py-12 text-center text-slate-300">
-              <TrendingUp size={40} className="mx-auto mb-3" />
-              <p className="font-black text-sm uppercase text-slate-400">Sin gastos este mes</p>
-            </div>
-          ) : (
-            Object.entries(byRubro).map(([rubro, items]: [string, any[]]) => {
-              const subtotal = items.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
-              return (
-                <div key={rubro} className="rounded-2xl border border-slate-100 overflow-hidden">
-                  <div className="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest">{rubro}</span>
-                    <span className="text-[11px] font-black text-emerald-400">{subtotal.toFixed(2)}€</span>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100">
-                          <th className="text-left px-4 py-2 font-black text-[9px] uppercase text-slate-400 whitespace-nowrap">Concepto</th>
-                          <th className="text-right px-4 py-2 font-black text-[9px] uppercase text-slate-400 whitespace-nowrap">Monto</th>
-                          <th className="text-center px-4 py-2 font-black text-[9px] uppercase text-slate-400 whitespace-nowrap">Pago</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.map((g: any, i: number) => (
-                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                            <td className="px-4 py-2.5 text-slate-700 font-medium max-w-[200px] truncate">{g.descripcion || g.concepto || '–'}</td>
-                            <td className="px-4 py-2.5 text-right font-black text-slate-900">{parseFloat(g.monto || 0).toFixed(2)}€</td>
-                            <td className="px-4 py-2.5 text-center">
-                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${g.tipoPago === 'Inspector' ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                                {g.tipoPago || 'Empresa'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ────────── MAIN PROFILE TAB ──────────
-export default function ProfileTab() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [hasSignature, setHasSignature] = useState(false);
-  const [savedSignature, setSavedSignature] = useState<string | null>(null);
-
-  // Monthly stats
-  const [monthlyReportes, setMonthlyReportes] = useState<any[]>([]);
-  const [monthlyGastos, setMonthlyGastos] = useState<any[]>([]);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [showHorasModal, setShowHorasModal] = useState(false);
-  const [showGastosModal, setShowGastosModal] = useState(false);
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-
-  const auth = useAuth();
-  const db = useFirebase();
-  const isOnline = useOnlineStatus();
-
-  const mesLabel = format(new Date(), 'MMMM yyyy', { locale: es }).toUpperCase();
-
-  // Load monthly data
-  useEffect(() => {
-    const stored = localStorage.getItem('energy_engine_signature');
-    if (stored) setSavedSignature(stored);
-
-    if (!auth.currentUser?.email || !db || !isOnline) { setStatsLoading(false); return; }
-
-    const fetchMonthly = async () => {
-      setStatsLoading(true);
-      try {
-        const email = auth.currentUser!.email!;
-
-        // 1. Fetch Visits
-        const qVisitas = query(
-          collection(db, "bitacora_visitas"),
-          where("inspectorId", "==", email)
-        );
-        const vSnap = await getDocs(qVisitas);
-        const allV = vSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-        setMonthlyReportes(allV.sort((a, b) => (b.fecha?.seconds || 0) - (a.fecha?.seconds || 0)));
-
-        // 2. Fetch Expenses
-        const qGastos = query(
-          collection(db, "gastos_detalle"),
-          where("inspectorId", "==", email)
-        );
-        const gSnap = await getDocs(qGastos);
-        const allG = gSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-        setMonthlyGastos(allG.sort((a, b) => (b.fecha?.seconds || 0) - (a.fecha?.seconds || 0)));
-
-      } catch (e) {
-        console.error("Error fetching monthly stats:", e);
-      } finally {
-        setStatsLoading(false);
-      }
-    };
-
-    fetchMonthly();
-  }, [auth.currentUser, db, isOnline]);
-
-  // Computed totals
-  const totalHoras = monthlyReportes.reduce(
-    (s, p) => s + (p.horasNormales || 0) + (p.horasExtras || 0) + (p.horasEspeciales || 0), 0
-  );
-  const totalGastos = monthlyGastos.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
-
-  // ── Canvas Logic ──
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const scale = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    if (canvas.width !== rect.width * scale) {
-      canvas.width = rect.width * scale;
-      canvas.height = rect.height * scale;
-      ctx.scale(scale, scale);
-      ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = '#165a30';
-    }
-  }, []);
-
-  const getPos = (e: any) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-    return { x: clientX - rect.left, y: clientY - rect.top };
-  };
-
-  const startDrawing = (e: any) => {
-    e.preventDefault();
-    setIsDrawing(true);
-    const pos = getPos(e);
-    const ctx = canvasRef.current?.getContext('2d');
-    if (ctx) { ctx.beginPath(); ctx.moveTo(pos.x, pos.y); }
-  };
-
-  const stopDrawing = (e?: any) => {
-    if (e) e.preventDefault();
-    setIsDrawing(false);
-    canvasRef.current?.getContext('2d')?.beginPath();
-  };
-
-  const draw = (e: any) => {
-    if (!isDrawing || !canvasRef.current) return;
-    e.preventDefault();
-    const pos = getPos(e);
-    const ctx = canvasRef.current.getContext('2d');
-    if (!ctx) return;
-    ctx.lineTo(pos.x, pos.y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
-    setHasSignature(true);
-  };
-
-  const clearCanvas = () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (canvas && ctx) {
-      ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
-      setHasSignature(false);
-    }
-  };
-
-  const saveSignature = () => {
-    if (!canvasRef.current) return;
-    if (!hasSignature) { alert("Por favor, dibuja una firma antes de guardar."); return; }
-    const base64 = canvasRef.current.toDataURL('image/jpeg', 0.5);
-    localStorage.setItem('energy_engine_signature', base64);
-    setSavedSignature(base64);
-    alert("Firma guardada correctamente en el dispositivo.");
-  };
-
-  const handleLogout = async () => {
-    if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
-      try {
-        localStorage.removeItem('energy_engine_session_id');
-        localStorage.removeItem('energy_engine_offline_email');
-        if (auth) await signOut(auth);
-      } catch (err) {
-        console.warn("Error al cerrar sesión:", err);
-      } finally {
-        window.location.href = '/auth/inspection';
-      }
-    }
-  };
-
-  return (
-    <>
-      {showHorasModal && <HorasDetailModal reportes={monthlyReportes} onClose={() => setShowHorasModal(false)} />}
-      {showGastosModal && <GastosDetailModal gastos={monthlyGastos} onClose={() => setShowGastosModal(false)} />}
-
-      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        {/* User Card */}
-        <section className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="w-16 h-16 bg-[#062113]/10 text-[#062113] rounded-2xl flex items-center justify-center">
-            <User size={32} />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Técnico RTS Registrado</p>
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">
-              {auth.currentUser?.displayName?.toUpperCase() || auth.currentUser?.email?.split('@')[0].toUpperCase() || 'TÉCNICO ENERGY'}
-            </h2>
-            <p className="text-sm font-medium text-slate-500">{auth.currentUser?.email}</p>
-          </div>
-        </section>
-
-        {/* ── MONTHLY STATS ── */}
-        <div className="space-y-2">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
-            <CalendarIcon size={12} /> {mesLabel}
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Tu Bitácora</h2>
+          <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center justify-center gap-2 bg-emerald-50 py-2 px-4 rounded-full">
+            <Loader2 size={14} className="animate-spin" /> Sincronizando registros...
           </p>
-
-          <div className="grid grid-cols-2 gap-3">
-            {/* Hours Card */}
-            <button
-              onClick={() => setShowHorasModal(true)}
-              disabled={statsLoading}
-              className="bg-slate-900 p-5 rounded-[2rem] shadow-lg text-white text-left group active:scale-[0.97] transition-all hover:bg-[#0a2d1a]"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
-                  <Clock size={20} className="text-emerald-400" />
-                </div>
-                <ChevronRight size={16} className="text-white/20 group-hover:text-white/60 transition-colors mt-1" />
-              </div>
-              <p className="text-[9px] font-black text-white/40 uppercase tracking-widest">Horas de Producción</p>
-              <p className="text-3xl font-black tracking-tight leading-none mt-1">
-                {statsLoading ? '–:–' : decimalToTime(totalHoras)}
-              </p>
-              <p className="text-[9px] font-bold text-emerald-400 mt-1 uppercase">Ver Detalle →</p>
-            </button>
-
-            {/* Expenses Card */}
-            <button
-              onClick={() => setShowGastosModal(true)}
-              disabled={statsLoading}
-              className="bg-emerald-500 p-5 rounded-[2rem] shadow-lg text-white text-left group active:scale-[0.97] transition-all hover:bg-emerald-600"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                  <TrendingUp size={20} className="text-white" />
-                </div>
-                <ChevronRight size={16} className="text-white/40 group-hover:text-white transition-colors mt-1" />
-              </div>
-              <p className="text-[9px] font-black text-white/70 uppercase tracking-widest">Gastos Liquidados</p>
-              <p className="text-3xl font-black tracking-tight leading-none mt-1">
-                {statsLoading ? '–' : `${totalGastos.toFixed(2)}€`}
-              </p>
-              <p className="text-[9px] font-bold text-white/60 mt-1 uppercase">Ver Desglose →</p>
-            </button>
-          </div>
         </div>
+      </div>
+    );
+  }
 
-        <Button
-          onClick={() => setIsReportModalOpen(true)}
-          className="w-full h-14 rounded-[2rem] bg-slate-100 text-slate-900 border border-slate-200 font-extrabold text-xs uppercase tracking-widest gap-3 shadow-md hover:bg-slate-200 transition-all active:scale-95"
-        >
-          <FileText size={20} className="text-emerald-500" /> Descargar Reporte Consolidado
-        </Button>
+  // ── PANTALLA PRINCIPAL ──
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
 
-        {/* Signature Section */}
-        <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
-          <div className="flex justify-between items-center">
-            <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-sm tracking-tighter">
-              <PenTool size={18} className="text-primary" /> Firma Digital
-            </h3>
-            {savedSignature && (
-              <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full">
-                <CheckCircle2 size={12} /> CONFIGURADA
-              </span>
-            )}
-          </div>
+      {/* TARJETA DE USUARIO */}
+      <section className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-4">
+        <div className="w-16 h-16 bg-[#062113]/10 text-[#062113] rounded-2xl flex items-center justify-center shadow-inner">
+          <User size={32} />
+        </div>
+        <div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Panel de Autogestión</p>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">
+            {auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'TÉCNICO ENERGY'}
+          </h2>
+        </div>
+      </section>
 
-          <div className="relative group">
-            <canvas
-              ref={canvasRef}
-              onMouseDown={startDrawing} onMouseUp={stopDrawing} onMouseOut={stopDrawing} onMouseMove={draw}
-              onTouchStart={startDrawing} onTouchEnd={stopDrawing} onTouchMove={draw}
-              className="w-full h-40 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] cursor-crosshair touch-none"
-            />
-            {!hasSignature && !savedSignature && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-300 text-xs font-bold uppercase tracking-widest">
-                Firme aquí para reportes
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-3">
-            <button onClick={clearCanvas} className="flex-1 flex items-center justify-center gap-2 p-4 rounded-2xl font-bold text-slate-400 bg-slate-100 hover:bg-slate-200 transition-all text-xs">
-              <Trash2 size={16} /> LIMPIAR
-            </button>
-            <button onClick={saveSignature} className="flex-1 flex items-center justify-center gap-2 p-4 rounded-2xl font-black text-white bg-slate-900 shadow-lg active:scale-95 transition-all text-xs">
-              <Save size={16} className="text-emerald-400" /> GUARDAR
-            </button>
-          </div>
-        </section>
-
-        {/* Logout */}
+      {/* NAVEGADOR DE MESES */}
+      <section className="bg-[#062113] p-4 rounded-3xl text-white shadow-xl flex items-center justify-between">
         <button
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl font-bold text-slate-400 bg-slate-50 border border-slate-100 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all text-xs"
+          onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+          className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center transition-all active:scale-95"
         >
-          <LogOut size={16} /> CERRAR SESIÓN
+          <ChevronLeft size={24} />
+        </button>
+        <div className="text-center">
+          <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest flex items-center justify-center gap-1">
+            <CalendarIcon size={10} /> Consultando Mes
+          </p>
+          <h3 className="text-xl font-black uppercase tracking-widest mt-1">
+            {format(currentMonth, 'MMMM yyyy', { locale: es })}
+          </h3>
+        </div>
+        <button
+          onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+          disabled={isSameMonth(currentMonth, new Date())}
+          className="w-12 h-12 bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent rounded-2xl flex items-center justify-center transition-all active:scale-95"
+        >
+          <ChevronRight size={24} />
+        </button>
+      </section>
+
+      {/* TABS */}
+      <div className="bg-slate-200 p-1.5 rounded-full flex gap-1 shadow-inner">
+        <button
+          onClick={() => setActiveTab('horas')}
+          className={`flex-1 h-12 rounded-full font-black text-xs uppercase transition-all flex items-center justify-center gap-2 ${activeTab === 'horas' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+        >
+          <Clock size={16} className={activeTab === 'horas' ? 'text-emerald-500' : ''} /> Mis Horas
+        </button>
+        <button
+          onClick={() => setActiveTab('gastos')}
+          className={`flex-1 h-12 rounded-full font-black text-xs uppercase transition-all flex items-center justify-center gap-2 ${activeTab === 'gastos' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+        >
+          <TrendingUp size={16} className={activeTab === 'gastos' ? 'text-blue-500' : ''} /> Mis Gastos
         </button>
       </div>
+
+      {/* CONTENIDO: HORAS */}
+      {activeTab === 'horas' && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <div className="grid grid-cols-4 gap-2">
+            <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm text-center col-span-4 flex justify-between items-center px-8">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Producción</span>
+              <span className="text-3xl font-black text-slate-900">{decimalToTime(totalHoras)}<span className="text-sm text-slate-400">h</span></span>
+            </div>
+            <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 text-center">
+              <p className="text-[9px] font-black text-emerald-600 uppercase">Norm.</p>
+              <p className="text-lg font-black text-emerald-700">{decimalToTime(totalN)}</p>
+            </div>
+            <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 text-center">
+              <p className="text-[9px] font-black text-amber-600 uppercase">Extra</p>
+              <p className="text-lg font-black text-amber-700">{decimalToTime(totalE)}</p>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 text-center">
+              <p className="text-[9px] font-black text-blue-600 uppercase">Esp.</p>
+              <p className="text-lg font-black text-blue-700">{decimalToTime(totalS)}</p>
+            </div>
+            <div className="col-span-1 flex items-end">
+              <Button onClick={() => handleOpenReport('horas')} className="w-full h-full bg-slate-900 text-white rounded-2xl font-black shadow-lg hover:bg-black transition-all p-0">
+                <Download size={20} className="text-emerald-400" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+            {displayedReportes.length === 0 ? (
+              <div className="py-12 text-center text-slate-300">
+                <Clock size={40} className="mx-auto mb-3" />
+                <p className="font-black text-sm uppercase text-slate-400">Sin registros en este mes</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-400 border-b border-slate-100">
+                      <th className="px-4 py-3 font-black uppercase text-[9px] tracking-widest whitespace-nowrap">Fecha</th>
+                      <th className="px-4 py-3 font-black uppercase text-[9px] tracking-widest whitespace-nowrap">Cliente</th>
+                      <th className="px-3 py-3 font-black uppercase text-[9px] tracking-widest text-center text-emerald-600">N</th>
+                      <th className="px-3 py-3 font-black uppercase text-[9px] tracking-widest text-center text-amber-600">E</th>
+                      <th className="px-3 py-3 font-black uppercase text-[9px] tracking-widest text-center text-blue-600">S</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {displayedReportes.map((stop, i) => (
+                      <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-4 py-3 font-bold text-slate-500 whitespace-nowrap">{getFormattedDate(stop.fecha)}</td>
+                        <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap max-w-[140px] truncate">{stop.clienteNombre || '–'}</td>
+                        <td className="px-3 py-3 text-center font-black text-emerald-600 bg-emerald-50/30">{decimalToTime(Number(stop.horasNormales) || 0)}</td>
+                        <td className="px-3 py-3 text-center font-black text-amber-600 bg-amber-50/30">{decimalToTime(Number(stop.horasExtras) || 0)}</td>
+                        <td className="px-3 py-3 text-center font-black text-blue-600 bg-blue-50/30">{decimalToTime(Number(stop.horasEspeciales) || 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-slate-50 border-t-2 border-slate-100">
+                    <tr>
+                      <td colSpan={2} className="px-4 py-4 text-right font-black uppercase text-[10px] tracking-widest text-slate-400">Total Mensual</td>
+                      <td className="px-3 py-4 text-center font-black text-emerald-600 bg-emerald-50">{decimalToTime(totalN)}</td>
+                      <td className="px-3 py-4 text-center font-black text-amber-600 bg-amber-50">{decimalToTime(totalE)}</td>
+                      <td className="px-3 py-4 text-center font-black text-blue-600 bg-blue-50">{decimalToTime(totalS)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* CONTENIDO: GASTOS */}
+      {activeTab === 'gastos' && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex justify-between items-center">
+            <div>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Liquidado</span>
+              <p className="text-3xl font-black text-slate-900 mt-1">{totalGastos.toFixed(2)}€</p>
+            </div>
+            <Button onClick={() => handleOpenReport('gastos')} className="h-14 px-6 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-black transition-all flex items-center gap-2">
+              <Download size={16} className="text-emerald-400" /> PDF
+            </Button>
+          </div>
+
+          {displayedGastos.length > 0 && (
+            <div className="flex bg-slate-100 p-1 rounded-xl w-full max-w-sm mx-auto shadow-inner">
+              <button
+                onClick={() => setGastosGrouping('rubro')}
+                className={`flex-1 py-2 rounded-lg font-black text-[10px] uppercase transition-all flex items-center justify-center gap-2 ${gastosGrouping === 'rubro' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <Layers size={14} /> Por Categoría
+              </button>
+              <button
+                onClick={() => setGastosGrouping('fecha')}
+                className={`flex-1 py-2 rounded-lg font-black text-[10px] uppercase transition-all flex items-center justify-center gap-2 ${gastosGrouping === 'fecha' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <CalendarDays size={14} /> Por Día
+              </button>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {displayedGastos.length === 0 ? (
+              <div className="bg-white rounded-[2rem] border border-slate-100 py-12 text-center text-slate-300">
+                <TrendingUp size={40} className="mx-auto mb-3" />
+                <p className="font-black text-sm uppercase text-slate-400">Sin gastos registrados este mes</p>
+              </div>
+            ) : (
+              Object.entries(gastosGrouping === 'rubro' ? gastosByRubro : gastosByFecha).map(([groupKey, items]: [string, any[]]) => {
+                const subtotal = items.reduce((s, g) => s + (Number(g.monto) || 0), 0);
+
+                return (
+                  <div key={groupKey} className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden animate-in fade-in duration-300">
+                    <div className={`px-5 py-3 border-b border-slate-100 flex items-center justify-between ${gastosGrouping === 'fecha' ? 'bg-slate-900 text-white' : 'bg-slate-50'}`}>
+                      <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${gastosGrouping === 'fecha' ? 'text-white' : 'text-slate-500'}`}>
+                        {gastosGrouping === 'fecha' ? <CalendarDays size={12} /> : <FileText size={12} />}
+                        {groupKey}
+                      </span>
+                      <span className={`text-xs font-black ${gastosGrouping === 'fecha' ? 'text-emerald-400' : 'text-slate-900'}`}>
+                        {subtotal.toFixed(2)}€
+                      </span>
+                    </div>
+                    <div className="p-2">
+                      {items.map((g: any, i: number) => (
+                        <div key={i} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-xl transition-colors">
+                          <div className="min-w-0 flex-1 pr-4">
+                            <p className="font-bold text-slate-800 text-xs truncate">
+                              {gastosGrouping === 'fecha' ? g.rubro : (g.descripcion || g.concepto || '–')}
+                            </p>
+                            <p className="text-[9px] font-black text-slate-400 uppercase mt-0.5">
+                              {gastosGrouping === 'fecha' ? (g.descripcion || g.concepto || '–') : getFormattedDate(g.fecha)} • {g.forma_pago || 'Empresa'}
+                            </p>
+                          </div>
+                          <span className="font-black text-slate-900">{Number(g.monto || 0).toFixed(2)}€</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
 
       <ReportGeneratorModal
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
-        reportes={[...monthlyReportes, ...monthlyGastos]}
-        fixedInspectorName={auth.currentUser?.displayName || auth.currentUser?.email || ''}
+        reportes={moduleToReport === 'horas' ? allReportes : allGastos}
+        fixedInspectorName={auth.currentUser?.email || ''}
+        fixedModule={moduleToReport}
       />
-    </>
+    </div>
   );
 }

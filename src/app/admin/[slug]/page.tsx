@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useParams } from 'next/navigation';
@@ -6,6 +5,7 @@ import Users from '@/app/admin/components/users';
 import Clients from '@/app/admin/components/clients';
 import Jobs from '@/app/admin/components/jobs';
 import Expenses from '@/app/admin/components/expenses';
+import Hours from '@/app/admin/components/hours'; // <-- Importamos el nuevo archivo de horas
 import Reports from '@/app/admin/components/reports';
 import Import from '@/app/admin/components/import';
 import WebRequests from '@/app/admin/components/web-requests';
@@ -14,8 +14,8 @@ const componentMap: { [key: string]: React.ComponentType } = {
   users: Users,
   clients: Clients,
   jobs: Jobs,
-  expenses: Expenses,
-  hours: Expenses,
+  expenses: Expenses, // Gastos carga Expenses
+  hours: Hours,       // <-- Horas ahora carga Hours
   reports: Reports,
   import: Import,
   'web-requests': WebRequests,
