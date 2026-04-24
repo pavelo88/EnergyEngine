@@ -125,7 +125,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <AdminHeaderProvider>
       <div className="flex h-screen bg-[#f1f5f9] text-[#0f172a] overflow-hidden relative">
-        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} user={user as any} />
+        <Sidebar 
+          isOpen={isSidebarOpen} 
+          onClose={() => setIsSidebarOpen(false)} 
+          onOpen={() => setIsSidebarOpen(true)}
+          user={user as any} 
+        />
 
         <div className="flex flex-1 flex-col overflow-hidden relative z-10">
           <Header onMenuClick={() => setIsSidebarOpen(true)} />

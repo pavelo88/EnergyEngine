@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Compass, User, Receipt, ClipboardList, LogOut, Loader2 } from 'lucide-react';
+import { Compass, User, Receipt, ClipboardList, LogOut, Loader2, Clock } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import TABS from '../constants';
@@ -46,7 +46,7 @@ export default function Footer({ activeTab, onNavigate }: FooterProps) {
   const navItems = [
     { id: TABS.MENU, icon: Compass, label: 'Panel' },
     { id: TABS.TASKS, icon: ClipboardList, label: 'Historial' },
-    { id: 'logout', icon: LogOut, label: 'Salir', isLogout: true },
+    { id: TABS.HOURS, icon: Clock, label: 'Horas' },
     { id: TABS.EXPENSES, icon: Receipt, label: 'Gastos' },
     { id: TABS.PROFILE, icon: User, label: 'Perfil' },
   ];
@@ -60,27 +60,6 @@ export default function Footer({ activeTab, onNavigate }: FooterProps) {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
 
-            // Renderizado especial para el botón central de Salir
-            if (item.isLogout) {
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={handleLogout}
-                  disabled={isLoggingOut}
-                  className="flex flex-col items-center justify-center gap-1 w-14 text-red-400 hover:text-red-500 transition-colors active:scale-90 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isLoggingOut ? (
-                    <Loader2 size={24} className="animate-spin text-red-400" />
-                  ) : (
-                    <Icon size={24} strokeWidth={2} />
-                  )}
-                  <span className="text-[9px] font-black uppercase tracking-tighter">
-                    {isLoggingOut ? 'SALIENDO...' : 'SALIR'}
-                  </span>
-                </button>
-              );
-            }
 
             return (
               <button

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
-import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Car, Euro, Zap, Thermometer, Battery, Droplets, Wind, Gauge, Camera } from 'lucide-react';
+import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Car, Euro, Zap, Thermometer, Battery, Droplets, Wind, Gauge, Camera, ClipboardList, FileText } from 'lucide-react';
 import { enhanceTechnicalRequest } from '@/ai/flows/enhance-technical-request-flow';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -23,6 +23,7 @@ import { addImageSafely, getPdfFileName } from '@/lib/pdf-utils';
 import { MAX_IMAGES_PER_REPORT } from '@/lib/report-limits';
 import { timeToDecimal, decimalToTime } from '@/lib/utils';
 import { generateReportId, fileToBase64 } from '@/lib/offline-utils';
+import { getNextReportIdForOT } from '@/lib/ot-utils';
 
 const LoadTestInput = React.memo(({ label, value, onChange }: any) => (
   <div className="flex flex-col items-center gap-1">
@@ -187,10 +188,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text("Firma técnico:", 25, currentY + 30);
     doc.text(inspectorName || '', 25, currentY + 35);
 
-    addImageSafely(doc, report.clientSignatureUrl, 125, currentY, 60, 25);
-    doc.line(125, currentY + 25, 185, currentY + 25);
-    doc.text("Conforme cliente:", 125, currentY + 30);
-    doc.text(report.recibidoPor || '', 125, currentY + 35);
+    if (report.includeClientSignature) {
+      addImageSafely(doc, report.clientSignatureUrl, 125, currentY, 60, 25);
+      doc.line(125, currentY + 25, 185, currentY + 25);
+      doc.text("Conforme cliente:", 125, currentY + 30);
+      doc.text(report.recibidoPor || '', 125, currentY + 35);
+    }
 
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
@@ -213,7 +216,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
   const canUseCloud = isOnline && !!firestore && !!user?.email;
   const { toast } = useToast();
   const [inspectorName, setInspectorName] = useState('');
-  const [inspectorInitials, setInspectorInitials] = useState('EE');
+  const [inspectorInitials, setInspectorInitials] = useState('');
   const [images, setImages] = useState<File[]>([]);
 
   const [formData, setFormData] = useState({
@@ -274,6 +277,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
   const [savedDocId, setSavedDocId] = useState('');
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [includeClientSignature, setIncludeClientSignature] = useState(false);
   const gpsRequired = useGpsRequired();
 
   // Detect if we're editing an existing completed/preapproved report
@@ -339,12 +343,13 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
           clienteId: initialData.clienteId || prev.clienteId,
           clienteNombre: initialData.clienteNombre || initialData.cliente || prev.clienteNombre,
           cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
-          instalacion: initialData.instalacion || prev.instalacion,
-          motor: initialData.modelo || prev.motor,
-          n_motor: initialData.n_motor || prev.n_motor,
-          grupo: initialData.grupo || prev.grupo,
-          n_grupo: initialData.n_grupo || prev.n_grupo,
-          h_asistencia: typeof initialData.h_asistencia === 'number' ? decimalToTime(initialData.h_asistencia) : initialData.h_asistencia || prev.h_asistencia,
+          motor: initialData.modelo || prev.motor || '',
+          modelo: initialData.n_motor || prev.modelo || '',
+          n_motor: initialData.n_motor || prev.n_motor || '',
+          n_grupo: initialData.n_grupo || prev.n_grupo || '',
+          potencia: initialData.potencia || prev.potencia || '',
+          observaciones: initialData.descripcion || prev.observaciones || '',
+          h_asistencia: typeof initialData.h_asistencia === 'number' ? decimalToTime(initialData.h_asistencia) : initialData.h_asistencia || prev.h_asistencia || '',
         }));
       }
     }
@@ -441,8 +446,9 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
     try {
       const reportData = {
         ...formData,
+        includeClientSignature,
         inspectorSignatureUrl: inspectorSignature,
-        clientSignatureUrl: clientSignature
+        clientSignatureUrl: includeClientSignature ? clientSignature : null
       };
 
       // 1. Determinamos el ID (Si no hay uno oficial, usamos 'BORRADOR')
@@ -495,18 +501,23 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
   };
 
   const handleSave = async () => {
+    if (!inspectorInitials) {
+      toast({ variant: 'destructive', title: 'Identificación Requerida', description: 'No se han detectado sus iniciales de inspector. Por favor, asegúrese de que su perfil esté cargado correctamente.' });
+      return;
+    }
+
     if (!inspectorEmail) {
       toast({ variant: 'destructive', title: 'Inspector no identificado', description: 'Inicia online una vez para habilitar el modo offline.' });
       return;
     }
 
-    if (!formData.clienteId || (gpsRequired && !formData.location) || !inspectorSignature || !clientSignature) {
+    if (!formData.clienteId || (gpsRequired && !formData.location) || !inspectorSignature || (includeClientSignature && !clientSignature)) {
       toast({
         variant: 'destructive',
         title: 'Datos incompletos',
         description: gpsRequired
-          ? 'Cliente, ubicacion GPS y ambas firmas son obligatorias.'
-          : 'Cliente y ambas firmas son obligatorias.'
+          ? 'Cliente, ubicacion GPS y firmas necesarias son obligatorias.'
+          : 'Cliente y firmas necesarias son obligatorias.'
       });
       return;
     }
@@ -585,7 +596,8 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
         firestore: canUseCloud ? firestore : null,
         isOnline: canUseCloud,
       });
-      const sequentialId = `HT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
+      const year = new Date().getFullYear();
+      const sequentialId = `HT-${inspectorInitials}-${year}-${sequence.toString().padStart(4, '0')}`;
       const limitedImages = images.slice(0, MAX_IMAGES_PER_REPORT);
       const internalFirebaseId = generateReportId('HT');
 
@@ -593,7 +605,9 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
         const localData: any = {
           ...formData,
           formType: 'hoja-trabajo',
-          originalJobId: initialData?.id || null,
+          orderId: initialData?.orderId || initialData?.id || null,
+          numero_ot: initialData?.numero_ot || initialData?.id || null,
+          procedencia: (initialData?.numero_ot || initialData?.id?.startsWith('OT-')) ? 'OT' : 'INDEPENDIENTE',
           displayId,
           numero_informe: displayId,
         };
@@ -649,6 +663,21 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
       if (canUseCloud && typeof navigator !== 'undefined' && navigator.onLine && firestore && user?.email) {
         try {
           const storage = getStorage();
+          
+          // Lógica de ID vinculada a OT
+          let sequentialId = '';
+          if (initialData?.id && initialData.id.startsWith('OT-')) {
+            sequentialId = await getNextReportIdForOT(firestore, initialData.id);
+          } else {
+            const sequence = await getNextSequenceForUser({
+              type: 'hoja-trabajo',
+              userEmail: inspectorEmail || '',
+              firestore: canUseCloud ? firestore : null,
+              isOnline: canUseCloud,
+            });
+            const yearNow = new Date().getFullYear();
+            sequentialId = `HT-${inspectorInitials}-${yearNow}-${sequence.toString().padStart(4, '0')}`;
+          }
 
           const imageUrls = await Promise.all(limitedImages.map(async (image, index) => {
             const imgRef = ref(storage, `informes/${internalFirebaseId}/${Date.now()}_${index}_${image.name}`);
@@ -656,17 +685,23 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
             return getDownloadURL(imgRef);
           }));
 
-          const inspRef = ref(storage, `firmas/${internalFirebaseId}/inspector.png`);
-          await uploadString(inspRef, inspectorSignature!, 'data_url');
-          const inspectorSignatureUrl = await getDownloadURL(inspRef);
+          let inspectorSignatureUrl = '';
+          if (inspectorSignature && inspectorSignature.startsWith('data:')) {
+            const inspRef = ref(storage, `firmas/${internalFirebaseId}/inspector.png`);
+            await uploadString(inspRef, inspectorSignature, 'data_url');
+            inspectorSignatureUrl = await getDownloadURL(inspRef);
+          }
 
-          const cliRef = ref(storage, `firmas/${internalFirebaseId}/cliente.png`);
-          await uploadString(cliRef, clientSignature!, 'data_url');
-          const clientSignatureUrl = await getDownloadURL(cliRef);
+          let clientSignatureUrl = '';
+          if (includeClientSignature && clientSignature && clientSignature.startsWith('data:')) {
+            const cliRef = ref(storage, `firmas/${internalFirebaseId}/cliente.png`);
+            await uploadString(cliRef, clientSignature, 'data_url');
+            clientSignatureUrl = await getDownloadURL(cliRef);
+          }
 
           const docData = {
             ...formData,
-            // Convert hours to decimal
+            includeClientSignature,
             h_asistencia: timeToDecimal(formData.h_asistencia),
             parametrosTecnicos: {
               ...formData.parametrosTecnicos,
@@ -674,37 +709,45 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
             },
             imageUrls,
             inspectorSignatureUrl,
-            clientSignatureUrl,
+            clientSignatureUrl: includeClientSignature ? clientSignatureUrl : null,
             inspectorId: inspectorEmail || '',
             inspectorNombre: inspectorName,
+            inspectorInitials,
             inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
             inspectorNombres: initialData?.inspectorNombres || [inspectorName],
             fecha_creacion: Timestamp.now(),
             formType: formData.formType || 'hoja-trabajo',
             id: sequentialId,
             numero_informe: sequentialId,
+            orderId: initialData?.orderId || initialData?.id || null,
+            numero_ot: initialData?.numero_ot || initialData?.id || null,
+            procedencia: (initialData?.numero_ot || initialData?.id?.startsWith('OT-')) ? 'OT' : 'INDEPENDIENTE',
             internalId: internalFirebaseId,
             estado: 'Registrado',
           };
 
           await setDoc(doc(firestore, 'informes', sequentialId), docData);
 
-          if (initialData?.id) {
-            await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Registrado' });
+          // Actualizar estado de la OT a 'En Proceso'
+          if (docData.orderId) {
+            await updateDoc(doc(firestore, 'ordenes_trabajo', docData.orderId), { estado: 'En Proceso' });
           }
 
-          const pendingImages = await dbLocal.imagenes.where('reportId').equals(sequentialId).toArray();
-          for (const img of pendingImages) {
-            await dbLocal.imagenes.update(img.id!, { synced: true });
-          }
 
           await saveDataToLocal(true, sequentialId, sequentialId);
         } catch (error) {
           console.error('[CLOUD ERROR] Fallo al guardar en Firebase:', error);
-          await saveDataToLocal(false, sequentialId, sequentialId);
+          // Fallback a ID local
+          const year = new Date().getFullYear();
+          const sequence = await dbLocal.getNextSequence('hoja-trabajo', inspectorEmail || 'global', year);
+          const localId = `HT-${inspectorInitials}-${year}-${sequence.toString().padStart(4, '0')}`;
+          await saveDataToLocal(false, localId, localId);
         }
       } else {
-        await saveDataToLocal(false, sequentialId, sequentialId);
+        const year = new Date().getFullYear();
+        const sequence = await dbLocal.getNextSequence('hoja-trabajo', inspectorEmail || 'global', year);
+        const localId = `HT-${inspectorInitials}-${year}-${sequence.toString().padStart(4, '0')}`;
+        await saveDataToLocal(false, localId, localId);
       }
     } catch (error) {
       console.error('Error en guardado de hoja de trabajo:', error);
@@ -747,7 +790,35 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
       </Dialog>
 
       <main className="space-y-6 pb-20">
-        <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Hoja de Trabajo</h2>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Hoja de Trabajo</h2>
+          
+          {(initialData?.numero_ot || (initialData?.id && initialData.id.startsWith('OT-'))) ? (
+            <div className="bg-primary/5 border border-primary/10 px-4 py-2 rounded-2xl flex items-center gap-3 animate-in fade-in zoom-in duration-500">
+              <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                <ClipboardList size={16} className="text-primary" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[8px] font-black text-primary/60 uppercase tracking-widest leading-none">Vinculado a OT</span>
+                <span className="text-xs font-black text-primary uppercase tracking-tight">
+                  {initialData.numero_ot || initialData.id}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-slate-50 border border-slate-100 px-4 py-2 rounded-2xl flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center">
+                <FileText size={16} className="text-slate-400" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Tipo de Informe</span>
+                <span className="text-xs font-black text-slate-500 uppercase tracking-tight">
+                  INFORME INDEPENDIENTE
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
 
         <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-4 border border-slate-100">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -873,18 +944,41 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
         </section>
 
         <section className="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-sm space-y-6 border border-slate-100">
+          <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <div className="flex items-center gap-3 text-left">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${includeClientSignature ? 'bg-primary text-white' : 'bg-slate-200 text-slate-400'}`}>
+                <Users size={20} />
+              </div>
+              <div>
+                <p className="text-xs font-black text-slate-700 uppercase tracking-tighter">¿Incluir Firma del Cliente?</p>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Activar solo si el cliente firmará en persona</p>
+              </div>
+            </div>
+            <div className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={includeClientSignature}
+                onChange={(e) => setIncludeClientSignature(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-inner"></div>
+            </div>
+          </div>
+
           <h2 className="text-lg font-black uppercase tracking-tighter text-black">Validación y Firmas</h2>
           <div className="grid md:grid-cols-2 gap-8 items-start">
-            <div className="space-y-4">
+            <div className="space-y-4 text-left">
               <SignaturePad title="Firma del Técnico Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
               <p className="text-center font-black text-slate-400 text-[8px] uppercase tracking-widest">{inspectorName}</p>
             </div>
-            <div className="space-y-4">
-              <SignaturePad title="Conforme Cliente / Receptor" signature={clientSignature} onSignatureEnd={setClientSignature} />
-              <div className="mt-4">
-                <StableInput label="Nombre de la persona que recibe" icon={User} value={formData.recibidoPor} onChange={(v: any) => handleInputChange('recibidoPor', v)} placeholder="Nombre completo" />
+            {includeClientSignature && (
+              <div className="space-y-4 text-left animate-in zoom-in duration-300">
+                <SignaturePad title="Conforme Cliente / Receptor" signature={clientSignature} onSignatureEnd={setClientSignature} />
+                <div className="mt-4">
+                  <StableInput label="Nombre de la persona que recibe" icon={User} value={formData.recibidoPor} onChange={(v: any) => handleInputChange('recibidoPor', v)} placeholder="Nombre completo" />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </section>
 

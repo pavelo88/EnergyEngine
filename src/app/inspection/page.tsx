@@ -451,11 +451,18 @@ const InspectionPageContent = () => {
             };
 
             console.log(`💾 Guardando en Firestore con docId=${docId}, numero_informe=${docData.numero_informe}: clienteId=${docData.clienteId}, clienteNombre=${docData.clienteNombre}`);
-            await setDoc(doc(firestore, 'informes', docId), docData);
+            
+            // ELIMINAR CAMPOS UNDEFINED PARA EVITAR ERRORES DE FIREBASE
+            const safeDocData = Object.fromEntries(
+              Object.entries(docData).filter(([_, v]) => v !== undefined)
+            );
+
+            await setDoc(doc(firestore, 'informes', docId), safeDocData);
             console.log(`✅ Guardado en Firestore OK`);
 
             if (record.data.originalJobId) {
-              await updateDoc(doc(firestore, 'ordenes_trabajo', record.data.originalJobId), { estado: 'Completado' });
+              // Cambiar estado a 'En Proceso' al recibir el primer informe/gasto
+              await updateDoc(doc(firestore, 'ordenes_trabajo', record.data.originalJobId), { estado: 'En Proceso' });
             }
 
             await ensureCloudCounterAtLeast(docData.numero_informe, formType);

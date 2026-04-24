@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
-import { Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Wind, Gauge, Thermometer, Droplets, Battery, Zap, Wrench, Camera } from 'lucide-react';
+import { Loader2, Save, FileSearch, Printer, CheckCircle2, User, Users, MapPin, Settings, Type, Hash, Calendar, Clock, Wind, Gauge, Thermometer, Droplets, Battery, Zap, Wrench, Camera, ClipboardList, FileText } from 'lucide-react';
 import { ProcessDictationOutput } from '@/ai/flows/process-dictation-flow';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -181,10 +181,12 @@ export const generatePDF = (report: any, inspectorName: string, reportId: string
     doc.text("Firma técnico:", 25, currentY + 30);
     doc.text(inspectorName || '', 25, currentY + 35);
 
-    addImageSafely(doc, report.clientSignatureUrl, 125, currentY, 60, 25);
-    doc.line(125, currentY + 25, 185, currentY + 25);
-    doc.text("Conforme cliente:", 125, currentY + 30);
-    doc.text(report.recibidoPor || '', 125, currentY + 35);
+    if (report.includeClientSignature) {
+      addImageSafely(doc, report.clientSignatureUrl, 125, currentY, 60, 25);
+      doc.line(125, currentY + 25, 185, currentY + 25);
+      doc.text("Conforme cliente:", 125, currentY + 30);
+      doc.text(report.recibidoPor || '', 125, currentY + 35);
+    }
 
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
@@ -227,6 +229,7 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
   const [savedDocId, setSavedDocId] = useState('');
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [includeClientSignature, setIncludeClientSignature] = useState(false);
   const gpsRequired = useGpsRequired();
 
   // Detect if we're editing an existing completed/preapproved report
@@ -270,12 +273,13 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
           clienteNombre: initialData.clienteNombre || initialData.cliente || prev.clienteNombre,
           instalacion: initialData.instalacion || prev.instalacion,
           direccion: initialData.direccion || prev.direccion,
-          motor: initialData.modelo || prev.motor,
-          modelo: initialData.n_motor || prev.modelo,
-          n_motor: initialData.n_motor || prev.n_motor,
-          n_grupo: initialData.n_grupo || prev.n_grupo,
-          potencia: initialData.potencia || prev.potencia,
-          observaciones: initialData.descripcion || prev.observaciones,
+          motor: initialData.modelo || prev.motor || '',
+          modelo: initialData.n_motor || prev.modelo || '',
+          n_motor: initialData.n_motor || prev.n_motor || '',
+          potencia: initialData.potencia || prev.potencia || '',
+          observaciones: initialData.descripcion || prev.observaciones || '',
+          orderId: initialData.orderId || initialData.id || prev.orderId,
+          originalJobId: initialData.id || prev.originalJobId,
         }));
       }
     }
@@ -374,7 +378,7 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
     }
     setPdfLoading(true);
     try {
-      const reportData = { ...formData, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: clientSignature };
+      const reportData = { ...formData, includeClientSignature, inspectorSignatureUrl: inspectorSignature, clientSignatureUrl: includeClientSignature ? clientSignature : null };
       const finalId = formData.numero_informe || docIdOverride || (isSaved ? savedDocId : 'BORRADOR');
       const docPdf = generatePDF(reportData, inspectorName, finalId);
 
@@ -406,7 +410,7 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
     if (!formData.instalacion) missing.push('Instalacion');
     if (gpsRequired && !formData.location) missing.push('Ubicacion GPS');
     if (!inspectorSignature) missing.push('Firma Inspector');
-    if (!clientSignature) missing.push('Firma Cliente');
+    if (includeClientSignature && !clientSignature) missing.push('Firma Cliente');
 
     if (missing.length > 0) {
       toast({ variant: 'destructive', title: 'Datos incompletos', description: `Falta: ${missing.join(', ')}` });
@@ -425,7 +429,12 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
     let didStartSave = false;
     try {
       const names = inspectorName.split(' ');
-      const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
+      const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
+
+      if (!inspectorInitials) {
+        toast({ variant: 'destructive', title: 'Identificación Requerida', description: 'No se han detectado sus iniciales. Por favor, revise su perfil.' });
+        return;
+      }
       setSaving(true);
       didStartSave = true;
 
@@ -470,20 +479,18 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
         firestore: canUseCloud ? firestore : null,
         isOnline: canUseCloud,
       });
-      const docId = `IS-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
+      const year = new Date().getFullYear();
+      const docId = `IS-${inspectorInitials}-${year}-${sequence.toString().padStart(4, '0')}`;
       const limitedImages = images.slice(0, MAX_IMAGES_PER_REPORT);
 
-      const updateOriginalJobStatus = async (jobId: string) => {
-        if (canUseCloud && firestore && user?.email) {
-          try { await updateDoc(doc(firestore, 'ordenes_trabajo', jobId), { estado: 'Registrado' }); } catch (e) { console.error(e); }
-        }
-      };
+
 
       const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
         const localData: any = {
           ...formData,
-          formType: 'informe-simplificado',
-          originalJobId: initialData?.id || null,
+          orderId: initialData?.orderId || initialData?.id || null,
+          numero_ot: initialData?.numero_ot || initialData?.id || null,
+          procedencia: (initialData?.numero_ot || initialData?.id?.startsWith('OT-')) ? 'OT' : 'INDEPENDIENTE',
           numero_informe: firebaseId,
         };
         if (!synced) {
@@ -514,35 +521,50 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
             return getDownloadURL(r);
           }));
 
-          const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
-          await uploadString(inspRef, inspectorSignature!, 'data_url');
-          const inspectorSignatureUrl = await getDownloadURL(inspRef);
+          let inspectorSignatureUrl = (formData as any).inspectorSignatureUrl || null;
+          if (inspectorSignature && inspectorSignature.startsWith('data:')) {
+            const inspRef = ref(storage, `firmas/${docId}/inspector.png`);
+            await uploadString(inspRef, inspectorSignature, 'data_url');
+            inspectorSignatureUrl = await getDownloadURL(inspRef);
+          }
 
-          const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
-          await uploadString(cliRef, clientSignature!, 'data_url');
-          const clientSignatureUrl = await getDownloadURL(cliRef);
+          let clientSignatureUrl = (formData as any).clientSignatureUrl || null;
+          if (includeClientSignature && clientSignature && clientSignature.startsWith('data:')) {
+            const cliRef = ref(storage, `firmas/${docId}/cliente.png`);
+            await uploadString(cliRef, clientSignature, 'data_url');
+            clientSignatureUrl = await getDownloadURL(cliRef);
+          }
 
           const docData = {
             ...formData,
+            includeClientSignature,
             datos_pruebas: {
               ...formData.datos_pruebas,
               horas: timeToDecimal(formData.datos_pruebas.horas)
             },
             imageUrls,
             inspectorSignatureUrl,
-            clientSignatureUrl,
+            clientSignatureUrl: includeClientSignature ? clientSignatureUrl : null,
             inspectorId: inspectorEmail || '',
             inspectorNombre: inspectorName,
+            inspectorInitials,
             inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
             inspectorNombres: initialData?.inspectorNombres || [inspectorName],
             fecha_creacion: Timestamp.now(),
             formType: formData.formType || 'informe-simplificado',
             id: docId,
             numero_informe: docId,
+            orderId: initialData?.orderId || initialData?.id || null,
+            numero_ot: initialData?.numero_ot || initialData?.id || null,
+            procedencia: (initialData?.numero_ot || initialData?.id?.startsWith('OT-')) ? 'OT' : 'INDEPENDIENTE',
             estado: 'Registrado'
           };
           await setDoc(doc(firestore, 'informes', docId), docData);
-          if (initialData?.id) await updateOriginalJobStatus(initialData.id);
+
+          // Actualizar estado de la OT a 'En Proceso'
+          if (docData.orderId) {
+            await updateDoc(doc(firestore, 'ordenes_trabajo', docData.orderId), { estado: 'En Proceso' });
+          }
 
           await saveDataToLocal(true, docId);
         } catch (error) {
@@ -593,7 +615,35 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
       </Dialog>
 
       <main className="space-y-6">
-        <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Simplificado / Motobombas</h2>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Simplificado / Motobombas</h2>
+          
+          {(initialData?.numero_ot || (initialData?.id && initialData.id.startsWith('OT-'))) ? (
+            <div className="bg-primary/5 border border-primary/10 px-4 py-2 rounded-2xl flex items-center gap-3 animate-in fade-in zoom-in duration-500">
+              <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                <ClipboardList size={16} className="text-primary" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[8px] font-black text-primary/60 uppercase tracking-widest leading-none">Vinculado a OT</span>
+                <span className="text-xs font-black text-primary uppercase tracking-tight">
+                  {initialData.numero_ot || initialData.id}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-slate-50 border border-slate-100 px-4 py-2 rounded-2xl flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center">
+                <FileText size={16} className="text-slate-400" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Tipo de Informe</span>
+                <span className="text-xs font-black text-slate-500 uppercase tracking-tight">
+                  INFORME INDEPENDIENTE
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
 
         <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -674,11 +724,37 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
         </section>
 
         <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
+          <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6">
+            <div className="flex items-center gap-3 text-left">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${includeClientSignature ? 'bg-primary text-white' : 'bg-slate-200 text-slate-400'}`}>
+                <Users size={20} />
+              </div>
+              <div>
+                <p className="text-xs font-black text-slate-700 uppercase tracking-tighter">¿Incluir Firma del Cliente?</p>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Activar solo si el cliente validará el informe</p>
+              </div>
+            </div>
+            <div className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" checked={includeClientSignature} onChange={(e) => setIncludeClientSignature(e.target.checked)} className="sr-only peer" />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-inner"></div>
+            </div>
+          </div>
+
           <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Observaciones Finales</h3>
           <textarea className="w-full h-24 bg-slate-50 border border-slate-200 rounded-xl p-3 resize-none outline-none focus:border-primary focus:bg-white transition-all shadow-inner text-sm font-medium text-black" placeholder="Anote cualquier detalle relevante..." value={formData.observaciones} onChange={e => handleInputChange('observaciones', e.target.value)} />
           <div className="grid md:grid-cols-2 gap-6 items-start pt-4">
-            <div><SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} /><p className="text-center font-black mt-2 text-slate-400 text-[8px] uppercase">{inspectorName}</p></div>
-            <div><SignaturePad title="Conforme Cliente" signature={clientSignature} onSignatureEnd={setClientSignature} /><div className="mt-2"><StableInput label="" icon={User} value={formData.recibidoPor} onChange={(v: string) => handleInputChange('recibidoPor', v)} placeholder="Nombre receptor" /></div></div>
+            <div className="text-left">
+              <SignaturePad title="Firma del Inspector" signature={inspectorSignature} onSignatureEnd={setInspectorSignature} />
+              <p className="text-center font-black mt-2 text-slate-400 text-[8px] uppercase">{inspectorName}</p>
+            </div>
+            {includeClientSignature && (
+              <div className="animate-in zoom-in duration-300 text-left">
+                <SignaturePad title="Conforme Cliente" signature={clientSignature} onSignatureEnd={setClientSignature} />
+                <div className="mt-2 text-left">
+                  <StableInput label="Nombre receptor" icon={User} value={formData.recibidoPor} onChange={(v: string) => handleInputChange('recibidoPor', v)} placeholder="Nombre receptor" />
+                </div>
+              </div>
+            )}
           </div>
         </section>
 

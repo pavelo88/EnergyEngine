@@ -13,10 +13,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
   return (
     <header className="flex h-24 items-center justify-between bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 md:px-10 sticky top-0 z-40 shadow-sm">
       <div className="flex items-center gap-6">
-        {/* Botón de Menú para móvil */}
         <button 
           onClick={onMenuClick} 
-          className="md:hidden p-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-400 hover:text-[#062113] transition-all"
+          className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-400 hover:text-[#062113] hover:bg-white transition-all shadow-sm"
         >
           <Menu className="h-6 w-6" />
         </button>
@@ -28,10 +27,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
       
       {/* Botón de acción dinámico (Inyectado por cada sección) */}
       <div className="flex items-center gap-6">
-        <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse"></div>
-            Node: Terminal-01
-        </div>
         {action && (
           <div className="animate-in fade-in zoom-in duration-500">
             {action}

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useFirestore, useUser } from '@/firebase';
-import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, MapPin, Settings, Type } from 'lucide-react';
+import { Wand2, Loader2, Save, FileSearch, Printer, CheckCircle2, User, MapPin, Settings, Type, ClipboardList, FileText } from 'lucide-react';
 import { splitTechnicalReport } from '@/ai/flows/split-technical-report-flow';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -143,11 +143,13 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess, isA
     motor: '',
     modelo: '',
     n_motor: '',
-    grupo: '',
+    n_grupo: '',
+    potencia: '',
     instalacion: '',
     location: null as { lat: number, lon: number } | null,
     fecha: new Date().toISOString().split('T')[0],
     reportContent: '',
+    observaciones: '',
     parametrosTecnicos: { horas: '' },
   });
 
@@ -228,7 +230,7 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess, isA
         motor: aiData.identidad.marca || prev.motor,
         modelo: aiData.identidad.modelo || prev.modelo,
         n_motor: aiData.identidad.sn || prev.n_motor,
-        grupo: aiData.identidad.n_grupo || prev.grupo,
+        n_grupo: aiData.identidad.n_grupo || prev.n_grupo,
         instalacion: aiData.identidad.instalacion || prev.instalacion,
         reportContent: aiData.observations_summary || prev.reportContent,
         observaciones: aiData.observations_summary || prev.observaciones
@@ -342,7 +344,12 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess, isA
     let didStartSave = false;
     try {
       const names = inspectorName.split(' ');
-      const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || 'EE';
+      const inspectorInitials = names.map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
+      
+      if (!inspectorInitials) {
+        toast({ variant: 'destructive', title: 'Identificación Requerida', description: 'No se han detectado sus iniciales. Por favor, revise su perfil.' });
+        return;
+      }
       setSaving(true);
       didStartSave = true;
 
@@ -381,13 +388,16 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess, isA
         firestore: canUseCloud ? firestore : null,
         isOnline: canUseCloud,
       });
-      const docId = `IT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
+      const year = new Date().getFullYear();
+      const docId = `IT-${inspectorInitials}-${year}-${sequence.toString().padStart(4, '0')}`;
 
       const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
         const localData: any = {
           ...formData,
           formType: 'informe-tecnico',
-          originalJobId: initialData?.id || null,
+          orderId: initialData?.orderId || initialData?.id || null,
+          numero_ot: initialData?.numero_ot || initialData?.id || null,
+          procedencia: (initialData?.numero_ot || initialData?.id?.startsWith('OT-')) ? 'OT' : 'INDEPENDIENTE',
           numero_informe: firebaseId,
         };
         if (!synced) localData.inspectorSignature = inspectorSignature;
@@ -415,9 +425,11 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess, isA
           const storage = getStorage();
 
           let inspectorSignatureUrl = null;
-          const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
-          await uploadString(signatureRef, inspectorSignature!, 'data_url');
-          inspectorSignatureUrl = await getDownloadURL(signatureRef);
+          if (inspectorSignature && inspectorSignature.startsWith('data:')) {
+            const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
+            await uploadString(signatureRef, inspectorSignature, 'data_url');
+            inspectorSignatureUrl = await getDownloadURL(signatureRef);
+          }
 
           const docData = {
             ...formData,
@@ -430,17 +442,26 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess, isA
             clientSignatureUrl: clientSignature || null,
             inspectorId: inspectorEmail || '',
             inspectorNombre: inspectorName,
+            inspectorInitials,
             inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
             inspectorNombres: initialData?.inspectorNombres || [inspectorName],
             fecha_creacion: Timestamp.now(),
             formType: formData.formType || 'informe-tecnico',
             id: docId,
             numero_informe: docId,
+            orderId: initialData?.orderId || initialData?.id || null,
+            numero_ot: initialData?.numero_ot || initialData?.id || null,
+            procedencia: (initialData?.numero_ot || initialData?.id?.startsWith('OT-')) ? 'OT' : 'INDEPENDIENTE',
             estado: 'Registrado'
           };
 
           await setDoc(doc(firestore, 'informes', docId), docData);
-          if (initialData?.id) await updateDoc(doc(firestore, 'ordenes_trabajo', initialData.id), { estado: 'Registrado' });
+
+          // Actualizar estado de la OT a 'En Proceso'
+          if (docData.orderId) {
+            await updateDoc(doc(firestore, 'ordenes_trabajo', docData.orderId), { estado: 'En Proceso' });
+          }
+          if (initialData?.id) // updateOriginalJobStatus(jobId) removed
 
           await saveDataToLocal(true, docId);
         } catch (e) {
@@ -496,7 +517,35 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess, isA
         </DialogContent>
       </Dialog>
 
-      <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe de Intervención Técnica</h2>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe de Intervención Técnica</h2>
+        
+        {(initialData?.numero_ot || (initialData?.id && initialData.id.startsWith('OT-'))) ? (
+          <div className="bg-primary/5 border border-primary/10 px-4 py-2 rounded-2xl flex items-center gap-3 animate-in fade-in zoom-in duration-500">
+            <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+              <ClipboardList size={16} className="text-primary" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black text-primary/60 uppercase tracking-widest leading-none">Vinculado a OT</span>
+              <span className="text-xs font-black text-primary uppercase tracking-tight">
+                {initialData.numero_ot || initialData.id}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-50 border border-slate-100 px-4 py-2 rounded-2xl flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center">
+              <FileText size={16} className="text-slate-400" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Tipo de Informe</span>
+              <span className="text-xs font-black text-slate-500 uppercase tracking-tight">
+                INFORME INDEPENDIENTE
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
 
       <section className="bg-white p-5 md:p-8 rounded-[2rem] shadow-sm space-y-4 border border-slate-100">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -509,7 +558,7 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess, isA
           <StableInput label="Motor" icon={Settings} value={formData.motor} onChange={(v: string) => handleInputChange('motor', v)} />
           <StableInput label="Modelo" icon={Type} value={formData.modelo} onChange={(v: string) => handleInputChange('modelo', v)} />
           <StableInput label="Nº de motor" icon={Type} value={formData.n_motor} onChange={(v: string) => handleInputChange('n_motor', v)} />
-          <StableInput label="Grupo" icon={Settings} value={formData.grupo} onChange={(v: string) => handleInputChange('grupo', v)} />
+          <StableInput label="Nº Grupo" icon={Settings} value={formData.n_grupo} onChange={(v: string) => handleInputChange('n_grupo', v)} />
           <div className="md:col-span-2">
             <StableInput label="Instalación / Ubicación Específica" icon={MapPin} value={formData.instalacion} onChange={(v: string) => handleInputChange('instalacion', v)} />
           </div>

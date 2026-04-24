@@ -14,6 +14,7 @@ export const getInlineImageDataUrl = (imageValue: unknown): string | null => {
 };
 
 const getPdfImageFormat = (dataUrl: string): PdfImageFormat => {
+  if (typeof dataUrl !== 'string') return 'PNG';
   const mimeMatch = dataUrl.match(/^data:(image\/[a-z0-9.+-]+);base64,/i);
   const mime = (mimeMatch?.[1] || '').toLowerCase();
   if (mime.includes('jpeg') || mime.includes('jpg')) return 'JPEG';

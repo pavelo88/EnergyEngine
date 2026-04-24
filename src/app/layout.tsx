@@ -15,17 +15,17 @@ const fontBody = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Motores Energy & Grupos Electrógenos | Energy Engine España',
+  title: 'Energy Engine  |  Motores & Grupos ElectrógenosE',
   applicationName: 'Energy Engine',
   description: 'Expertos en Motores Energy, mantenimiento integral, reparación de averías y pruebas de carga para grupos electrógenos. Servicio técnico oficial multimarca: Perkins, Guascor, Cummins, Volvo Penta y más. Asistencia 24/7.',
   keywords: [
-    'motores energy', 'mantenimiento motores energy', 'grupos electrógenos', 
-    'Perkins', 'Guascor', 'Siemens Energy', 'Guascor Energy', 'Cummins', 'Iveco', 'Ruggerini', 'Volvo Penta', 
-    'Lombardini', 'MAN', 'Rolls-Royce', 'MTU', 'Deif', 'Baudouin', 'Atlas Copco', 'Caterpillar', 
-    'Leroy-Somer', 'Pramac', 'Deutz', 'Doosan', 'J.L. Metric', 'Generac', 'Stamford', 'Isuzu', 
-    'Hipower', 'Himoinsa', 'John Deere', 'Kohler', 'Kubota', 'FPT', 'Scania', 'Socomec', 
-    'Mosa', 'Yanmar', 'Mecc Alte', 'mantenimiento industrial', 'reparación de averías', 
-    'bancos de carga', 'cogeneración', 'asistencia técnica 24/7', 'repuestos originales', 
+    'motores energy', 'mantenimiento motores energy', 'grupos electrógenos',
+    'Perkins', 'Guascor', 'Siemens Energy', 'Guascor Energy', 'Cummins', 'Iveco', 'Ruggerini', 'Volvo Penta',
+    'Lombardini', 'MAN', 'Rolls-Royce', 'MTU', 'Deif', 'Baudouin', 'Atlas Copco', 'Caterpillar',
+    'Leroy-Somer', 'Pramac', 'Deutz', 'Doosan', 'J.L. Metric', 'Generac', 'Stamford', 'Isuzu',
+    'Hipower', 'Himoinsa', 'John Deere', 'Kohler', 'Kubota', 'FPT', 'Scania', 'Socomec',
+    'Mosa', 'Yanmar', 'Mecc Alte', 'mantenimiento industrial', 'reparación de averías',
+    'bancos de carga', 'cogeneración', 'asistencia técnica 24/7', 'repuestos originales',
     'España', 'Portugal'
   ],
   manifest: '/manifest.json',

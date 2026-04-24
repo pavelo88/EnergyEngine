@@ -18,6 +18,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
   const [isDrawing, setIsDrawing] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [hasContent, setHasContent] = useState(!!signature);
+  const [wasEdited, setWasEdited] = useState(false);
 
   // Inicialización del lienzo con suavizado extremo y fijación de fondo sólido
   useEffect(() => {
@@ -42,11 +43,10 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.strokeStyle = '#165a30'; // Slate-900 para máxima legibilidad
-      ctx.lineWidth = 2.5; // Grosor óptimo para firmas
-      ctx.fillStyle = '#ffffff'; // Fondo blanco obligatorio para PDF
-      ctx.fillRect(0, 0, rect.width, rect.height);
-
-      contextRef.current = ctx;
+      ctx.strokeStyle = '#165a30'; 
+      ctx.lineWidth = 2.5; 
+      ctx.fillStyle = '#ffffff'; 
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Cargar firma previa o firma del sistema si existe
       const savedGlobal = localStorage.getItem('energy_engine_signature');
@@ -54,10 +54,17 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
 
       if (finalInitial) {
         const img = new Image();
-        img.src = finalInitial;
+        if (finalInitial.startsWith('http')) {
+          img.crossOrigin = 'anonymous';
+          img.src = finalInitial + (finalInitial.includes('?') ? '&' : '?') + 't=' + Date.now();
+        } else {
+          img.src = finalInitial;
+        }
+        
         img.onload = () => {
           ctx.drawImage(img, 0, 0, rect.width, rect.height);
           setHasContent(true);
+          setWasEdited(false); // Es la firma original, no editada
         };
       }
     };
@@ -65,8 +72,6 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     const timer = setTimeout(initCanvas, 150);
     return () => clearTimeout(timer);
   }, [isFullScreen, signature]);
-
-  const pointsRef = useRef<{ x: number, y: number }[]>([]);
 
   const getPos = (e: React.PointerEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
@@ -77,42 +82,55 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
     };
   };
 
+  const lastPosRef = useRef<{ x: number, y: number } | null>(null);
+
   const startDrawing = (e: React.PointerEvent) => {
     if (!contextRef.current) return;
     const pos = getPos(e);
-
+    lastPosRef.current = pos;
+    
     contextRef.current.beginPath();
     contextRef.current.moveTo(pos.x, pos.y);
     setIsDrawing(true);
     setHasContent(true);
+    setWasEdited(true); // El usuario empezó a dibujar
   };
 
   const draw = (e: React.PointerEvent) => {
-    if (!isDrawing || !contextRef.current) return;
+    if (!isDrawing || !contextRef.current || !lastPosRef.current) return;
 
     const pos = getPos(e);
     const ctx = contextRef.current;
+    const lastPos = lastPosRef.current;
 
-    ctx.lineTo(pos.x, pos.y);
+    const midPoint = {
+      x: lastPos.x + (pos.x - lastPos.x) / 2,
+      y: lastPos.y + (pos.y - lastPos.y) / 2
+    };
+
+    ctx.quadraticCurveTo(lastPos.x, lastPos.y, midPoint.x, midPoint.y);
     ctx.stroke();
 
-    // We keep move to for next segment but don't need point history for simple lines
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
+    lastPosRef.current = pos;
+    setWasEdited(true);
   };
 
   const stopDrawing = () => {
-    if (isDrawing) {
+    if (isDrawing && contextRef.current) {
+      contextRef.current.closePath();
       setIsDrawing(false);
+      lastPosRef.current = null;
     }
   };
 
   const handleSave = () => {
     if (canvasRef.current && hasContent) {
-      // CAMBIO AQUÍ: Pasamos de 'image/png' a 'image/jpeg' con 0.5 de calidad. 
-      // Esto reduce el peso de la firma de 5 MB a unos 30 KB.
-      const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.5);
-      onSignatureEnd(dataUrl);
+      if (wasEdited) {
+        const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.5);
+        onSignatureEnd(dataUrl);
+      } else {
+        onSignatureEnd(signature);
+      }
     }
     setIsFullScreen(false);
   };
@@ -123,6 +141,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
       contextRef.current.fillStyle = '#ffffff';
       contextRef.current.fillRect(0, 0, rect.width, rect.height);
       setHasContent(false);
+      setWasEdited(true); // Se limpió, cuenta como edición
       onSignatureEnd(null);
     }
   };
@@ -177,17 +196,17 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
 
           <div className="flex gap-3 mt-4">
             <Button
-              variant="ghost"
-              className="flex-1 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold text-xs"
+              variant="outline"
+              className="flex-1 h-12 rounded-xl border-2 border-[#165a30] bg-white text-[#165a30] font-black uppercase text-[10px] tracking-widest hover:bg-[#165a30] hover:text-white transition-all duration-300"
               onClick={handleClear}
             >
               <Trash2 size={16} className="mr-2" /> LIMPIAR
             </Button>
             <Button
-              className="flex-1 h-12 rounded-xl bg-primary text-white hover:bg-primary/90 font-black text-sm shadow-lg active:scale-95 transition-transform"
+              className="flex-1 h-12 rounded-xl border-2 border-[#165a30] bg-[#165a30] text-white font-black uppercase text-[10px] tracking-widest hover:bg-white hover:text-[#165a30] transition-all duration-300 shadow-lg"
               onClick={handleSave}
             >
-              <Check size={20} className="mr-2" /> ACEPTAR FIRMA
+              <Check size={18} className="mr-2" /> ACEPTAR FIRMA
             </Button>
           </div>
         </DialogContent>

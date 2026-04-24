@@ -114,17 +114,29 @@ export default function ExpensesPage() {
   }, [filteredRecords]);
 
   useEffect(() => {
+    const headerAction = (
+      <div className="flex flex-col md:flex-row items-center gap-4">
+        {/* Toggle de Vistas */}
+        <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner shrink-0">
+          <button onClick={() => setViewMode('tabla')} className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase flex items-center gap-2 ${viewMode === 'tabla' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}><AlignJustify size={14} /> Tabla</button>
+          <button onClick={() => setViewMode('rubro')} className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase flex items-center gap-2 ${viewMode === 'rubro' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}><Layers size={14} /> Categoría</button>
+          <button onClick={() => setViewMode('fecha')} className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase flex items-center gap-2 ${viewMode === 'fecha' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}><CalendarDays size={14} /> Fecha</button>
+        </div>
+
+        {/* Acciones principales */}
+        <div className="flex items-center gap-2">
+          <Button onClick={handleExportExcel} variant="outline" className="h-10 rounded-xl border-slate-200 bg-white text-slate-600 font-black text-[10px] gap-2 px-4 uppercase hover:bg-slate-50"><Download size={14} /> Excel</Button>
+          <Button onClick={() => setIsReportModalOpen(true)} variant="outline" className="h-10 rounded-xl border-slate-200 bg-white text-slate-600 font-black text-[10px] gap-2 px-4 uppercase hover:bg-slate-50"><FileText size={14} /> PDF</Button>
+          <Button onClick={() => setIsCreateModalOpen(true)} className="h-10 rounded-xl bg-primary text-white font-black text-[10px] gap-2 px-4 uppercase shadow-lg shadow-primary/20"><Plus size={14} /> Crear Gasto</Button>
+        </div>
+      </div>
+    );
+
     setHeaderProps({
       title: 'Gastos Individuales y Viáticos',
-      action: (
-        <div className="flex gap-2">
-          <Button onClick={() => setIsCreateModalOpen(true)} className="h-10 rounded-xl bg-slate-100 text-slate-900 border border-slate-200 font-black text-[10px] gap-2 px-6 uppercase hover:bg-slate-200"><Plus size={14} /> Crear Gasto</Button>
-          <Button onClick={() => setIsReportModalOpen(true)} className="h-10 rounded-xl bg-slate-100 text-slate-900 border border-slate-200 font-black text-[10px] gap-2 px-6 uppercase hover:bg-slate-200"><FileText size={14} /> Reportes PDF</Button>
-          <Button onClick={handleExportExcel} className="h-10 rounded-xl bg-slate-100 text-slate-900 border border-slate-200 font-black text-[10px] gap-2 px-6 uppercase hover:bg-slate-200"><Download size={14} /> Excel</Button>
-        </div>
-      )
+      action: headerAction
     });
-  }, [setHeaderProps, filteredRecords]);
+  }, [setHeaderProps, viewMode, filteredRecords]);
 
   const handleExportExcel = () => {
     const dataToExport = records.map(r => ({
@@ -145,9 +157,20 @@ export default function ExpensesPage() {
     if (currentStatus === 'Aprobado') return;
     if (!window.confirm("¿Validar y aprobar este gasto definitivamente?")) return;
     try {
-      await updateDoc(doc(db, 'gastos_detalle', id), { estado: 'Aprobado' });
-      fetchData();
-    } catch (e) { console.error("Error approving expense:", e); }
+      setLoading(true);
+      await updateDoc(doc(db, 'gastos_detalle', id), { 
+        estado: 'Aprobado',
+        fecha_aprobacion: serverTimestamp(),
+        aprobado_por: 'Admin'
+      });
+      toast({ title: "¡Gasto Aprobado!", description: "El viático ha sido validado correctamente." });
+      await fetchData();
+    } catch (e) { 
+      console.error("Error approving expense:", e);
+      toast({ title: "Error", description: "No se pudo aprobar el gasto.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -186,13 +209,8 @@ export default function ExpensesPage() {
           <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Hasta</label>
           <AdminDatePicker date={fechaHasta} setDate={setFechaHasta} placeholder="Fin..." />
         </div>
-        <Button variant="ghost" onClick={() => { setFiltroInspector('todos'); setFechaDesde(undefined); setFechaHasta(undefined); setSearchTerm(''); }} className="h-12 rounded-xl text-slate-400 font-bold">LIMPIAR</Button>
-
-        {/* TOGGLE DE VISTA */}
-        <div className="ml-auto flex bg-slate-100 p-1 rounded-xl shadow-inner">
-          <button onClick={() => setViewMode('tabla')} className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase flex items-center gap-2 ${viewMode === 'tabla' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}><AlignJustify size={14} /> Tabla</button>
-          <button onClick={() => setViewMode('rubro')} className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase flex items-center gap-2 ${viewMode === 'rubro' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}><Layers size={14} /> Categoría</button>
-          <button onClick={() => setViewMode('fecha')} className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase flex items-center gap-2 ${viewMode === 'fecha' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}><CalendarDays size={14} /> Fecha</button>
+        <div className="flex flex-wrap items-center gap-2 pt-2 md:pt-0">
+          <Button variant="ghost" onClick={() => { setFiltroInspector('todos'); setFechaDesde(undefined); setFechaHasta(undefined); setSearchTerm(''); }} className="h-12 rounded-xl text-slate-400 font-bold text-[10px] uppercase px-4 hover:bg-slate-50">LIMPIAR FILTROS</Button>
         </div>
       </div>
 
@@ -295,6 +313,7 @@ export default function ExpensesPage() {
 }
 
 function GastoModal({ isOpen, onClose, record, onSaved, db }: any) {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState(() => {
     if (record) {
@@ -309,13 +328,21 @@ function GastoModal({ isOpen, onClose, record, onSaved, db }: any) {
   });
 
   const handleSave = async () => {
+    if (!formData.monto || isNaN(parseFloat(formData.monto))) {
+      toast({ title: "Monto inválido", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
-      const payload = { ...formData, monto: parseFloat(formData.monto) || 0, fecha: new Date(formData.fecha + 'T12:00:00') };
+      const payload = { 
+        ...formData, 
+        monto: parseFloat(parseFloat(String(formData.monto)).toFixed(2)), 
+        fecha: new Date(formData.fecha + 'T12:00:00') 
+      };
       if (record) await updateDoc(doc(db, 'gastos_detalle', record.id), payload);
       else await addDoc(collection(db, 'gastos_detalle'), { ...payload, estado: 'Registrado', inspectorId: formData.inspectorNombre.toLowerCase(), createdAt: serverTimestamp() });
       onSaved(); onClose();
-    } catch (e) { } finally { setLoading(false); }
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
   return (
@@ -349,16 +376,16 @@ function GastoModal({ isOpen, onClose, record, onSaved, db }: any) {
           <Button 
             variant="outline" 
             onClick={onClose} 
-            className="flex-1 h-12 rounded-xl border-2 border-[#3f624d] bg-white text-[#3f624d] font-black uppercase text-[10px] tracking-widest hover:bg-[#3f624d] hover:text-white transition-all duration-300"
+            className="flex-1 h-12 rounded-xl border-2 border-[#165a30] bg-white text-[#165a30] font-black uppercase text-[10px] tracking-widest hover:bg-[#165a30] hover:text-white transition-all duration-300"
           >
             Cancelar
           </Button>
           <Button 
             onClick={handleSave} 
             disabled={loading} 
-            className="flex-1 h-12 rounded-xl border-2 border-[#3f624d] bg-white text-[#3f624d] font-black uppercase text-[10px] tracking-widest hover:bg-[#3f624d] hover:text-white transition-all duration-300 shadow-md"
+            className="flex-1 h-12 rounded-xl border-2 border-[#165a30] bg-[#165a30] text-white font-black uppercase text-[10px] tracking-widest hover:bg-white hover:text-[#165a30] transition-all duration-300 shadow-md"
           >
-            {loading ? <Loader2 className="animate-spin mr-2" size={16} /> : 'Confirmar Gasto'}
+            {loading ? <Loader2 className="animate-spin mr-2" size={16} /> : (record ? 'Actualizar' : 'Confirmar Gasto')}
           </Button>
         </DialogFooter>
       </DialogContent>

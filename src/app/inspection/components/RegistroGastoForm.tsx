@@ -24,6 +24,7 @@ import { resolveInspectorEmail } from '@/lib/inspection-mode';
 type GastoItem = {
   id: string; rubro: string; monto: number; descripcion: string; forma_pago: string; hora: string;
   comprobanteUrl?: string; fecha: string | Date; estado: 'Registrado' | 'Aprobado';
+  clienteId?: string; clienteNombre?: string; orderId?: string;
 };
 
 const cleanData = (obj: any): any => {
@@ -43,7 +44,7 @@ const cleanData = (obj: any): any => {
   return obj;
 };
 
-const initialGastoState = { rubro: 'Combustible', monto: '', descripcion: '', forma_pago: 'Tarjeta Empresa', hora: format(new Date(), 'HH:mm'), comprobanteFile: undefined };
+const initialGastoState = { rubro: 'Combustible', monto: '', descripcion: '', forma_pago: 'Tarjeta Empresa', hora: format(new Date(), 'HH:mm'), comprobanteFile: undefined, clienteId: '', clienteNombre: '', orderId: '' };
 
 export default function RegistroGastoForm() {
   const { user } = useUser();
@@ -60,20 +61,24 @@ export default function RegistroGastoForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [clients, setClients] = useState<any[]>([]);
+  const [activeOTs, setActiveOTs] = useState<any[]>([]);
 
-  // --- CARGAR GASTOS ---
   useEffect(() => {
     const load = async () => {
       if (!canUseCloud || !inspectorEmail) { setInitialLoading(false); return; }
       setInitialLoading(true);
       try {
-        const q = query(
-          collection(firestore, "gastos_detalle"),
-          where("inspectorId", "==", inspectorEmail),
-          where("fechaStr", "==", format(reportDate, 'yyyy-MM-dd'))
-        );
-        const snap = await getDocs(q);
-        setGastos(snap.docs.map(d => ({ id: d.id, ...d.data() } as GastoItem)));
+        const [gastosSnap, clientsSnap, otsSnap] = await Promise.all([
+          getDocs(query(collection(firestore, "gastos_detalle"), where("inspectorId", "==", inspectorEmail), where("fechaStr", "==", format(reportDate, 'yyyy-MM-dd')))),
+          getDocs(collection(firestore, 'clientes')),
+          getDocs(query(collection(firestore, 'ordenes_trabajo'), where('inspectorIds', 'array-contains', inspectorEmail), where('estado', 'in', ['Asignado', 'Pendiente', 'En Progreso', 'Abierta', 'Registrada'])))
+        ]);
+
+        setGastos(gastosSnap.docs.map(d => ({ id: d.id, ...d.data() } as GastoItem)));
+        setClients(clientsSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string, nombre: string })).sort((a, b) => a.nombre > b.nombre ? 1 : -1));
+        setActiveOTs(otsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
       } catch (e) { console.error(e); }
       setInitialLoading(false);
     };
@@ -102,7 +107,10 @@ export default function RegistroGastoForm() {
         id, rubro: currentGasto.rubro, monto: parseFloat(currentGasto.monto),
         descripcion: currentGasto.descripcion, forma_pago: currentGasto.forma_pago,
         hora: currentGasto.hora, comprobanteUrl: cUrl || undefined,
-        fecha: reportDate, estado: 'Registrado'
+        fecha: reportDate, estado: 'Registrado',
+        clienteId: currentGasto.clienteId || null,
+        clienteNombre: currentGasto.clienteNombre || null,
+        orderId: currentGasto.orderId || null
       };
 
       await setDoc(doc(firestore!, "gastos_detalle", id), cleanData({
@@ -112,6 +120,11 @@ export default function RegistroGastoForm() {
         fechaStr: format(reportDate, 'yyyy-MM-dd'),
         createdAt: serverTimestamp()
       }));
+
+      // Actualizar estado de la OT a 'En Proceso'
+      if (currentGasto.orderId) {
+        await updateDoc(doc(firestore!, 'ordenes_trabajo', currentGasto.orderId), { estado: 'En Proceso' });
+      }
 
       setGastos([...gastos, docData]);
       setCurrentGasto(initialGastoState);
@@ -181,6 +194,50 @@ export default function RegistroGastoForm() {
             </Select>
           </div>
           <div className="col-span-2 space-y-1">
+            <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Vincular a OT (Opcional)</label>
+            <Select 
+              value={currentGasto.orderId} 
+              onValueChange={(val) => {
+                const ot = activeOTs.find(o => o.id === val);
+                if (ot) {
+                  setCurrentGasto({ 
+                    ...currentGasto, 
+                    orderId: ot.id, 
+                    clienteId: ot.clienteId || '', 
+                    clienteNombre: ot.clienteNombre || ot.cliente || '' 
+                  });
+                } else {
+                  setCurrentGasto({ ...currentGasto, orderId: '', clienteId: '', clienteNombre: '' });
+                }
+              }}
+            >
+              <SelectTrigger className="h-14 rounded-2xl bg-slate-50 border-transparent font-bold">
+                <SelectValue placeholder="NINGUNA (GASTO GENERAL)" />
+              </SelectTrigger>
+              <SelectContent className="z-[150] bg-white">
+                <SelectItem value="none">NINGUNA (GASTO GENERAL)</SelectItem>
+                {activeOTs.map(ot => (
+                  <SelectItem key={ot.id} value={ot.id}>{ot.id} - {ot.descripcion?.substring(0, 30)}...</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="col-span-2 space-y-1">
+            <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Cliente</label>
+            <Select 
+              value={currentGasto.clienteId} 
+              disabled={!!currentGasto.orderId}
+              onValueChange={(val) => setCurrentGasto({ ...currentGasto, clienteId: val, clienteNombre: clients.find(c => c.id === val)?.nombre })}
+            >
+              <SelectTrigger className="h-14 rounded-2xl bg-slate-50 border-transparent font-bold">
+                <SelectValue placeholder="SELECCIONAR CLIENTE..." />
+              </SelectTrigger>
+              <SelectContent className="z-[150] bg-white">
+                {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre.toUpperCase()}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="col-span-2 space-y-1">
             <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Descripción / Concepto</label>
             <Input placeholder="Escriba el concepto del ticket..." value={currentGasto.descripcion} onChange={e => setCurrentGasto({ ...currentGasto, descripcion: e.target.value })} className="h-14 rounded-2xl bg-slate-50 border-transparent font-bold" />
           </div>
@@ -200,7 +257,9 @@ export default function RegistroGastoForm() {
                 <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${g.estado === 'Aprobado' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>{g.estado}</span>
               </div>
               <p className="font-bold text-slate-800 uppercase text-sm leading-tight">{g.descripcion}</p>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{g.hora} • {g.forma_pago}</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                {g.hora} • {g.forma_pago} {g.clienteNombre ? `• ${g.clienteNombre}` : ''}
+              </p>
             </div>
             <div className="flex items-center gap-4 relative z-10">
               <p className="text-xl font-black text-emerald-600">{g.monto.toFixed(2)}€</p>

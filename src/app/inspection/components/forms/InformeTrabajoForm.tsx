@@ -348,16 +348,6 @@ export default function InformeTrabajoForm({ initialData, aiData, onSuccess, isA
 
     const docId = `IT-${inspectorInitials}-${sequence.toString().padStart(4, '0')}`;
 
-    const updateOriginalJobStatus = async (jobId: string) => {
-      if (canUseCloud && firestore && user.email) {
-        try {
-          await updateDoc(doc(firestore, 'ordenes_trabajo', jobId), { estado: 'Completado' });
-        } catch (updateError) {
-          console.error(`Failed to update job status:`, updateError);
-        }
-      }
-    };
-
     const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
       const localData = {
         ...formData,
@@ -384,11 +374,14 @@ export default function InformeTrabajoForm({ initialData, aiData, onSuccess, isA
     if (canUseCloud && firestore && user.email) {
       try {
         const formType = 'informe-tecnico';
-
         const storage = getStorage();
-        const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
-        await uploadString(signatureRef, inspectorSignature, 'data_url');
-        const inspectorSignatureUrl = await getDownloadURL(signatureRef);
+
+        let inspectorSignatureUrl = '';
+        if (inspectorSignature && inspectorSignature.startsWith('data:')) {
+          const signatureRef = ref(storage, `firmas/${docId}/inspector.png`);
+          await uploadString(signatureRef, inspectorSignature, 'data_url');
+          inspectorSignatureUrl = await getDownloadURL(signatureRef);
+        }
 
         const docData = {
           ...formData, imageUrls: [], inspectorSignatureUrl, clientSignatureUrl: null,
@@ -399,10 +392,6 @@ export default function InformeTrabajoForm({ initialData, aiData, onSuccess, isA
         };
 
         await setDoc(doc(firestore, 'informes', docId), docData);
-
-        if (initialData?.id) {
-          await updateOriginalJobStatus(initialData.id);
-        }
 
         await saveDataToLocal(true, docId);
         setSavedDocId(docId);

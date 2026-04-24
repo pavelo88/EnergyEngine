@@ -3,16 +3,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search, Clock, Loader2, ArrowRight, MapPin,
-  X, TrendingUp, ClipboardCheck, Star
+  X, TrendingUp, ClipboardCheck, Star, User, Info, FileText, Settings, Wrench, ChevronRight, Phone, Mail, Calendar, ClipboardList
 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { resolveInspectorEmail } from '@/lib/inspection-mode';
 
 import { Input } from '@/components/ui/input';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db as localDb } from '@/lib/db-local';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { decimalToTime } from '@/lib/utils';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { decimalToTime, formatSafeDate } from '@/lib/utils';
 
 interface Task {
   id: string;
@@ -31,154 +32,255 @@ interface Task {
 
 type FilterType = 'asignado' | 'registrado' | 'aprobado';
 
-// ────────── DETAIL MODAL ──────────
-function ReportDetailModal({ task, onClose }: { task: Task; onClose: () => void }) {
-  const stops = task.itinerario || [];
-  const gastos = task.gastos || [];
-
-  const totalN = stops.reduce((s: number, p: any) => s + (p.horasNormales || 0), 0);
-  const totalE = stops.reduce((s: number, p: any) => s + (p.horasExtras || 0), 0);
-  const totalS = stops.reduce((s: number, p: any) => s + (p.horasEspeciales || 0), 0);
-  const totalHrs = totalN + totalE + totalS;
-
-  // Group expenses by rubro
-  const gastosByRubro = gastos.reduce((acc: Record<string, any[]>, g: any) => {
-    const rubro = g.rubro || 'Otros';
-    if (!acc[rubro]) acc[rubro] = [];
-    acc[rubro].push(g);
-    return acc;
-  }, {});
-
-  const totalGastos = gastos.reduce((s: number, g: any) => s + (parseFloat(g.monto) || 0), 0);
-
+// ────────── OT DETAIL MODAL (LA FICHA DE LA OT) ──────────
+function OTDetailModal({ ot, reports, onClose, onStartAction }: { 
+  ot: Task; 
+  reports: Task[]; 
+  onClose: () => void;
+  onStartAction: (type: string, ot: Task) => void;
+}) {
   const getEstadoColor = (estado: string) => {
     if (estado === 'Aprobado') return 'bg-emerald-500 text-white';
-    if (estado === 'Preaprobado' || estado === 'Registrado' || estado === 'Completado') return 'bg-blue-500 text-white';
+    if (estado === 'Registrado' || estado === 'Abierta' || estado === 'En Progreso') return 'bg-blue-500 text-white';
     return 'bg-orange-400 text-white';
   };
 
+  const actionButtons = [
+    { id: 'hoja-trabajo', label: 'Hoja de Trabajo', icon: FileText, color: 'bg-emerald-500' },
+    { id: 'informe-tecnico', label: 'Informe Técnico', icon: Settings, color: 'bg-blue-500' },
+    { id: 'informe-revision', label: 'Informe de Revisión', icon: ClipboardCheck, color: 'bg-amber-500' },
+    { id: 'informe-simplificado', label: 'Informe Simplificado', icon: Wrench, color: 'bg-slate-700' },
+  ];
+
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-2xl bg-white rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="bg-[#062113] text-white p-6 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Informe Técnico Detallado</p>
-              <h2 className="text-xl font-black uppercase">{task.clienteNombre || task.cliente || 'Cliente'}</h2>
+      <DialogContent className="max-w-4xl bg-slate-50 rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden max-h-[95vh] flex flex-col">
+        {/* Header con ID y Estado */}
+        <div className="bg-white p-6 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+              <ClipboardList size={24} />
             </div>
-            <div className="flex items-center gap-2">
-              <span className={`px-3 py-1 text-[10px] font-black rounded-full uppercase ${getEstadoColor(task.estado)}`}>
-                {task.estado === 'En Progreso' ? 'PROCESANDO' : task.estado}
+            <div>
+              <DialogTitle className="text-xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-2">
+                {ot.id} - {ot.descripcion}
+              </DialogTitle>
+              <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase ${getEstadoColor(ot.estado)}`}>
+                {ot.estado}
               </span>
-              <button onClick={onClose} className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20">
-                <X size={14} />
-              </button>
             </div>
           </div>
         </div>
 
-        <div className="overflow-y-auto p-6 space-y-6 flex-1">
-          {/* HOURS TABLE */}
-          {stops.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                  <Clock size={14} className="text-emerald-500" /> Registro de Horas
-                </h3>
-                <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
-                  Total: {decimalToTime(totalHrs)}
-                </span>
-              </div>
-              <div className="overflow-x-auto rounded-2xl border border-slate-100">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-slate-900 text-white">
-                      <th className="text-left px-4 py-3 font-black uppercase text-[10px] tracking-widest whitespace-nowrap">Cliente</th>
-                      <th className="text-left px-4 py-3 font-black uppercase text-[10px] tracking-widest whitespace-nowrap">Actividad</th>
-                      <th className="text-center px-3 py-3 font-black uppercase text-[10px] tracking-widest whitespace-nowrap text-emerald-400">H. Normales</th>
-                      <th className="text-center px-3 py-3 font-black uppercase text-[10px] tracking-widest whitespace-nowrap text-yellow-400">H. Extras</th>
-                      <th className="text-center px-3 py-3 font-black uppercase text-[10px] tracking-widest whitespace-nowrap text-blue-400">H. Especiales</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stops.map((stop: any, i: number) => (
-                      <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                        <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{stop.clienteNombre || '–'}</td>
-                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap max-w-[160px] truncate">{stop.actividad || '–'}</td>
-                        <td className="px-3 py-3 text-center font-black text-emerald-600 whitespace-nowrap">{decimalToTime(stop.horasNormales || 0)}</td>
-                        <td className="px-3 py-3 text-center font-black text-yellow-600 whitespace-nowrap">{decimalToTime(stop.horasExtras || 0)}</td>
-                        <td className="px-3 py-3 text-center font-black text-blue-600 whitespace-nowrap">{decimalToTime(stop.horasEspeciales || 0)}</td>
-                      </tr>
-                    ))}
-                    {/* Totals row */}
-                    <tr className="bg-slate-900 text-white">
-                      <td colSpan={2} className="px-4 py-3 font-black text-[11px] uppercase tracking-widest">Total Jornada</td>
-                      <td className="px-3 py-3 text-center font-black text-emerald-400">{decimalToTime(totalN)}</td>
-                      <td className="px-3 py-3 text-center font-black text-yellow-400">{decimalToTime(totalE)}</td>
-                      <td className="px-3 py-3 text-center font-black text-blue-400">{decimalToTime(totalS)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
-
-          {/* EXPENSES TABLE */}
-          {gastos.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                  <TrendingUp size={14} className="text-emerald-500" /> Gastos Liquidados
-                </h3>
-                <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
-                  Total: {totalGastos.toFixed(2)}€
-                </span>
-              </div>
+        <div className="overflow-y-auto p-6 space-y-6 flex-1 custom-scroll">
+          {/* Grid de Información */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Info General */}
+            <div className="bg-white p-5 rounded-[2rem] border border-slate-100 space-y-4">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Info size={12} className="text-primary" /> Información General
+              </h3>
               <div className="space-y-3">
-                {Object.entries(gastosByRubro).map(([rubro, items]: [string, any[]]) => {
-                  const subtotal = items.reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
-                  return (
-                    <div key={rubro} className="rounded-2xl border border-slate-100 overflow-hidden">
-                      <div className="bg-slate-800 text-white px-4 py-2 flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-widest">{rubro}</span>
-                        <span className="text-[10px] font-black text-emerald-400">{subtotal.toFixed(2)}€</span>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="bg-slate-50 border-b border-slate-100">
-                              <th className="text-left px-4 py-2 font-black text-[9px] uppercase text-slate-400 tracking-widest whitespace-nowrap">Concepto</th>
-                              <th className="text-right px-4 py-2 font-black text-[9px] uppercase text-slate-400 tracking-widest whitespace-nowrap">Monto</th>
-                              <th className="text-center px-4 py-2 font-black text-[9px] uppercase text-slate-400 tracking-widest whitespace-nowrap">Pago</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {items.map((g: any, i: number) => (
-                              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                                <td className="px-4 py-2 text-slate-700 font-medium whitespace-nowrap max-w-[200px] truncate">{g.descripcion || g.concepto || '–'}</td>
-                                <td className="px-4 py-2 text-right font-black text-slate-800 whitespace-nowrap">{parseFloat(g.monto || 0).toFixed(2)}€</td>
-                                <td className="px-4 py-2 text-center whitespace-nowrap">
-                                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${g.tipoPago === 'Inspector' ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                                    {g.tipoPago || 'Empresa'}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })}
+                <div className="flex items-start gap-3">
+                  <User size={14} className="text-slate-300 mt-0.5" />
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase">Cliente</p>
+                    <p className="text-xs font-bold text-slate-800">{ot.clienteNombre || ot.cliente || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Clock size={12} /> {formatSafeDate(ot.fecha_creacion || ot.fecha, 'dd/MM/yyyy')}
+                </div>
+                <div className="flex items-start gap-3">
+                  <Phone size={14} className="text-slate-300 mt-0.5" />
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase">Teléfono</p>
+                    <p className="text-xs font-bold text-slate-800">{ot.telefono || 'No registrado'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Mail size={14} className="text-slate-300 mt-0.5" />
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase">Email</p>
+                    <p className="text-xs font-bold text-slate-800 lowercase">{ot.email || 'No registrado'}</p>
+                  </div>
+                </div>
               </div>
-            </section>
-          )}
+            </div>
 
-          {stops.length === 0 && gastos.length === 0 && (
-            <div className="text-center py-12 text-slate-300">
-              <ClipboardCheck size={40} className="mx-auto mb-3" />
-              <p className="font-black text-sm uppercase text-slate-400">Sin datos registrados</p>
+            {/* Ubicación */}
+            <div className="bg-white p-5 rounded-[2rem] border border-slate-100 space-y-4">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <MapPin size={12} className="text-primary" /> Ubicación
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[8px] font-black text-slate-400 uppercase">Dirección</p>
+                  <p className="text-xs font-bold text-slate-800">{ot.instalacion || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-black text-slate-400 uppercase">Ciudad / País</p>
+                  <p className="text-xs font-bold text-slate-800">{ot.ciudad || 'Madrid'}, {ot.pais || 'España'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Detalles OT */}
+            <div className="bg-white p-5 rounded-[2rem] border border-slate-100 space-y-4">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Settings size={12} className="text-primary" /> Detalles de la OT
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <p className="text-[8px] font-black text-slate-400 uppercase">Fecha Creación</p>
+                  <p className="text-xs font-bold text-slate-800">{formatSafeDate(ot.fecha_creacion, 'dd/MM/yyyy')}</p>
+                </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-[8px] font-black text-slate-400 uppercase">Prioridad</p>
+                  <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase ${ot.prioridad === 'Alta' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                    {ot.prioridad || 'Media'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Técnicos Asignados */}
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 space-y-4">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <User size={12} className="text-primary" /> Técnicos Asignados
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {(ot.tecnicoNombres || [ot.tecnicoNombre]).map((nombre: string, i: number) => (
+                <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center text-[10px] font-black uppercase">
+                    {nombre ? nombre.charAt(0) : 'T'}
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-800">{nombre || 'Técnico Energy'}</p>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Especialista</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ACCIONES RÁPIDAS (Botones de Informes) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {actionButtons.map(action => (
+              <button
+                key={action.id}
+                onClick={() => onStartAction(action.id, ot)}
+                className="flex flex-col items-center justify-center gap-3 p-6 bg-white rounded-[2rem] border border-slate-100 hover:border-primary hover:shadow-xl transition-all group active:scale-95"
+              >
+                <div className={`w-12 h-12 ${action.color} text-white rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110`}>
+                  <action.icon size={20} />
+                </div>
+                <p className="text-[10px] font-black text-slate-800 uppercase tracking-tighter text-center">{action.label}</p>
+              </button>
+            ))}
+          </div>
+
+          {/* Partes de Trabajo Realizados */}
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 space-y-4 overflow-hidden">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <ClipboardCheck size={12} className="text-primary" /> Partes de Trabajo Realizados
+            </h3>
+            <div className="overflow-x-auto rounded-2xl border border-slate-100">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                    <th className="px-4 py-3">Nº Parte</th>
+                    <th className="px-4 py-3">Técnico</th>
+                    <th className="px-4 py-3 text-center">Fecha</th>
+                    <th className="px-4 py-3">Descripción</th>
+                    <th className="px-4 py-3 text-center">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {reports.map((report, i) => (
+                    <tr key={i} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 text-[10px] font-black text-slate-900">{report.numero_informe || report.id}</td>
+                      <td className="px-4 py-3 text-[10px] font-bold text-slate-600">{report.inspectorNombre || report.tecnicoNombre || '—'}</td>
+                      <td className="px-4 py-3 text-center text-[10px] text-slate-500 font-bold">{formatSafeDate(report.fecha || report.fecha_creacion, 'dd/MM/yyyy')}</td>
+                      <td className="px-4 py-3 text-[10px] text-slate-500 max-w-[150px] truncate">{report.formType || 'Informe'}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${report.estado === 'Aprobado' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                          {report.estado}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {reports.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-[10px] font-black text-slate-300 uppercase">No se han registrado partes para esta OT</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ────────── LEGACY/HOURS DETAIL MODAL ──────────
+function LegacyDetailModal({ task, onClose }: { task: Task; onClose: () => void }) {
+  const isBitacora = task.type === 'bitacora' || task.formType === 'bitacora';
+  const isGasto = task.type === 'gasto' || task.formType === 'gastos';
+
+  return (
+    <Dialog open onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-2xl bg-slate-50 rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
+        <div className="bg-white p-6 border-b border-slate-100 flex items-center gap-4">
+          <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-600">
+            {isBitacora ? <Clock size={24} /> : <TrendingUp size={24} />}
+          </div>
+          <div>
+            <DialogTitle className="text-xl font-black text-slate-900 uppercase tracking-tighter">
+              {isBitacora ? 'Detalle de Horas' : 'Detalle de Gastos'}
+            </DialogTitle>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              {task.fechaStr || formatSafeDate(task.fecha || task.fecha_creacion, 'dd/MM/yyyy')}
+            </p>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {isBitacora ? (
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 space-y-4">
+              <div className="flex justify-between items-center pb-4 border-b border-slate-50">
+                <span className="text-[10px] font-black text-slate-400 uppercase">Cliente</span>
+                <span className="font-bold text-slate-800 uppercase">{task.clienteNombre || 'N/A'}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-slate-50 rounded-2xl">
+                  <p className="text-[8px] font-black text-slate-400 uppercase">Llegada</p>
+                  <p className="font-black text-slate-900">{task.horaLlegada || '--:--'}</p>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-2xl">
+                  <p className="text-[8px] font-black text-slate-400 uppercase">Salida</p>
+                  <p className="font-black text-slate-900">{task.horaSalida || '--:--'}</p>
+                </div>
+              </div>
+              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex justify-between items-center">
+                <p className="text-[10px] font-black text-emerald-600 uppercase">Total Horas</p>
+                <p className="text-xl font-black text-emerald-700">{task.hNormalesStr || '0.00'}h</p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-black text-slate-400 uppercase">Concepto</span>
+                <span className="font-bold text-slate-800 uppercase">{task.rubro || 'N/A'}</span>
+              </div>
+              <p className="text-sm font-medium text-slate-600">{task.descripcion || 'Sin descripción'}</p>
+              <div className="flex justify-between items-center p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                <p className="text-[10px] font-black text-blue-600 uppercase">Monto</p>
+                <p className="text-xl font-black text-blue-700">{task.monto ? task.monto.toFixed(2) : '0.00'}€</p>
+              </div>
             </div>
           )}
         </div>
@@ -197,6 +299,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
   const { user } = useUser();
   const db = useFirestore();
   const isOnline = useOnlineStatus();
+  const currentEmail = resolveInspectorEmail(user?.email || '');
 
   const normalizeDate = (task: any): number => {
     if (task.createdAt instanceof Date) return task.createdAt.getTime();
@@ -218,28 +321,36 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
         const firestoreTaskMap = new Map<string, Task>();
 
         if (isOnline) {
-          const qAssigned = query(collection(db, "ordenes_trabajo"), where("inspectorIds", "array-contains", user.email));
-          const qCreated = query(collection(db, "ordenes_trabajo"), where("tecnicoId", "==", user.email));
-          const qInformes = query(collection(db, "informes"), where("inspectorId", "==", user.email));
-          const qGastos = query(collection(db, "gastos"), where("inspectorId", "==", user.email));
-
-          const [assignedSnap, createdSnap, informesSnap, gastosSnap] = await Promise.all([
+          const email = resolveInspectorEmail(user.email);
+          const qAssigned = query(collection(db, "ordenes_trabajo"), where("inspectorIds", "array-contains", email));
+          const qCreated = query(collection(db, "ordenes_trabajo"), where("tecnicoId", "==", email));
+          const qInformes = query(collection(db, "informes"), where("inspectorId", "==", email));
+          const [assignedSnap, createdSnap, informesSnap] = await Promise.all([
             getDocs(qAssigned),
             getDocs(qCreated),
-            getDocs(qInformes),
-            getDocs(qGastos)
+            getDocs(qInformes)
           ]);
 
-          assignedSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true } as Task));
-          createdSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true } as Task));
-          informesSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true } as Task));
-          gastosSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true, formType: 'gastos' } as unknown as Task));
+          assignedSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true, type: 'ot', estado: doc.data().estado || 'Asignado' } as Task));
+          createdSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true, type: 'ot', estado: doc.data().estado || 'Asignado' } as Task));
+          informesSnap.docs.forEach(doc => firestoreTaskMap.set(doc.id, { ...doc.data(), id: doc.id, synced: true, type: 'informe', estado: doc.data().estado || 'Registrado' } as Task));
         }
 
         const localTasksRaw = await localDb.hojas_trabajo.toArray();
         const localTaskMap = new Map<string, Task>();
         localTasksRaw.forEach(t => {
-          const taskData = { ...t.data, id: t.id!.toString(), synced: t.synced, firebaseId: t.firebaseId, createdAt: t.createdAt };
+          // Filtrar por inspector si no es admin (aunque en HistoryTab siempre es perfil técnico)
+          const itemInspector = t.data.inspectorId || t.data.tecnicoId;
+          if (itemInspector && itemInspector !== currentEmail) return;
+
+          const taskData = { 
+            ...t.data, 
+            id: t.id!.toString(), 
+            synced: t.synced, 
+            firebaseId: t.firebaseId, 
+            createdAt: t.createdAt,
+            type: t.data.type || 'informe' // Forzar tipo informe si es de hojas_trabajo
+          };
           const key = t.firebaseId || `local_${t.id}`;
           localTaskMap.set(key, taskData);
         });
@@ -262,14 +373,17 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
   }, [user, db, isOnline]);
 
   const filteredTasks = useMemo(() => {
-    let filtered = tasks;
+    let filtered = [...tasks];
 
     if (filter === 'asignado') {
-      filtered = filtered.filter(t => t.estado === 'Asignado');
+      // Solo OTs en la pestaña de asignados
+      filtered = filtered.filter(t => t.type === 'ot' && (t.estado === 'Asignado' || t.estado === 'Abierta' || t.estado === 'Registrada'));
     } else if (filter === 'registrado') {
-      filtered = filtered.filter(t => t.estado === 'Registrado');
+      // Solo informes en la pestaña de registrados
+      filtered = filtered.filter(t => t.type === 'informe' && (t.estado === 'Registrado' || t.estado === 'Registrada' || t.estado === 'En Progreso'));
     } else {
-      filtered = filtered.filter(t => t.estado === 'Aprobado');
+      // Solo informes en la pestaña de aprobados
+      filtered = filtered.filter(t => t.type === 'informe' && (t.estado === 'Aprobado' || t.estado === 'Cerrada'));
     }
 
     if (searchTerm) {
@@ -278,7 +392,8 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
         (t.clienteNombre && t.clienteNombre.toLowerCase().includes(term)) ||
         (t.cliente && t.cliente.toLowerCase().includes(term)) ||
         t.id.toLowerCase().includes(term) ||
-        (t.firebaseId && t.firebaseId.toLowerCase().includes(term))
+        (t.firebaseId && t.firebaseId.toLowerCase().includes(term)) ||
+        (t.descripcion && t.descripcion.toLowerCase().includes(term))
       );
     }
 
@@ -301,8 +416,9 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
       case 'revision-basica': return 'Rev. Básica';
       case 'informe-tecnico': return 'Inf. Técnico';
       case 'informe-simplificado': return 'Inf. Simplificado';
-      case 'gastos': return 'Bitácora';
-      case 'job': return 'Trabajo';
+      case 'gastos': return 'Gasto';
+      case 'bitacora': return 'Horas / Visita';
+      case 'job': return 'Orden de Trabajo';
       default: return 'Documento';
     }
   };
@@ -315,8 +431,21 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
 
   return (
     <>
-      {selectedTask && (
-        <ReportDetailModal task={selectedTask} onClose={() => setSelectedTask(null)} />
+      {selectedTask && selectedTask.type === 'ot' ? (
+        <OTDetailModal 
+          ot={selectedTask} 
+          reports={tasks.filter(t => t.orderId === selectedTask.id && (t.inspectorId === currentEmail || t.tecnicoId === currentEmail))}
+          onClose={() => setSelectedTask(null)} 
+          onStartAction={(type, ot) => {
+            onStartInspection({ ...ot, formType: type, orderId: ot.id, originalJobId: ot.id });
+            setSelectedTask(null);
+          }}
+        />
+      ) : selectedTask && selectedTask.type === 'informe' ? null : selectedTask && (
+        <LegacyDetailModal 
+          task={selectedTask} 
+          onClose={() => setSelectedTask(null)} 
+        />
       )}
 
       <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500 w-full max-w-4xl mx-auto">
@@ -365,7 +494,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
                 <button
                   key={task.id}
                   onClick={() => {
-                    if (filter === 'asignado' || filter === 'registrado') {
+                    if (task.type === 'informe') {
                       onStartInspection(task);
                     } else {
                       setSelectedTask(task);
@@ -373,39 +502,73 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
                   }}
                   className="w-full bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center justify-between group active:scale-[0.98] transition-all text-left hover:shadow-md"
                 >
-                  <div className="space-y-2 flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase ${task.synced ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}`}>
-                        {displayId.length > 20 ? `...${displayId.slice(-12)}` : displayId}
-                      </span>
-                      {task.estado && (
-                        <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase ${getEstadoBadge(task.estado)}`}>
-                          {task.estado}
-                        </span>
-                      )}
+                  <div className="flex items-center gap-5 flex-1 min-w-0">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors
+                      ${task.type === 'ot' ? 'bg-primary/10 text-primary' : 
+                        task.type === 'bitacora' ? 'bg-emerald-100 text-emerald-600' :
+                        task.type === 'gasto' ? 'bg-blue-100 text-blue-600' :
+                        'bg-slate-100 text-slate-400'}`}>
+                      {task.type === 'ot' ? <ClipboardList size={28} /> : 
+                       task.type === 'bitacora' ? <Clock size={28} /> :
+                       task.type === 'gasto' ? <TrendingUp size={28} /> :
+                       <FileText size={28} />}
                     </div>
-
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none uppercase truncate">
-                      {getReportTitle(task.formType)}: {task.clienteNombre || task.cliente || 'Cliente Varios'}
-                    </h3>
-
-                    {/* Mini stats */}
-                    {filter !== 'asignado' && (totalHrs > 0 || totalGastos > 0) && (
-                      <div className="flex items-center gap-4 text-xs font-bold text-slate-400">
-                        {totalHrs > 0 && (
-                          <span className="flex items-center gap-1">
-                            <Clock size={12} className="text-emerald-500" />
-                            {decimalToTime(totalHrs)}
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase ${task.type === 'ot' ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}>
+                          {task.id}
+                        </span>
+                        {task.estado && (
+                          <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase ${getEstadoBadge(task.estado)}`}>
+                            {task.estado}
                           </span>
                         )}
-                        {totalGastos > 0 && (
-                          <span className="flex items-center gap-1">
-                            <TrendingUp size={12} className="text-blue-500" />
-                            {totalGastos.toFixed(2)}€
-                          </span>
+                        {task.prioridad === 'Alta' && (
+                          <span className="px-3 py-1 text-[9px] font-black rounded-full uppercase bg-red-50 text-red-600">Alta Prioridad</span>
                         )}
                       </div>
-                    )}
+
+                      {task.type === 'ot' ? (
+                        <div className="space-y-1">
+                          <h3 className="text-xl font-black text-primary tracking-tight leading-none uppercase truncate">
+                            {task.clienteNombre || task.cliente || 'CLIENTE'}
+                          </h3>
+                          <p className="text-sm font-bold text-slate-600 uppercase truncate">
+                            {task.descripcion || 'Sin título'}
+                          </p>
+                          <div className="flex flex-col gap-1 mt-2">
+                            {(task.direccion || task.ciudad) && (
+                              <div className="flex items-center gap-1.5 text-slate-400">
+                                <MapPin size={10} className="text-primary/40" />
+                                <span className="text-[9px] font-black uppercase truncate">
+                                  {task.direccion}{task.ciudad ? ` • ${task.ciudad}` : ''}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1.5 text-slate-300">
+                              <Calendar size={10} />
+                              <span className="text-[8px] font-black uppercase">
+                                Asignación: {formatSafeDate(task.fecha_creacion || task.fecha, 'dd/MM/yyyy')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none uppercase truncate">
+                            {getReportTitle(task.formType)}
+                          </h3>
+                          <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase">
+                            <div className="flex items-center gap-1.5">
+                              <User size={12} /> {task.clienteNombre || task.cliente || 'Cliente Varios'}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Clock size={12} /> {formatSafeDate(task.fecha_creacion || task.fecha, 'dd/MM/yyyy')}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors shadow-inner flex-shrink-0 ml-4
@@ -414,7 +577,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
                       : filter === 'registrado'
                         ? 'bg-blue-50 text-blue-400 group-hover:bg-blue-500 group-hover:text-white'
                         : 'bg-slate-50 text-slate-300 group-hover:bg-primary group-hover:text-white'}`}>
-                    <ArrowRight size={20} />
+                    <ChevronRight size={20} />
                   </div>
                 </button>
               );

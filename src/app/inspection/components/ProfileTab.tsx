@@ -2,18 +2,23 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  User, Clock, TrendingUp, ChevronLeft, ChevronRight, Download, CalendarIcon, FileText, CalendarDays, Layers, Loader2
+  User, Clock, TrendingUp, ChevronLeft, ChevronRight, Download, CalendarIcon, FileText, CalendarDays, Layers, Loader2, Save, Fingerprint, LogOut
 } from 'lucide-react';
 import { useAuth, useFirestore as useFirebase } from '@/firebase';
 import { useOnlineStatus } from '@/hooks/use-online-status';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 import { format, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { decimalToTime } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
 import ReportGeneratorModal from '@/app/admin/components/ReportGeneratorModal';
+import SignaturePad from './SignaturePad';
+import { useToast } from '@/hooks/use-toast';
+import { signOut } from 'firebase/auth';
 
 export default function ProfileTab() {
+  const { toast } = useToast();
   const auth = useAuth();
   const db = useFirebase();
   const isOnline = useOnlineStatus();
@@ -29,6 +34,10 @@ export default function ProfileTab() {
   const [gastosGrouping, setGastosGrouping] = useState<'rubro' | 'fecha'>('rubro');
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [moduleToReport, setModuleToReport] = useState<'horas' | 'gastos'>('horas');
+
+  // Firma Maestra
+  const [masterSignature, setMasterSignature] = useState<string | null>(null);
+  const [isSavingSignature, setIsSavingSignature] = useState(false);
 
   // ── FUNCIÓN BLINDADA PARA FECHAS DE FIREBASE ──
   // Esta función evita el 100% de los pantallazos blancos por fechas corruptas
@@ -67,17 +76,32 @@ export default function ProfileTab() {
       try {
         const email = auth.currentUser!.email!;
 
+        // Carga de Visitas
         const qVisitas = query(collection(db, "bitacora_visitas"), where("inspectorId", "==", email));
         const vSnap = await getDocs(qVisitas);
         const dataV = vSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-        // Ordenamiento seguro
         setAllReportes(dataV.sort((a, b) => getSafeDate(b.fecha).getTime() - getSafeDate(a.fecha).getTime()));
 
+        // Carga de Gastos
         const qGastos = query(collection(db, "gastos_detalle"), where("inspectorId", "==", email));
         const gSnap = await getDocs(qGastos);
         const dataG = gSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-        // Ordenamiento seguro
         setAllGastos(dataG.sort((a, b) => getSafeDate(b.fecha).getTime() - getSafeDate(a.fecha).getTime()));
+
+        // Cargar Firma Maestra desde Firestore (campo firmaUrl)
+        const userRef = doc(db, 'usuarios', email);
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+          const sigUrl = userDoc.data().firmaUrl;
+          if (sigUrl) {
+            setMasterSignature(sigUrl);
+            // También mantenemos en localStorage para acceso offline/rápido en formularios
+            localStorage.setItem('energy_engine_signature', sigUrl);
+          }
+        } else {
+          const localSig = localStorage.getItem('energy_engine_signature');
+          if (localSig) setMasterSignature(localSig);
+        }
 
       } catch (e) {
         console.error("Error fetching data:", e);
@@ -88,6 +112,53 @@ export default function ProfileTab() {
 
     fetchAllData();
   }, [auth.currentUser, db, isOnline]);
+
+  const handleSaveMasterSignature = async (newSig: string | null) => {
+    if (!newSig || !auth.currentUser?.email || !db) return;
+    
+    setIsSavingSignature(true);
+    try {
+      const storage = getStorage();
+      const email = auth.currentUser.email;
+      const safeEmail = email.replace(/[^a-zA-Z0-9]/g, '_');
+      
+      // 1. Subir a Firebase Storage
+      const signatureRef = ref(storage, `firmas_maestras/${safeEmail}_signature.jpg`);
+      await uploadString(signatureRef, newSig, 'data_url');
+      const downloadUrl = await getDownloadURL(signatureRef);
+
+      // 2. Guardar URL en Firestore (campo firmaUrl)
+      await setDoc(doc(db, 'usuarios', email), { 
+        firmaUrl: downloadUrl,
+        updatedAt: new Date()
+      }, { merge: true });
+      
+      // 3. Actualizar estado local y localStorage
+      setMasterSignature(newSig);
+      localStorage.setItem('energy_engine_signature', newSig);
+      
+      toast({ title: "Firma guardada correctamente ✅", description: "Se ha sincronizado con tu perfil." });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Error al guardar firma", variant: "destructive" });
+    } finally {
+      setIsSavingSignature(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (!window.confirm('¿Cerrar sesión ahora? Asegúrate de haber guardado tus trabajos.')) return;
+    try {
+      localStorage.removeItem('energy_engine_session_id');
+      localStorage.removeItem('energy_engine_offline_email');
+      localStorage.removeItem('energy_engine_inspection_mode');
+      if (auth) await signOut(auth);
+      window.location.href = '/auth/inspection';
+    } catch (e) {
+      console.error(e);
+      window.location.href = '/auth/inspection';
+    }
+  };
 
 
   // 2. Filtrar los datos en memoria según el mes seleccionado (Try-Catch para evitar crash)
@@ -159,12 +230,42 @@ export default function ProfileTab() {
         <div className="w-16 h-16 bg-[#062113]/10 text-[#062113] rounded-2xl flex items-center justify-center shadow-inner">
           <User size={32} />
         </div>
-        <div>
+        <div className="flex-1">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Panel de Autogestión</p>
           <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">
             {auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'TÉCNICO ENERGY'}
           </h2>
         </div>
+        <div className="flex flex-col items-end">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Tu Firma</p>
+          {masterSignature ? (
+             <div className="w-12 h-12 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-center">
+                <Fingerprint size={24} className="text-emerald-500" />
+             </div>
+          ) : (
+             <div className="w-12 h-12 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center">
+                <Fingerprint size={24} className="text-slate-300" />
+             </div>
+          )}
+        </div>
+      </section>
+
+      {/* SECCIÓN DE FIRMA MAESTRA */}
+      <section className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
+        <div className="flex justify-between items-center mb-4 px-2">
+            <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tighter flex items-center gap-2">
+                    <Save size={16} className="text-emerald-500" /> Firma Permanente del Técnico
+                </h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Se insertará automáticamente en todos tus documentos</p>
+            </div>
+        </div>
+        <SignaturePad 
+          title="Dibuje su firma aquí" 
+          signature={masterSignature} 
+          onSignatureEnd={handleSaveMasterSignature} 
+        />
+        {isSavingSignature && <p className="text-center text-[9px] font-black text-emerald-500 uppercase mt-2 animate-pulse">Guardando en la nube...</p>}
       </section>
 
       {/* NAVEGADOR DE MESES */}
@@ -229,8 +330,11 @@ export default function ProfileTab() {
               <p className="text-lg font-black text-blue-700">{decimalToTime(totalS)}</p>
             </div>
             <div className="col-span-1 flex items-end">
-              <Button onClick={() => handleOpenReport('horas')} className="w-full h-full bg-slate-900 text-white rounded-2xl font-black shadow-lg hover:bg-black transition-all p-0">
-                <Download size={20} className="text-emerald-400" />
+              <Button 
+                onClick={() => handleOpenReport('horas')} 
+                className="w-full h-full rounded-2xl border-2 border-[#165a30] bg-[#165a30] text-white font-black uppercase text-[10px] tracking-widest hover:bg-white hover:text-[#165a30] transition-all duration-300 shadow-lg p-0"
+              >
+                <Download size={20} className="text-white group-hover:text-[#165a30]" />
               </Button>
             </div>
           </div>
@@ -287,8 +391,11 @@ export default function ProfileTab() {
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Liquidado</span>
               <p className="text-3xl font-black text-slate-900 mt-1">{totalGastos.toFixed(2)}€</p>
             </div>
-            <Button onClick={() => handleOpenReport('gastos')} className="h-14 px-6 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-black transition-all flex items-center gap-2">
-              <Download size={16} className="text-emerald-400" /> PDF
+            <Button 
+              onClick={() => handleOpenReport('gastos')} 
+              className="h-14 px-6 rounded-2x border-2 border-[#165a30] bg-[#165a30] text-white font-black uppercase text-[10px] tracking-widest hover:bg-white hover:text-[#165a30] transition-all duration-300 shadow-xl flex items-center gap-2"
+            >
+              <Download size={16} /> PDF
             </Button>
           </div>
 
@@ -360,6 +467,18 @@ export default function ProfileTab() {
         fixedInspectorName={auth.currentUser?.email || ''}
         fixedModule={moduleToReport}
       />
+
+      {/* BOTÓN DE CERRAR SESIÓN */}
+      <section className="pt-10">
+        <Button 
+          variant="ghost" 
+          onClick={handleLogout}
+          className="w-full h-16 rounded-[2rem] border-2 border-red-100 text-red-500 font-black uppercase tracking-widest hover:bg-red-500 hover:text-white hover:border-red-500 transition-all gap-3"
+        >
+          <LogOut size={20} /> Cerrar Sesión Segura
+        </Button>
+        <p className="text-center text-[9px] font-black text-slate-400 uppercase tracking-widest mt-4">Energy Engine v2.5 • Madrid, ES</p>
+      </section>
     </div>
   );
 }

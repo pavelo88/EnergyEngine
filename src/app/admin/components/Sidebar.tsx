@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/firebase';
 import { signOut, User } from 'firebase/auth';
-import { GanttChartSquare, Users, Wrench, DollarSign, LayoutDashboard, Building, Upload, LogOut, X, Mail, Clock } from 'lucide-react';
+import { GanttChartSquare, Users, Wrench, DollarSign, LayoutDashboard, Building, Upload, LogOut, X, Mail, Clock, ChevronRight } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
@@ -13,6 +13,7 @@ import { Logo } from '@/components/icons';
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpen: () => void;
   user: User | null;
 }
 
@@ -27,7 +28,7 @@ const navLinks = [
   { href: '/admin/import', label: 'Importar', icon: Upload },
 ];
 
-export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, onOpen, user }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuth();
@@ -57,9 +58,11 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
       />
 
       <div
+        onClick={() => { if (!isOpen) onOpen(); }}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex h-full w-[85%] transform flex-col bg-[#062113] backdrop-blur-xl border-r border-white/5 text-slate-100 shadow-2xl transition-all duration-500 ease-in-out md:relative md:w-64 md:translate-x-0',
-          isOpen ? 'translate-x-0' : '-translate-x-full'
+          'fixed inset-y-0 left-0 z-50 flex h-full transform flex-col bg-[#062113] backdrop-blur-xl border-r border-white/5 text-slate-100 shadow-2xl transition-all duration-500 ease-in-out md:relative group/sidebar',
+          isOpen ? 'translate-x-0 w-[85%] md:w-64' : '-translate-x-full md:translate-x-0 md:w-20',
+          !isOpen && 'cursor-pointer hover:bg-[#082a18]'
         )}
       >
         <div className="flex h-24 items-center px-6 border-b border-white/5">
@@ -67,7 +70,7 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
             <div className="flex items-center justify-center p-2 transition-all overflow-hidden shrink-0">
               <Logo showText={false} className="w-8 h-8 object-contain" />
             </div>
-            <div className="hidden md:block overflow-hidden">
+            <div className={cn("transition-all duration-500 overflow-hidden", isOpen ? "w-auto opacity-100" : "w-0 opacity-0 md:hidden")}>
               <h1 className="text-sm font-black tracking-tighter leading-none text-white whitespace-nowrap lowercase">energy engine</h1>
               <p className="text-[10px] font-bold tracking-[0.2em] text-[#10b981] whitespace-nowrap uppercase">GRUPOS ELECTRóGENOS</p>
             </div>
@@ -84,7 +87,7 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={onClose}
+                onClick={() => { onClose(); }}
                 className={cn(
                   'relative group px-4 py-3 rounded-2xl transition-all duration-300 flex items-center gap-4',
                   isActive
@@ -93,7 +96,9 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
                 )}
               >
                 <link.icon className={cn("h-5 w-5 transition-transform duration-300 shrink-0", isActive ? "scale-110" : "group-hover:scale-110")} />
-                <span className="text-xs font-black uppercase tracking-widest">{link.label}</span>
+                <span className={cn("text-xs font-black uppercase tracking-widest transition-all duration-500 overflow-hidden", isOpen ? "w-auto opacity-100" : "w-0 opacity-0 md:hidden")}>
+                  {link.label}
+                </span>
               </Link>
             );
           })}
@@ -106,19 +111,34 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
                 <AvatarImage src={user.photoURL || ''} alt={user.displayName || 'Avatar'} />
                 <AvatarFallback className='font-black bg-white/5 text-slate-400 text-xs text-shor'>{getInitials(user.displayName)}</AvatarFallback>
               </Avatar>
-              <div className="hidden md:block overflow-hidden">
+              <div className={cn("transition-all duration-500 overflow-hidden whitespace-nowrap", isOpen ? "w-auto opacity-100" : "w-0 opacity-0 md:hidden")}>
                 <p className="text-[10px] font-black uppercase tracking-tighter text-white truncate">{user.displayName || 'Admin'}</p>
                 <p className="text-[8px] text-slate-500 font-bold truncate">{user.email}</p>
               </div>
             </div>
           )}
 
+          <button 
+            onClick={(e) => { e.stopPropagation(); isOpen ? onClose() : onOpen(); }} 
+            className={cn(
+              "flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300",
+              isOpen ? "text-slate-400 hover:text-white hover:bg-white/5" : "text-[#10b981] hover:bg-[#10b981]/10"
+            )}
+          >
+            <ChevronRight size={20} className={cn("transition-transform duration-500 shrink-0", isOpen ? "rotate-180" : "rotate-0")} />
+            <span className={cn("text-xs font-black uppercase tracking-widest transition-all duration-500 overflow-hidden whitespace-nowrap", isOpen ? "w-auto opacity-100" : "w-0 opacity-0 md:hidden")}>
+              {isOpen ? "Contraer Menú" : ""}
+            </span>
+          </button>
+
           <button
             onClick={handleLogout}
             className="px-4 py-3 rounded-2xl text-red-500/70 transition-all duration-300 hover:bg-red-500/10 hover:text-red-500 flex items-center gap-4 group"
           >
             <LogOut className="h-5 w-5 shrink-0" />
-            <span className="text-xs font-black uppercase tracking-widest">Cerrar Sesión</span>
+            <span className={cn("text-xs font-black uppercase tracking-widest transition-all duration-500 whitespace-nowrap overflow-hidden", isOpen ? "w-auto opacity-100" : "w-0 opacity-0 md:hidden")}>
+              Cerrar Sesión
+            </span>
           </button>
         </div>
       </div>

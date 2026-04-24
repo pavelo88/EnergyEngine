@@ -32,11 +32,11 @@ export function formatSafeDate(dateValue: any, formatStr: string = 'dd/MM/yyyy H
 
 export function timeToDecimal(timeStr: string): number {
   if (!timeStr) return 0;
-  if (!timeStr.includes(':')) return Number(timeStr) || 0;
+  if (!timeStr.includes(':')) return Number(Number(timeStr).toFixed(2)) || 0;
   const parts = timeStr.split(':');
   const hours = Number(parts[0]) || 0;
   const minutes = Number(parts[1]) || 0;
-  return hours + (minutes / 60);
+  return Math.round((hours + (minutes / 60)) * 100) / 100;
 }
 
 export function decimalToTime(decimal: number): string {

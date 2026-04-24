@@ -117,17 +117,29 @@ export default function HoursPage() {
   const totalS = filteredRecords.reduce((sum, r) => sum + (Number(r.horasEspeciales) || 0), 0);
 
   useEffect(() => {
+    const headerAction = (
+      <div className="flex flex-col md:flex-row items-center gap-4">
+        {/* Selector de Vistas */}
+        <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner shrink-0 border border-slate-200">
+          <button onClick={() => setViewMode('tabla')} className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase transition-all ${viewMode === 'tabla' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Tabla</button>
+          <button onClick={() => setViewMode('cliente')} className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase transition-all ${viewMode === 'cliente' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Cliente</button>
+          <button onClick={() => setViewMode('fecha')} className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase transition-all ${viewMode === 'fecha' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Fecha</button>
+        </div>
+
+        {/* Botones de acción */}
+        <div className="flex items-center gap-2">
+          <Button onClick={handleExportExcel} variant="outline" className="h-10 rounded-xl border-slate-200 bg-white text-slate-600 font-black text-[10px] gap-2 px-4 uppercase hover:bg-slate-50"><Download size={14} /> Excel</Button>
+          <Button onClick={() => setIsReportModalOpen(true)} variant="outline" className="h-10 rounded-xl border-slate-200 bg-white text-slate-600 font-black text-[10px] gap-2 px-4 uppercase hover:bg-slate-50"><FileText size={14} /> PDF</Button>
+          <Button onClick={() => setIsCreateModalOpen(true)} className="h-10 rounded-xl bg-primary text-white font-black text-[10px] gap-2 px-4 uppercase shadow-lg shadow-primary/20"><Plus size={14} /> Registrar Horas</Button>
+        </div>
+      </div>
+    );
+
     setHeaderProps({
       title: 'Control de Horas de Producción',
-      action: (
-        <div className="flex gap-2">
-          <Button onClick={() => setIsCreateModalOpen(true)} className="h-10 rounded-xl bg-slate-100 text-slate-900 border border-slate-200 font-black text-[10px] gap-2 px-6 uppercase hover:bg-slate-200"><Plus size={14} /> Registrar Horas</Button>
-          <Button onClick={() => setIsReportModalOpen(true)} className="h-10 rounded-xl bg-slate-100 text-slate-900 border border-slate-200 font-black text-[10px] gap-2 px-6 uppercase hover:bg-slate-200"><FileText size={14} /> Reportes PDF</Button>
-          <Button onClick={handleExportExcel} className="h-10 rounded-xl bg-slate-100 text-slate-900 border border-slate-200 font-black text-[10px] gap-2 px-6 uppercase hover:bg-slate-200"><Download size={14} /> Excel</Button>
-        </div>
-      )
+      action: headerAction
     });
-  }, [setHeaderProps, filteredRecords]);
+  }, [setHeaderProps, viewMode, filteredRecords]);
 
   const handleExportExcel = () => {
     const dataToExport = records.map(r => ({
@@ -151,9 +163,20 @@ export default function HoursPage() {
     if (currentStatus === 'Aprobado') return;
     if (!window.confirm("¿Aprobar definitivamente este registro de horas?")) return;
     try {
-      await updateDoc(doc(db, 'bitacora_visitas', id), { estado: 'Aprobado' });
-      fetchData();
-    } catch (e) { console.error("Error approving:", e); }
+      setLoading(true);
+      await updateDoc(doc(db, 'bitacora_visitas', id), { 
+        estado: 'Aprobado',
+        fecha_aprobacion: serverTimestamp(),
+        aprobado_por: 'Admin'
+      });
+      toast({ title: "¡Horas Aprobadas!", description: "El registro ha sido validado correctamente." });
+      await fetchData();
+    } catch (e) { 
+      console.error("Error approving:", e); 
+      toast({ title: "Error", description: "No se pudo aprobar el registro.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -192,13 +215,8 @@ export default function HoursPage() {
           <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Hasta</label>
           <AdminDatePicker date={fechaHasta} setDate={setFechaHasta} placeholder="Fin..." />
         </div>
-        <Button variant="ghost" onClick={() => { setFiltroInspector('todos'); setFechaDesde(undefined); setFechaHasta(undefined); setSearchTerm(''); }} className="h-12 rounded-xl text-slate-400 font-bold">LIMPIAR</Button>
-
-        {/* SELECTOR DE VISTAS */}
-        <div className="ml-auto flex bg-slate-100 p-1 rounded-xl shadow-inner border border-slate-200">
-          <button onClick={() => setViewMode('tabla')} className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase transition-all ${viewMode === 'tabla' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Tabla</button>
-          <button onClick={() => setViewMode('cliente')} className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase transition-all ${viewMode === 'cliente' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Cliente</button>
-          <button onClick={() => setViewMode('fecha')} className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase transition-all ${viewMode === 'fecha' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Fecha</button>
+        <div className="flex flex-wrap items-center gap-2 pt-2 md:pt-0">
+          <Button variant="ghost" onClick={() => { setFiltroInspector('todos'); setFechaDesde(undefined); setFechaHasta(undefined); setSearchTerm(''); }} className="h-12 rounded-xl text-slate-400 font-bold text-[10px] uppercase px-4 hover:bg-slate-50">LIMPIAR FILTROS</Button>
         </div>
       </div>
 
@@ -319,9 +337,9 @@ function HoraModal({ isOpen, onClose, record, onSaved, db }: any) {
     try {
       const payload = { 
         ...formData, 
-        horasNormales: parseFloat(Number(formData.horasNormales || 0).toFixed(2)), 
-        horasExtras: parseFloat(Number(formData.horasExtras || 0).toFixed(2)), 
-        horasEspeciales: parseFloat(Number(formData.horasEspeciales || 0).toFixed(2)), 
+        horasNormales: parseFloat(parseFloat(String(formData.horasNormales || 0)).toFixed(2)), 
+        horasExtras: parseFloat(parseFloat(String(formData.horasExtras || 0)).toFixed(2)), 
+        horasEspeciales: parseFloat(parseFloat(String(formData.horasEspeciales || 0)).toFixed(2)), 
         fecha: new Date(formData.fecha + 'T12:00:00') 
       };
       if (record) await updateDoc(doc(db, 'bitacora_visitas', record.id), payload);
@@ -365,16 +383,16 @@ function HoraModal({ isOpen, onClose, record, onSaved, db }: any) {
           <Button 
             variant="outline" 
             onClick={onClose} 
-            className="flex-1 h-12 rounded-xl border-2 border-[#3f624d] bg-white text-[#3f624d] font-black uppercase text-[10px] tracking-widest hover:bg-[#3f624d] hover:text-white transition-all duration-300"
+            className="flex-1 h-12 rounded-xl border-2 border-[#165a30] bg-white text-[#165a30] font-black uppercase text-[10px] tracking-widest hover:bg-[#165a30] hover:text-white transition-all duration-300"
           >
             Cancelar
           </Button>
           <Button 
             onClick={handleSave} 
             disabled={loading} 
-            className="flex-1 h-12 rounded-xl border-2 border-[#3f624d] bg-white text-[#3f624d] font-black uppercase text-[10px] tracking-widest hover:bg-[#3f624d] hover:text-white transition-all duration-300"
+            className="flex-1 h-12 rounded-xl border-2 border-[#165a30] bg-[#165a30] text-white font-black uppercase text-[10px] tracking-widest hover:bg-white hover:text-[#165a30] transition-all duration-300 shadow-md"
           >
-            {loading ? <Loader2 className="animate-spin mr-2" size={16} /> : 'Guardar Registro'}
+            {loading ? <Loader2 className="animate-spin mr-2" size={16} /> : (record ? 'Actualizar' : 'Guardar Registro')}
           </Button>
         </DialogFooter>
       </DialogContent>

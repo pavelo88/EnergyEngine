@@ -9,6 +9,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { FileText, Download, Clock, TrendingUp } from 'lucide-react';
 import { drawPdfHeader, drawPdfFooter } from '@/app/inspection/lib/pdf-helpers';
+import { addImageSafely } from '@/lib/pdf-utils';
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2 } from 'lucide-react';
 
@@ -257,6 +258,39 @@ export default function ReportGeneratorModal({ isOpen, onClose, reportes, fixedI
             1: { cellWidth: col1W, fontStyle: 'bold' as const }
           }
         });
+      }
+      currentY = (doc as any).lastAutoTable.finalY + 15;
+    }
+
+    // ─── FIRMA DEL TÉCNICO (Solo en reportes individuales/perfil) ───
+    if (reportFormat === 'individual' || isProfileMode) {
+      const signature = localStorage.getItem('energy_engine_signature');
+      if (signature) {
+        let finalY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 15 : currentY + 15;
+        const pageHeight = doc.internal.pageSize.getHeight();
+        
+        // Si no hay espacio (necesitamos ~40mm), saltamos de página
+        if (finalY + 40 > pageHeight - 20) {
+          doc.addPage();
+          finalY = 40;
+        }
+
+        const inspectorNameText = isProfileMode ? (fixedInspectorName?.split('@')[0].toUpperCase() || '') : selectedTarget;
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(darkColor);
+        
+        // Dibujar línea y firma
+        const sigWidth = 50;
+        const sigHeight = 20;
+        const marginX = 15;
+        
+        addImageSafely(doc, signature, marginX, finalY, sigWidth, sigHeight);
+        doc.line(marginX, finalY + sigHeight + 1, marginX + sigWidth + 10, finalY + sigHeight + 1);
+        doc.setFontSize(8);
+        doc.text("FIRMA DEL TÉCNICO:", marginX, finalY + sigHeight + 5);
+        doc.text(inspectorNameText, marginX, finalY + sigHeight + 9);
       }
     }
 

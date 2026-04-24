@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, where, getDocs, writeBatch } from "firebase/firestore"; 
+import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, where, getDocs, writeBatch, setDoc } from "firebase/firestore"; 
 import { useFirestore } from '@/firebase';
-import { PlusCircle, Trash2, Pencil, Mail, Phone, MapPin, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, Pencil, Mail, Phone, MapPin, Loader2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -88,7 +88,9 @@ export default function ClientsPage() {
         await updateDoc(clientRef, clientData);
         await syncClientInInformes(editingClient.id, clientData);
       } else {
-        await addDoc(collection(db, "clientes"), clientData);
+        // Usar el nombre del cliente como ID del documento
+        const customId = clientData.nombre.trim();
+        await setDoc(doc(db, "clientes", customId), clientData);
       }
       closeModal();
     } catch (error) {
@@ -175,7 +177,7 @@ export default function ClientsPage() {
                       <th className="pb-4">Ubicación</th>
                       <th className="pb-4">Contacto</th>
                       <th className="pb-4">Estado</th>
-                      <th className="pb-4 text-right">Gestión</th>
+                      <th className="pb-4 text-center">Gestión</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -196,11 +198,11 @@ export default function ClientsPage() {
                                <span className="bg-slate-100 text-slate-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-200">Aprobado</span>
                              )}
                           </td>
-                          <td className="py-4 text-right">
-                              <div className="flex justify-end gap-2 items-center">
+                          <td className="py-4 text-center">
+                              <div className="flex justify-center gap-2 items-center">
                                 {client.status === 'preaprobado' && (
-                                  <button onClick={() => handleApproveClient(client)} disabled={updatingClientId === client.id} className="bg-green-50 text-green-600 hover:bg-green-100 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-green-100 mr-2 disabled:opacity-50">
-                                    {updatingClientId === client.id ? <Loader2 size={12} className="animate-spin" /> : 'Aprobar'}
+                                  <button onClick={() => handleApproveClient(client)} disabled={updatingClientId === client.id} className="p-2 bg-emerald-50 text-emerald-500 rounded-lg hover:bg-emerald-500 hover:text-white transition-all shadow-sm disabled:opacity-50">
+                                    {updatingClientId === client.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                                   </button>
                                 )}
                                 <button onClick={() => openModalForEdit(client)} className="p-2 text-slate-300 hover:text-primary transition-colors"><Pencil size={18}/></button>

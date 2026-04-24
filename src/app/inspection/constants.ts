@@ -1,4 +1,4 @@
-import { ClipboardList, Activity, Receipt, User } from 'lucide-react';
+import { ClipboardList, Activity, Receipt, User, Clock } from 'lucide-react';
 
 // 1. Objeto para acceso rápido (Evita el error de 'undefined')
 export const TABS = {
@@ -35,6 +35,14 @@ export const TAB_LIST = [
     color: 'bg-yellow-500', 
     text: 'text-yellow-500', 
     desc: 'CONTROL DIARIO' 
+  },
+  { 
+    id: TABS.HOURS, 
+    label: 'Horas', 
+    icon: Clock, 
+    color: 'bg-emerald-500', 
+    text: 'text-emerald-500', 
+    desc: 'TIMBRE' 
   },
   { 
     id: TABS.PROFILE, 

@@ -4,7 +4,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   Loader2, Trash2, Play, StopCircle, Clock, Pencil, Camera, MapPinned, CheckCircle2, Calendar as CalendarIcon, RotateCcw, Save, X
 } from 'lucide-react';
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useFirestore, useUser } from '@/firebase';
 import { collection, serverTimestamp, doc, getDoc, setDoc, updateDoc, getDocs, deleteDoc, query, where, Timestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
@@ -37,6 +37,7 @@ type VisitaItem = {
 type ActiveStop = {
   clienteId: string; clienteNombre: string; actividad: string;
   horaLlegada: string; ubicacionLlegada: any;
+  orderId: string | null;
 };
 
 const cleanData = (obj: any): any => {
@@ -79,7 +80,8 @@ export default function BitacoraVisitasForm() {
   const [tempHours, setTempHours] = useState({ normales: '', extras: '', especiales: '', motorFile: undefined as File | undefined });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentEditVisit, setCurrentEditVisit] = useState<any>(null);
-  const [startConfig, setStartConfig] = useState({ clienteId: '', clienteNombre: '', actividad: 'Inspección' });
+  const [startConfig, setStartConfig] = useState({ clienteId: '', clienteNombre: '', actividad: 'Inspección', orderId: '' });
+  const [activeOTs, setActiveOTs] = useState<any[]>([]);
   const stopFileInputRef = useRef<HTMLInputElement>(null);
 
   // --- RECUPERAR PARADA ACTIVA ---
@@ -113,8 +115,8 @@ export default function BitacoraVisitasForm() {
       const calculate = () => {
         const arrival = parse(activeStop.horaLlegada, 'HH:mm', new Date());
         const now = new Date();
-        if (isAfter(arrival, now)) return setElapsedTime('00:00');
-        const diff = differenceInMinutes(now, arrival);
+        let diff = differenceInMinutes(now, arrival);
+        if (diff < 0) diff += 1440; // Cruce de medianoche
         setElapsedTime(`${String(Math.floor(diff / 60)).padStart(2, '0')}:${String(diff % 60).padStart(2, '0')}`);
       };
       calculate();
@@ -122,7 +124,8 @@ export default function BitacoraVisitasForm() {
     } else if (activeStop && isTimerPaused && stopTimeManual) {
       const arrival = parse(activeStop.horaLlegada, 'HH:mm', new Date());
       const stop = parse(stopTimeManual, 'HH:mm', new Date());
-      const diff = differenceInMinutes(stop, arrival);
+      let diff = differenceInMinutes(stop, arrival);
+      if (diff < 0) diff += 1440; // Cruce de medianoche
       setElapsedTime(`${String(Math.floor(diff / 60)).padStart(2, '0')}:${String(diff % 60).padStart(2, '0')}`);
     } else if (!activeStop) {
       setElapsedTime('00:00');
@@ -134,12 +137,20 @@ export default function BitacoraVisitasForm() {
   useEffect(() => {
     const fetch = async () => {
       if (!firestore) return setClients(await dbLocal.clientes_cache.toArray());
-      const snap = await getDocs(collection(firestore, 'clientes'));
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      const [clientsSnap, otsSnap] = await Promise.all([
+        getDocs(collection(firestore, 'clientes')),
+        getDocs(query(collection(firestore, 'ordenes_trabajo'), where('inspectorIds', 'array-contains', inspectorEmail), where('estado', 'in', ['Asignado', 'Pendiente', 'En Progreso', 'Abierta', 'Registrada'])))
+      ]);
+
+      const list = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       setClients(list.sort((a: any, b: any) => (a.nombre > b.nombre ? 1 : -1)));
+
+      const ots = otsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setActiveOTs(ots);
     };
     fetch();
-  }, [firestore]);
+  }, [firestore, inspectorEmail]);
 
   // --- CARGAR VISITAS DEL DÍA ---
   useEffect(() => {
@@ -194,7 +205,8 @@ export default function BitacoraVisitasForm() {
     // El inspector ya no digita, calculamos el total real del cronómetro
     const arrivalDate = parse(activeStop.horaLlegada, 'HH:mm', new Date());
     const stopDate = parse(stopTimeManual, 'HH:mm', new Date());
-    const diffMinutes = differenceInMinutes(stopDate, arrivalDate);
+    let diffMinutes = differenceInMinutes(stopDate, arrivalDate);
+    if (diffMinutes < 0) diffMinutes += 1440; // Cruce de medianoche
     const totalCalculado = diffMinutes > 0 ? diffMinutes / 60 : 0;
 
     if (totalCalculado <= 0) {
@@ -227,8 +239,14 @@ export default function BitacoraVisitasForm() {
         inspectorId: inspectorEmail,
         inspectorNombre: user?.displayName || inspectorEmail,
         fechaStr: format(reportDate, 'yyyy-MM-dd'),
+        orderId: activeStop.orderId || null,
         createdAt: serverTimestamp()
       }));
+
+      // Actualizar estado de la OT a 'En Proceso'
+      if (activeStop.orderId) {
+        await updateDoc(doc(firestore!, 'ordenes_trabajo', activeStop.orderId), { estado: 'En Proceso' });
+      }
 
       setVisitas([...visitas, docData]);
       setActiveStop(null);
@@ -276,14 +294,66 @@ export default function BitacoraVisitasForm() {
             <MapPinned size={18} className="text-emerald-500" />
             <h3 className="font-black text-slate-900 uppercase text-xs tracking-widest">Nueva Llegada</h3>
           </div>
-          <Select value={startConfig.clienteId} onValueChange={(val) => setStartConfig({ ...startConfig, clienteId: val, clienteNombre: val === "OFICINA" ? 'OFICINA' : clients.find(c => c.id === val)?.nombre })}>
-            <SelectTrigger className="h-14 rounded-2xl bg-slate-50 border-transparent font-bold"><SelectValue placeholder="SELECCIONAR CLIENTE..." /></SelectTrigger>
-            <SelectContent className="z-[150] bg-white">{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre.toUpperCase()}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={startConfig.actividad} onValueChange={(v) => setStartConfig({ ...startConfig, actividad: v })}>
-            <SelectTrigger className="h-14 rounded-2xl bg-slate-50 border-transparent font-bold"><SelectValue /></SelectTrigger>
-            <SelectContent className="z-[150] bg-white">{['Inspección', 'Avería', 'Mantenimiento', 'Viaje', 'Oficina', 'Obra'].map(a => <SelectItem key={a} value={a}>{a.toUpperCase()}</SelectItem>)}</SelectContent>
-          </Select>
+          
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">Vincular a OT (Opcional)</label>
+            <Select 
+              value={startConfig.orderId} 
+              onValueChange={(val) => {
+                const ot = activeOTs.find(o => o.id === val);
+                if (ot) {
+                  setStartConfig({ 
+                    ...startConfig, 
+                    orderId: ot.id, 
+                    clienteId: ot.clienteId || '', 
+                    clienteNombre: ot.clienteNombre || ot.cliente || '' 
+                  });
+                } else {
+                  setStartConfig({ ...startConfig, orderId: '' });
+                }
+              }}
+            >
+              <SelectTrigger className="h-14 rounded-2xl bg-slate-50 border-transparent font-bold">
+                <SelectValue placeholder="NINGUNA (LLEGADA LIBRE)" />
+              </SelectTrigger>
+              <SelectContent className="z-[150] bg-white">
+                <SelectItem value="none">NINGUNA (LLEGADA LIBRE)</SelectItem>
+                {activeOTs.map(ot => (
+                  <SelectItem key={ot.id} value={ot.id}>
+                    <span className="font-black text-primary">{ot.id}</span>
+                    <span className="mx-2 text-slate-300">•</span>
+                    <span className="font-bold">{(ot.clienteNombre || ot.cliente || 'CLIENTE').toUpperCase()}</span>
+                    <span className="mx-2 text-slate-300">•</span>
+                    <span className="text-slate-500 truncate">{ot.descripcion}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">Cliente</label>
+            <Select 
+              value={startConfig.clienteId} 
+              disabled={!!startConfig.orderId}
+              onValueChange={(val) => setStartConfig({ ...startConfig, clienteId: val, clienteNombre: val === "OFICINA" ? 'OFICINA' : clients.find(c => c.id === val)?.nombre })}
+            >
+              <SelectTrigger className="h-14 rounded-2xl bg-slate-50 border-transparent font-bold">
+                <SelectValue placeholder="SELECCIONAR CLIENTE..." />
+              </SelectTrigger>
+              <SelectContent className="z-[150] bg-white">
+                {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre.toUpperCase()}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">Actividad</label>
+            <Select value={startConfig.actividad} onValueChange={(v) => setStartConfig({ ...startConfig, actividad: v })}>
+              <SelectTrigger className="h-14 rounded-2xl bg-slate-50 border-transparent font-bold"><SelectValue /></SelectTrigger>
+              <SelectContent className="z-[150] bg-white">{['Inspección', 'Avería', 'Mantenimiento', 'Viaje', 'Oficina', 'Obra'].map(a => <SelectItem key={a} value={a}>{a.toUpperCase()}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
           <Button onClick={handleMarcarLlegada} className="h-14 bg-slate-900 text-emerald-400 rounded-2xl font-black border-2 border-emerald-500/30 hover:bg-emerald-500 hover:text-white transition-all shadow-xl shadow-emerald-500/10"><Play size={20} className="mr-2" /> INICIAR LLEGADA</Button>
         </section>
       ) : (
@@ -311,8 +381,20 @@ export default function BitacoraVisitasForm() {
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setIsTimerPaused(false)} className="flex-1 h-14 rounded-2xl font-bold bg-white border-2 border-slate-200 text-slate-400 hover:text-emerald-500"><RotateCcw size={20} className="mr-2" />REANUDAR</Button>
-                <Button onClick={handleGuardarSalida} disabled={loading} className="flex-[3] h-14 bg-emerald-500 text-white rounded-2xl font-black shadow-xl shadow-emerald-500/20 gap-2"><Save size={20} /> GUARDAR VISITA</Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsTimerPaused(false)} 
+                  className="flex-1 h-14 rounded-2xl font-black text-[10px] tracking-widest bg-white border-2 border-[#165a30] text-[#165a30] hover:bg-[#165a30] hover:text-white transition-all duration-300"
+                >
+                  <RotateCcw size={18} className="mr-2" />REANUDAR
+                </Button>
+                <Button 
+                  onClick={handleGuardarSalida} 
+                  disabled={loading} 
+                  className="flex-[3] h-14 rounded-2xl font-black text-[10px] tracking-widest bg-[#165a30] text-white border-2 border-[#165a30] hover:bg-white hover:text-[#165a30] transition-all duration-300 shadow-xl shadow-[#165a30]/10 gap-2"
+                >
+                  <Save size={18} /> {loading ? 'GUARDANDO...' : 'GUARDAR VISITA'}
+                </Button>
               </div>
 
               <Button variant="outline" onClick={() => stopFileInputRef.current?.click()} className={`w-full h-12 rounded-xl border-2 transition-all ${tempHours.motorFile ? 'bg-emerald-100 border-emerald-500 text-emerald-600' : 'bg-white/50 text-slate-400 border-transparent'}`}><Camera size={18} className="mr-2" /> {tempHours.motorFile ? 'EVIDENCIA ARCHIVADA' : 'ADJUNTAR FOTO (OPCIONAL)'}<input type="file" ref={stopFileInputRef} className="hidden" onChange={e => setTempHours({ ...tempHours, motorFile: e.target.files?.[0] })} /></Button>
@@ -337,6 +419,16 @@ export default function BitacoraVisitasForm() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {v.estado !== 'Aprobado' && (
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={() => { setCurrentEditVisit(v); setIsEditModalOpen(true); }}
+                  className="h-10 w-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 hover:bg-[#165a30] hover:text-white transition-all"
+                >
+                  <Pencil size={18} />
+                </Button>
+              )}
               <CheckCircle2 size={24} className={v.estado === 'Aprobado' ? 'text-emerald-500' : 'text-slate-200'} />
             </div>
           </div>
@@ -348,7 +440,7 @@ export default function BitacoraVisitasForm() {
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="max-w-md bg-white rounded-[2.5rem] p-8 border-none shadow-2xl">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="font-black text-xl text-slate-900 uppercase tracking-tighter">Editar Registro</h3>
+            <DialogTitle className="font-black text-xl text-slate-900 uppercase tracking-tighter">Editar Registro</DialogTitle>
             <Button variant="ghost" size="icon" onClick={() => setIsEditModalOpen(false)} className="rounded-full"><X size={20} /></Button>
           </div>
           {currentEditVisit && (
@@ -369,49 +461,56 @@ export default function BitacoraVisitasForm() {
                 </div>
               </div>
 
-              <Button
-                onClick={async () => {
-                  if (!canUseCloud) return toast({ variant: 'destructive', title: 'Sin conexión' });
-                  setLoading(true);
-                  try {
-                    // Recalcular total automáticamente al editar
-                    const arrivalDate = parse(currentEditVisit.horaLlegada, 'HH:mm', new Date());
-                    const stopDate = parse(currentEditVisit.horaSalida, 'HH:mm', new Date());
-                    const diffMinutes = differenceInMinutes(stopDate, arrivalDate);
-                    const total = diffMinutes > 0 ? diffMinutes / 60 : 0;
+                <div className="flex gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsEditModalOpen(false)} 
+                    className="flex-1 h-14 rounded-2xl font-black text-[10px] tracking-widest bg-white border-2 border-[#165a30] text-[#165a30] hover:bg-[#165a30] hover:text-white transition-all duration-300"
+                  >
+                    CANCELAR
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      if (!canUseCloud) return toast({ variant: 'destructive', title: 'Sin conexión' });
+                      setLoading(true);
+                      try {
+                        const arrivalDate = parse(currentEditVisit.horaLlegada, 'HH:mm', new Date());
+                        const stopDate = parse(currentEditVisit.horaSalida, 'HH:mm', new Date());
+                        const diffMinutes = differenceInMinutes(stopDate, arrivalDate);
+                        const total = diffMinutes > 0 ? diffMinutes / 60 : 0;
+                        const totalRounded = Math.round(total * 100) / 100;
 
-                    const docRef = doc(firestore!, "bitacora_visitas", currentEditVisit.id);
-                    await updateDoc(docRef, {
-                      horaLlegada: currentEditVisit.horaLlegada,
-                      horaSalida: currentEditVisit.horaSalida,
-                      horasNormales: total,
-                      horasExtras: 0,
-                      horasEspeciales: 0,
-                      hNormalesStr: total.toFixed(2),
-                      hExtrasStr: '0.00',
-                      hEspecialesStr: '0.00'
-                    });
+                        const docRef = doc(firestore!, "bitacora_visitas", currentEditVisit.id);
+                        await updateDoc(docRef, {
+                          horaLlegada: currentEditVisit.horaLlegada,
+                          horaSalida: currentEditVisit.horaSalida,
+                          horasNormales: totalRounded,
+                          horasExtras: 0,
+                          horasEspeciales: 0,
+                          hNormalesStr: totalRounded.toFixed(2),
+                          hExtrasStr: '0.00',
+                          hEspecialesStr: '0.00'
+                        });
 
-                    setVisitas(prev => prev.map(v => v.id === currentEditVisit.id ? {
-                      ...v,
-                      ...currentEditVisit,
-                      hNormalesStr: (currentEditVisit.horasNormales || 0).toFixed(2),
-                      hExtrasStr: (currentEditVisit.horasExtras || 0).toFixed(2),
-                      hEspecialesStr: (currentEditVisit.horasEspeciales || 0).toFixed(2)
-                    } : v));
+                        setVisitas(prev => prev.map(v => v.id === currentEditVisit.id ? {
+                          ...v,
+                          ...currentEditVisit,
+                          hNormalesStr: totalRounded.toFixed(2),
+                        } : v));
 
-                    setIsEditModalOpen(false);
-                    toast({ title: 'Actualizado correctamente ✅' });
-                  } catch (e) {
-                    console.error(e);
-                    toast({ variant: 'destructive', title: 'Error al actualizar' });
-                  } finally { setLoading(false); }
-                }}
-                disabled={loading}
-                className="w-full h-14 bg-slate-900 text-white rounded-2xl font-black shadow-xl hover:bg-black transition-all active:scale-95"
-              >
-                {loading ? <Loader2 className="animate-spin" /> : 'GUARDAR CAMBIOS'}
-              </Button>
+                        setIsEditModalOpen(false);
+                        toast({ title: 'Actualizado correctamente ✅' });
+                      } catch (e) {
+                        console.error(e);
+                        toast({ variant: 'destructive', title: 'Error al actualizar' });
+                      } finally { setLoading(false); }
+                    }}
+                    disabled={loading}
+                    className="flex-[2] h-14 rounded-2xl font-black text-[10px] tracking-widest bg-[#165a30] text-white border-2 border-[#165a30] hover:bg-white hover:text-[#165a30] transition-all duration-300 shadow-lg shadow-[#165a30]/10"
+                  >
+                    {loading ? <Loader2 className="animate-spin" /> : 'GUARDAR CAMBIOS'}
+                  </Button>
+                </div>
             </div>
           )}
         </DialogContent>
