@@ -285,9 +285,9 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess, is
           cliente: initialData.clienteNombre || initialData.cliente || prev.cliente,
           clienteNombre: initialData.clienteNombre || initialData.cliente || prev.clienteNombre,
           numero_informe: initialData.numero_informe || initialData.firebaseId || initialData.id || prev.numero_informe,
-          parametrosTecnicos: {
-            ...initialData.parametrosTecnicos,
-            horas: typeof initialData.parametrosTecnicos?.horas === 'number' ? decimalToTime(initialData.parametrosTecnicos.horas) : initialData.parametrosTecnicos?.horas || '',
+          datos_pruebas: {
+            ...initialData.datos_pruebas,
+            horas: typeof initialData.datos_pruebas?.horas === 'number' ? decimalToTime(initialData.datos_pruebas.horas) : initialData.datos_pruebas?.horas || '',
           }
         }));
         if (initialData.inspectorSignatureUrl) setInspectorSignature(initialData.inspectorSignatureUrl);
@@ -504,9 +504,9 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess, is
         }
         await updateDoc(doc(firestore, 'informes', existingDocId), {
           ...formData,
-          parametrosTecnicos: {
-            ...formData.parametrosTecnicos,
-            horas: timeToDecimal(formData.parametrosTecnicos.horas)
+          datos_pruebas: {
+            ...formData.datos_pruebas,
+            horas: timeToDecimal(formData.datos_pruebas.horas)
           },
           inspectorSignatureUrl,
           clientSignatureUrl,
@@ -517,7 +517,9 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess, is
         setIsSaved(true);
         toast({ title: '¡Documento Actualizado!', description: `Informe ${existingDocId} guardado como Registrado.` });
         handlePdfAction(true, existingDocId);
-        if (onSuccess) onSuccess();
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+        }, 1500);
         return;
       }
 
@@ -562,7 +564,9 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess, is
 
         handlePdfAction(true, firebaseId);
 
-        if (onSuccess) onSuccess();
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+        }, 1500);
       };
 
       if (canUseCloud && firestore && user?.email) {
@@ -591,10 +595,11 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess, is
 
           const docData = {
             ...formData,
+            tecnicos: inspectorName, // Solo el técnico responsable
             includeClientSignature,
-            parametrosTecnicos: {
-              ...formData.parametrosTecnicos,
-              horas: timeToDecimal(formData.parametrosTecnicos.horas)
+            datos_pruebas: {
+              ...formData.datos_pruebas,
+              horas: timeToDecimal(formData.datos_pruebas.horas)
             },
             imageUrls,
             inspectorSignatureUrl,
@@ -602,8 +607,8 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess, is
             inspectorId: inspectorEmail || '',
             inspectorNombre: inspectorName,
             inspectorInitials,
-            inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
-            inspectorNombres: initialData?.inspectorNombres || [inspectorName],
+            inspectorIds: [inspectorEmail],
+            inspectorNombres: [inspectorName],
             fecha_creacion: Timestamp.now(),
             formType: formData.formType || 'informe-revision',
             id: docId,
@@ -814,10 +819,10 @@ export default function InformeRevisionForm({ initialData, aiData, onSuccess, is
                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Activar solo si el cliente validará el informe</p>
               </div>
             </div>
-            <div className="relative inline-flex items-center cursor-pointer">
+            <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" checked={includeClientSignature} onChange={(e) => setIncludeClientSignature(e.target.checked)} className="sr-only peer" />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-inner"></div>
-            </div>
+            </label>
           </div>
 
           <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Hallazgos y Comentarios</h3>

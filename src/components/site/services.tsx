@@ -1,11 +1,9 @@
 'use client';
 
-import React from 'react';
-import ReactLink from 'next/link';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { Service, services } from '@/lib/data';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import Autoplay from 'embla-carousel-autoplay';
 import { cn } from '@/lib/utils';
 import {
@@ -17,11 +15,11 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import ServiceLeadChat from './ServiceLeadChat';
 
 export default function Services() {
   const plugin = React.useRef(
@@ -83,12 +81,19 @@ export default function Services() {
 
 function ServiceCard({ service }: { service: Service }) {
   const IconComponent = service.icon;
+  const [open, setOpen] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+
+  const handleOpenChange = (v: boolean) => {
+    setOpen(v);
+    if (!v) setShowChat(false); // Reset chat when dialog closes
+  };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <div className="group block w-full outline-none">
         <DialogTrigger asChild>
-          <button type="button" className="block w-full text-left">
+          <button type="button" className="block w-full text-left" onClick={() => setOpen(true)}>
             <Card className={cn(
               "relative overflow-hidden flex flex-col rounded-[2.5rem] transition-all duration-700 shadow-2xl border-none",
               "h-[32rem] md:h-[26rem] lg:h-[27rem] md:group-hover:h-[30rem]",
@@ -124,40 +129,65 @@ function ServiceCard({ service }: { service: Service }) {
             </Card>
           </button>
         </DialogTrigger>
-
       </div>
 
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-display font-black tracking-tight uppercase">
-            {service.title}
-          </DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed">
-            {service.description}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-xl p-0 overflow-hidden rounded-[2rem] border-none shadow-2xl">
+        {!showChat ? (
+          /* ── Vista de detalle del servicio ── */
+          <>
+            <div className="relative h-48 w-full overflow-hidden">
+              <Image
+                src={service.image}
+                alt={service.title}
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 512px"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              <div className="absolute bottom-0 left-0 p-6">
+                <DialogTitle className="text-2xl font-display font-black tracking-tight uppercase text-white">
+                  {service.title}
+                </DialogTitle>
+              </div>
+            </div>
 
-        <div className="relative h-52 w-full overflow-hidden rounded-2xl">
-          <Image
-            src={service.image}
-            alt={service.title}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 512px"
-          />
-        </div>
+            <div className="p-6 flex flex-col gap-4">
+              <DialogDescription className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                {service.description}
+              </DialogDescription>
+              <CardContent className="p-0">
+                <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                  {service.fullDescription}
+                </p>
+              </CardContent>
 
-        <CardContent className="p-0">
-          <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-            {service.fullDescription}
-          </p>
-        </CardContent>
-
-        <DialogFooter className="sm:justify-start">
-          <Button asChild className="rounded-full">
-            <ReactLink href="/#contacto">Solicitar este servicio</ReactLink>
-          </Button>
-        </DialogFooter>
+              {/* CTA → Abre el chat */}
+              <button
+                onClick={() => setShowChat(true)}
+                className="mt-2 w-full h-14 rounded-2xl bg-slate-900 hover:bg-primary text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+              >
+                <span className="text-lg">💬</span>
+                Solicitar este servicio
+              </button>
+            </div>
+          </>
+        ) : (
+          /* ── Chat de IA ── */
+          <div className="p-6">
+            <div className="mb-4">
+              <button
+                onClick={() => setShowChat(false)}
+                className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-1"
+              >
+                ← Volver a {service.title}
+              </button>
+            </div>
+            <ServiceLeadChat
+              serviceName={service.title}
+              onClose={() => handleOpenChange(false)}
+            />
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

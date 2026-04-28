@@ -48,6 +48,7 @@ const InspectionPageContent = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>(TABS.MENU);
   const [activeInspectionForm, setActiveInspectionForm] = useState<FormType | null>(null);
+  const [otFilter, setOtFilter] = useState<string | null>(null);
 
   useEffect(() => {
     const formParam = searchParams.get('form') as FormType;
@@ -453,7 +454,7 @@ const InspectionPageContent = () => {
             };
 
             console.log(`💾 Guardando en Firestore con docId=${docId}, numero_informe=${docData.numero_informe}: clienteId=${docData.clienteId}, clienteNombre=${docData.clienteNombre}`);
-            
+
             // ELIMINAR CAMPOS UNDEFINED PARA EVITAR ERRORES DE FIREBASE
             const safeDocData = Object.fromEntries(
               Object.entries(docData).filter(([_, v]) => v !== undefined)
@@ -586,7 +587,7 @@ const InspectionPageContent = () => {
     }
   }, [canUseCloud, hasMounted, user, firestore, syncOfflineData]);
 
-  const handleNavigate = async (tab: string) => {
+  const handleNavigate = async (tab: string, otId?: string) => {
     if (tab !== TABS.HOURS) {
       const activeVisitRow = await dbLocal.configuracion.get('activeVisit_draft');
       const isPausedRow = await dbLocal.configuracion.get('activeVisit_paused');
@@ -599,6 +600,7 @@ const InspectionPageContent = () => {
       }
     }
     setActiveTab(tab);
+    setOtFilter(otId || null);
     if (tab !== TABS.NEW_INSPECTION) setActiveInspectionForm(null);
   };
 
@@ -608,7 +610,12 @@ const InspectionPageContent = () => {
     setActiveTab(TABS.NEW_INSPECTION);
   };
 
-  const handleStartInspectionFromTask = (task: any) => {
+  const handleStartInspectionFromTask = (task: any, type?: string) => {
+    if (type === TABS.HOURS || type === TABS.EXPENSES) {
+      handleNavigate(type, task.id);
+      return;
+    }
+
     // Bloquear edición solo si el trabajo está Aprobado por un administrador
     if (task.estado && ['Aprobado'].includes(task.estado)) {
       toast({
@@ -707,7 +714,7 @@ const InspectionPageContent = () => {
       } else if (e.error === 'no-speech') {
         // Silently ignore or show subtle hint
       }
-      
+
       if (isDictatingRef.current && e.error !== 'not-allowed') {
         setTimeout(() => {
           if (isDictatingRef.current) {
@@ -846,8 +853,8 @@ const InspectionPageContent = () => {
     } else {
       switch (activeTab) {
         case TABS.TASKS: Component = TasksTabLazy; props = { onStartInspection: handleStartInspectionFromTask }; break;
-        case TABS.HOURS: Component = BitacoraVisitasForm; break;
-        case TABS.EXPENSES: Component = RegistroGastoForm; break;
+        case TABS.HOURS: Component = BitacoraVisitasForm; props = { otFilter }; break;
+        case TABS.EXPENSES: Component = RegistroGastoForm; props = { otFilter }; break;
         case TABS.PROFILE: Component = ProfileTabLazy; break;
         default: return <p className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest animate-pulse">Componente no encontrado</p>;
       }
@@ -933,7 +940,7 @@ const InspectionPageContent = () => {
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-6 gap-3">
             <AlertDialogCancel className="rounded-2xl border-2 border-white/10 bg-white/5 text-white font-black uppercase text-[10px] tracking-widest hover:bg-white/10 transition-all h-14">Más tarde</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={() => {
                 handleNavigate(TABS.EXPENSES);
                 setShowCheckInPrompt(false);

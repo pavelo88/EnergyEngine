@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle 
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { FileText, Sparkles, Loader2 } from 'lucide-react';
@@ -67,7 +67,7 @@ export default function ReportEditorDialog({
             <div className="w-10 h-10 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
               {selectedReport.id && !selectedReport.orderId ? <FileText size={20} /> : <Sparkles size={20} />}
             </div>
-            {selectedReport.numero_informe || selectedReport.id 
+            {selectedReport.numero_informe || selectedReport.id
               ? `Revisión Administrativa: ${selectedReport.numero_informe || selectedReport.id}`
               : `Nuevo ${FORM_TYPES.find(f => f.id === selectedReport.formType)?.label || 'Informe'}`
             }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, where, getDocs, writeBatch, setDoc } from "firebase/firestore"; 
 import { useFirestore } from '@/firebase';
-import { PlusCircle, Trash2, Pencil, Mail, Phone, MapPin, Loader2, CheckCircle2 } from 'lucide-react';
+import { PlusCircle, Trash2, Pencil, Mail, Phone, MapPin, Loader2, CheckCircle2, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,10 +17,16 @@ type Client = {
   email: string;
   telefono: string;
   status: 'approved' | 'preaprobado';
+  cif?: string;
+  contacto?: string;
+  cp?: string;
+  ciudad?: string;
+  direccion_facturacion?: string;
 };
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -51,6 +57,18 @@ export default function ClientsPage() {
     });
     return () => unsubscribe();
   }, [db]);
+
+  const filteredClients = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return clients;
+    return clients.filter(c => 
+      c.nombre.toLowerCase().includes(term) ||
+      (c.cif && c.cif.toLowerCase().includes(term)) ||
+      (c.ciudad && c.ciudad.toLowerCase().includes(term)) ||
+      (c.direccion && c.direccion.toLowerCase().includes(term)) ||
+      (c.contacto && c.contacto.toLowerCase().includes(term))
+    );
+  }, [clients, searchTerm]);
 
   const syncClientReferences = useCallback(async (oldId: string, newId: string, clientData: { nombre: string; direccion: string }) => {
     if (!db) return;
@@ -94,6 +112,11 @@ export default function ClientsPage() {
         direccion: (formData.get('direccion') as string).trim(),
         email: (formData.get('email') as string).trim(),
         telefono: (formData.get('telefono') as string).trim(),
+        cif: (formData.get('cif') as string || '').trim(),
+        contacto: (formData.get('contacto') as string || '').trim(),
+        cp: (formData.get('cp') as string || '').trim(),
+        ciudad: (formData.get('ciudad') as string || '').trim(),
+        direccion_facturacion: (formData.get('direccion_facturacion') as string || '').trim(),
         status: 'approved' as const,
     };
 
@@ -162,6 +185,28 @@ export default function ClientsPage() {
   return (
     <div className="animate-in fade-in duration-500">
         <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
+          <div className="mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
+              <div className="relative w-full max-w-md">
+                  <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                      <Search className="h-4 w-4 text-slate-400" />
+                  </div>
+                  <Input 
+                      placeholder="BUSCAR POR NOMBRE, CIF, CIUDAD..." 
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-11 pr-11 h-12 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-xs uppercase tracking-widest text-slate-900"
+                  />
+                  {searchTerm && (
+                      <button onClick={() => setSearchTerm('')} className="absolute inset-y-0 right-4 flex items-center text-slate-400 hover:text-slate-600">
+                          <X className="h-4 w-4" />
+                      </button>
+                  )}
+              </div>
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {filteredClients.length} Clientes encontrados
+              </div>
+          </div>
+
           {loading ? (
             <div className="flex items-center justify-center h-40">
                 <Loader2 className="animate-spin text-primary h-10 w-10" />
@@ -169,7 +214,7 @@ export default function ClientsPage() {
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:hidden">
-                {clients.map(client => (
+                {filteredClients.map(client => (
                   <Card key={client.id} className="rounded-3xl p-6 space-y-4 flex flex-col border-slate-100 shadow-none bg-slate-50">
                     <div className="flex-grow space-y-3">
                       <h3 className="font-black text-lg text-slate-800 tracking-tight">{client.nombre}</h3>
@@ -209,7 +254,7 @@ export default function ClientsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                      {clients.map(client => (
+                      {filteredClients.map(client => (
                       <tr key={client.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
                           <td className="py-4 font-black text-slate-700">{client.nombre}</td>
                           <td className="py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">{client.direccion || 'No registrada'}</td>
@@ -252,21 +297,45 @@ export default function ClientsPage() {
                     <h2 className="text-xl font-black text-slate-800 mb-6 uppercase tracking-tighter">{editingClient ? 'Editar Ficha Cliente' : 'Nuevo Registro de Cliente'}</h2>
                     <form onSubmit={handleFormSubmit} className="grid grid-cols-1 gap-6">
                         <div className="space-y-2">
-                            <Label htmlFor="nombre" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre o Razón Social</Label>
+                            <Label htmlFor="nombre" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre Empresa Completo</Label>
                             <Input required id="nombre" name="nombre" placeholder="Nombre completo..." defaultValue={editingClient?.nombre || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-slate-900" />
                         </div>
+
                         <div className="space-y-2">
-                            <Label htmlFor="direccion" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dirección / Instalación</Label>
-                            <Input id="direccion" name="direccion" placeholder="Calle, Ciudad..." defaultValue={editingClient?.direccion || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-slate-900" />
+                             <Label htmlFor="contacto" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Persona de Contacto</Label>
+                            <Input id="contacto" name="contacto" placeholder="Nombre contacto..." defaultValue={editingClient?.contacto || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-slate-900" />
                         </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                              <Label htmlFor="email" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</Label>
-                              <Input id="email" name="email" type="email" placeholder="correo@empresa.com" defaultValue={editingClient?.email || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-slate-900" />
-                          </div>
                           <div className="space-y-2">
                                <Label htmlFor="telefono" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Teléfono</Label>
                               <Input id="telefono" name="telefono" placeholder="+34..." defaultValue={editingClient?.telefono || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-slate-900" />
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="email" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail</Label>
+                              <Input id="email" name="email" type="email" placeholder="correo@empresa.com" defaultValue={editingClient?.email || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-slate-900" />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                              <Label htmlFor="direccion" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dirección Fiscal</Label>
+                              <Input id="direccion" name="direccion" placeholder="Calle..." defaultValue={editingClient?.direccion || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-slate-900" />
+                          </div>
+                          <div className="space-y-2">
+                               <Label htmlFor="ciudad" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ciudad (Provincia)</Label>
+                              <Input id="ciudad" name="ciudad" placeholder="Madrid" defaultValue={editingClient?.ciudad || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-slate-900" />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                              <Label htmlFor="cp" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Código Postal</Label>
+                              <Input id="cp" name="cp" placeholder="28001" defaultValue={editingClient?.cp || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-slate-900" />
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="cif" className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">CIF</Label>
+                              <Input id="cif" name="cif" placeholder="CIF..." defaultValue={editingClient?.cif || ''} className="rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all font-bold text-slate-900" />
                           </div>
                         </div>
 

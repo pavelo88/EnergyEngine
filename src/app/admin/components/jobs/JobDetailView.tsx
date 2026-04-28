@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   ClipboardList, Pencil, Trash2, X, User, MapPin, Settings,
   Users, Sparkles, Download, CheckCircle2, Clock, Receipt
@@ -64,6 +65,7 @@ export default function JobDetailView({
   getJobTitle
 }: JobDetailViewProps) {
   const db = useFirestore();
+  const router = useRouter();
   const [totalHoras, setTotalHoras] = useState(0);
   const [totalGastos, setTotalGastos] = useState(0);
   const [relatedHoras, setRelatedHoras] = useState<any[]>([]);
@@ -377,24 +379,56 @@ export default function JobDetailView({
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div 
-              onClick={() => setShowHorasModal(true)}
-              className="p-6 bg-slate-50 rounded-3xl border border-slate-100 cursor-pointer hover:border-[#10b981] hover:bg-emerald-50/50 transition-all group relative overflow-hidden"
+              className="p-6 bg-slate-50 rounded-3xl border border-slate-100 group relative overflow-hidden"
             >
               <div className="flex justify-between items-center mb-2 relative z-10">
                 <p className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 tracking-widest"><Clock size={14} /> Total Horas Registradas</p>
-                <span className="text-[9px] font-bold text-emerald-500 uppercase opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded-md shadow-sm">Ver detalle</span>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setShowHorasModal(true)}
+                    className="text-[9px] font-bold text-slate-500 uppercase bg-white px-2 py-1 rounded-md shadow-sm h-7"
+                  >
+                    Resumen
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => router.push(`/admin/hours?otId=${selectedOT.id}`)}
+                    className="text-[9px] font-bold text-emerald-600 uppercase bg-white px-2 py-1 rounded-md shadow-sm h-7 border border-emerald-100"
+                  >
+                    Ver Detalle
+                  </Button>
+                </div>
               </div>
               <p className="text-4xl font-black text-slate-900 relative z-10">{totalHoras.toFixed(2)}<span className="text-lg text-slate-400 ml-1">h</span></p>
               <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-[#10b981]/5 rounded-full blur-2xl group-hover:bg-[#10b981]/20 transition-all"></div>
             </div>
             
             <div 
-              onClick={() => setShowGastosModal(true)}
-              className="p-6 bg-slate-50 rounded-3xl border border-slate-100 cursor-pointer hover:border-emerald-600 hover:bg-emerald-50/50 transition-all group relative overflow-hidden"
+              className="p-6 bg-slate-50 rounded-3xl border border-slate-100 group relative overflow-hidden"
             >
               <div className="flex justify-between items-center mb-2 relative z-10">
                 <p className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 tracking-widest"><Receipt size={14} /> Total Gastos Operativos</p>
-                <span className="text-[9px] font-bold text-emerald-600 uppercase opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded-md shadow-sm">Ver detalle</span>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setShowGastosModal(true)}
+                    className="text-[9px] font-bold text-slate-500 uppercase bg-white px-2 py-1 rounded-md shadow-sm h-7"
+                  >
+                    Resumen
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => router.push(`/admin/expenses?otId=${selectedOT.id}`)}
+                    className="text-[9px] font-bold text-emerald-600 uppercase bg-white px-2 py-1 rounded-md shadow-sm h-7 border border-emerald-100"
+                  >
+                    Ver Detalle
+                  </Button>
+                </div>
               </div>
               <p className="text-4xl font-black text-emerald-600 relative z-10">{totalGastos.toFixed(2)}<span className="text-lg ml-1">€</span></p>
               <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-emerald-600/5 rounded-full blur-2xl group-hover:bg-emerald-600/20 transition-all"></div>
@@ -403,9 +437,16 @@ export default function JobDetailView({
         </div>
       </div>
 
-      {/* Modal Horas */}
       <Dialog open={showHorasModal} onOpenChange={setShowHorasModal}>
-        <DialogContent className="max-w-2xl bg-white rounded-[2.5rem] p-8 border-none shadow-2xl">
+        <DialogContent className="max-w-2xl bg-white rounded-[3rem] p-8 border-none shadow-2xl overflow-hidden [&>button]:hidden">
+          <div className="absolute right-8 top-8 z-50">
+            <button 
+              onClick={() => setShowHorasModal(false)}
+              className="w-10 h-10 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
+            >
+              <X size={20} />
+            </button>
+          </div>
           <DialogTitle className="font-black text-xl text-slate-900 uppercase tracking-tighter flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center"><Clock size={20} /></div>
             Detalle de Horas
@@ -448,9 +489,16 @@ export default function JobDetailView({
         </DialogContent>
       </Dialog>
 
-      {/* Modal Gastos */}
       <Dialog open={showGastosModal} onOpenChange={setShowGastosModal}>
-        <DialogContent className="max-w-2xl bg-white rounded-[2.5rem] p-8 border-none shadow-2xl">
+        <DialogContent className="max-w-2xl bg-white rounded-[3rem] p-8 border-none shadow-2xl overflow-hidden [&>button]:hidden">
+          <div className="absolute right-8 top-8 z-50">
+            <button 
+              onClick={() => setShowGastosModal(false)}
+              className="w-10 h-10 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
+            >
+              <X size={20} />
+            </button>
+          </div>
           <DialogTitle className="font-black text-xl text-slate-900 uppercase tracking-tighter flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"><Receipt size={20} /></div>
             Detalle de Gastos

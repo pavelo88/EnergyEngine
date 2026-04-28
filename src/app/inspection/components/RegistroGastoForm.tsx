@@ -47,7 +47,7 @@ const cleanData = (obj: any): any => {
 
 const initialGastoState = { rubro: 'Combustible', monto: '', descripcion: '', forma_pago: 'Tarjeta Empresa', hora: format(new Date(), 'HH:mm'), comprobanteFile: undefined, clienteId: '', clienteNombre: '', orderId: '' };
 
-export default function RegistroGastoForm() {
+export default function RegistroGastoForm({ otFilter }: { otFilter?: string | null }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const storage = firestore ? getStorage(firestore.app) : null;
@@ -78,13 +78,28 @@ export default function RegistroGastoForm() {
 
         setGastos(gastosSnap.docs.map(d => ({ id: d.id, ...d.data() } as GastoItem)));
         setClients(clientsSnap.docs.map(d => ({ id: d.id, ...d.data() } as { id: string, nombre: string })).sort((a, b) => a.nombre > b.nombre ? 1 : -1));
-        setActiveOTs(otsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        
+        const ots = otsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setActiveOTs(ots);
+
+        // Si hay filtro de OT, pre-seleccionamos en el formulario de gasto
+        if (otFilter) {
+          const targetOT: any = ots.find(o => o.id === otFilter);
+          if (targetOT) {
+            setCurrentGasto((prev: any) => ({
+              ...prev,
+              clienteId: targetOT.clienteId || '',
+              clienteNombre: targetOT.clienteNombre || targetOT.cliente || '',
+              orderId: targetOT.id
+            }));
+          }
+        }
 
       } catch (e) { console.error(e); }
       setInitialLoading(false);
     };
     load();
-  }, [reportDate, inspectorEmail, canUseCloud, firestore]);
+  }, [reportDate, inspectorEmail, canUseCloud, firestore, otFilter]);
 
   const handleAddGasto = async () => {
     if (!currentGasto.monto) {

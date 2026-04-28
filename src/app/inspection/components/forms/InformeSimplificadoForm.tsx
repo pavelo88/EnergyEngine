@@ -468,8 +468,11 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
         });
         setIsSaved(true);
         toast({ title: '¡Documento Actualizado!', description: `Informe ${existingDocId} guardado como Registrado.` });
+
         handlePdfAction(true, existingDocId);
-        if (onSuccess) onSuccess();
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+        }, 1500);
         return;
       }
 
@@ -507,8 +510,9 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
         else toast({ title: 'Guardado local', description: 'Se sincronizara al recuperar red.' });
 
         handlePdfAction(true, firebaseId);
-
-        if (onSuccess) onSuccess();
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+        }, 1500);
       };
 
       if (canUseCloud && firestore && user.email) {
@@ -537,6 +541,7 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
 
           const docData = {
             ...formData,
+            tecnicos: inspectorName, // Solo el técnico responsable
             includeClientSignature,
             datos_pruebas: {
               ...formData.datos_pruebas,
@@ -548,8 +553,8 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
             inspectorId: inspectorEmail || '',
             inspectorNombre: inspectorName,
             inspectorInitials,
-            inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
-            inspectorNombres: initialData?.inspectorNombres || [inspectorName],
+            inspectorIds: [inspectorEmail],
+            inspectorNombres: [inspectorName],
             fecha_creacion: Timestamp.now(),
             formType: formData.formType || 'informe-simplificado',
             id: docId,
@@ -616,8 +621,8 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
 
       <main className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Simplificado / Motobombas</h2>
-          
+          <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Informe Simplificado (Grupos Pequeños)</h2>
+
           {(initialData?.numero_ot || (initialData?.id && initialData.id.startsWith('OT-'))) ? (
             <div className="bg-primary/5 border border-primary/10 px-4 py-2 rounded-2xl flex items-center gap-3 animate-in fade-in zoom-in duration-500">
               <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -734,10 +739,10 @@ export default function InformeSimplificadoForm({ initialData, aiData, onSuccess
                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Activar solo si el cliente validará el informe</p>
               </div>
             </div>
-            <div className="relative inline-flex items-center cursor-pointer">
+            <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" checked={includeClientSignature} onChange={(e) => setIncludeClientSignature(e.target.checked)} className="sr-only peer" />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-inner"></div>
-            </div>
+            </label>
           </div>
 
           <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Observaciones Finales</h3>

@@ -46,9 +46,9 @@ const navigationItems = [
 
 const quickInspections = [
   { id: 'hoja-trabajo', label: 'Hoja de Trabajo', icon: <FileText size={28} />, color: 'from-emerald-600 to-emerald-400' },
-  { id: 'informe-tecnico', label: 'Informe Técnico', icon: <Settings size={28} />, color: 'from-emerald-700 to-emerald-500' },
+  { id: 'informe-tecnico', label: 'Informe Técnico (uso administrativo)', icon: <Settings size={28} />, color: 'from-emerald-700 to-emerald-500' },
   { id: 'informe-revision', label: 'Informe de Revisión', icon: <ClipboardCheck size={28} />, color: 'from-teal-600 to-teal-400' },
-  { id: 'informe-simplificado', label: 'Informe Simplificado', icon: <Wrench size={28} />, color: 'from-amber-600 to-amber-400' },
+  { id: 'informe-simplificado', label: 'Informe Simplificado (grupos pequeños)', icon: <Wrench size={28} />, color: 'from-amber-600 to-amber-400' },
   // { id: 'revision-basica', label: 'Revisión Básica', icon: <Activity size={28} />, color: 'from-emerald-600 to-emerald-400' },
 ];
 

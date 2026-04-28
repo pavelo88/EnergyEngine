@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, where, limit } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useAdminHeader } from './AdminHeaderContext';
@@ -43,13 +44,15 @@ export default function ExpensesPage() {
   const db = useFirestore();
   const { setHeaderProps } = useAdminHeader();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const otIdParam = searchParams.get('otId');
 
   const [records, setRecords] = useState<GastoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroInspector, setFiltroInspector] = useState('todos');
   const [fechaDesde, setFechaDesde] = useState<Date | undefined>(undefined);
   const [fechaHasta, setFechaHasta] = useState<Date | undefined>(undefined);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(otIdParam || '');
   const [viewMode, setViewMode] = useState<'tabla' | 'rubro' | 'fecha'>('tabla'); // Toggle de vistas
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -91,7 +94,8 @@ export default function ExpensesPage() {
       const matchSearch = searchTerm === '' ||
         r.inspectorNombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.rubro?.toLowerCase().includes(searchTerm.toLowerCase());
+        r.rubro?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (r as any).orderId?.toLowerCase().includes(searchTerm.toLowerCase());
       return matchInspector && matchFecha && matchSearch;
     });
   }, [records, filtroInspector, fechaDesde, fechaHasta, searchTerm]);

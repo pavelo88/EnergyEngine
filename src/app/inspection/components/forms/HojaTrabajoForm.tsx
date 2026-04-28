@@ -584,8 +584,13 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
           title: '¡Documento Actualizado!',
           description: `El informe ${existingDocId} ha sido guardado como Registrado.`
         });
+        
+        // SOLUCIÓN: Descargar y cerrar automáticamente
         handlePdfAction(true, existingDocId);
-        if (onSuccess) onSuccess();
+        
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+        }, 1500);
         return;
       }
 
@@ -655,29 +660,17 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
         if (synced) toast({ title: 'Sincronizado', description: `Informe guardado con ID: ${displayId}` });
         else toast({ title: 'Guardado localmente', description: `Informe registrado como ${displayId}. Se subira al reconectar.` });
 
+        // SOLUCIÓN: Descargar y cerrar automáticamente
         handlePdfAction(true, displayId);
-
-        if (onSuccess) onSuccess();
+        
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+        }, 1500);
       };
 
       if (canUseCloud && typeof navigator !== 'undefined' && navigator.onLine && firestore && user?.email) {
         try {
           const storage = getStorage();
-          
-          // Lógica de ID vinculada a OT
-          let sequentialId = '';
-          if (initialData?.id && initialData.id.startsWith('OT-')) {
-            sequentialId = await getNextReportIdForOT(firestore, initialData.id);
-          } else {
-            const sequence = await getNextSequenceForUser({
-              type: 'hoja-trabajo',
-              userEmail: inspectorEmail || '',
-              firestore: canUseCloud ? firestore : null,
-              isOnline: canUseCloud,
-            });
-            const yearNow = new Date().getFullYear();
-            sequentialId = `HT-${inspectorInitials}-${yearNow}-${sequence.toString().padStart(4, '0')}`;
-          }
 
           const imageUrls = await Promise.all(limitedImages.map(async (image, index) => {
             const imgRef = ref(storage, `informes/${internalFirebaseId}/${Date.now()}_${index}_${image.name}`);
@@ -701,6 +694,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
 
           const docData = {
             ...formData,
+            tecnicos: inspectorName, // Solo el técnico responsable del informe
             includeClientSignature,
             h_asistencia: timeToDecimal(formData.h_asistencia),
             parametrosTecnicos: {
@@ -713,8 +707,8 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
             inspectorId: inspectorEmail || '',
             inspectorNombre: inspectorName,
             inspectorInitials,
-            inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
-            inspectorNombres: initialData?.inspectorNombres || [inspectorName],
+            inspectorIds: [inspectorEmail],
+            inspectorNombres: [inspectorName],
             fecha_creacion: Timestamp.now(),
             formType: formData.formType || 'hoja-trabajo',
             id: sequentialId,
@@ -792,7 +786,7 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
       <main className="space-y-6 pb-20">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h2 className="text-xl font-black text-black border-l-4 border-primary pl-4 uppercase tracking-tighter">Hoja de Trabajo</h2>
-          
+
           {(initialData?.numero_ot || (initialData?.id && initialData.id.startsWith('OT-'))) ? (
             <div className="bg-primary/5 border border-primary/10 px-4 py-2 rounded-2xl flex items-center gap-3 animate-in fade-in zoom-in duration-500">
               <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -954,15 +948,15 @@ export default function HojaTrabajoForm({ initialData, aiData, onSuccess, isAdmi
                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Activar solo si el cliente firmará en persona</p>
               </div>
             </div>
-            <div className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
                 checked={includeClientSignature}
                 onChange={(e) => setIncludeClientSignature(e.target.checked)}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-inner"></div>
-            </div>
+            </label>
           </div>
 
           <h2 className="text-lg font-black uppercase tracking-tighter text-black">Validación y Firmas</h2>

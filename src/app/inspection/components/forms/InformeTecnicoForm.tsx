@@ -378,7 +378,9 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess, isA
         setIsSaved(true);
         toast({ title: '¡Documento Actualizado!', description: `Informe ${existingDocId} guardado como Registrado.` });
         handlePdfAction(true, existingDocId);
-        if (onSuccess) onSuccess();
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+        }, 1500);
         return;
       }
 
@@ -417,7 +419,9 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess, isA
 
         handlePdfAction(true, firebaseId);
 
-        if (onSuccess) onSuccess();
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+        }, 1500);
       };
 
       if (canUseCloud && firestore && user?.email) {
@@ -433,6 +437,7 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess, isA
 
           const docData = {
             ...formData,
+            tecnicos: inspectorName, // Solo el técnico responsable
             parametrosTecnicos: {
               ...formData.parametrosTecnicos,
               horas: timeToDecimal(formData.parametrosTecnicos.horas)
@@ -443,8 +448,8 @@ export default function InformeTecnicoForm({ initialData, aiData, onSuccess, isA
             inspectorId: inspectorEmail || '',
             inspectorNombre: inspectorName,
             inspectorInitials,
-            inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
-            inspectorNombres: initialData?.inspectorNombres || [inspectorName],
+            inspectorIds: [inspectorEmail],
+            inspectorNombres: [inspectorName],
             fecha_creacion: Timestamp.now(),
             formType: formData.formType || 'informe-tecnico',
             id: docId,

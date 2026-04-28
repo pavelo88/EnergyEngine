@@ -566,7 +566,9 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess, isA
         setIsSaved(true);
         toast({ title: '¡Documento Actualizado!', description: `Informe ${existingDocId} guardado como Registrado.` });
         handlePdfAction(true, existingDocId);
-        if (onSuccess) onSuccess();
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+        }, 1500);
         return;
       }
 
@@ -577,7 +579,7 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess, isA
         isOnline: canUseCloud,
       });
       const year = new Date().getFullYear();
-      const docId = `BAS-${inspectorInitials}-${year}-${sequence.toString().padStart(4, '0')}`;
+      const docId = `RB-${inspectorInitials}-${year}-${sequence.toString().padStart(4, '0')}`;
       const limitedImages = images.slice(0, MAX_IMAGES_PER_REPORT);
 
       const saveDataToLocal = async (synced: boolean, firebaseId: string) => {
@@ -613,7 +615,9 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess, isA
 
         handlePdfAction(true, firebaseId);
 
-        if (onSuccess) onSuccess();
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+        }, 1500);
       };
 
       if (canUseCloud && firestore && user?.email) {
@@ -643,6 +647,7 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess, isA
 
           const docData = {
             ...formData,
+            tecnicos: inspectorName, // Solo el técnico responsable
             includeClientSignature,
             datos_pruebas: {
               ...formData.datos_pruebas,
@@ -654,8 +659,8 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess, isA
             inspectorId: inspectorEmail || '',
             inspectorNombre: inspectorName,
             inspectorInitials,
-            inspectorIds: initialData?.inspectorIds || (inspectorEmail ? [inspectorEmail] : []),
-            inspectorNombres: initialData?.inspectorNombres || [inspectorName],
+            inspectorIds: [inspectorEmail],
+            inspectorNombres: [inspectorName],
             fecha_creacion: Timestamp.now(),
             formType: formData.formType || 'revision-basica',
             id: docId,
@@ -873,10 +878,10 @@ export default function RevisionBasicaForm({ initialData, aiData, onSuccess, isA
                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Activar solo si el cliente validará el informe</p>
               </div>
             </div>
-            <div className="relative inline-flex items-center cursor-pointer">
+            <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" checked={includeClientSignature} onChange={(e) => setIncludeClientSignature(e.target.checked)} className="sr-only peer" />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-inner"></div>
-            </div>
+            </label>
           </div>
 
           <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-1.5">Hallazgos y Observaciones</h3>

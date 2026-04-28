@@ -58,7 +58,7 @@ const cleanData = (obj: any): any => {
   return obj;
 };
 
-export default function BitacoraVisitasForm() {
+export default function BitacoraVisitasForm({ otFilter }: { otFilter?: string | null }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const storage = firestore ? getStorage(firestore.app) : null;
@@ -150,11 +150,10 @@ export default function BitacoraVisitasForm() {
     return () => clearInterval(interval);
   }, [activeStop, isTimerPaused, stopTimeManual]);
 
-  // --- CARGAR CLIENTES ---
   useEffect(() => {
     const fetch = async () => {
       if (!firestore) return setClients(await dbLocal.clientes_cache.toArray());
-      
+
       const [clientsSnap, otsSnap] = await Promise.all([
         getDocs(collection(firestore, 'clientes')),
         getDocs(query(collection(firestore, 'ordenes_trabajo'), where('inspectorIds', 'array-contains', inspectorEmail), where('estado', 'in', [OT_STATUS.EN_PROCESO, OT_STATUS.REGISTRADA])))
@@ -165,9 +164,22 @@ export default function BitacoraVisitasForm() {
 
       const ots = otsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       setActiveOTs(ots);
+
+      // Si hay un filtro de OT, pre-seleccionamos
+      if (otFilter && !activeStop) {
+        const targetOT: any = ots.find(o => o.id === otFilter);
+        if (targetOT) {
+          setStartConfig({
+            clienteId: targetOT.clienteId || '',
+            clienteNombre: targetOT.clienteNombre || targetOT.cliente || '',
+            actividad: 'Inspección',
+            orderId: targetOT.id
+          });
+        }
+      }
     };
     fetch();
-  }, [firestore, inspectorEmail]);
+  }, [firestore, inspectorEmail, otFilter]);
 
   // --- CARGAR VISITAS DEL DÍA ---
   useEffect(() => {
@@ -218,7 +230,7 @@ export default function BitacoraVisitasForm() {
     if (!activeStop || !stopTimeManual) return;
 
     const horaSalida = stopTimeManual;
-    
+
     // El inspector ya no digita, calculamos el total real del cronómetro
     const arrivalDate = parse(activeStop.horaLlegada, 'HH:mm', new Date());
     const stopDate = parse(stopTimeManual, 'HH:mm', new Date());
@@ -311,19 +323,19 @@ export default function BitacoraVisitasForm() {
             <MapPinned size={18} className="text-emerald-500" />
             <h3 className="font-black text-slate-900 uppercase text-xs tracking-widest">Nueva Llegada</h3>
           </div>
-          
+
           <div className="space-y-1">
             <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">Vincular a OT (Opcional)</label>
-            <Select 
-              value={startConfig.orderId} 
+            <Select
+              value={startConfig.orderId}
               onValueChange={(val) => {
                 const ot = activeOTs.find(o => o.id === val);
                 if (ot) {
-                  setStartConfig({ 
-                    ...startConfig, 
-                    orderId: ot.id, 
-                    clienteId: ot.clienteId || '', 
-                    clienteNombre: ot.clienteNombre || ot.cliente || '' 
+                  setStartConfig({
+                    ...startConfig,
+                    orderId: ot.id,
+                    clienteId: ot.clienteId || '',
+                    clienteNombre: ot.clienteNombre || ot.cliente || ''
                   });
                 } else {
                   setStartConfig({ ...startConfig, orderId: '' });
@@ -350,8 +362,8 @@ export default function BitacoraVisitasForm() {
 
           <div className="space-y-1">
             <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">Cliente</label>
-            <Select 
-              value={startConfig.clienteId} 
+            <Select
+              value={startConfig.clienteId}
               disabled={!!startConfig.orderId}
               onValueChange={(val) => setStartConfig({ ...startConfig, clienteId: val, clienteNombre: val === "OFICINA" ? 'OFICINA' : clients.find(c => c.id === val)?.nombre })}
             >
@@ -371,7 +383,7 @@ export default function BitacoraVisitasForm() {
               <SelectContent className="z-[150] bg-white">{['Inspección', 'Avería', 'Mantenimiento', 'Viaje', 'Oficina', 'Obra'].map(a => <SelectItem key={a} value={a}>{a.toUpperCase()}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <Button onClick={handleMarcarLlegada} className="h-14 bg-slate-900 text-emerald-400 rounded-2xl font-black border-2 border-emerald-500/30 hover:bg-emerald-500 hover:text-white transition-all shadow-xl shadow-emerald-500/10"><Play size={20} className="mr-2" /> INICIAR LLEGADA</Button>
+          <Button onClick={handleMarcarLlegada} className="h-14 bg-slate-900 text-emerald-400 rounded-2xl font-black border-2 border-emerald-500/30 hover:bg-emerald-500 hover:text-white transition-all shadow-xl shadow-emerald-500/10"><Play size={20} className="mr-2" /> INICIAR JORNADA</Button>
         </section>
       ) : (
         <section className="bg-emerald-50 p-6 rounded-[2.5rem] border-2 border-emerald-500/20 shadow-xl space-y-4 animate-in slide-in-from-top-4 duration-300 relative overflow-hidden">
@@ -398,16 +410,16 @@ export default function BitacoraVisitasForm() {
               </div>
 
               <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setIsTimerPaused(false)} 
+                <Button
+                  variant="outline"
+                  onClick={() => setIsTimerPaused(false)}
                   className="flex-1 h-14 rounded-2xl font-black text-[10px] tracking-widest bg-white border-2 border-[#165a30] text-[#165a30] hover:bg-[#165a30] hover:text-white transition-all duration-300"
                 >
                   <RotateCcw size={18} className="mr-2" />REANUDAR
                 </Button>
-                <Button 
-                  onClick={handleGuardarSalida} 
-                  disabled={loading} 
+                <Button
+                  onClick={handleGuardarSalida}
+                  disabled={loading}
                   className="flex-[3] h-14 rounded-2xl font-black text-[10px] tracking-widest bg-[#165a30] text-white border-2 border-[#165a30] hover:bg-white hover:text-[#165a30] transition-all duration-300 shadow-xl shadow-[#165a30]/10 gap-2"
                 >
                   <Save size={18} /> {loading ? 'GUARDANDO...' : 'GUARDAR VISITA'}
@@ -437,9 +449,9 @@ export default function BitacoraVisitasForm() {
             </div>
             <div className="flex items-center gap-2">
               {v.estado !== 'Aprobado' && (
-                <Button 
-                  variant="outline" 
-                  size="icon" 
+                <Button
+                  variant="outline"
+                  size="icon"
                   onClick={() => { setCurrentEditVisit(v); setIsEditModalOpen(true); }}
                   className="h-10 w-10 rounded-xl bg-slate-50 border-slate-200 text-slate-400 hover:bg-[#165a30] hover:text-white transition-all"
                 >
@@ -478,56 +490,56 @@ export default function BitacoraVisitasForm() {
                 </div>
               </div>
 
-                <div className="flex gap-3">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setIsEditModalOpen(false)} 
-                    className="flex-1 h-14 rounded-2xl font-black text-[10px] tracking-widest bg-white border-2 border-[#165a30] text-[#165a30] hover:bg-[#165a30] hover:text-white transition-all duration-300"
-                  >
-                    CANCELAR
-                  </Button>
-                  <Button
-                    onClick={async () => {
-                      if (!canUseCloud) return toast({ variant: 'destructive', title: 'Sin conexión' });
-                      setLoading(true);
-                      try {
-                        const arrivalDate = parse(currentEditVisit.horaLlegada, 'HH:mm', new Date());
-                        const stopDate = parse(currentEditVisit.horaSalida, 'HH:mm', new Date());
-                        const diffMinutes = differenceInMinutes(stopDate, arrivalDate);
-                        const total = diffMinutes > 0 ? diffMinutes / 60 : 0;
-                        const totalRounded = Math.round(total * 100) / 100;
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="flex-1 h-14 rounded-2xl font-black text-[10px] tracking-widest bg-white border-2 border-[#165a30] text-[#165a30] hover:bg-[#165a30] hover:text-white transition-all duration-300"
+                >
+                  CANCELAR
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (!canUseCloud) return toast({ variant: 'destructive', title: 'Sin conexión' });
+                    setLoading(true);
+                    try {
+                      const arrivalDate = parse(currentEditVisit.horaLlegada, 'HH:mm', new Date());
+                      const stopDate = parse(currentEditVisit.horaSalida, 'HH:mm', new Date());
+                      const diffMinutes = differenceInMinutes(stopDate, arrivalDate);
+                      const total = diffMinutes > 0 ? diffMinutes / 60 : 0;
+                      const totalRounded = Math.round(total * 100) / 100;
 
-                        const docRef = doc(firestore!, "bitacora_visitas", currentEditVisit.id);
-                        await updateDoc(docRef, {
-                          horaLlegada: currentEditVisit.horaLlegada,
-                          horaSalida: currentEditVisit.horaSalida,
-                          horasNormales: totalRounded,
-                          horasExtras: 0,
-                          horasEspeciales: 0,
-                          hNormalesStr: totalRounded.toFixed(2),
-                          hExtrasStr: '0.00',
-                          hEspecialesStr: '0.00'
-                        });
+                      const docRef = doc(firestore!, "bitacora_visitas", currentEditVisit.id);
+                      await updateDoc(docRef, {
+                        horaLlegada: currentEditVisit.horaLlegada,
+                        horaSalida: currentEditVisit.horaSalida,
+                        horasNormales: totalRounded,
+                        horasExtras: 0,
+                        horasEspeciales: 0,
+                        hNormalesStr: totalRounded.toFixed(2),
+                        hExtrasStr: '0.00',
+                        hEspecialesStr: '0.00'
+                      });
 
-                        setVisitas(prev => prev.map(v => v.id === currentEditVisit.id ? {
-                          ...v,
-                          ...currentEditVisit,
-                          hNormalesStr: totalRounded.toFixed(2),
-                        } : v));
+                      setVisitas(prev => prev.map(v => v.id === currentEditVisit.id ? {
+                        ...v,
+                        ...currentEditVisit,
+                        hNormalesStr: totalRounded.toFixed(2),
+                      } : v));
 
-                        setIsEditModalOpen(false);
-                        toast({ title: 'Actualizado correctamente ✅' });
-                      } catch (e) {
-                        console.error(e);
-                        toast({ variant: 'destructive', title: 'Error al actualizar' });
-                      } finally { setLoading(false); }
-                    }}
-                    disabled={loading}
-                    className="flex-[2] h-14 rounded-2xl font-black text-[10px] tracking-widest bg-[#165a30] text-white border-2 border-[#165a30] hover:bg-white hover:text-[#165a30] transition-all duration-300 shadow-lg shadow-[#165a30]/10"
-                  >
-                    {loading ? <Loader2 className="animate-spin" /> : 'GUARDAR CAMBIOS'}
-                  </Button>
-                </div>
+                      setIsEditModalOpen(false);
+                      toast({ title: 'Actualizado correctamente ✅' });
+                    } catch (e) {
+                      console.error(e);
+                      toast({ variant: 'destructive', title: 'Error al actualizar' });
+                    } finally { setLoading(false); }
+                  }}
+                  disabled={loading}
+                  className="flex-[2] h-14 rounded-2xl font-black text-[10px] tracking-widest bg-[#165a30] text-white border-2 border-[#165a30] hover:bg-white hover:text-[#165a30] transition-all duration-300 shadow-lg shadow-[#165a30]/10"
+                >
+                  {loading ? <Loader2 className="animate-spin" /> : 'GUARDAR CAMBIOS'}
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
