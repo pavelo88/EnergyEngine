@@ -20,6 +20,7 @@ import { decimalToTime, timeToDecimal } from '@/lib/utils';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { db as dbLocal } from '@/lib/db-local';
 import { useToast } from '@/hooks/use-toast';
+import { OT_STATUS } from '@/lib/constants';
 import { fileToBase64 } from '@/lib/offline-utils';
 import { resolveInspectorEmail } from '@/lib/inspection-mode';
 
@@ -86,26 +87,42 @@ export default function BitacoraVisitasForm() {
 
   // --- RECUPERAR PARADA ACTIVA ---
   useEffect(() => {
-    const saved = localStorage.getItem('activeVisit_draft');
-    const paused = localStorage.getItem('activeVisit_paused');
-    const stopTime = localStorage.getItem('activeVisit_stopTime');
+    const loadState = async () => {
+      const savedRow = await dbLocal.configuracion.get('activeVisit_draft');
+      const pausedRow = await dbLocal.configuracion.get('activeVisit_paused');
+      const stopTimeRow = await dbLocal.configuracion.get('activeVisit_stopTime');
 
-    if (saved) setActiveStop(JSON.parse(saved));
-    if (paused === 'true') setIsTimerPaused(true);
-    if (stopTime) setStopTimeManual(stopTime);
-  }, []);
+      if (savedRow?.value) {
+        setActiveStop(savedRow.value);
+        toast({
+          title: 'CRONÓMETRO ACTIVO',
+          description: 'Tienes un registro de visita en curso.',
+          duration: 5000,
+        });
+      }
+      if (pausedRow?.value === 'true') setIsTimerPaused(true);
+      if (stopTimeRow?.value) setStopTimeManual(stopTimeRow.value);
+    };
+    loadState();
+  }, [toast]);
 
   useEffect(() => {
-    if (activeStop) {
-      localStorage.setItem('activeVisit_draft', JSON.stringify(activeStop));
-      localStorage.setItem('activeVisit_paused', String(isTimerPaused));
-      if (stopTimeManual) localStorage.setItem('activeVisit_stopTime', stopTimeManual);
-      else localStorage.removeItem('activeVisit_stopTime');
-    } else {
-      localStorage.removeItem('activeVisit_draft');
-      localStorage.removeItem('activeVisit_paused');
-      localStorage.removeItem('activeVisit_stopTime');
-    }
+    const saveState = async () => {
+      if (activeStop) {
+        await dbLocal.configuracion.put({ key: 'activeVisit_draft', value: activeStop });
+        await dbLocal.configuracion.put({ key: 'activeVisit_paused', value: String(isTimerPaused) });
+        if (stopTimeManual) {
+          await dbLocal.configuracion.put({ key: 'activeVisit_stopTime', value: stopTimeManual });
+        } else {
+          await dbLocal.configuracion.delete('activeVisit_stopTime');
+        }
+      } else {
+        await dbLocal.configuracion.delete('activeVisit_draft');
+        await dbLocal.configuracion.delete('activeVisit_paused');
+        await dbLocal.configuracion.delete('activeVisit_stopTime');
+      }
+    };
+    saveState();
   }, [activeStop, isTimerPaused, stopTimeManual]);
 
   // --- CRONÓMETRO ---
@@ -140,7 +157,7 @@ export default function BitacoraVisitasForm() {
       
       const [clientsSnap, otsSnap] = await Promise.all([
         getDocs(collection(firestore, 'clientes')),
-        getDocs(query(collection(firestore, 'ordenes_trabajo'), where('inspectorIds', 'array-contains', inspectorEmail), where('estado', 'in', ['Asignado', 'Pendiente', 'En Progreso', 'Abierta', 'Registrada'])))
+        getDocs(query(collection(firestore, 'ordenes_trabajo'), where('inspectorIds', 'array-contains', inspectorEmail), where('estado', 'in', [OT_STATUS.EN_PROCESO, OT_STATUS.REGISTRADA])))
       ]);
 
       const list = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -245,7 +262,7 @@ export default function BitacoraVisitasForm() {
 
       // Actualizar estado de la OT a 'En Proceso'
       if (activeStop.orderId) {
-        await updateDoc(doc(firestore!, 'ordenes_trabajo', activeStop.orderId), { estado: 'En Proceso' });
+        await updateDoc(doc(firestore!, 'ordenes_trabajo', activeStop.orderId), { estado: OT_STATUS.EN_PROCESO });
       }
 
       setVisitas([...visitas, docData]);

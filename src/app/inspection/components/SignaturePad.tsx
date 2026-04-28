@@ -30,6 +30,7 @@ export default function SignaturePad({ title, onSignatureEnd, signature }: Signa
 
       const ctx = canvas.getContext('2d', { alpha: false });
       if (!ctx) return;
+      contextRef.current = ctx;
 
       const rect = canvas.getBoundingClientRect();
       const scale = window.devicePixelRatio || 1;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, where, limit } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useAdminHeader } from './AdminHeaderContext';
 import { Loader2, Download, Clock, CheckCircle2, Trash2, Plus, Search, Pencil, FileText, CalendarIcon } from 'lucide-react';
@@ -18,7 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import { decimalToTime } from '@/lib/utils';
 import ReportGeneratorModal from './ReportGeneratorModal';
 
-// --- DATE PICKER SEGURO ---
+import HoraModal from './HoraModal';
+
 function AdminDatePicker({ date, setDate, placeholder }: { date: Date | undefined; setDate: (d: Date | undefined) => void; placeholder: string }) {
   const [isOpen, setIsOpen] = useState(false);
   return (
@@ -36,12 +37,7 @@ function AdminDatePicker({ date, setDate, placeholder }: { date: Date | undefine
   );
 }
 
-type HoraItem = {
-  id: string; inspectorId: string; inspectorNombre: string; fecha: any;
-  estado: 'Registrado' | 'Aprobado'; clienteNombre?: string; actividad?: string;
-  horaLlegada?: string; horaSalida?: string;
-  horasNormales?: number; horasExtras?: number; horasEspeciales?: number;
-};
+import { HoraItem } from '@/types/models';
 
 export default function HoursPage() {
   const db = useFirestore();
@@ -60,7 +56,8 @@ export default function HoursPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [currentEditingRecord, setCurrentEditingRecord] = useState<HoraItem | null>(null);
-  const [inspectors, setInspectors] = useState<string[]>([]);
+  const [inspectors, setInspectors] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
 
   useEffect(() => { fetchData(); }, [db]);
 
@@ -68,12 +65,19 @@ export default function HoursPage() {
     if (!db) return;
     try {
       setLoading(true);
-      const q = query(collection(db, 'bitacora_visitas'), orderBy('createdAt', 'desc'));
-      const snap = await getDocs(q);
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as HoraItem));
+      const [visitasSnap, clientsSnap, usersSnap] = await Promise.all([
+        getDocs(query(collection(db, 'bitacora_visitas'), orderBy('createdAt', 'desc'), limit(1000))),
+        getDocs(collection(db, 'clientes')),
+        getDocs(collection(db, 'usuarios'))
+      ]);
+
+      const data = visitasSnap.docs.map(d => ({ id: d.id, ...d.data() } as HoraItem));
       setRecords(data);
-      const uniqueInspectors = Array.from(new Set(data.map(r => r.inspectorNombre))).filter(Boolean);
-      setInspectors(uniqueInspectors.sort());
+      setClients(clientsSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) })).sort((a, b) => a.nombre > b.nombre ? 1 : -1));
+      
+      const userList = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setInspectors(userList.sort((a: any, b: any) => (a.nombre || '').localeCompare(b.nombre || '')));
+
     } catch (error) { toast({ title: "Error al cargar datos", variant: "destructive" }); }
     finally { setLoading(false); }
   };
@@ -204,7 +208,12 @@ export default function HoursPage() {
           <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Técnico</label>
           <Select value={filtroInspector} onValueChange={setFiltroInspector}>
             <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 text-slate-900 font-bold"><SelectValue /></SelectTrigger>
-            <SelectContent className="bg-white"><SelectItem value="todos">TODOS</SelectItem>{inspectors.map(n => <SelectItem key={n} value={n}>{n.split('@')[0].toUpperCase()}</SelectItem>)}</SelectContent>
+            <SelectContent className="bg-white">
+              <SelectItem value="todos">TODOS</SelectItem>
+              {inspectors.map((i: any) => (
+                <SelectItem key={i.id} value={i.nombre || i.email}>{i.nombre?.toUpperCase() || i.email?.split('@')[0].toUpperCase()}</SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </div>
         <div className="space-y-1 w-40">
@@ -259,7 +268,7 @@ export default function HoursPage() {
                     <td className="px-4 py-4 text-center font-bold text-blue-600 text-xs">{(r.horasEspeciales || 0).toFixed(2)}</td>
                     <td className="px-4 py-4 text-center font-black text-slate-900 text-sm bg-slate-50/50">{((r.horasNormales || 0) + (r.horasExtras || 0) + (r.horasEspeciales || 0)).toFixed(2)}</td>
                     <td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${r.estado === 'Aprobado' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600 animate-pulse'}`}>{r.estado}</span></td>
-                    <td className="px-6 py-4 text-right"><div className="flex justify-end gap-2"><Button variant="outline" size="icon" onClick={() => { setCurrentEditingRecord(r); setIsEditModalOpen(true); }} className="h-10 w-10 rounded-xl bg-slate-50 hover:bg-slate-100"><Pencil size={18} /></Button>{r.estado !== 'Aprobado' && <Button variant="outline" size="icon" onClick={() => handleApprove(r.id, r.estado)} className="text-emerald-600 h-10 w-10 rounded-xl bg-emerald-50 hover:bg-emerald-100"><CheckCircle2 size={20} /></Button>}<Button variant="outline" size="icon" onClick={() => handleDelete(r.id)} className="text-red-500 h-10 w-10 rounded-xl bg-red-50 hover:bg-red-100"><Trash2 size={20} /></Button></div></td>
+                    <td className="px-6 py-4 text-right"><div className="flex justify-end gap-2"><Button variant="outline" size="icon" onClick={() => { setCurrentEditingRecord(r); setIsEditModalOpen(true); }} className="h-10 w-10 rounded-xl bg-slate-50 hover:bg-slate-100"><Pencil size={18} /></Button>{r.estado !== 'Aprobado' && r.id && <Button variant="outline" size="icon" onClick={() => handleApprove(r.id!, r.estado || '')} className="text-emerald-600 h-10 w-10 rounded-xl bg-emerald-50 hover:bg-emerald-100"><CheckCircle2 size={20} /></Button>}{r.id && <Button variant="outline" size="icon" onClick={() => handleDelete(r.id!)} className="text-red-500 h-10 w-10 rounded-xl bg-red-50 hover:bg-red-100"><Trash2 size={20} /></Button>}</div></td>
                   </tr>
                 ))}
               </tbody>
@@ -312,90 +321,8 @@ export default function HoursPage() {
       <ReportGeneratorModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} reportes={records} fixedModule="horas" />
 
       {/* MODALES CREAR/EDITAR */}
-      {isCreateModalOpen && <HoraModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} onSaved={fetchData} db={db} />}
-      {isEditModalOpen && currentEditingRecord && <HoraModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setCurrentEditingRecord(null); }} record={currentEditingRecord} onSaved={fetchData} db={db} />}
+      {isCreateModalOpen && <HoraModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} onSaved={fetchData} db={db} clients={clients} inspectors={inspectors} />}
+      {isEditModalOpen && currentEditingRecord && <HoraModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setCurrentEditingRecord(null); }} record={currentEditingRecord} onSaved={fetchData} db={db} clients={clients} inspectors={inspectors} />}
     </div>
-  );
-}
-
-function HoraModal({ isOpen, onClose, record, onSaved, db }: any) {
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState(() => {
-    if (record) {
-      let fechaStr = '';
-      try {
-        const d = record.fecha?.toDate ? record.fecha.toDate() : (record.fecha ? new Date(record.fecha) : new Date());
-        fechaStr = isNaN(d.getTime()) ? new Date().toISOString().split('T')[0] : d.toISOString().split('T')[0];
-      } catch (e) { fechaStr = new Date().toISOString().split('T')[0]; }
-      return { ...record, fecha: fechaStr };
-    }
-    return { inspectorNombre: 'ADMIN@ENERGYENGINE.ES', fecha: new Date().toISOString().split('T')[0], clienteNombre: '', actividad: 'Inspección', horaLlegada: '08:00', horaSalida: '10:00', horasNormales: '0.00', horasExtras: '0.00', horasEspeciales: '0.00' };
-  });
-
-  const handleSave = async () => {
-    setLoading(true);
-    try {
-      const payload = { 
-        ...formData, 
-        horasNormales: parseFloat(parseFloat(String(formData.horasNormales || 0)).toFixed(2)), 
-        horasExtras: parseFloat(parseFloat(String(formData.horasExtras || 0)).toFixed(2)), 
-        horasEspeciales: parseFloat(parseFloat(String(formData.horasEspeciales || 0)).toFixed(2)), 
-        fecha: new Date(formData.fecha + 'T12:00:00') 
-      };
-      if (record) await updateDoc(doc(db, 'bitacora_visitas', record.id), payload);
-      else await addDoc(collection(db, 'bitacora_visitas'), { ...payload, estado: 'Registrado', inspectorId: formData.inspectorNombre.toLowerCase(), createdAt: serverTimestamp() });
-      onSaved(); onClose();
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg bg-white rounded-[2rem] p-8 border-none shadow-2xl">
-        <DialogHeader><DialogTitle className="text-xl font-black uppercase text-slate-900">{record ? 'Editar' : 'Registrar'} Horas</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-3 gap-4 mt-6">
-          <div className="col-span-3 space-y-1">
-            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Fecha de Registro</label>
-            <input 
-              type="date" 
-              value={formData.fecha} 
-              onChange={e => setFormData({ ...formData, fecha: e.target.value })} 
-              className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 font-black outline-none focus:border-emerald-500 focus:bg-white transition-all text-slate-900" 
-            />
-          </div>
-          <div className="col-span-3 space-y-1">
-            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Cliente / Proyecto</label>
-            <Input value={formData.clienteNombre} onChange={e => setFormData({ ...formData, clienteNombre: e.target.value })} className="h-12 rounded-xl bg-slate-50 font-black text-slate-900 border-slate-200" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Normales</label>
-            <Input type="number" step="0.01" value={formData.horasNormales} onChange={e => setFormData({ ...formData, horasNormales: e.target.value })} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-black text-slate-900" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Extras</label>
-            <Input type="number" step="0.01" value={formData.horasExtras} onChange={e => setFormData({ ...formData, horasExtras: e.target.value })} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-black text-slate-900" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Especiales</label>
-            <Input type="number" step="0.01" value={formData.horasEspeciales} onChange={e => setFormData({ ...formData, horasEspeciales: e.target.value })} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-black text-slate-900" />
-          </div>
-        </div>
-        <DialogFooter className="mt-8 flex gap-3">
-          <Button 
-            variant="outline" 
-            onClick={onClose} 
-            className="flex-1 h-12 rounded-xl border-2 border-[#165a30] bg-white text-[#165a30] font-black uppercase text-[10px] tracking-widest hover:bg-[#165a30] hover:text-white transition-all duration-300"
-          >
-            Cancelar
-          </Button>
-          <Button 
-            onClick={handleSave} 
-            disabled={loading} 
-            className="flex-1 h-12 rounded-xl border-2 border-[#165a30] bg-[#165a30] text-white font-black uppercase text-[10px] tracking-widest hover:bg-white hover:text-[#165a30] transition-all duration-300 shadow-md"
-          >
-            {loading ? <Loader2 className="animate-spin mr-2" size={16} /> : (record ? 'Actualizar' : 'Guardar Registro')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

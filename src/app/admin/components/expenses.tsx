@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, where, limit } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useAdminHeader } from './AdminHeaderContext';
 import { Loader2, Download, TrendingUp, CheckCircle2, Trash2, Plus, Search, Pencil, FileText, CalendarIcon, Layers, CalendarDays, AlignJustify } from 'lucide-react';
@@ -16,6 +16,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import ReportGeneratorModal from './ReportGeneratorModal';
+
+import GastoModal from './GastoModal';
 
 // --- DATE PICKER SEGURO CON CALENDARIO OSCURO ---
 function AdminDatePicker({ date, setDate, placeholder }: { date: Date | undefined; setDate: (d: Date | undefined) => void; placeholder: string }) {
@@ -35,11 +37,7 @@ function AdminDatePicker({ date, setDate, placeholder }: { date: Date | undefine
   );
 }
 
-type GastoItem = {
-  id: string; inspectorId: string; inspectorNombre: string; fecha: any;
-  estado: 'Registrado' | 'Aprobado'; rubro?: string; monto?: number;
-  descripcion?: string; forma_pago?: string; hora?: string;
-};
+import { GastoItem } from '@/types/models';
 
 export default function ExpensesPage() {
   const db = useFirestore();
@@ -58,7 +56,8 @@ export default function ExpensesPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [currentEditingRecord, setCurrentEditingRecord] = useState<GastoItem | null>(null);
-  const [inspectors, setInspectors] = useState<string[]>([]);
+  const [inspectors, setInspectors] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
 
   useEffect(() => { fetchData(); }, [db]);
 
@@ -66,12 +65,19 @@ export default function ExpensesPage() {
     if (!db) return;
     try {
       setLoading(true);
-      const q = query(collection(db, 'gastos_detalle'), orderBy('createdAt', 'desc'));
-      const snap = await getDocs(q);
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as GastoItem));
+      const [gastosSnap, clientsSnap, usersSnap] = await Promise.all([
+        getDocs(query(collection(db, 'gastos_detalle'), orderBy('createdAt', 'desc'), limit(1000))),
+        getDocs(collection(db, 'clientes')),
+        getDocs(collection(db, 'usuarios'))
+      ]);
+      
+      const data = gastosSnap.docs.map(d => ({ id: d.id, ...d.data() } as GastoItem));
       setRecords(data);
-      const uniqueInspectors = Array.from(new Set(data.map(r => r.inspectorNombre))).filter(Boolean);
-      setInspectors(uniqueInspectors.sort());
+      setClients(clientsSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) })).sort((a, b) => a.nombre > b.nombre ? 1 : -1));
+      
+      const userList = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setInspectors(userList.sort((a: any, b: any) => (a.nombre || '').localeCompare(b.nombre || '')));
+      
     } catch (error) { toast({ title: "Error al cargar datos", variant: "destructive" }); }
     finally { setLoading(false); }
   };
@@ -198,7 +204,12 @@ export default function ExpensesPage() {
           <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Técnico</label>
           <Select value={filtroInspector} onValueChange={setFiltroInspector}>
             <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-slate-50 text-slate-900 font-bold"><SelectValue /></SelectTrigger>
-            <SelectContent className="bg-white"><SelectItem value="todos">TODOS</SelectItem>{inspectors.map(n => <SelectItem key={n} value={n}>{n.split('@')[0].toUpperCase()}</SelectItem>)}</SelectContent>
+            <SelectContent className="bg-white">
+              <SelectItem value="todos">TODOS</SelectItem>
+              {inspectors.map((i: any) => (
+                <SelectItem key={i.id} value={i.nombre || i.email}>{i.nombre?.toUpperCase() || i.email?.split('@')[0].toUpperCase()}</SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </div>
         <div className="space-y-1 w-40">
@@ -246,7 +257,7 @@ export default function ExpensesPage() {
                     <td className="px-6 py-4"><p className="font-black text-slate-900 text-xs uppercase">{r.rubro}</p><p className="text-[10px] text-slate-500 font-medium truncate max-w-xs">{r.descripcion}</p></td>
                     <td className="px-6 py-4 text-center font-black text-emerald-600 text-lg">{r.monto?.toFixed(2)}€</td>
                     <td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${r.estado === 'Aprobado' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600 animate-pulse'}`}>{r.estado}</span></td>
-                    <td className="px-6 py-4 text-right"><div className="flex justify-end gap-2"><Button variant="outline" size="icon" onClick={() => { setCurrentEditingRecord(r); setIsEditModalOpen(true); }} className="h-10 w-10 rounded-xl bg-slate-50 hover:bg-slate-100"><Pencil size={18} /></Button>{r.estado !== 'Aprobado' && <Button variant="outline" size="icon" onClick={() => handleApprove(r.id, r.estado)} className="text-emerald-600 h-10 w-10 rounded-xl bg-emerald-50 hover:bg-emerald-100"><CheckCircle2 size={20} /></Button>}<Button variant="outline" size="icon" onClick={() => handleDelete(r.id)} className="text-red-500 h-10 w-10 rounded-xl bg-red-50 hover:bg-red-100"><Trash2 size={20} /></Button></div></td>
+                    <td className="px-6 py-4 text-right"><div className="flex justify-end gap-2"><Button variant="outline" size="icon" onClick={() => { setCurrentEditingRecord(r); setIsEditModalOpen(true); }} className="h-10 w-10 rounded-xl bg-slate-50 hover:bg-slate-100"><Pencil size={18} /></Button>{r.estado !== 'Aprobado' && r.id && <Button variant="outline" size="icon" onClick={() => handleApprove(r.id!, r.estado || '')} className="text-emerald-600 h-10 w-10 rounded-xl bg-emerald-50 hover:bg-emerald-100"><CheckCircle2 size={20} /></Button>}{r.id && <Button variant="outline" size="icon" onClick={() => handleDelete(r.id!)} className="text-red-500 h-10 w-10 rounded-xl bg-red-50 hover:bg-red-100"><Trash2 size={20} /></Button>}</div></td>
                   </tr>
                 ))}
               </tbody>
@@ -306,89 +317,8 @@ export default function ExpensesPage() {
       <ReportGeneratorModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} reportes={records} fixedModule="gastos" />
 
       {/* MODALES */}
-      {isCreateModalOpen && <GastoModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} onSaved={fetchData} db={db} />}
-      {isEditModalOpen && currentEditingRecord && <GastoModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setCurrentEditingRecord(null); }} record={currentEditingRecord} onSaved={fetchData} db={db} />}
+      {isCreateModalOpen && <GastoModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} onSaved={fetchData} db={db} clients={clients} inspectors={inspectors} />}
+      {isEditModalOpen && currentEditingRecord && <GastoModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setCurrentEditingRecord(null); }} record={currentEditingRecord} onSaved={fetchData} db={db} clients={clients} inspectors={inspectors} />}
     </div>
-  );
-}
-
-function GastoModal({ isOpen, onClose, record, onSaved, db }: any) {
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState(() => {
-    if (record) {
-      let fechaStr = '';
-      try {
-        const d = record.fecha?.toDate ? record.fecha.toDate() : (record.fecha ? new Date(record.fecha) : new Date());
-        fechaStr = isNaN(d.getTime()) ? new Date().toISOString().split('T')[0] : d.toISOString().split('T')[0];
-      } catch (e) { fechaStr = new Date().toISOString().split('T')[0]; }
-      return { ...record, fecha: fechaStr };
-    }
-    return { inspectorNombre: 'ADMIN@ENERGYENGINE.ES', fecha: new Date().toISOString().split('T')[0], rubro: 'Otros', monto: '', descripcion: '', forma_pago: 'Empresa' };
-  });
-
-  const handleSave = async () => {
-    if (!formData.monto || isNaN(parseFloat(formData.monto))) {
-      toast({ title: "Monto inválido", variant: "destructive" });
-      return;
-    }
-    setLoading(true);
-    try {
-      const payload = { 
-        ...formData, 
-        monto: parseFloat(parseFloat(String(formData.monto)).toFixed(2)), 
-        fecha: new Date(formData.fecha + 'T12:00:00') 
-      };
-      if (record) await updateDoc(doc(db, 'gastos_detalle', record.id), payload);
-      else await addDoc(collection(db, 'gastos_detalle'), { ...payload, estado: 'Registrado', inspectorId: formData.inspectorNombre.toLowerCase(), createdAt: serverTimestamp() });
-      onSaved(); onClose();
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg bg-white rounded-[2rem] p-8 border-none shadow-2xl">
-        <DialogHeader><DialogTitle className="text-xl font-black uppercase text-slate-900">{record ? 'Editar' : 'Crear'} Gasto</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-4 mt-6">
-          <div className="col-span-2 space-y-1">
-            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Fecha del Gasto</label>
-            <input 
-              type="date" 
-              value={formData.fecha} 
-              onChange={e => setFormData({ ...formData, fecha: e.target.value })} 
-              className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 font-black outline-none focus:border-emerald-500 focus:bg-white transition-all text-slate-900" 
-            />
-          </div>
-          <div className="col-span-2 space-y-1">
-            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Concepto / Descripción</label>
-            <Input value={formData.descripcion} onChange={e => setFormData({ ...formData, descripcion: e.target.value })} className="h-12 rounded-xl bg-slate-50 font-black text-slate-900 border-slate-200 shadow-sm" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Monto (€)</label>
-            <Input type="number" step="0.01" value={formData.monto} onChange={e => setFormData({ ...formData, monto: e.target.value })} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-black text-slate-900 shadow-sm" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase ml-1 text-slate-900 tracking-widest">Categoría / Rubro</label>
-            <Input value={formData.rubro} onChange={e => setFormData({ ...formData, rubro: e.target.value })} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-black text-slate-900 shadow-sm" />
-          </div>
-        </div>
-        <DialogFooter className="mt-8 flex gap-3">
-          <Button 
-            variant="outline" 
-            onClick={onClose} 
-            className="flex-1 h-12 rounded-xl border-2 border-[#165a30] bg-white text-[#165a30] font-black uppercase text-[10px] tracking-widest hover:bg-[#165a30] hover:text-white transition-all duration-300"
-          >
-            Cancelar
-          </Button>
-          <Button 
-            onClick={handleSave} 
-            disabled={loading} 
-            className="flex-1 h-12 rounded-xl border-2 border-[#165a30] bg-[#165a30] text-white font-black uppercase text-[10px] tracking-widest hover:bg-white hover:text-[#165a30] transition-all duration-300 shadow-md"
-          >
-            {loading ? <Loader2 className="animate-spin mr-2" size={16} /> : (record ? 'Actualizar' : 'Confirmar Gasto')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

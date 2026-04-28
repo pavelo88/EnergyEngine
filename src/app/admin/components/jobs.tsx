@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, onSnapshot, setDoc, deleteDoc, doc, updateDoc, serverTimestamp, query, orderBy, where } from "firebase/firestore";
+import { collection, onSnapshot, setDoc, deleteDoc, doc, updateDoc, serverTimestamp, query, orderBy, where, getDocs, limit } from "firebase/firestore";
 import { useFirestore } from '@/firebase';
 import { useAdminHeader } from './AdminHeaderContext';
 import { useToast } from '@/hooks/use-toast';
@@ -75,11 +75,11 @@ export default function JobsPage() {
     if (!db) return;
     setLoading(true);
 
-    const unsubJobs = onSnapshot(query(collection(db, 'ordenes_trabajo'), orderBy('fecha_creacion', 'desc')), (snap) => {
+    const unsubJobs = onSnapshot(query(collection(db, 'ordenes_trabajo'), orderBy('fecha_creacion', 'desc'), limit(500)), (snap) => {
       setJobs(snap.docs.map(d => ({ id: d.id, sourceCollection: 'ordenes_trabajo', ...d.data() })));
     });
 
-    const unsubInspectors = onSnapshot(collection(db, 'inspectores'), (snap) => {
+    const unsubInspectors = onSnapshot(query(collection(db, 'usuarios'), where("roles", "array-contains-any", ["inspector", "super", "admin"])), (snap) => {
       setInspectors(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
@@ -87,7 +87,7 @@ export default function JobsPage() {
       setClients(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    const unsubReports = onSnapshot(query(collection(db, 'informes'), orderBy('fecha_creacion', 'desc')), (snap) => {
+    const unsubReports = onSnapshot(query(collection(db, 'informes'), orderBy('fecha_creacion', 'desc'), limit(500)), (snap) => {
       setAllInformes(snap.docs.map(d => ({ id: d.id, sourceCollection: 'informes', ...d.data() })));
     });
 
@@ -162,19 +162,104 @@ export default function JobsPage() {
   }, [selectedOT, allInformes]);
 
   // 5. Handlers
-  const handleExportExcel = () => {
-    const data = filteredData.map(j => ({
-      ID: j.numero_informe || j.id,
-      Fecha: j.fecha_creacion?.toDate ? format(j.fecha_creacion.toDate(), 'dd/MM/yyyy') : '—',
-      Cliente: j.clienteNombre || j.cliente || '—',
-      Descripcion: j.descripcion,
+  const handleExportExcel = async () => {
+    toast({ title: 'Generando Excel', description: 'Obteniendo todos los datos vinculados, por favor espera...' });
+
+    const otIds = new Set(filteredData.map(j => j.id));
+
+    // 1. Resumen OTs
+    const otData = filteredData.map(j => ({
+      'ID OT': j.numero_informe || j.id,
       Estado: j.estado,
-      Tecnicos: (j.inspectorNombres || []).join(', ')
+      Descripción: j.descripcion,
+      Cliente: j.clienteNombre || j.cliente || '—',
+      Contacto: j.contacto || '—',
+      Teléfono: j.telefono || '—',
+      Email: j.email || '—',
+      Dirección: j.direccion || '—',
+      Ciudad: j.ciudad || '—',
+      'Código Postal': j.codigo_postal || '—',
+      País: j.pais || '—',
+      Instalación: j.instalacion || '—',
+      'Fecha Creación': j.fecha_creacion?.toDate ? format(j.fecha_creacion.toDate(), 'dd/MM/yyyy') : '—',
+      Prioridad: j.prioridad || '—',
+      Inspectores: (j.inspectorNombres || []).join(', '),
+      Motor: j.motor || '—',
+      Modelo: j.modelo || '—',
+      'Nº Motor': j.n_motor || '—'
     }));
-    const ws = XLSX.utils.json_to_sheet(data);
+
+    let horasList: any[] = [];
+    let gastosList: any[] = [];
+
+    try {
+      const [horasSnap, gastosSnap] = await Promise.all([
+        getDocs(collection(db, 'bitacora_visitas')),
+        getDocs(collection(db, 'gastos_detalle'))
+      ]);
+
+      horasList = horasSnap.docs.map(d => ({id: d.id, ...d.data()})).filter((h: any) => otIds.has(h.orderId));
+      gastosList = gastosSnap.docs.map(d => ({id: d.id, ...d.data()})).filter((g: any) => otIds.has(g.orderId));
+    } catch (error) {
+      console.error("Error al obtener detalles para Excel:", error);
+    }
+
+    // 2. Horas
+    const horasData = horasList.map(h => {
+      const parentOT = filteredData.find(ot => ot.id === h.orderId);
+      return {
+        'ID OT': parentOT?.numero_informe || h.orderId || '—',
+        ID: h.id,
+        Fecha: h.fechaStr || (h.fecha?.toDate ? format(h.fecha.toDate(), 'dd/MM/yyyy') : '—'),
+        Inspector: h.inspectorNombre || h.inspectorId || '—',
+        Actividad: h.actividad || '—',
+        'Hora Llegada': h.horaLlegada || '—',
+        'Hora Salida': h.horaSalida || '—',
+        'H. Normales': h.hNormalesStr || '0',
+        'H. Extras': h.hExtrasStr || '0',
+        'H. Especiales': h.hEspecialesStr || '0',
+        Estado: h.estado || '—'
+      };
+    });
+
+    // 3. Gastos
+    const gastosData = gastosList.map(g => {
+      const parentOT = filteredData.find(ot => ot.id === g.orderId);
+      return {
+        'ID OT': parentOT?.numero_informe || g.orderId || '—',
+        ID: g.id,
+        Fecha: g.fechaStr || (g.fecha?.toDate ? format(g.fecha.toDate(), 'dd/MM/yyyy') : '—'),
+        Inspector: g.inspectorNombre || g.inspectorId || '—',
+        Rubro: g.rubro || '—',
+        Concepto: g.descripcion || '—',
+        Monto: g.monto || 0,
+        'Forma Pago': g.forma_pago || '—',
+        Estado: g.estado || '—'
+      };
+    });
+
+    // 4. Informes
+    const informesData = allInformes
+      .filter(inf => otIds.has(inf.originalJobId) || otIds.has(inf.orderId))
+      .map(r => {
+        const parentOT = filteredData.find(ot => ot.id === r.originalJobId || ot.id === r.orderId);
+        return {
+          'ID OT': parentOT?.numero_informe || r.originalJobId || r.orderId || '—',
+          ID: r.numero_informe || r.id,
+          Tipo: r.formType || '—',
+          Fecha: r.fecha_creacion?.toDate ? format(r.fecha_creacion.toDate(), 'dd/MM/yyyy') : '—',
+          Estado: r.estado || '—',
+          Inspector: (r.inspectorNombres || []).join(', ')
+        };
+      });
+
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, activeView);
-    XLSX.writeFile(wb, `Reporte_${activeView}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(otData.length > 0 ? otData : [{ 'Sin datos': 'No hay OTs' }]), "Resumen OTs");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(horasData.length > 0 ? horasData : [{ 'Sin datos': 'No hay horas registradas' }]), "Horas");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(gastosData.length > 0 ? gastosData : [{ 'Sin datos': 'No hay gastos registrados' }]), "Gastos");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(informesData.length > 0 ? informesData : [{ 'Sin datos': 'No hay informes' }]), "Informes");
+
+    XLSX.writeFile(wb, `Reporte_Masivo_OTs_${format(new Date(), 'yyyyMMdd_HHmmss')}.xlsx`);
   };
 
   const handleFormSubmit = async (data: any) => {
@@ -224,11 +309,11 @@ export default function JobsPage() {
     }
   };
 
-  const handleApproveJob = async (id: string, status: string) => {
+  const handleApproveJob = async (id: string, status: string, customCollection?: string) => {
     if (status === 'Aprobado') return;
     if (!window.confirm("¿Aprobar definitivamente este documento?")) return;
     try {
-      const collectionName = activeView === 'reports' ? 'informes' : 'ordenes_trabajo';
+      const collectionName = customCollection || (activeView === 'reports' ? 'informes' : 'ordenes_trabajo');
       await updateDoc(doc(db, collectionName, id), { estado: 'Aprobado', fecha_aprobacion: serverTimestamp() });
       toast({ title: "Aprobado", description: "El registro ha sido validado." });
     } catch (e) {

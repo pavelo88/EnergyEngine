@@ -377,7 +377,7 @@ export default function HistoryTab({ onStartInspection }: { onStartInspection: (
 
     if (filter === 'asignado') {
       // Solo OTs en la pestaña de asignados
-      filtered = filtered.filter(t => t.type === 'ot' && (t.estado === 'Asignado' || t.estado === 'Abierta' || t.estado === 'Registrada'));
+      filtered = filtered.filter(t => t.type === 'ot' && (t.estado === 'Registrada' || t.estado === 'En Proceso'));
     } else if (filter === 'registrado') {
       // Solo informes en la pestaña de registrados
       filtered = filtered.filter(t => t.type === 'informe' && (t.estado === 'Registrado' || t.estado === 'Registrada' || t.estado === 'En Progreso'));

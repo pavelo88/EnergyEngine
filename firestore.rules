@@ -32,6 +32,22 @@ service cloud.firestore {
       return hasRole('inspector') || hasRole('super');
     }
 
+    function isValidGastoData() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['inspectorId', 'monto', 'fecha']) &&
+             data.monto is number &&
+             data.inspectorId is string;
+    }
+
+    function isValidVisitaData() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['inspectorId', 'horasNormales', 'horasExtras', 'horasEspeciales', 'fecha']) &&
+             data.horasNormales is number &&
+             data.horasExtras is number &&
+             data.horasEspeciales is number &&
+             data.inspectorId is string;
+    }
+
     // --- 2. REGLAS DE COLECCIONES ---
 
     match /usuarios/{usuarioId} {
@@ -46,9 +62,29 @@ service cloud.firestore {
     match /trabajos/{id} { allow read, write: if isInspector() || isAdmin(); }
     match /ordenes_trabajo/{id} { allow read, write: if isInspector() || isAdmin(); }
     match /gastos/{id} { allow read, write: if isInspector() || isAdmin(); }
+    
+    match /gastos_detalle/{id} { 
+      allow read: if isAdmin() || (isInspector() && resource.data.inspectorId == request.auth.token.email);
+      allow create: if (isAdmin() || (isInspector() && request.resource.data.inspectorId == request.auth.token.email)) && isValidGastoData();
+      allow update: if (isAdmin() || (isInspector() && resource.data.inspectorId == request.auth.token.email)) && isValidGastoData();
+      allow delete: if isAdmin() || (isInspector() && resource.data.inspectorId == request.auth.token.email);
+    }
+    
+    match /bitacora_visitas/{id} { 
+      allow read: if isAdmin() || (isInspector() && resource.data.inspectorId == request.auth.token.email);
+      allow create: if (isAdmin() || (isInspector() && request.resource.data.inspectorId == request.auth.token.email)) && isValidVisitaData();
+      allow update: if (isAdmin() || (isInspector() && resource.data.inspectorId == request.auth.token.email)) && isValidVisitaData();
+      allow delete: if isAdmin() || (isInspector() && resource.data.inspectorId == request.auth.token.email);
+    }
+    
     match /informes/{id} { allow read, write: if isInspector() || isAdmin(); }
 
     match /contactos/{id} {
+      allow create: if true;
+      allow read, write: if isAdmin();
+    }
+
+    match /contact_requests/{id} {
       allow create: if true;
       allow read, write: if isAdmin();
     }

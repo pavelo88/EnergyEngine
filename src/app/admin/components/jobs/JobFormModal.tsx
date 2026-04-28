@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { STANDARD_OT_STATUSES } from '@/lib/constants';
 
 // ────────── AUTOCOMPLETE COMBOBOX INTERNO ──────────
 function Combobox({ label, placeholder, items, value, onSelect }: {
@@ -103,6 +104,7 @@ export default function JobFormModal({
   const [selectedStatus, setSelectedStatus] = useState('Registrada');
   const [selectedPriority, setSelectedPriority] = useState('Media');
   const [selectedFormLabel, setSelectedFormLabel] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('');
 
   useEffect(() => {
     if (editingJob) {
@@ -111,12 +113,14 @@ export default function JobFormModal({
       setSelectedStatus(editingJob.estado || 'Registrada');
       setSelectedPriority(editingJob.prioridad || 'Media');
       setSelectedFormLabel(editingJob.descripcion || '');
+      setSelectedLocation(editingJob.instalacion || '');
     } else {
       setSelectedClientId('');
       setSelectedInspectorIds([]);
       setSelectedStatus('Registrada');
       setSelectedPriority('Media');
       setSelectedFormLabel('');
+      setSelectedLocation('');
     }
   }, [editingJob, isOpen]);
 
@@ -129,7 +133,8 @@ export default function JobFormModal({
       inspectorIds: selectedInspectorIds,
       estado: selectedStatus,
       prioridad: selectedPriority,
-      descripcion: selectedFormLabel
+      descripcion: selectedFormLabel,
+      instalacion: selectedLocation
     });
   };
 
@@ -154,6 +159,16 @@ export default function JobFormModal({
               placeholder="Ej: Mantenimiento Preventivo Grupo Electrógeno..." 
               value={selectedFormLabel} 
               onChange={e => setSelectedFormLabel(e.target.value)}
+              className="h-14 rounded-2xl bg-slate-50 border-transparent font-bold text-slate-900"
+            />
+          </div>
+          {/* UBICACIÓN */}
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ubicación / Instalación (Opcional)</Label>
+            <Input 
+              placeholder="Ej: Planta Principal, Madrid..." 
+              value={selectedLocation} 
+              onChange={e => setSelectedLocation(e.target.value)}
               className="h-14 rounded-2xl bg-slate-50 border-transparent font-bold text-slate-900"
             />
           </div>
@@ -195,7 +210,7 @@ export default function JobFormModal({
           <div className="space-y-2">
             <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado de la Orden</Label>
             <div className="flex gap-2">
-              {['Registrada', 'En Proceso', 'Completada'].map(s => (
+              {STANDARD_OT_STATUSES.map(s => (
                 <button
                   key={s}
                   type="button"

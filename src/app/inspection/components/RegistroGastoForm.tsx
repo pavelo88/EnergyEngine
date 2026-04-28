@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from '@/components/ui/input';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { useToast } from '@/hooks/use-toast';
+import { OT_STATUS } from '@/lib/constants';
 import { fileToBase64 } from '@/lib/offline-utils';
 import { resolveInspectorEmail } from '@/lib/inspection-mode';
 
@@ -72,7 +73,7 @@ export default function RegistroGastoForm() {
         const [gastosSnap, clientsSnap, otsSnap] = await Promise.all([
           getDocs(query(collection(firestore, "gastos_detalle"), where("inspectorId", "==", inspectorEmail), where("fechaStr", "==", format(reportDate, 'yyyy-MM-dd')))),
           getDocs(collection(firestore, 'clientes')),
-          getDocs(query(collection(firestore, 'ordenes_trabajo'), where('inspectorIds', 'array-contains', inspectorEmail), where('estado', 'in', ['Asignado', 'Pendiente', 'En Progreso', 'Abierta', 'Registrada'])))
+          getDocs(query(collection(firestore, 'ordenes_trabajo'), where('inspectorIds', 'array-contains', inspectorEmail), where('estado', 'in', [OT_STATUS.EN_PROCESO, OT_STATUS.REGISTRADA])))
         ]);
 
         setGastos(gastosSnap.docs.map(d => ({ id: d.id, ...d.data() } as GastoItem)));
@@ -86,8 +87,14 @@ export default function RegistroGastoForm() {
   }, [reportDate, inspectorEmail, canUseCloud, firestore]);
 
   const handleAddGasto = async () => {
-    if (!currentGasto.monto || !currentGasto.descripcion || !currentGasto.hora) {
-      return toast({ variant: 'destructive', title: 'Faltan datos' });
+    if (!currentGasto.monto) {
+      return toast({ variant: 'destructive', title: 'Faltan datos', description: 'Por favor, introduce el monto del gasto.' });
+    }
+    if (!currentGasto.descripcion) {
+      return toast({ variant: 'destructive', title: 'Faltan datos', description: 'Por favor, introduce una descripción o concepto.' });
+    }
+    if (!currentGasto.hora) {
+      return toast({ variant: 'destructive', title: 'Faltan datos', description: 'Por favor, selecciona la hora del gasto.' });
     }
     const confirmMsg = `¿Registrar gasto de ${currentGasto.monto}€ en ${currentGasto.rubro}?`;
     if (!window.confirm(confirmMsg)) return;
@@ -123,7 +130,7 @@ export default function RegistroGastoForm() {
 
       // Actualizar estado de la OT a 'En Proceso'
       if (currentGasto.orderId) {
-        await updateDoc(doc(firestore!, 'ordenes_trabajo', currentGasto.orderId), { estado: 'En Proceso' });
+        await updateDoc(doc(firestore!, 'ordenes_trabajo', currentGasto.orderId), { estado: OT_STATUS.EN_PROCESO });
       }
 
       setGastos([...gastos, docData]);
@@ -195,16 +202,16 @@ export default function RegistroGastoForm() {
           </div>
           <div className="col-span-2 space-y-1">
             <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Vincular a OT (Opcional)</label>
-            <Select 
-              value={currentGasto.orderId} 
+            <Select
+              value={currentGasto.orderId}
               onValueChange={(val) => {
                 const ot = activeOTs.find(o => o.id === val);
                 if (ot) {
-                  setCurrentGasto({ 
-                    ...currentGasto, 
-                    orderId: ot.id, 
-                    clienteId: ot.clienteId || '', 
-                    clienteNombre: ot.clienteNombre || ot.cliente || '' 
+                  setCurrentGasto({
+                    ...currentGasto,
+                    orderId: ot.id,
+                    clienteId: ot.clienteId || '',
+                    clienteNombre: ot.clienteNombre || ot.cliente || ''
                   });
                 } else {
                   setCurrentGasto({ ...currentGasto, orderId: '', clienteId: '', clienteNombre: '' });
@@ -224,8 +231,8 @@ export default function RegistroGastoForm() {
           </div>
           <div className="col-span-2 space-y-1">
             <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Cliente</label>
-            <Select 
-              value={currentGasto.clienteId} 
+            <Select
+              value={currentGasto.clienteId}
               disabled={!!currentGasto.orderId}
               onValueChange={(val) => setCurrentGasto({ ...currentGasto, clienteId: val, clienteNombre: clients.find(c => c.id === val)?.nombre })}
             >

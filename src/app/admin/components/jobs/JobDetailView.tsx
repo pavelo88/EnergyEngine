@@ -1,12 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ClipboardList, Pencil, Trash2, X, User, MapPin, Settings,
-  Users, Sparkles, Download, CheckCircle2
+  Users, Sparkles, Download, CheckCircle2, Clock, Receipt
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatSafeDate } from '@/lib/utils';
+import { useFirestore } from '@/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import * as XLSX from 'xlsx';
 
 interface Job {
   id: string;
@@ -39,7 +43,7 @@ interface JobDetailViewProps {
   setSelectedOT: (job: Job | null) => void;
   handleEditJob: (job: Job) => void;
   handleDeleteJob: (job: Job) => void;
-  handleApproveJob: (id: string, status: string) => void;
+  handleApproveJob: (id: string, status: string, customCollection?: string) => void;
   handleEditReport: (report: Job) => void;
   handleReprintSavedPdf: (job: Job) => void;
   onGenerateReport: (type: string) => void;
@@ -59,6 +63,107 @@ export default function JobDetailView({
   relatedReports,
   getJobTitle
 }: JobDetailViewProps) {
+  const db = useFirestore();
+  const [totalHoras, setTotalHoras] = useState(0);
+  const [totalGastos, setTotalGastos] = useState(0);
+  const [relatedHoras, setRelatedHoras] = useState<any[]>([]);
+  const [relatedGastos, setRelatedGastos] = useState<any[]>([]);
+  const [showHorasModal, setShowHorasModal] = useState(false);
+  const [showGastosModal, setShowGastosModal] = useState(false);
+
+  useEffect(() => {
+    const fetchTotals = async () => {
+      if (!db || !selectedOT) return;
+      try {
+        const qHoras = query(collection(db, 'bitacora_visitas'), where('orderId', '==', selectedOT.id));
+        const qGastos = query(collection(db, 'gastos_detalle'), where('orderId', '==', selectedOT.id));
+        const [horasSnap, gastosSnap] = await Promise.all([getDocs(qHoras), getDocs(qGastos)]);
+        
+        const horasList = horasSnap.docs.map(d => ({id: d.id, ...d.data()}));
+        const gastosList = gastosSnap.docs.map(d => ({id: d.id, ...d.data()}));
+        
+        setRelatedHoras(horasList);
+        setRelatedGastos(gastosList);
+        setTotalHoras(horasList.reduce((sum, h: any) => sum + (parseFloat(h.hNormalesStr) || 0) + (parseFloat(h.hExtrasStr) || 0) + (parseFloat(h.hEspecialesStr) || 0), 0));
+        setTotalGastos(gastosList.reduce((sum, g: any) => sum + (parseFloat(g.monto) || 0), 0));
+      } catch (error) {
+        console.error("Error fetching related items:", error);
+      }
+    };
+    fetchTotals();
+  }, [db, selectedOT]);
+
+  const handleExportFullOT = () => {
+    // 1. Resumen OT
+    const otData = [{
+      ID: selectedOT.numero_informe || selectedOT.id,
+      Estado: selectedOT.estado,
+      Descripción: selectedOT.descripcion,
+      Cliente: selectedOT.clienteNombre || selectedOT.cliente || '—',
+      Contacto: selectedOT.contacto || '—',
+      Teléfono: selectedOT.telefono || '—',
+      Email: selectedOT.email || '—',
+      Dirección: selectedOT.direccion || '—',
+      Ciudad: selectedOT.ciudad || '—',
+      'Código Postal': selectedOT.codigo_postal || '—',
+      País: selectedOT.pais || '—',
+      Instalación: selectedOT.instalacion || '—',
+      'Fecha Creación': selectedOT.fecha_creacion?.toDate ? formatSafeDate(selectedOT.fecha_creacion.toDate()) : '—',
+      Prioridad: selectedOT.prioridad || '—',
+      Inspectores: (selectedOT.inspectorNombres || []).join(', '),
+      Motor: selectedOT.motor || '—',
+      Modelo: selectedOT.modelo || '—',
+      'Nº Motor': selectedOT.n_motor || '—'
+    }];
+    const wsOT = XLSX.utils.json_to_sheet(otData);
+
+    // 2. Horas
+    const horasData = relatedHoras.map(h => ({
+      ID: h.id,
+      Fecha: h.fechaStr || (h.fecha?.toDate ? formatSafeDate(h.fecha.toDate()) : '—'),
+      Inspector: h.inspectorNombre || h.inspectorId || '—',
+      Actividad: h.actividad || '—',
+      'Hora Llegada': h.horaLlegada || '—',
+      'Hora Salida': h.horaSalida || '—',
+      'H. Normales': h.hNormalesStr || '0',
+      'H. Extras': h.hExtrasStr || '0',
+      'H. Especiales': h.hEspecialesStr || '0',
+      Estado: h.estado || '—'
+    }));
+    const wsHoras = XLSX.utils.json_to_sheet(horasData.length > 0 ? horasData : [{ 'Sin datos': 'No hay horas registradas' }]);
+
+    // 3. Gastos
+    const gastosData = relatedGastos.map(g => ({
+      ID: g.id,
+      Fecha: g.fechaStr || (g.fecha?.toDate ? formatSafeDate(g.fecha.toDate()) : '—'),
+      Inspector: g.inspectorNombre || g.inspectorId || '—',
+      Rubro: g.rubro || '—',
+      Concepto: g.descripcion || '—',
+      Monto: g.monto || 0,
+      'Forma Pago': g.forma_pago || '—',
+      Estado: g.estado || '—'
+    }));
+    const wsGastos = XLSX.utils.json_to_sheet(gastosData.length > 0 ? gastosData : [{ 'Sin datos': 'No hay gastos registrados' }]);
+
+    // 4. Informes
+    const informesData = relatedReports.map(r => ({
+      ID: r.numero_informe || r.id,
+      Tipo: r.formType || '—',
+      Fecha: r.fecha_creacion?.toDate ? formatSafeDate(r.fecha_creacion.toDate()) : '—',
+      Estado: r.estado || '—',
+      Inspector: (r.inspectorNombres || []).join(', ')
+    }));
+    const wsInformes = XLSX.utils.json_to_sheet(informesData.length > 0 ? informesData : [{ 'Sin datos': 'No hay informes generados' }]);
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsOT, "Resumen OT");
+    XLSX.utils.book_append_sheet(wb, wsHoras, "Horas");
+    XLSX.utils.book_append_sheet(wb, wsGastos, "Gastos");
+    XLSX.utils.book_append_sheet(wb, wsInformes, "Informes");
+
+    XLSX.writeFile(wb, `OT_${selectedOT.numero_informe || selectedOT.id}_DetalleCompleto.xlsx`);
+  };
+
   return (
     <div className="bg-white rounded-[2.5rem] border border-primary/20 shadow-2xl overflow-hidden animate-in slide-in-from-top-4 duration-500">
       {/* Header Detalle */}
@@ -77,6 +182,12 @@ export default function JobDetailView({
         </div>
 
         <div className="flex gap-2">
+          <Button
+            onClick={handleExportFullOT}
+            className="rounded-xl font-black bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+          >
+            <Download size={16} className="mr-2" /> Excel OT
+          </Button>
           <Button
             onClick={() => handleEditJob(selectedOT)}
             className="rounded-xl font-black bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
@@ -245,7 +356,7 @@ export default function JobDetailView({
                         >
                           <Pencil size={14} />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleApproveJob(report.id, report.estado)} className="h-8 w-8 text-slate-400 hover:text-emerald-600"><CheckCircle2 size={14} /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleApproveJob(report.id, report.estado, 'informes')} className="h-8 w-8 text-slate-400 hover:text-emerald-600"><CheckCircle2 size={14} /></Button>
                         <Button variant="ghost" size="icon" onClick={() => handleDeleteJob(report)} className="h-8 w-8 text-slate-400 hover:text-red-500"><Trash2 size={14} /></Button>
                       </div>
                     </td>
@@ -258,7 +369,123 @@ export default function JobDetailView({
             )}
           </div>
         </div>
+        
+        {/* Resumen Operativo (Final) */}
+        <div className="lg:col-span-3 space-y-4 pt-4 border-t border-slate-100 mt-8">
+          <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+            <Sparkles size={14} className="text-primary" /> Resumen Operativo de la Orden
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div 
+              onClick={() => setShowHorasModal(true)}
+              className="p-6 bg-slate-50 rounded-3xl border border-slate-100 cursor-pointer hover:border-[#10b981] hover:bg-emerald-50/50 transition-all group relative overflow-hidden"
+            >
+              <div className="flex justify-between items-center mb-2 relative z-10">
+                <p className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 tracking-widest"><Clock size={14} /> Total Horas Registradas</p>
+                <span className="text-[9px] font-bold text-emerald-500 uppercase opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded-md shadow-sm">Ver detalle</span>
+              </div>
+              <p className="text-4xl font-black text-slate-900 relative z-10">{totalHoras.toFixed(2)}<span className="text-lg text-slate-400 ml-1">h</span></p>
+              <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-[#10b981]/5 rounded-full blur-2xl group-hover:bg-[#10b981]/20 transition-all"></div>
+            </div>
+            
+            <div 
+              onClick={() => setShowGastosModal(true)}
+              className="p-6 bg-slate-50 rounded-3xl border border-slate-100 cursor-pointer hover:border-emerald-600 hover:bg-emerald-50/50 transition-all group relative overflow-hidden"
+            >
+              <div className="flex justify-between items-center mb-2 relative z-10">
+                <p className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 tracking-widest"><Receipt size={14} /> Total Gastos Operativos</p>
+                <span className="text-[9px] font-bold text-emerald-600 uppercase opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded-md shadow-sm">Ver detalle</span>
+              </div>
+              <p className="text-4xl font-black text-emerald-600 relative z-10">{totalGastos.toFixed(2)}<span className="text-lg ml-1">€</span></p>
+              <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-emerald-600/5 rounded-full blur-2xl group-hover:bg-emerald-600/20 transition-all"></div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Modal Horas */}
+      <Dialog open={showHorasModal} onOpenChange={setShowHorasModal}>
+        <DialogContent className="max-w-2xl bg-white rounded-[2.5rem] p-8 border-none shadow-2xl">
+          <DialogTitle className="font-black text-xl text-slate-900 uppercase tracking-tighter flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center"><Clock size={20} /></div>
+            Detalle de Horas
+          </DialogTitle>
+          <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scroll">
+            {Object.entries(
+              relatedHoras.reduce((acc, h) => {
+                const name = h.inspectorNombre || 'Inspector';
+                if (!acc[name]) acc[name] = { norm: 0, ext: 0, esp: 0, total: 0 };
+                const n = parseFloat(h.hNormalesStr) || 0;
+                const e = parseFloat(h.hExtrasStr) || 0;
+                const s = parseFloat(h.hEspecialesStr) || 0;
+                acc[name].norm += n; acc[name].ext += e; acc[name].esp += s; acc[name].total += n+e+s;
+                return acc;
+              }, {} as Record<string, any>)
+            ).map(([inspector, data]: [string, any], i) => (
+              <div key={i} className="p-4 bg-slate-50 border border-slate-100 rounded-3xl">
+                <div className="flex justify-between items-center mb-4">
+                  <p className="text-sm font-black text-slate-800 uppercase flex items-center gap-2"><User size={14} className="text-emerald-500"/> {inspector}</p>
+                  <p className="text-xl font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-xl">{data.total.toFixed(2)}h</p>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-white p-3 rounded-xl border border-slate-100 text-center">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Normales</p>
+                    <p className="font-bold text-slate-700">{data.norm.toFixed(2)}h</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-slate-100 text-center">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Extras</p>
+                    <p className="font-bold text-amber-600">{data.ext.toFixed(2)}h</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-slate-100 text-center">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Especiales</p>
+                    <p className="font-bold text-blue-600">{data.esp.toFixed(2)}h</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {relatedHoras.length === 0 && <p className="text-center text-xs font-bold text-slate-400 py-8 uppercase">No hay horas vinculadas</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Gastos */}
+      <Dialog open={showGastosModal} onOpenChange={setShowGastosModal}>
+        <DialogContent className="max-w-2xl bg-white rounded-[2.5rem] p-8 border-none shadow-2xl">
+          <DialogTitle className="font-black text-xl text-slate-900 uppercase tracking-tighter flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"><Receipt size={20} /></div>
+            Detalle de Gastos
+          </DialogTitle>
+          <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scroll">
+            {Object.entries(
+              relatedGastos.reduce((acc, g) => {
+                const name = g.inspectorNombre || 'Inspector';
+                if (!acc[name]) acc[name] = { total: 0, rubros: {} as Record<string, number> };
+                const m = parseFloat(g.monto) || 0;
+                acc[name].total += m;
+                if (!acc[name].rubros[g.rubro]) acc[name].rubros[g.rubro] = 0;
+                acc[name].rubros[g.rubro] += m;
+                return acc;
+              }, {} as Record<string, any>)
+            ).map(([inspector, data]: [string, any], i) => (
+              <div key={i} className="p-4 bg-slate-50 border border-slate-100 rounded-3xl">
+                <div className="flex justify-between items-center mb-4">
+                  <p className="text-sm font-black text-slate-800 uppercase flex items-center gap-2"><User size={14} className="text-emerald-600"/> {inspector}</p>
+                  <p className="text-xl font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-xl">{data.total.toFixed(2)}€</p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {Object.entries(data.rubros).map(([rubro, monto]: [string, any], idx) => (
+                    <div key={idx} className="bg-white p-3 rounded-xl border border-slate-100 flex flex-col items-center">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{rubro}</p>
+                      <p className="font-bold text-slate-700">{monto.toFixed(2)}€</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {relatedGastos.length === 0 && <p className="text-center text-xs font-bold text-slate-400 py-8 uppercase">No hay gastos vinculados</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

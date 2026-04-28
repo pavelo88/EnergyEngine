@@ -52,21 +52,37 @@ export default function ClientsPage() {
     return () => unsubscribe();
   }, [db]);
 
-  const syncClientInInformes = useCallback(async (clientId: string, clientData: { nombre: string; direccion: string }) => {
+  const syncClientReferences = useCallback(async (oldId: string, newId: string, clientData: { nombre: string; direccion: string }) => {
     if (!db) return;
-    const informesQuery = query(collection(db, 'informes'), where('clienteId', '==', clientId));
-    const informesSnap = await getDocs(informesQuery);
-    if (informesSnap.empty) return;
+    
+    const collectionsToSync = [
+      { name: 'informes', idField: 'clienteId' },
+      { name: 'ordenes_trabajo', idField: 'clienteId' },
+      { name: 'gastos_detalle', idField: 'clienteId' },
+      { name: 'bitacora_visitas', idField: 'clienteId' }
+    ];
 
-    const batch = writeBatch(db);
-    informesSnap.docs.forEach((reportDoc) => {
-      batch.update(reportDoc.ref, {
-        cliente: clientData.nombre,
-        clienteNombre: clientData.nombre,
-        instalacion: clientData.direccion || '',
-      });
-    });
-    await batch.commit();
+    for (const colInfo of collectionsToSync) {
+      const q = query(collection(db, colInfo.name), where(colInfo.idField, '==', oldId));
+      const snap = await getDocs(q);
+      
+      if (!snap.empty) {
+        const batch = writeBatch(db);
+        snap.docs.forEach((docSnap) => {
+          const updateData: any = {
+            [colInfo.idField]: newId,
+            clienteNombre: clientData.nombre,
+          };
+          // Campos adicionales específicos para informes
+          if (colInfo.name === 'informes') {
+            updateData.cliente = clientData.nombre;
+            updateData.instalacion = clientData.direccion || '';
+          }
+          batch.update(docSnap.ref, updateData);
+        });
+        await batch.commit();
+      }
+    }
   }, [db]);
 
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -74,23 +90,34 @@ export default function ClientsPage() {
     const form = e.currentTarget;
     const formData = new FormData(form);
     const clientData = {
-        nombre: formData.get('nombre') as string,
-        direccion: formData.get('direccion') as string,
-        email: formData.get('email') as string,
-        telefono: formData.get('telefono') as string,
+        nombre: (formData.get('nombre') as string).trim(),
+        direccion: (formData.get('direccion') as string).trim(),
+        email: (formData.get('email') as string).trim(),
+        telefono: (formData.get('telefono') as string).trim(),
         status: 'approved' as const,
     };
 
+    if (!clientData.nombre) return;
+
     setIsSavingClient(true);
     try {
+      const newId = clientData.nombre.toUpperCase();
+      
       if (editingClient) {
-        const clientRef = doc(db, 'clientes', editingClient.id);
-        await updateDoc(clientRef, clientData);
-        await syncClientInInformes(editingClient.id, clientData);
+        if (editingClient.id !== newId) {
+          // CAMBIO DE ID (RE-NOMBRAR): Crear nuevo, actualizar referencias y borrar viejo
+          await setDoc(doc(db, "clientes", newId), clientData);
+          await syncClientReferences(editingClient.id, newId, clientData);
+          await deleteDoc(doc(db, 'clientes', editingClient.id));
+        } else {
+          // MISMO ID: Solo actualizar datos
+          const clientRef = doc(db, 'clientes', editingClient.id);
+          await updateDoc(clientRef, clientData);
+          await syncClientReferences(editingClient.id, newId, clientData);
+        }
       } else {
-        // Usar el nombre del cliente como ID del documento
-        const customId = clientData.nombre.trim();
-        await setDoc(doc(db, "clientes", customId), clientData);
+        // NUEVO CLIENTE: Usar el nombre en mayúsculas como ID
+        await setDoc(doc(db, "clientes", newId), clientData);
       }
       closeModal();
     } catch (error) {
@@ -99,6 +126,7 @@ export default function ClientsPage() {
       setIsSavingClient(false);
     }
   };
+
   const handleDeleteClient = useCallback(async (client: Client) => {
     if (window.confirm(`¿Seguro que quieres eliminar a ${client.nombre}?`)) {
       try {
@@ -113,13 +141,13 @@ export default function ClientsPage() {
     try {
       setUpdatingClientId(client.id);
       await updateDoc(doc(db, 'clientes', client.id), { status: 'approved' });
-      await syncClientInInformes(client.id, { nombre: client.nombre, direccion: client.direccion });
+      await syncClientReferences(client.id, client.id, { nombre: client.nombre, direccion: client.direccion });
     } catch (error) {
       console.error("Error al aprobar cliente: ", error);
     } finally {
       setUpdatingClientId(null);
     }
-  }, [db, syncClientInInformes]);
+  }, [db, syncClientReferences]);
 
   const openModalForEdit = useCallback((client: Client) => {
     setEditingClient(client);

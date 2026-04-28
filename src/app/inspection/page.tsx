@@ -13,6 +13,8 @@ import { syncLocalCountersFromCloud } from '@/lib/sequence-manager';
 import { MAX_IMAGES_PER_REPORT } from '@/lib/report-limits';
 
 import Header from './components/Header';
+import SignaturePad from './components/SignaturePad';
+import { OT_STATUS } from '@/lib/constants';
 import Footer from './components/Footer';
 
 import MainMenuDesktop from './components/MainMenuDesktop';
@@ -462,7 +464,7 @@ const InspectionPageContent = () => {
 
             if (record.data.originalJobId) {
               // Cambiar estado a 'En Proceso' al recibir el primer informe/gasto
-              await updateDoc(doc(firestore, 'ordenes_trabajo', record.data.originalJobId), { estado: 'En Proceso' });
+              await updateDoc(doc(firestore, 'ordenes_trabajo', record.data.originalJobId), { estado: OT_STATUS.EN_PROCESO });
             }
 
             await ensureCloudCounterAtLeast(docData.numero_informe, formType);
@@ -584,7 +586,18 @@ const InspectionPageContent = () => {
     }
   }, [canUseCloud, hasMounted, user, firestore, syncOfflineData]);
 
-  const handleNavigate = (tab: string) => {
+  const handleNavigate = async (tab: string) => {
+    if (tab !== TABS.HOURS) {
+      const activeVisitRow = await dbLocal.configuracion.get('activeVisit_draft');
+      const isPausedRow = await dbLocal.configuracion.get('activeVisit_paused');
+      const activeVisit = activeVisitRow?.value;
+      const isPaused = isPausedRow?.value === 'true';
+      if (activeVisit && !isPaused) {
+        if (!window.confirm("ATENCIÓN: Tienes un cronómetro de visita activo corriendo.\n\n¿Estás seguro de que quieres salir sin detenerlo o guardar la visita? El tiempo seguirá contando.")) {
+          return;
+        }
+      }
+    }
     setActiveTab(tab);
     if (tab !== TABS.NEW_INSPECTION) setActiveInspectionForm(null);
   };
